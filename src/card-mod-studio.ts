@@ -19,7 +19,7 @@ import { startInjector } from './editor/cms-injector.js';
 import { isCardModInstalled } from './utils/dom-helpers.js';
 import type { CardModStudioMeta } from './types/index.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 
 // ---------------------------------------------------------------------------
 // Guard against double-loading

@@ -393,11 +393,21 @@ describe('mapToStudioState', () => {
   // Advanced module
   // ---------------------------------------------------------------------------
 
-  it('always populates rawCss in the advanced module', () => {
+  it('puts unrecognised properties in rawCss', () => {
+    // `color` on ha-card is not claimed by any module — it should end up in rawCss
     const css = 'ha-card { color: red; }';
     const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
     const state = mapToStudioState(parsed);
-    expect(state.advanced.rawCss).toBe(css);
+    expect(state.advanced.rawCss).toContain('ha-card');
+    expect(state.advanced.rawCss).toContain('color: red');
+  });
+
+  it('does not put claimed properties in rawCss', () => {
+    // border-radius is claimed by the border module, filter by the filter module
+    const css = 'ha-card { border-radius: 12px; filter: {{ \'grayscale(100%)\' if is_state(config.entity, \'off\') else \'none\' }}; }';
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.advanced.rawCss).toBe('');
   });
 
   // ---------------------------------------------------------------------------

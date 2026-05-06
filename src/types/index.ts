@@ -105,7 +105,7 @@ export interface BackgroundModuleState {
 
 export interface AnimationModuleState {
   enabled: boolean;
-  preset: 'pulse' | 'breathe' | 'gradient-shift' | 'color-fade' | 'blink';
+  preset: 'pulse' | 'breathe' | 'gradient-shift' | 'bounce' | 'blink';
   speedS: number;           // seconds
   trigger: 'always' | 'on' | 'off' | 'custom';
   customEntity?: string;    // entity_id when trigger === 'custom'
