@@ -1,74 +1,73 @@
 /**
  * cms-injector — the core injection engine for Card-Mod Studio.
  *
- * Strategy
- * --------
- * We hook into Home Assistant's card editor by prototype-patching
- * `hui-card-element-editor`. This element lives INSIDE the dialog and has
- * direct access to the card config + the HA instance. card-mod uses the same
- * technique, making it the most battle-tested approach available.
+ * Strategy (verified against card-mod source and HA frontend source)
+ * ------------------------------------------------------------------
+ * We patch `hui-dialog-edit-card` (NOT `hui-card-element-editor`).
+ * This is the same element card-mod patches for its brush icon indicator.
+ * The dialog's shadow root contains `ha-button[slot=secondaryAction]` —
+ * confirmed by the card-mod source at:
+ *   src/patch/hui-card-element-editor.ts → HuiDialogEditCardPatch
  *
- * The patch overrides the element's `updated()` lifecycle method. Every time
- * HA re-renders the editor (config change, tab switch, etc.) we re-check
- * whether our button and panel are still present and inject them if not.
+ * The card config lives on the dialog as `_cardConfig` (seen in card-mod source).
+ * The hass instance is also available on the dialog.
  *
- * Timing
- * ------
- * Custom elements are defined lazily by HA when the relevant code is first
- * needed. We use `customElements.whenDefined()` to block until the class
- * exists, then patch its prototype. If the dialog is already open we also
- * run a one-shot sync injection.
+ * The patch overrides `updated()` on the prototype. This fires after every
+ * HA re-render of the dialog, giving us a stable insertion point.
  *
- * Failure handling
- * ----------------
- * If a structural HA change means our injection point disappears, we log a
- * clear warning and do nothing — we never throw or break the native editor.
+ * Key corrections vs initial implementation
+ * ------------------------------------------
+ * - Target: hui-dialog-edit-card (not hui-card-element-editor)
+ * - Config property: _cardConfig (not _config, not value)
+ * - Injection point: ha-button[slot=secondaryAction] — confirmed from card-mod
+ * - Our button needs slot="secondaryAction" to appear in the same footer area
  */
 
-import { HA_CARD_EDITOR_ELEMENT } from '../utils/dom-helpers.js';
+import { HA_DIALOG_ELEMENT } from '../utils/dom-helpers.js';
 import type { CardModCardConfig, HomeAssistant } from '../types/index.js';
 
 const CMS_BUTTON_ATTR = 'data-cms-injected';
 const CMS_PANEL_ID = 'cms-style-panel';
 
+// Confirmed by card-mod source: this is the selector that finds the
+// Cancel/Save buttons inside hui-dialog-edit-card's shadow root.
+const SECONDARY_ACTION_SELECTOR = 'ha-button[slot=secondaryAction]';
+
 // ---------------------------------------------------------------------------
 // Types for the internal HA element shape we interact with
 // ---------------------------------------------------------------------------
 
-interface HuiCardElementEditor extends HTMLElement {
-  /** The card config object — set by HA when the user opens the editor. */
-  _config?: CardModCardConfig;
-  /** The HA instance — set by HA when the user opens the editor. */
+interface HuiDialogEditCard extends HTMLElement {
+  /** The card config object. Name confirmed from card-mod source. */
+  _cardConfig?: CardModCardConfig;
+  /** The HA instance — inherited from parent. */
   hass?: HomeAssistant;
-  /** Guard flag so multiple CMS registrations don't double-patch. */
+  /** Guard flag so multiple CMS loads don't double-patch. */
   _cmsPatched?: boolean;
 }
 
 // ---------------------------------------------------------------------------
-// Panel toggle logic — called when the user clicks our Style button
+// Panel toggle — shows/hides cms-panel inside the dialog's shadow root
 // ---------------------------------------------------------------------------
 
-function togglePanel(editor: HuiCardElementEditor, active: boolean): void {
-  const root = editor.shadowRoot;
+function togglePanel(dialog: HuiDialogEditCard, active: boolean): void {
+  const root = dialog.shadowRoot;
   if (!root) return;
 
   let panel = root.getElementById(CMS_PANEL_ID) as
-    | import('../editor/cms-panel.js').CmsPanel
+    | import('./cms-panel.js').CmsPanel
     | null;
 
   if (active) {
     if (!panel) {
-      panel = document.createElement('cms-panel') as import('../editor/cms-panel.js').CmsPanel;
+      panel = document.createElement('cms-panel') as import('./cms-panel.js').CmsPanel;
       panel.id = CMS_PANEL_ID;
-      // Pass current card config and hass into the panel
-      panel.config = editor._config;
-      panel.hass = editor.hass;
-      // Append after the native editor content
+      panel.config = dialog._cardConfig;
+      panel.hass = dialog.hass;
       root.appendChild(panel);
     } else {
-      // Update in case config changed while panel was closed
-      panel.config = editor._config;
-      panel.hass = editor.hass;
+      panel.config = dialog._cardConfig;
+      panel.hass = dialog.hass;
       panel.style.display = 'block';
     }
   } else {
@@ -79,65 +78,71 @@ function togglePanel(editor: HuiCardElementEditor, active: boolean): void {
 }
 
 // ---------------------------------------------------------------------------
-// Button injection — adds the 🎨 Style button to the editor's action area
+// Button injection — inserts cms-tab-button next to the existing Cancel button
 // ---------------------------------------------------------------------------
 
-function injectButton(editor: HuiCardElementEditor): void {
-  const root = editor.shadowRoot;
+function injectButton(dialog: HuiDialogEditCard): void {
+  const root = dialog.shadowRoot;
   if (!root) return;
 
-  // Already injected into this editor instance?
+  // Already injected into this dialog instance?
   if (root.querySelector(`[${CMS_BUTTON_ATTR}]`)) return;
 
-  // HA wraps the secondary action buttons in a container. Try the most
-  // common selectors; if none match we log and bail — never throw.
-  const actionContainer =
-    root.querySelector('div.action-items') ??
-    root.querySelector('.header') ??
-    root.querySelector('ha-card') ??
-    // Last resort: append directly to the shadow root host area
-    root.querySelector(':first-child');
+  // card-mod confirms this selector finds the footer button(s) inside
+  // hui-dialog-edit-card's shadow root. The button is a light-DOM child
+  // of <ha-dialog> (rendered by hui-dialog-edit-card's template) slotted
+  // into ha-dialog's "secondaryAction" slot.
+  const existingButton = root.querySelector(SECONDARY_ACTION_SELECTOR);
 
-  if (!actionContainer) {
+  if (!existingButton) {
+    // Log exactly what IS in the shadow root so the developer can debug.
+    const children = Array.from(root.children).map(
+      (el) =>
+        el.tagName.toLowerCase() +
+        (el.id ? `#${el.id}` : '') +
+        (el.className ? `.${[...el.classList].join('.')}` : '') +
+        (el.getAttribute('slot') ? `[slot=${el.getAttribute('slot')}]` : ''),
+    );
     console.warn(
-      '[Card-Mod Studio] Could not find action container in hui-card-element-editor. ' +
-        'The Style button will not appear. This may be caused by a Home Assistant update. ' +
-        'Please report this at https://github.com/dertrolli/card-mod-visual-editor/issues',
+      '[Card-Mod Studio] Could not find ha-button[slot=secondaryAction] in ' +
+        'hui-dialog-edit-card shadow root. Style button will not appear. ' +
+        'This may be caused by a Home Assistant update. ' +
+        'Shadow root direct children: ' +
+        (children.length ? children.join(', ') : '(none)') +
+        '\nPlease report at https://github.com/dertrolli/card-mod-visual-editor/issues',
     );
     return;
   }
 
-  // Create our tab button
   const tabButton = document.createElement('cms-tab-button');
   tabButton.setAttribute(CMS_BUTTON_ATTR, 'true');
+  // Must carry slot="secondaryAction" so it appears in the same footer area
+  // as the existing Cancel button — it's slotted into ha-dialog.
+  tabButton.setAttribute('slot', 'secondaryAction');
 
-  // Listen for toggle events
   tabButton.addEventListener('cms-tab-toggle', (ev: Event) => {
     const detail = (ev as CustomEvent<{ active: boolean }>).detail;
-    togglePanel(editor, detail.active);
+    togglePanel(dialog, detail.active);
   });
 
-  // Insert before the first existing action button if possible, otherwise append
-  const firstAction = actionContainer.querySelector('ha-icon-button, ha-button');
-  if (firstAction) {
-    actionContainer.insertBefore(tabButton, firstAction);
-  } else {
-    actionContainer.appendChild(tabButton);
-  }
+  // Insert before the Cancel button so Style appears to its left.
+  existingButton.parentNode?.insertBefore(tabButton, existingButton);
 }
 
 // ---------------------------------------------------------------------------
-// Prototype patch — hooks into hui-card-element-editor's lifecycle
+// Prototype patch — hooks into hui-dialog-edit-card's Lit lifecycle
 // ---------------------------------------------------------------------------
 
-function patchEditorElement(EditorClass: CustomElementConstructor): void {
-  const proto = EditorClass.prototype as HuiCardElementEditor & {
-    updated?: (changedProps: Map<string, unknown>) => void;
+function patchDialogElement(DialogClass: CustomElementConstructor): void {
+  // PropertyKey covers string | number | symbol — matches Lit's PropertyValues map key type.
+  const proto = DialogClass.prototype as HuiDialogEditCard & {
+    updated?: (changedProps: Map<PropertyKey, unknown>) => void;
   };
 
   if (proto._cmsPatched) {
-    // Another version of CMS already patched this class — skip to avoid double injection.
-    console.info('[Card-Mod Studio] Editor already patched by another CMS instance, skipping.');
+    console.info(
+      '[Card-Mod Studio] Dialog already patched by another CMS instance, skipping.',
+    );
     return;
   }
   proto._cmsPatched = true;
@@ -145,29 +150,28 @@ function patchEditorElement(EditorClass: CustomElementConstructor): void {
   const originalUpdated = proto.updated;
 
   proto.updated = function (
-    this: HuiCardElementEditor,
-    changedProps: Map<string, unknown>,
+    this: HuiDialogEditCard,
+    changedProps: Map<PropertyKey, unknown>,
   ): void {
-    // Always call the original first so HA's own render completes.
+    // Always call the original first — HA's own render must complete before we query.
     if (originalUpdated) {
       originalUpdated.call(this, changedProps);
     }
 
-    // After HA has rendered, inject our button.
-    // requestAnimationFrame defers by one paint to ensure the shadow DOM
-    // is fully populated before we query it.
+    // Defer by one animation frame so the shadow DOM is fully settled.
     requestAnimationFrame(() => {
       try {
         injectButton(this);
 
-        // If the panel is visible, keep its config in sync with any config changes.
+        // Keep panel config in sync whenever HA re-renders the dialog
+        // (e.g. user changes a config value in the native editor).
         const root = this.shadowRoot;
         if (!root) return;
         const panel = root.getElementById(CMS_PANEL_ID) as
-          | import('../editor/cms-panel.js').CmsPanel
+          | import('./cms-panel.js').CmsPanel
           | null;
         if (panel && panel.style.display !== 'none') {
-          panel.config = this._config;
+          panel.config = this._cardConfig;
           panel.hass = this.hass;
         }
       } catch (err) {
@@ -176,25 +180,20 @@ function patchEditorElement(EditorClass: CustomElementConstructor): void {
     });
   };
 
-  console.info(
-    '[Card-Mod Studio] hui-card-element-editor patched successfully.',
-  );
+  console.info('[Card-Mod Studio] hui-dialog-edit-card patched successfully.');
 }
 
 // ---------------------------------------------------------------------------
-// Sync injection for dialogs already open when the plugin loads
+// Sync injection — handles dialogs already open at plugin load time
 // ---------------------------------------------------------------------------
 
-function injectIntoExistingEditors(): void {
-  const editors = document.querySelectorAll<HuiCardElementEditor>(
-    HA_CARD_EDITOR_ELEMENT,
-  );
-  editors.forEach((editor) => {
+function injectIntoExistingDialogs(): void {
+  document.querySelectorAll<HuiDialogEditCard>(HA_DIALOG_ELEMENT).forEach((dialog) => {
     requestAnimationFrame(() => {
       try {
-        injectButton(editor);
+        injectButton(dialog);
       } catch (err) {
-        console.error('[Card-Mod Studio] Error injecting into existing editor:', err);
+        console.error('[Card-Mod Studio] Error injecting into existing dialog:', err);
       }
     });
   });
@@ -205,27 +204,24 @@ function injectIntoExistingEditors(): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Starts the injection process. Should be called once from the plugin entry point.
- * Returns a Promise that resolves when the patch is applied.
+ * Starts the injection process. Called once from card-mod-studio.ts.
+ * Waits for HA to define hui-dialog-edit-card (lazy, happens when first
+ * card editor is opened), then patches its prototype.
  */
 export async function startInjector(): Promise<void> {
-  console.info('[Card-Mod Studio] Waiting for hui-card-element-editor...');
+  console.info('[Card-Mod Studio] Waiting for hui-dialog-edit-card...');
 
-  // Wait until HA defines the editor element (happens lazily when first card editor opens).
-  await customElements.whenDefined(HA_CARD_EDITOR_ELEMENT);
+  await customElements.whenDefined(HA_DIALOG_ELEMENT);
 
-  const EditorClass = customElements.get(HA_CARD_EDITOR_ELEMENT);
-  if (!EditorClass) {
+  const DialogClass = customElements.get(HA_DIALOG_ELEMENT);
+  if (!DialogClass) {
     console.error(
-      '[Card-Mod Studio] hui-card-element-editor was defined but could not be retrieved. ' +
+      '[Card-Mod Studio] hui-dialog-edit-card was defined but could not be retrieved. ' +
         'This is unexpected — please report this issue.',
     );
     return;
   }
 
-  patchEditorElement(EditorClass);
-
-  // Also inject into any editor instances that might already be open
-  // (e.g. if the plugin loads while an editor dialog is already shown).
-  injectIntoExistingEditors();
+  patchDialogElement(DialogClass);
+  injectIntoExistingDialogs();
 }

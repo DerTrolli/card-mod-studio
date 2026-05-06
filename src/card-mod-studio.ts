@@ -48,7 +48,7 @@ if (window.cardModStudio) {
   }
 
   // Start the injection engine asynchronously.
-  // It blocks internally until hui-card-element-editor is defined by HA.
+  // It blocks internally until hui-dialog-edit-card is defined by HA.
   startInjector()
     .then(() => {
       meta.injected = true;
