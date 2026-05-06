@@ -47,14 +47,28 @@ interface HuiDialogEditCard extends HTMLElement {
 }
 
 // ---------------------------------------------------------------------------
-// Panel toggle — shows/hides cms-panel inside the dialog's shadow root
+// Panel toggle — shows/hides cms-panel inside hui-card-element-editor
 // ---------------------------------------------------------------------------
 
-function togglePanel(dialog: HuiDialogEditCard, active: boolean): void {
+/**
+ * Returns the best shadow root to host the cms-panel.
+ *
+ * We target hui-card-element-editor's shadow root so the panel overlays
+ * the card config area (left pane) rather than appearing outside the dialog.
+ * Falls back to the dialog's own shadow root if the editor isn't found.
+ */
+function getPanelHost(dialog: HuiDialogEditCard): ShadowRoot | null {
   const root = dialog.shadowRoot;
-  if (!root) return;
+  if (!root) return null;
+  const cardEditor = root.querySelector('hui-card-element-editor');
+  return cardEditor?.shadowRoot ?? root;
+}
 
-  let panel = root.getElementById(CMS_PANEL_ID) as
+function togglePanel(dialog: HuiDialogEditCard, active: boolean): void {
+  const host = getPanelHost(dialog);
+  if (!host) return;
+
+  let panel = host.getElementById(CMS_PANEL_ID) as
     | import('./cms-panel.js').CmsPanel
     | null;
 
@@ -64,7 +78,7 @@ function togglePanel(dialog: HuiDialogEditCard, active: boolean): void {
       panel.id = CMS_PANEL_ID;
       panel.config = dialog._cardConfig;
       panel.hass = dialog.hass;
-      root.appendChild(panel);
+      host.appendChild(panel);
     } else {
       panel.config = dialog._cardConfig;
       panel.hass = dialog.hass;
@@ -165,9 +179,9 @@ function patchDialogElement(DialogClass: CustomElementConstructor): void {
 
         // Keep panel config in sync whenever HA re-renders the dialog
         // (e.g. user changes a config value in the native editor).
-        const root = this.shadowRoot;
-        if (!root) return;
-        const panel = root.getElementById(CMS_PANEL_ID) as
+        const host = getPanelHost(this);
+        if (!host) return;
+        const panel = host.getElementById(CMS_PANEL_ID) as
           | import('./cms-panel.js').CmsPanel
           | null;
         if (panel && panel.style.display !== 'none') {

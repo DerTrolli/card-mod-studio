@@ -27,9 +27,14 @@ export class CmsPanel extends LitElement {
   static override styles = css`
     :host {
       display: block;
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      overflow-y: auto;
       padding: 16px;
+      background: var(--card-background-color, var(--ha-card-background, #1c1c1c));
       font-family: var(--primary-font-family, sans-serif);
-      color: var(--primary-text-color, #212121);
+      color: var(--primary-text-color, #e1e1e1);
     }
 
     .header {
