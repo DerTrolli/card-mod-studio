@@ -1,0 +1,29 @@
+{
+  "name": "card-mod-studio",
+  "version": "0.1.0",
+  "description": "Visual GUI editor for card-mod CSS styles in Home Assistant",
+  "author": "Trolli / Troll-IT",
+  "license": "MIT",
+  "main": "dist/card-mod-studio.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "lit": "^3.2.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "vitest": "^2.0.5"
+  }
+}

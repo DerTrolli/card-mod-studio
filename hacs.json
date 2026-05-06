@@ -1,0 +1,7 @@
+{
+  "name": "Card-Mod Studio",
+  "content_in_root": false,
+  "filename": "dist/card-mod-studio.js",
+  "render_readme": true,
+  "homeassistant": "2024.4.0"
+}

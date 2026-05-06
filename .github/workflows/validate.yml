@@ -1,0 +1,33 @@
+name: Validate
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Lint, typecheck & build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npx vite build
+
+      - name: Verify dist file exists
+        run: test -f dist/card-mod-studio.js && echo "Build OK" || (echo "Build FAILED" && exit 1)
