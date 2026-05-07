@@ -84,10 +84,6 @@ describe('parseCss', () => {
   });
 
   it('does not split property name on a colon inside the value', () => {
-    // The parser uses indexOf(':') not split(':') so colons inside values
-    // (like in url() or time strings) don't corrupt the property name.
-    // Note: semicolons inside url() are a separate known limitation (Phase 2
-    // never generates such values, so we do not handle that edge case yet).
     const result = parseCss('ha-card { background: url(https://example.com/image.png); }');
     expect(result[0].properties[0].property).toBe('background');
     expect(result[0].properties[0].value).toBe('url(https://example.com/image.png)');
@@ -260,24 +256,35 @@ describe('mapToStudioState', () => {
   // Filter module
   // ---------------------------------------------------------------------------
 
-  it('detects grayscaleWhenOff pattern', () => {
+  it('detects grayscale-when-off pattern', () => {
     const css = `ha-card {
       filter: {{ 'grayscale(100%)' if is_state(config.entity, 'off') else 'none' }};
     }`;
     const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
     const state = mapToStudioState(parsed);
     expect(state.filter.enabled).toBe(true);
-    expect(state.filter.grayscaleWhenOff).toBe(true);
+    expect(state.filter.grayscale).toBe(true);
+    expect(state.filter.grayscaleWhen).toBe('off');
   });
 
-  it('does NOT flag grayscaleWhenOff when on-value is not "none"', () => {
-    // "saturate(200%)" is not "none" so this is not our grayscale pattern
+  it('detects grayscale-when-on pattern', () => {
+    const css = `ha-card {
+      filter: {{ 'grayscale(100%)' if is_state(config.entity, 'on') else 'none' }};
+    }`;
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.filter.enabled).toBe(true);
+    expect(state.filter.grayscale).toBe(true);
+    expect(state.filter.grayscaleWhen).toBe('on');
+  });
+
+  it('does NOT flag grayscale when on-value is not "none"', () => {
     const css = `ha-card {
       filter: {{ 'grayscale(100%)' if is_state(config.entity, 'off') else 'saturate(200%)' }};
     }`;
     const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
     const state = mapToStudioState(parsed);
-    expect(state.filter.grayscaleWhenOff).toBe(false);
+    expect(state.filter.grayscale).toBe(false);
   });
 
   it('detects brightness from on-value', () => {
@@ -290,7 +297,6 @@ describe('mapToStudioState', () => {
   });
 
   it('detects blur from conditional on-value', () => {
-    // blur can appear inside a Jinja2 on/off value — must check onValue, not just .value
     const css = `ha-card {
       filter: {{ 'blur(5px)' if is_state(config.entity, 'on') else 'none' }};
     }`;
@@ -329,11 +335,49 @@ describe('mapToStudioState', () => {
     expect(state.iconColor.colorOff).toBe('#6b6b6b');
   });
 
-  it('does not enable icon color for plain (non-conditional) color', () => {
+  it('detects plain (non-conditional) icon color in plain mode', () => {
     const css = 'ha-state-icon { color: red; }';
     const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
     const state = mapToStudioState(parsed);
-    expect(state.iconColor.enabled).toBe(false);
+    expect(state.iconColor.enabled).toBe(true);
+    expect(state.iconColor.mode).toBe('plain');
+    expect(state.iconColor.color).toBe('red');
+  });
+
+  it('detects plain icon color with !important stripped', () => {
+    const css = 'ha-state-icon { color: yellow !important; }';
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.iconColor.enabled).toBe(true);
+    expect(state.iconColor.mode).toBe('plain');
+    expect(state.iconColor.color).toBe('yellow');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Accent color module
+  // ---------------------------------------------------------------------------
+
+  it('detects --accent-color CSS custom property', () => {
+    const css = 'ha-card { --accent-color: yellow; }';
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.accentColor.enabled).toBe(true);
+    expect(state.accentColor.color).toBe('yellow');
+  });
+
+  it('detects --accent-color hex value', () => {
+    const css = 'ha-card { --accent-color: #03a9f4; }';
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.accentColor.enabled).toBe(true);
+    expect(state.accentColor.color).toBe('#03a9f4');
+  });
+
+  it('does not claim --accent-color into rawCss', () => {
+    const css = 'ha-card { --accent-color: yellow; }';
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.advanced.rawCss).toBe('');
   });
 
   // ---------------------------------------------------------------------------
@@ -364,7 +408,6 @@ describe('mapToStudioState', () => {
     const css = "ha-card { background: {{ 'red' if is_state(config.entity,'on') else 'blue' }}; }";
     const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
     const state = mapToStudioState(parsed);
-    // Conditional backgrounds are not supported in the visual module yet
     expect(state.background.enabled).toBe(false);
   });
 
@@ -394,7 +437,6 @@ describe('mapToStudioState', () => {
   // ---------------------------------------------------------------------------
 
   it('puts unrecognised properties in rawCss', () => {
-    // `color` on ha-card is not claimed by any module — it should end up in rawCss
     const css = 'ha-card { color: red; }';
     const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
     const state = mapToStudioState(parsed);
@@ -403,7 +445,6 @@ describe('mapToStudioState', () => {
   });
 
   it('does not put claimed properties in rawCss', () => {
-    // border-radius is claimed by the border module, filter by the filter module
     const css = 'ha-card { border-radius: 12px; filter: {{ \'grayscale(100%)\' if is_state(config.entity, \'off\') else \'none\' }}; }';
     const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
     const state = mapToStudioState(parsed);
@@ -419,8 +460,21 @@ describe('mapToStudioState', () => {
     const state = mapToStudioState(parsed);
     expect(state.filter.enabled).toBe(false);
     expect(state.iconColor.enabled).toBe(false);
+    expect(state.accentColor.enabled).toBe(false);
     expect(state.background.enabled).toBe(false);
     expect(state.border.enabled).toBe(false);
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('recognises sensor card pattern: --accent-color + plain icon color', () => {
+    const css = `ha-card {\n  --accent-color: yellow;\n}\nha-state-icon {\n  color: yellow !important;\n}`;
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.accentColor.enabled).toBe(true);
+    expect(state.accentColor.color).toBe('yellow');
+    expect(state.iconColor.enabled).toBe(true);
+    expect(state.iconColor.mode).toBe('plain');
+    expect(state.iconColor.color).toBe('yellow');
     expect(state.advanced.rawCss).toBe('');
   });
 });

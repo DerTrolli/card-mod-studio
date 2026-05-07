@@ -7,7 +7,6 @@ import { moduleStyles } from './module-base.js';
 export class FilterModule extends LitElement {
   @property({ attribute: false }) state: FilterModuleState = { ...DEFAULT_FILTER };
 
-  // Local display values so slider labels update while dragging
   @state() private _brightness = DEFAULT_FILTER.brightness;
   @state() private _blur = DEFAULT_FILTER.blur;
   @state() private _transitionMs = DEFAULT_FILTER.transitionMs;
@@ -49,19 +48,52 @@ export class FilterModule extends LitElement {
   private _renderBody() {
     return html`
       <div class="module-body">
+        <!-- Grayscale -->
         <div class="control-row">
-          <span class="control-label">Grayscale when off</span>
+          <span class="control-label">Grayscale</span>
           <div class="control-right">
             <ha-switch
-              .checked=${this.state.grayscaleWhenOff}
+              .checked=${this.state.grayscale}
               @change=${(e: Event) =>
-                this._emit({
-                  grayscaleWhenOff: (e.target as HTMLInputElement).checked,
-                })}
+                this._emit({ grayscale: (e.target as HTMLInputElement).checked })}
             ></ha-switch>
           </div>
         </div>
 
+        ${this.state.grayscale
+          ? html`
+              <div class="control-row">
+                <span class="control-label">Apply when</span>
+                <div class="control-right">
+                  <select
+                    .value=${this.state.grayscaleWhen}
+                    @change=${(e: Event) =>
+                      this._emit({
+                        grayscaleWhen: (e.target as HTMLSelectElement).value as
+                          | 'always'
+                          | 'on'
+                          | 'off',
+                      })}
+                  >
+                    <option
+                      value="always"
+                      ?selected=${this.state.grayscaleWhen === 'always'}
+                    >Always</option>
+                    <option
+                      value="off"
+                      ?selected=${this.state.grayscaleWhen === 'off'}
+                    >Entity OFF</option>
+                    <option
+                      value="on"
+                      ?selected=${this.state.grayscaleWhen === 'on'}
+                    >Entity ON</option>
+                  </select>
+                </div>
+              </div>
+            `
+          : nothing}
+
+        <!-- Brightness -->
         <div class="control-row">
           <span class="control-label">Brightness</span>
           <div class="control-right">
@@ -82,6 +114,7 @@ export class FilterModule extends LitElement {
           </div>
         </div>
 
+        <!-- Blur -->
         <div class="control-row">
           <span class="control-label">Blur</span>
           <div class="control-right">
@@ -100,6 +133,7 @@ export class FilterModule extends LitElement {
           </div>
         </div>
 
+        <!-- Transition speed -->
         <div class="control-row">
           <span class="control-label">Transition speed</span>
           <div class="control-right">

@@ -9,6 +9,7 @@ import { applyCardModStyle } from '../src/generator/yaml-generator.js';
 import {
   DEFAULT_FILTER,
   DEFAULT_ICON_COLOR,
+  DEFAULT_ACCENT_COLOR,
   DEFAULT_BACKGROUND,
   DEFAULT_ANIMATION,
   DEFAULT_BORDER,
@@ -25,6 +26,7 @@ function makeState(overrides: Partial<StudioState> = {}): StudioState {
   return {
     filter: { ...DEFAULT_FILTER },
     iconColor: { ...DEFAULT_ICON_COLOR },
+    accentColor: { ...DEFAULT_ACCENT_COLOR },
     background: { ...DEFAULT_BACKGROUND },
     animation: { ...DEFAULT_ANIMATION },
     border: { ...DEFAULT_BORDER },
@@ -50,7 +52,7 @@ describe('generateCss — empty state', () => {
 describe('generateCss — filter', () => {
   it('emits grayscale-when-off conditional', () => {
     const css = generateCss(
-      makeState({ filter: { ...DEFAULT_FILTER, enabled: true, grayscaleWhenOff: true } }),
+      makeState({ filter: { ...DEFAULT_FILTER, enabled: true, grayscale: true, grayscaleWhen: 'off' } }),
     );
     expect(css).toContain("{{ 'grayscale(100%)' if is_state(config.entity, 'off') else 'none' }}");
     expect(css).toContain('ha-card');
@@ -69,26 +71,33 @@ describe('generateCss — filter', () => {
         filter: {
           ...DEFAULT_FILTER,
           enabled: true,
-          grayscaleWhenOff: true,
+          grayscale: true,
+          grayscaleWhen: 'off',
           brightness: 80,
           blur: 3,
         },
       }),
     );
     expect(css).toContain('grayscale(100%) brightness(80%) blur(3px)');
-    // On-value should contain brightness and blur but not grayscale
     expect(css).toContain("else 'brightness(80%) blur(3px)'");
+  });
+
+  it('emits grayscale always (no conditional)', () => {
+    const css = generateCss(
+      makeState({ filter: { ...DEFAULT_FILTER, enabled: true, grayscale: true, grayscaleWhen: 'always' } }),
+    );
+    expect(css).toContain('filter: grayscale(100%);');
+    expect(css).not.toContain('is_state');
   });
 
   it('emits transition only when filter is present', () => {
     const css = generateCss(
-      makeState({ filter: { ...DEFAULT_FILTER, enabled: true, grayscaleWhenOff: true, transitionMs: 500 } }),
+      makeState({ filter: { ...DEFAULT_FILTER, enabled: true, grayscale: true, grayscaleWhen: 'off', transitionMs: 500 } }),
     );
     expect(css).toContain('transition: filter 500ms ease;');
   });
 
   it('does NOT emit transition when filter produces no declarations', () => {
-    // brightness=100, blur=0, no grayscale → no filter declarations → no transition
     const css = generateCss(
       makeState({ filter: { ...DEFAULT_FILTER, enabled: true } }),
     );
@@ -104,12 +113,49 @@ describe('generateCss — icon color', () => {
   it('emits conditional color on ha-state-icon', () => {
     const css = generateCss(
       makeState({
-        iconColor: { enabled: true, colorOn: '#2196F3', colorOff: '#6b6b6b' },
+        iconColor: { enabled: true, mode: 'conditional', color: '#2196F3', colorOn: '#2196F3', colorOff: '#6b6b6b' },
       }),
     );
     expect(css).toContain('ha-state-icon');
     expect(css).toContain("'#2196F3' if is_state(config.entity, 'on') else '#6b6b6b'");
     expect(css).toContain('!important');
+  });
+
+  it('emits plain static color on ha-state-icon', () => {
+    const css = generateCss(
+      makeState({
+        iconColor: { enabled: true, mode: 'plain', color: 'yellow', colorOn: 'yellow', colorOff: '#6b6b6b' },
+      }),
+    );
+    expect(css).toContain('ha-state-icon');
+    expect(css).toContain('color: yellow !important;');
+    expect(css).not.toContain('is_state');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateCss — accent color module
+// ---------------------------------------------------------------------------
+
+describe('generateCss — accent color', () => {
+  it('emits --accent-color on ha-card', () => {
+    const css = generateCss(
+      makeState({ accentColor: { enabled: true, color: 'yellow' } }),
+    );
+    expect(css).toContain('--accent-color: yellow;');
+    expect(css).toContain('ha-card');
+  });
+
+  it('does not emit --accent-color when disabled', () => {
+    const css = generateCss(makeState({ accentColor: { enabled: false, color: 'yellow' } }));
+    expect(css).not.toContain('--accent-color');
+  });
+
+  it('emits --accent-color with hex value', () => {
+    const css = generateCss(
+      makeState({ accentColor: { enabled: true, color: '#03a9f4' } }),
+    );
+    expect(css).toContain('--accent-color: #03a9f4;');
   });
 });
 
@@ -276,13 +322,10 @@ describe('generateCss — combined modules', () => {
   it('merges filter and background in the same ha-card block', () => {
     const css = generateCss(
       makeState({
-        filter: { ...DEFAULT_FILTER, enabled: true, grayscaleWhenOff: true },
+        filter: { ...DEFAULT_FILTER, enabled: true, grayscale: true, grayscaleWhen: 'off' },
         background: { ...DEFAULT_BACKGROUND, enabled: true, type: 'solid', color1: '#1a1a2e' },
       }),
     );
-    // Both declarations should appear in the output and ha-card selector
-    // should appear exactly once (Jinja2 {{ }} inside values foils simple
-    // regex block extraction, so we count selector occurrences instead)
     expect(css.match(/ha-card\s*\{/g)).toHaveLength(1);
     expect(css).toContain('filter');
     expect(css).toContain('background: #1a1a2e');
@@ -350,5 +393,23 @@ describe('round-trip', () => {
     const generated = generateCss(state);
 
     expect(generated).toContain('linear-gradient(135deg, #2196F3, #FF8C00)');
+  });
+
+  it('sensor card pattern (--accent-color + plain icon color) round-trips with no rawCss', () => {
+    const original = 'ha-card {\n  --accent-color: yellow;\n}\nha-state-icon {\n  color: yellow !important;\n}';
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+
+    expect(state.accentColor.enabled).toBe(true);
+    expect(state.accentColor.color).toBe('yellow');
+    expect(state.iconColor.enabled).toBe(true);
+    expect(state.iconColor.mode).toBe('plain');
+    expect(state.iconColor.color).toBe('yellow');
+    expect(state.advanced.rawCss).toBe('');
+
+    const generated = generateCss(state);
+    expect(generated).toContain('--accent-color: yellow;');
+    expect(generated).toContain('color: yellow !important;');
+    expect(generated).not.toContain('is_state');
   });
 });

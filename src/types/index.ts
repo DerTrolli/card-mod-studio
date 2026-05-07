@@ -82,7 +82,8 @@ export interface CardModStyleState {
 
 export interface FilterModuleState {
   enabled: boolean;
-  grayscaleWhenOff: boolean;
+  grayscale: boolean;
+  grayscaleWhen: 'always' | 'on' | 'off';
   brightness: number;       // 0–200, default 100
   blur: number;             // px, default 0
   transitionMs: number;     // default 300
@@ -90,8 +91,16 @@ export interface FilterModuleState {
 
 export interface IconColorModuleState {
   enabled: boolean;
-  colorOn: string;          // hex color
-  colorOff: string;         // hex color
+  /** plain = single static color; conditional = on/off entity-state colors */
+  mode: 'plain' | 'conditional';
+  color: string;            // used when mode='plain'
+  colorOn: string;          // used when mode='conditional'
+  colorOff: string;         // used when mode='conditional'
+}
+
+export interface AccentColorModuleState {
+  enabled: boolean;
+  color: string;
 }
 
 export interface BackgroundModuleState {
@@ -126,6 +135,7 @@ export interface AdvancedModuleState {
 export interface StudioState {
   filter: FilterModuleState;
   iconColor: IconColorModuleState;
+  accentColor: AccentColorModuleState;
   background: BackgroundModuleState;
   animation: AnimationModuleState;
   border: BorderModuleState;

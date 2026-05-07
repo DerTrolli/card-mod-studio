@@ -2,23 +2,13 @@
  * css-generator.ts
  *
  * Converts a StudioState into a CSS string suitable for card_mod.style.
- *
- * Output contract
- * ---------------
- * - ha-card properties: filter, transition, background, border-radius, border,
- *   animation, background-size (gradient-shift only)
- * - ha-state-icon properties: color
- * - @keyframes blocks appear before the ha-card selector block
- * - rawCss from the Advanced module is appended verbatim at the end
- *
- * Round-trip guarantee: generateCss(mapToStudioState(parseCss(css))) should
- * produce semantically equivalent CSS for all patterns we recognise.
  */
 
 import type {
   StudioState,
   FilterModuleState,
   IconColorModuleState,
+  AccentColorModuleState,
   BackgroundModuleState,
   AnimationModuleState,
   BorderModuleState,
@@ -60,22 +50,31 @@ function filterDecls(s: FilterModuleState): string[] {
 
   const decls: string[] = [];
 
-  if (s.grayscaleWhenOff) {
-    const offParts = ['grayscale(100%)'];
-    const onParts: string[] = [];
+  if (s.grayscale) {
+    const grayParts = ['grayscale(100%)'];
+    const otherParts: string[] = [];
     if (s.brightness !== 100) {
-      offParts.push(`brightness(${s.brightness}%)`);
-      onParts.push(`brightness(${s.brightness}%)`);
+      grayParts.push(`brightness(${s.brightness}%)`);
+      otherParts.push(`brightness(${s.brightness}%)`);
     }
     if (s.blur > 0) {
-      offParts.push(`blur(${s.blur}px)`);
-      onParts.push(`blur(${s.blur}px)`);
+      grayParts.push(`blur(${s.blur}px)`);
+      otherParts.push(`blur(${s.blur}px)`);
     }
-    const offVal = offParts.join(' ');
-    const onVal = onParts.length > 0 ? onParts.join(' ') : 'none';
-    decls.push(
-      `filter: {{ '${offVal}' if is_state(config.entity, 'off') else '${onVal}' }};`,
-    );
+    const grayVal = grayParts.join(' ');
+    const otherVal = otherParts.length > 0 ? otherParts.join(' ') : 'none';
+
+    if (s.grayscaleWhen === 'always') {
+      decls.push(`filter: ${grayVal};`);
+    } else if (s.grayscaleWhen === 'off') {
+      decls.push(
+        `filter: {{ '${grayVal}' if is_state(config.entity, 'off') else '${otherVal}' }};`,
+      );
+    } else {
+      decls.push(
+        `filter: {{ '${grayVal}' if is_state(config.entity, 'on') else '${otherVal}' }};`,
+      );
+    }
   } else {
     const parts: string[] = [];
     if (s.brightness !== 100) parts.push(`brightness(${s.brightness}%)`);
@@ -83,12 +82,16 @@ function filterDecls(s: FilterModuleState): string[] {
     if (parts.length > 0) decls.push(`filter: ${parts.join(' ')};`);
   }
 
-  // Only emit transition when there is actually a filter to transition
   if (decls.length > 0) {
     decls.push(`transition: filter ${s.transitionMs}ms ease;`);
   }
 
   return decls;
+}
+
+function accentColorDecls(s: AccentColorModuleState): string[] {
+  if (!s.enabled) return [];
+  return [`--accent-color: ${s.color};`];
 }
 
 function backgroundDecls(s: BackgroundModuleState): string[] {
@@ -99,12 +102,10 @@ function backgroundDecls(s: BackgroundModuleState): string[] {
       ? `linear-gradient(${s.angle}deg, ${s.color1}, ${s.color2})`
       : s.color1;
 
-  if (s.applyWhen === 'always') {
-    return [`background: ${bgValue};`];
-  }
-  const state = s.applyWhen === 'on' ? 'on' : 'off';
+  if (s.applyWhen === 'always') return [`background: ${bgValue};`];
+  const when = s.applyWhen === 'on' ? 'on' : 'off';
   return [
-    `background: {{ '${bgValue}' if is_state(config.entity, '${state}') else 'none' }};`,
+    `background: {{ '${bgValue}' if is_state(config.entity, '${when}') else 'none' }};`,
   ];
 }
 
@@ -127,10 +128,7 @@ function animationDecls(s: AnimationModuleState): string[] {
   const animValue = `cms-${s.preset} ${s.speedS}s ease-in-out infinite`;
   const decls: string[] = [];
 
-  // gradient-shift requires a wide background-size so the position can animate
-  if (s.preset === 'gradient-shift') {
-    decls.push('background-size: 200% auto;');
-  }
+  if (s.preset === 'gradient-shift') decls.push('background-size: 200% auto;');
 
   if (s.trigger === 'always') {
     decls.push(`animation: ${animValue};`);
@@ -153,6 +151,11 @@ function animationDecls(s: AnimationModuleState): string[] {
 
 function iconColorBlock(s: IconColorModuleState): string {
   if (!s.enabled) return '';
+
+  if (s.mode === 'plain') {
+    return `ha-state-icon {\n  color: ${s.color} !important;\n}`;
+  }
+
   return (
     `ha-state-icon {\n` +
     `  color: {{ '${s.colorOn}' if is_state(config.entity, 'on') else '${s.colorOff}' }} !important;\n` +
@@ -164,19 +167,15 @@ function iconColorBlock(s: IconColorModuleState): string {
 // Public API
 // ---------------------------------------------------------------------------
 
-/**
- * Converts a full StudioState to a CSS string ready for card_mod.style.
- * Returns an empty string when no module is enabled and rawCss is empty.
- */
 export function generateCss(state: StudioState): string {
   const parts: string[] = [];
 
-  // @keyframes must appear before the selector block that references them
   const kf = animationKeyframes(state.animation);
   if (kf) parts.push(kf);
 
   // ha-card block
   const haCardDecls = [
+    ...accentColorDecls(state.accentColor),
     ...filterDecls(state.filter),
     ...backgroundDecls(state.background),
     ...borderDecls(state.border),
@@ -187,11 +186,9 @@ export function generateCss(state: StudioState): string {
     parts.push(`ha-card {\n${body}\n}`);
   }
 
-  // ha-state-icon block
   const iconColor = iconColorBlock(state.iconColor);
   if (iconColor) parts.push(iconColor);
 
-  // Unclaimed / user-edited raw CSS — appended verbatim
   if (state.advanced.rawCss.trim()) {
     parts.push(state.advanced.rawCss.trim());
   }

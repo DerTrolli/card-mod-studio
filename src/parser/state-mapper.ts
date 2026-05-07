@@ -6,12 +6,10 @@
  *
  * Design rules
  * ------------
- * 1. Only patterns we generate ourselves (deterministic, known structure) are
- *    recognised.  Anything else goes into the Advanced module's rawCss so the
- *    user always sees exactly what card-mod will apply.
+ * 1. Only patterns we generate ourselves are recognised.  Anything else goes
+ *    into the Advanced module's rawCss.
  * 2. Each recogniser "claims" the CSS properties it consumed.  Unclaimed
- *    properties are reconstructed into rawCss — this prevents double-emitting
- *    the same property when we re-generate CSS from the StudioState.
+ *    properties are reconstructed into rawCss to prevent double-emission.
  */
 
 import type {
@@ -20,6 +18,7 @@ import type {
   CssProperty,
   FilterModuleState,
   IconColorModuleState,
+  AccentColorModuleState,
   BackgroundModuleState,
   BorderModuleState,
   AdvancedModuleState,
@@ -32,7 +31,8 @@ import type {
 
 export const DEFAULT_FILTER: FilterModuleState = {
   enabled: false,
-  grayscaleWhenOff: false,
+  grayscale: false,
+  grayscaleWhen: 'off',
   brightness: 100,
   blur: 0,
   transitionMs: 300,
@@ -40,8 +40,15 @@ export const DEFAULT_FILTER: FilterModuleState = {
 
 export const DEFAULT_ICON_COLOR: IconColorModuleState = {
   enabled: false,
+  mode: 'conditional',
+  color: '#2196F3',
   colorOn: '#2196F3',
   colorOff: '#6b6b6b',
+};
+
+export const DEFAULT_ACCENT_COLOR: AccentColorModuleState = {
+  enabled: false,
+  color: '#03a9f4',
 };
 
 export const DEFAULT_BACKGROUND: BackgroundModuleState = {
@@ -72,7 +79,6 @@ export const DEFAULT_BORDER: BorderModuleState = {
 // Claimed-property tracking
 // ---------------------------------------------------------------------------
 
-/** Canonical key for a selector+property pair, used to track claimed props. */
 function claimKey(selector: string, property: string): string {
   return `${selector.trim().toLowerCase()}::${property.trim().toLowerCase()}`;
 }
@@ -85,12 +91,12 @@ export function mapToStudioState(parsed: CardModStyleState): StudioState {
   const haCard = findTarget(parsed.targets, 'ha-card');
   const haStateIcon = findTarget(parsed.targets, 'ha-state-icon');
 
-  // All recognisers share this set and add entries as they consume properties.
   const claimed = new Set<string>();
 
   return {
     filter: mapFilter(haCard, claimed),
     iconColor: mapIconColor(haStateIcon, claimed),
+    accentColor: mapAccentColor(haCard, claimed),
     background: mapBackground(haCard, claimed),
     animation: { ...DEFAULT_ANIMATION },
     border: mapBorder(haCard, claimed),
@@ -126,49 +132,58 @@ function mapFilter(haCard: CssTarget | null, claimed: Set<string>): FilterModule
   let filterClaimed = false;
 
   if (filterProp) {
-    // Grayscale-when-off: off-value starts with "grayscale(", on-value is "none"
-    if (
-      filterProp.hasCondition &&
-      filterProp.offValue?.trim().startsWith('grayscale(') &&
-      filterProp.onValue?.trim() === 'none'
-    ) {
-      state.enabled = true;
-      state.grayscaleWhenOff = true;
-      filterClaimed = true;
+    if (filterProp.hasCondition) {
+      // Conditional grayscale — detect which state triggers grayscale
+      const offHasGrayscale = filterProp.offValue?.trim().startsWith('grayscale(');
+      const onHasGrayscale = filterProp.onValue?.trim().startsWith('grayscale(');
+
+      if (offHasGrayscale && filterProp.onValue?.trim() === 'none') {
+        // grayscale when off, none when on
+        state.enabled = true;
+        state.grayscale = true;
+        state.grayscaleWhen = 'off';
+        filterClaimed = true;
+      } else if (onHasGrayscale && filterProp.offValue?.trim() === 'none') {
+        // grayscale when on, none when off
+        state.enabled = true;
+        state.grayscale = true;
+        state.grayscaleWhen = 'on';
+        filterClaimed = true;
+      }
+
+      // Brightness from on/off values
+      const brightnessSource = filterProp.onValue ?? filterProp.offValue ?? filterProp.value;
+      const bm = brightnessSource.match(/brightness\(\s*(\d+(?:\.\d+)?)%\s*\)/);
+      if (bm) { state.enabled = true; state.brightness = parseFloat(bm[1]); filterClaimed = true; }
+
+      // Blur from on/off values
+      const blurSource = filterProp.onValue ?? filterProp.offValue ?? filterProp.value;
+      const blm = blurSource.match(/blur\(\s*(\d+(?:\.\d+)?)px\s*\)/);
+      if (blm) { state.enabled = true; state.blur = parseFloat(blm[1]); filterClaimed = true; }
+
+    } else {
+      // Plain (non-conditional) filter value
+      const val = filterProp.value;
+
+      if (val.trim().startsWith('grayscale(')) {
+        state.enabled = true;
+        state.grayscale = true;
+        state.grayscaleWhen = 'always';
+        filterClaimed = true;
+      }
+
+      const bm = val.match(/brightness\(\s*(\d+(?:\.\d+)?)%\s*\)/);
+      if (bm) { state.enabled = true; state.brightness = parseFloat(bm[1]); filterClaimed = true; }
+
+      const blm = val.match(/blur\(\s*(\d+(?:\.\d+)?)px\s*\)/);
+      if (blm) { state.enabled = true; state.blur = parseFloat(blm[1]); filterClaimed = true; }
     }
 
-    // Brightness — check on/off values first, then plain value
-    const brightnessSource =
-      filterProp.onValue ?? filterProp.offValue ?? filterProp.value;
-    const brightnessMatch = brightnessSource.match(
-      /brightness\(\s*(\d+(?:\.\d+)?)%\s*\)/,
-    );
-    if (brightnessMatch) {
-      state.enabled = true;
-      state.brightness = parseFloat(brightnessMatch[1]);
-      filterClaimed = true;
-    }
-
-    // Blur — same source priority
-    const blurSource = filterProp.onValue ?? filterProp.offValue ?? filterProp.value;
-    const blurMatch = blurSource.match(/blur\(\s*(\d+(?:\.\d+)?)px\s*\)/);
-    if (blurMatch) {
-      state.enabled = true;
-      state.blur = parseFloat(blurMatch[1]);
-      filterClaimed = true;
-    }
-
-    if (filterClaimed) {
-      claimed.add(claimKey(haCard.selector, 'filter'));
-    }
+    if (filterClaimed) claimed.add(claimKey(haCard.selector, 'filter'));
   }
 
   if (transitionProp) {
-    // Claim transition only when it's a filter/all transition we can round-trip
-    if (
-      transitionProp.value.includes('filter') ||
-      transitionProp.value.includes('all')
-    ) {
+    if (transitionProp.value.includes('filter') || transitionProp.value.includes('all')) {
       const msMatch = transitionProp.value.match(/(\d+)ms/);
       const sMatch = transitionProp.value.match(/(\d*\.?\d+)s(?:\s|$|,)/);
       if (msMatch) {
@@ -195,15 +210,53 @@ function mapIconColor(
   if (!haStateIcon) return { ...DEFAULT_ICON_COLOR };
 
   const colorProp = findProp(haStateIcon, 'color');
-  if (!colorProp?.hasCondition) return { ...DEFAULT_ICON_COLOR };
+  if (!colorProp) return { ...DEFAULT_ICON_COLOR };
 
   claimed.add(claimKey(haStateIcon.selector, 'color'));
 
-  return {
-    enabled: true,
-    colorOn: colorProp.onValue ?? DEFAULT_ICON_COLOR.colorOn,
-    colorOff: colorProp.offValue ?? DEFAULT_ICON_COLOR.colorOff,
-  };
+  if (colorProp.hasCondition && colorProp.onValue && colorProp.offValue) {
+    // Jinja2 on/off conditional — map to conditional mode
+    return {
+      enabled: true,
+      mode: 'conditional',
+      color: colorProp.onValue,
+      colorOn: colorProp.onValue,
+      colorOff: colorProp.offValue,
+    };
+  }
+
+  // Plain static color (e.g. "color: yellow !important" — !important stripped by parser)
+  if (!colorProp.hasCondition && colorProp.value.trim()) {
+    return {
+      enabled: true,
+      mode: 'plain',
+      color: colorProp.value.trim(),
+      colorOn: colorProp.value.trim(),
+      colorOff: DEFAULT_ICON_COLOR.colorOff,
+    };
+  }
+
+  return { ...DEFAULT_ICON_COLOR };
+}
+
+// ---------------------------------------------------------------------------
+// Accent color module
+// ---------------------------------------------------------------------------
+
+function mapAccentColor(
+  haCard: CssTarget | null,
+  claimed: Set<string>,
+): AccentColorModuleState {
+  if (!haCard) return { ...DEFAULT_ACCENT_COLOR };
+
+  const prop = findProp(haCard, '--accent-color');
+  if (!prop || prop.hasCondition) return { ...DEFAULT_ACCENT_COLOR };
+
+  const value = prop.value.trim();
+  if (!value) return { ...DEFAULT_ACCENT_COLOR };
+
+  claimed.add(claimKey(haCard.selector, '--accent-color'));
+  return { enabled: true, color: value };
 }
 
 // ---------------------------------------------------------------------------
@@ -238,12 +291,7 @@ function mapBackground(
 
   if (value && !value.includes('url(') && !value.includes('{{')) {
     claimed.add(claimKey(haCard.selector, 'background'));
-    return {
-      ...DEFAULT_BACKGROUND,
-      enabled: true,
-      type: 'solid',
-      color1: value,
-    };
+    return { ...DEFAULT_BACKGROUND, enabled: true, type: 'solid', color1: value };
   }
 
   return { ...DEFAULT_BACKGROUND };
@@ -275,7 +323,6 @@ function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModule
       /^(\d+)px\s+(solid|dashed|dotted|double|groove|ridge|inset|outset|none)\s+(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)$/i,
     );
     if (match) {
-      // match[1]=width, match[2]=style keyword, match[3]=color
       state.enabled = true;
       state.borderWidth = parseInt(match[1], 10);
       state.borderColor = match[3];
