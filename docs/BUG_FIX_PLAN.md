@@ -1,7 +1,7 @@
 # Card-Mod Studio Bug Fix Plan
 
 **Created:** 2026-05-07
-**Version:** v0.3.7 → v0.4.0
+**Version:** v0.3.7.1 → v0.3.8
 **Status:** ✅ ALL WAVES COMPLETE (9/14 issues resolved, 3 skipped, 2 N/A)
 
 ---
@@ -1191,7 +1191,7 @@ export function suggestThresholdRange(deviceClass?: string): { min: number; max:
 | Wave 3 | Thermostat accent color | ✅ Complete |
 | Wave 4 | Preset colors, Threshold triggers | ✅ Complete |
 
-**Total: 7 bugs fixed, 2 features added**
+**Total: 7 bugs fixed, 2 QoL improvements added**
 
 ---
 
@@ -1277,7 +1277,7 @@ src/
 1. Run `npm run build`
 2. Copy `dist/card-mod-studio.js` to HA's `config/www/` folder
 3. Add resource in HA: Settings → Dashboards → Resources
-4. URL: `/local/card-mod-studio.js?v=0.4.0`
+4. URL: `/local/card-mod-studio.js?v=0.3.8`
 5. Hard refresh browser (Ctrl+Shift+R)
 
 ---
@@ -1286,8 +1286,9 @@ src/
 
 | Version | Date | Changes |
 |---------|------|---------|
-| v0.3.7 | Prior | Initial release with basic modules |
-| v0.4.0 | 2026-05-07 | Bug fixes + Preset colors + Threshold triggers |
+| v0.3.7 | Prior | Phase 4 complete with 7 features |
+| v0.3.7.1 | Prior | README update |
+| v0.3.8 | 2026-05-07 | Bug fixes (7) + QoL improvements (Preset colors, Threshold triggers) |
 
 ---
 
