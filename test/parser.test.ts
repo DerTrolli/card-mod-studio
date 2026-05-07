@@ -463,7 +463,36 @@ describe('mapToStudioState', () => {
     expect(state.accentColor.enabled).toBe(false);
     expect(state.background.enabled).toBe(false);
     expect(state.border.enabled).toBe(false);
+    expect(state.headingStyle.enabled).toBe(false);
     expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('parses heading style: font-size, textColor, alignment from .title p', () => {
+    const css = `.container {\n  justify-content: center;\n}.title p {\n  font-size: 28px;\n  color: #ff0000;\n  text-align: center;\n}.title ha-icon {\n  --mdc-icon-size: 32px;\n  color: #00ff00;\n}`;
+    const parsed = parseCardModConfig({ type: 'heading', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.headingStyle.enabled).toBe(true);
+    expect(state.headingStyle.fontSize).toBe(28);
+    expect(state.headingStyle.textColor).toBe('#ff0000');
+    expect(state.headingStyle.alignment).toBe('center');
+    expect(state.headingStyle.iconSize).toBe(32);
+    expect(state.headingStyle.iconColor).toBe('#00ff00');
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('parses heading alignment from justify-content flex-end → right', () => {
+    const css = `.container {\n  justify-content: flex-end;\n}.title p {\n  font-size: 20px;\n  color: #fff;\n  text-align: right;\n}.title ha-icon {\n  --mdc-icon-size: 20px;\n  color: #fff;\n}`;
+    const parsed = parseCardModConfig({ type: 'heading', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.headingStyle.alignment).toBe('right');
+  });
+
+  it('leaves unrecognised heading properties in advanced rawCss', () => {
+    const css = `.title p {\n  font-size: 24px;\n  color: #e1e1e1;\n  text-align: left;\n  font-weight: bold;\n}`;
+    const parsed = parseCardModConfig({ type: 'heading', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.headingStyle.enabled).toBe(true);
+    expect(state.advanced.rawCss).toContain('font-weight');
   });
 
   it('recognises sensor card pattern: --accent-color + plain icon color', () => {

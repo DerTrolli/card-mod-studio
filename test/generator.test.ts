@@ -13,6 +13,7 @@ import {
   DEFAULT_BACKGROUND,
   DEFAULT_ANIMATION,
   DEFAULT_BORDER,
+  DEFAULT_HEADING_STYLE,
   mapToStudioState,
 } from '../src/parser/state-mapper.js';
 import { parseCardModConfig } from '../src/parser/yaml-parser.js';
@@ -30,6 +31,7 @@ function makeState(overrides: Partial<StudioState> = {}): StudioState {
     background: { ...DEFAULT_BACKGROUND },
     animation: { ...DEFAULT_ANIMATION },
     border: { ...DEFAULT_BORDER },
+    headingStyle: { ...DEFAULT_HEADING_STYLE },
     advanced: { rawCss: '' },
     ...overrides,
   };
@@ -298,6 +300,79 @@ describe('generateCss — animation', () => {
 });
 
 // ---------------------------------------------------------------------------
+// generateCss — heading style module
+// ---------------------------------------------------------------------------
+
+describe('generateCss — heading style', () => {
+  it('emits nothing when disabled', () => {
+    const css = generateCss(makeState({ headingStyle: { ...DEFAULT_HEADING_STYLE, enabled: false } }));
+    expect(css).toBe('');
+  });
+
+  it('emits .title p with font-size, color, text-align', () => {
+    const css = generateCss(
+      makeState({
+        headingStyle: {
+          ...DEFAULT_HEADING_STYLE,
+          enabled: true,
+          fontSize: 28,
+          textColor: '#ff0000',
+          alignment: 'center',
+        },
+      }),
+    );
+    expect(css).toContain('.title p');
+    expect(css).toContain('font-size: 28px;');
+    expect(css).toContain('color: #ff0000;');
+    expect(css).toContain('text-align: center;');
+  });
+
+  it('emits .title ha-icon with --mdc-icon-size and color', () => {
+    const css = generateCss(
+      makeState({
+        headingStyle: {
+          ...DEFAULT_HEADING_STYLE,
+          enabled: true,
+          iconSize: 32,
+          iconColor: '#00ff00',
+        },
+      }),
+    );
+    expect(css).toContain('.title ha-icon');
+    expect(css).toContain('--mdc-icon-size: 32px;');
+    expect(css).toContain('color: #00ff00;');
+  });
+
+  it('emits .container with justify-content for alignment=right', () => {
+    const css = generateCss(
+      makeState({
+        headingStyle: { ...DEFAULT_HEADING_STYLE, enabled: true, alignment: 'right' },
+      }),
+    );
+    expect(css).toContain('.container');
+    expect(css).toContain('justify-content: flex-end;');
+  });
+
+  it('emits justify-content: center for alignment=center', () => {
+    const css = generateCss(
+      makeState({
+        headingStyle: { ...DEFAULT_HEADING_STYLE, enabled: true, alignment: 'center' },
+      }),
+    );
+    expect(css).toContain('justify-content: center;');
+  });
+
+  it('emits justify-content: flex-start for alignment=left', () => {
+    const css = generateCss(
+      makeState({
+        headingStyle: { ...DEFAULT_HEADING_STYLE, enabled: true, alignment: 'left' },
+      }),
+    );
+    expect(css).toContain('justify-content: flex-start;');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // generateCss — advanced rawCss passthrough
 // ---------------------------------------------------------------------------
 
@@ -411,5 +486,27 @@ describe('round-trip', () => {
     expect(generated).toContain('--accent-color: yellow;');
     expect(generated).toContain('color: yellow !important;');
     expect(generated).not.toContain('is_state');
+  });
+
+  it('heading style round-trips with no rawCss', () => {
+    const original =
+      '.container {\n  justify-content: center;\n}\n\n.title p {\n  font-size: 28px;\n  color: #ff0000;\n  text-align: center;\n}\n\n.title ha-icon {\n  --mdc-icon-size: 32px;\n  color: #00ff00;\n}';
+    const parsed = parseCardModConfig({ type: 'heading', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+
+    expect(state.headingStyle.enabled).toBe(true);
+    expect(state.headingStyle.fontSize).toBe(28);
+    expect(state.headingStyle.textColor).toBe('#ff0000');
+    expect(state.headingStyle.iconSize).toBe(32);
+    expect(state.headingStyle.iconColor).toBe('#00ff00');
+    expect(state.headingStyle.alignment).toBe('center');
+    expect(state.advanced.rawCss).toBe('');
+
+    const generated = generateCss(state);
+    expect(generated).toContain('font-size: 28px;');
+    expect(generated).toContain('color: #ff0000;');
+    expect(generated).toContain('--mdc-icon-size: 32px;');
+    expect(generated).toContain('color: #00ff00;');
+    expect(generated).toContain('justify-content: center;');
   });
 });
