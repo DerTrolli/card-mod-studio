@@ -178,7 +178,6 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
   const titlePDecls = [
     `font-size: ${s.fontSize}px;`,
     `color: ${s.textColor} !important;`,
-    `text-align: ${s.alignment} !important;`,
   ];
   const titleP = `.title p {\n${titlePDecls.map((d) => `  ${d}`).join('\n')}\n}`;
 
@@ -189,7 +188,7 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
   const titleIcon = `.title ha-icon {\n${iconDecls.map((d) => `  ${d}`).join('\n')}\n}`;
 
   const alignVal = alignMap[s.alignment] ?? 'flex-start';
-  const container = `.container {\n  justify-content: ${alignVal};\n}`;
+  const container = `.container {\n  justify-content: ${alignVal} !important;\n}`;
 
   return [container, titleP, titleIcon].join('\n\n');
 }

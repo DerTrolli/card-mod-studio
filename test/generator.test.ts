@@ -309,7 +309,7 @@ describe('generateCss — heading style', () => {
     expect(css).toBe('');
   });
 
-  it('emits .title p with font-size, color, text-align', () => {
+  it('emits .title p with font-size and color', () => {
     const css = generateCss(
       makeState({
         headingStyle: {
@@ -324,7 +324,7 @@ describe('generateCss — heading style', () => {
     expect(css).toContain('.title p');
     expect(css).toContain('font-size: 28px;');
     expect(css).toContain('color: #ff0000 !important;');
-    expect(css).toContain('text-align: center !important;');
+    // text-align is NOT emitted — justify-content handles alignment
   });
 
   it('emits .title ha-icon with --mdc-icon-size and color', () => {
@@ -350,7 +350,7 @@ describe('generateCss — heading style', () => {
       }),
     );
     expect(css).toContain('.container');
-    expect(css).toContain('justify-content: flex-end;');
+    expect(css).toContain('justify-content: flex-end !important;');
   });
 
   it('emits justify-content: center for alignment=center', () => {
@@ -359,7 +359,7 @@ describe('generateCss — heading style', () => {
         headingStyle: { ...DEFAULT_HEADING_STYLE, enabled: true, alignment: 'center' },
       }),
     );
-    expect(css).toContain('justify-content: center;');
+    expect(css).toContain('justify-content: center !important;');
   });
 
   it('emits justify-content: flex-start for alignment=left', () => {
@@ -368,7 +368,7 @@ describe('generateCss — heading style', () => {
         headingStyle: { ...DEFAULT_HEADING_STYLE, enabled: true, alignment: 'left' },
       }),
     );
-    expect(css).toContain('justify-content: flex-start;');
+    expect(css).toContain('justify-content: flex-start !important;');
   });
 });
 
@@ -507,6 +507,6 @@ describe('round-trip', () => {
     expect(generated).toContain('color: #ff0000 !important;');
     expect(generated).toContain('--mdc-icon-size: 32px;');
     expect(generated).toContain('color: #00ff00 !important;');
-    expect(generated).toContain('justify-content: center;');
+    expect(generated).toContain('justify-content: center !important;');
   });
 });

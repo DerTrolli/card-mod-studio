@@ -1,5 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
+import { keyed } from 'lit/directives/keyed.js';
 import type {
   CardModCardConfig,
   HomeAssistant,
@@ -75,6 +76,7 @@ export class CmsPanel extends LitElement {
   @state() private _studioState: StudioState | null = null;
   @state() private _previewOpen = true;
   @state() private _previewConfig: CardModCardConfig | undefined = undefined;
+  @state() private _previewKey = 0;
 
   private _lastEmittedConfigJson: string | null = null;
 
@@ -204,6 +206,7 @@ export class CmsPanel extends LitElement {
     const css = generateCss(this._studioState, this.config?.type);
     const newConfig = applyCardModStyle(css, this.config);
     this._previewConfig = newConfig;
+    this._previewKey++;  // Force hui-card to re-create with new config
     this._lastEmittedConfigJson = JSON.stringify(newConfig);
     this.dispatchEvent(
       new CustomEvent('config-changed', {
@@ -360,7 +363,7 @@ export class CmsPanel extends LitElement {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.7</span>
+        <span class="version">v0.3.8</span>
       </div>
 
       ${!this._cardModPresent
@@ -394,7 +397,7 @@ export class CmsPanel extends LitElement {
           ? html`
               <div class="preview-body">
                 ${hasHuiCard
-                  ? html`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`
+                  ? keyed(this._previewKey, html`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`)
                   : html`<p class="preview-unavailable">Preview unavailable — open a card editor first.</p>`}
               </div>
             `
