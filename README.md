@@ -4,8 +4,7 @@ A visual GUI editor for [card-mod](https://github.com/thomasloven/lovelace-card-
 
 Instead of hand-writing YAML + CSS + Jinja2 templates, Card-Mod Studio gives you color pickers, sliders, and animation presets — and generates the correct `card_mod` YAML automatically.
 
-> **Status: Phase 1 — Scaffold & Injection (in development)**
-> The tab injection mechanism is built. Visual style controls are coming in Phase 3.
+> **Current version: v0.3.7**
 
 ---
 
@@ -13,16 +12,31 @@ Instead of hand-writing YAML + CSS + Jinja2 templates, Card-Mod Studio gives you
 
 Card-Mod Studio adds a **"Style" button** to the Home Assistant card editor. Clicking it opens a style panel alongside the native editor where you can visually configure:
 
-| Module | Controls |
-|---|---|
-| Visual Filters | Grayscale when off, brightness, blur, transition speed |
-| Icon Color | Color picker for on/off states |
-| Background | Solid color or gradient + angle |
-| Animation | Pulse, breathe, gradient shift, color fade, blink |
-| Border | Radius slider + optional colored border |
-| Advanced | Raw CSS editor (CodeMirror) for anything else |
+| Module | Controls | Shown for |
+|---|---|---|
+| Heading Style | Font size, text color, icon size, icon color, alignment | `heading` cards only |
+| Visual Filters | Grayscale (always / when on / when off), brightness, blur, transition speed | Most cards |
+| Accent Color | CSS `--accent-color` override | Most cards |
+| Icon Color | Static or on/off conditional color for `ha-state-icon` | Cards with icons |
+| Background | Solid color or gradient + angle, optional state condition | Most cards |
+| Animation | Pulse, breathe, gradient-shift, bounce, blink — always or state-triggered | Most cards |
+| Border | Corner radius + optional colored border | All cards |
+| Advanced CSS | Raw CSS passthrough for anything else | All cards |
 
-All changes are serialized to `card_mod` YAML and saved with the card config through Home Assistant's normal save flow.
+All changes are serialised to `card_mod` YAML and saved with the card config through Home Assistant's normal save flow.
+
+### Card-type awareness
+
+The panel adapts to the card type being edited:
+
+- **Container cards** (`grid`, `vertical-stack`, `horizontal-stack`, `sections`, `conditional`) — shows a redirect banner explaining that styles should be applied to child cards individually
+- **Heading cards** — replaces icon/accent controls with the dedicated Heading Style module
+- **Data-viz / media cards** — hides Animation and Icon Color modules where they have no effect
+- **Picture / iframe cards** — hides Background module
+
+### Live preview
+
+A collapsible live preview of the card is embedded directly in the style panel so you can see your changes without saving first.
 
 ---
 
@@ -51,7 +65,7 @@ Card-Mod Studio **generates** the card-mod YAML. card-mod **applies** it. Both a
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.1.0`
+   - URL: `/local/card-mod-studio.js?v=0.3.7`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -62,7 +76,7 @@ Card-Mod Studio **generates** the card-mod YAML. card-mod **applies** it. Both a
 1. Open any card in edit mode (click the pencil icon)
 2. The card editor opens — look for the **🎨 Style** button in the editor header
 3. Click it to open the style panel
-4. Adjust controls — the YAML is generated and applied on save
+4. Adjust controls — changes are previewed live and applied on save
 5. Click **Save** as normal in the HA editor
 
 ---
@@ -104,6 +118,7 @@ npm install
 npm run build       # one-off build to dist/
 npm run dev         # watch mode — rebuilds on every file save
 npm run typecheck   # TypeScript type checking only
+npm test            # run unit tests (vitest)
 ```
 
 ### Copy to Home Assistant
@@ -122,46 +137,48 @@ Then hard-refresh the browser (Ctrl+Shift+R) and bump the `?v=` query string in 
 edit .ts file → Vite rebuilds (~200ms) → copy to config/www/ → Ctrl+Shift+R in HA
 ```
 
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for a detailed walkthrough.
-
 ---
 
 ## Project structure
 
 ```
 src/
-├── card-mod-studio.ts      Entry point — loaded by HA
+├── card-mod-studio.ts      Entry point — loaded by HA as a Lovelace resource
 ├── editor/
-│   ├── cms-injector.ts     Patches hui-card-element-editor to inject our UI
-│   ├── cms-panel.ts        The Lit-based style panel component
+│   ├── cms-injector.ts     Patches hui-card-element-editor to inject the UI
+│   ├── cms-panel.ts        Main style panel — orchestrates all modules
 │   └── cms-tab.ts          The "Style" button component
-├── modules/                Visual style modules (Phase 3)
-├── generator/              CSS → YAML generation (Phase 4)
-├── parser/                 YAML → internal state parsing (Phase 2)
-├── utils/                  DOM helpers, debounce, HA helpers
-└── types/                  TypeScript interfaces
+├── modules/                Visual style modules (one file per module)
+├── generator/              StudioState → CSS → card_mod YAML
+├── parser/                 card_mod YAML → CSS → StudioState
+├── utils/                  DOM helpers, HA helpers
+└── types/                  Shared TypeScript interfaces
+test/
+├── parser.test.ts          Parser pipeline unit tests (48 tests)
+└── generator.test.ts       Generator pipeline unit tests (41 tests)
 ```
 
 ---
 
-## Implementation phases
+## Implementation status
 
 | Phase | Goal | Status |
 |---|---|---|
-| 1 | Project scaffold + injection | ✅ In progress |
-| 2 | YAML parser (read existing card-mod config) | Planned |
-| 3 | Visual modules (filter, color, background, animation) | Planned |
-| 4 | Config integration (save changes to card) | Planned |
-| 5 | Polish + HACS public submission | Planned |
+| 1 | Project scaffold + tab injection | ✅ Complete |
+| 2 | YAML/CSS parser — read existing card-mod config | ✅ Complete |
+| 3 | Visual modules — filter, icon color, accent color, background, animation, border, advanced CSS | ✅ Complete |
+| 4 | Config integration — generate card_mod YAML and save via HA editor | ✅ Complete |
+| 4.x | Card-type awareness — per-card module visibility, heading card support | ✅ v0.3.7 |
+| 5 | Additional card types (sensor, tile, media enhancements) | In progress |
+| 6 | HACS public submission | Planned |
 
 ---
 
-## Limitations (v1)
+## Limitations
 
-- **No live preview** — changes are visible after save and browser refresh (v2 feature)
-- **card-mod required** — this plugin generates YAML for card-mod, it does not apply CSS itself
-- **Common card types only** — light, button, sensor, tile cards are prioritized; custom cards (Mushroom, Bubble) have varying shadow DOM paths
-- **Conditional CSS only for entity state** — complex Jinja2 logic goes in the Advanced raw CSS editor
+- **card-mod required** — this plugin generates YAML for card-mod; it does not apply CSS itself
+- **Common card types prioritised** — standard HA cards are fully supported; custom cards (Mushroom, Bubble) have varying shadow DOM paths and may need the Advanced CSS editor
+- **Entity-state conditionals only** — the UI supports on/off entity state conditions; complex Jinja2 logic goes in the Advanced CSS editor
 
 ---
 
