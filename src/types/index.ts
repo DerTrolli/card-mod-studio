@@ -153,6 +153,8 @@ export interface ThresholdModuleState {
   property: 'icon-color' | 'background' | 'text-color' | 'accent-color' | 'border-color';
   rules: ThresholdRule[];
   defaultColor: string;
+  /** Border width in px — only used when property === 'border-color'. Defaults to 2. */
+  borderWidth?: number;
 }
 
 /** Aggregate state of the entire Style panel. */

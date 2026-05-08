@@ -1157,6 +1157,9 @@ function mapThreshold(haCard, haStateIcon, claimed) {
     const borderColorProp = findProp(haCard, "border-color");
     if (borderColorProp?.hasCondition && !borderColorProp.onValue)
       candidates.push({ target: haCard, cssProperty: "border-color", thresholdProperty: "border-color" });
+    const borderShorthandProp = findProp(haCard, "border");
+    if (borderShorthandProp?.hasCondition && !borderShorthandProp.onValue)
+      candidates.push({ target: haCard, cssProperty: "border", thresholdProperty: "border-color" });
   }
   if (haStateIcon) {
     const colorProp = findProp(haStateIcon, "color");
@@ -1168,12 +1171,18 @@ function mapThreshold(haCard, haStateIcon, claimed) {
     const parsed = parseThresholdJinja(prop.value);
     if (parsed) {
       claimed.add(claimKey(target.selector, cssProperty));
+      let borderWidth;
+      if (cssProperty === "border") {
+        const bwMatch = prop.value.match(/^(\d+)px/);
+        borderWidth = bwMatch ? parseInt(bwMatch[1], 10) : 2;
+      }
       return {
         enabled: true,
         entityId: parsed.entityId,
         property: thresholdProperty,
         rules: parsed.rules,
-        defaultColor: parsed.defaultColor
+        defaultColor: parsed.defaultColor,
+        ...borderWidth !== void 0 ? { borderWidth } : {}
       };
     }
   }
@@ -1393,7 +1402,7 @@ function thresholdBlock(s2) {
 }`;
     case "border-color":
       return `ha-card {
-  border-color: ${jinja};
+  border: ${s2.borderWidth ?? 2}px solid ${jinja};
 }`;
     default:
       return "";
@@ -2706,6 +2715,25 @@ class ThresholdModule extends i$2 {
           </div>
         </div>
 
+        ${this.state.property === "border-color" ? b`
+              <div class="control-row">
+                <span class="control-label">Border width</span>
+                <div class="control-right">
+                  <input
+                    type="number"
+                    min="1"
+                    max="16"
+                    style="width:60px"
+                    .value=${String(this.state.borderWidth ?? 2)}
+                    @input=${(e2) => this._emit({
+      borderWidth: Math.max(1, parseFloat(e2.target.value) || 2)
+    })}
+                  />
+                  <span class="rule-label">px</span>
+                </div>
+              </div>
+            ` : A}
+
         <div class="rules-container">
           <span class="rules-label">Rules (evaluated top to bottom):</span>
           ${this.state.rules.map((rule, i4) => this._renderRule(rule, i4))}
@@ -3556,7 +3584,7 @@ class CmsPanel extends i$2 {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.11</span>
+        <span class="version">v0.3.12</span>
       </div>
 
       <div class="panel-body ${hasPreview ? "" : "no-preview"}">
@@ -3825,7 +3853,10 @@ function tryExpandDialog(dialog) {
   const haDialog = root.querySelector("ha-dialog");
   if (haDialog) {
     haDialog.style.setProperty("--mdc-dialog-max-height", "92vh");
-    haDialog.style.setProperty("--mdc-dialog-min-height", "60vh");
+  }
+  const cardEditor = root.querySelector("hui-card-element-editor");
+  if (cardEditor) {
+    cardEditor.style.minHeight = "72vh";
   }
 }
 function togglePanel(dialog, active) {
@@ -3929,7 +3960,7 @@ async function startInjector() {
   patchDialogElement(DialogClass);
   injectIntoExistingDialogs();
 }
-const VERSION = "0.3.11";
+const VERSION = "0.3.12";
 if (window.cardModStudio) {
   console.warn(
     `[Card-Mod Studio] Already loaded (v${window.cardModStudio.version}). Skipping load of v${VERSION}. If you see duplicate "Style" buttons, clear your browser cache.`

@@ -255,7 +255,7 @@ function thresholdBlock(s: ThresholdModuleState | undefined): string {
     case 'accent-color':
       return `ha-card {\n  --accent-color: ${jinja};\n}`;
     case 'border-color':
-      return `ha-card {\n  border-color: ${jinja};\n}`;
+      return `ha-card {\n  border: ${s.borderWidth ?? 2}px solid ${jinja};\n}`;
     default:
       return '';
   }

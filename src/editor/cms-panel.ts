@@ -499,7 +499,7 @@ export class CmsPanel extends LitElement {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.11</span>
+        <span class="version">v0.3.12</span>
       </div>
 
       <div class="panel-body ${hasPreview ? '' : 'no-preview'}">

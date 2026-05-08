@@ -191,6 +191,28 @@ export class ThresholdModule extends LitElement {
           </div>
         </div>
 
+        ${this.state.property === 'border-color'
+          ? html`
+              <div class="control-row">
+                <span class="control-label">Border width</span>
+                <div class="control-right">
+                  <input
+                    type="number"
+                    min="1"
+                    max="16"
+                    style="width:60px"
+                    .value=${String(this.state.borderWidth ?? 2)}
+                    @input=${(e: Event) =>
+                      this._emit({
+                        borderWidth: Math.max(1, parseFloat((e.target as HTMLInputElement).value) || 2),
+                      })}
+                  />
+                  <span class="rule-label">px</span>
+                </div>
+              </div>
+            `
+          : nothing}
+
         <div class="rules-container">
           <span class="rules-label">Rules (evaluated top to bottom):</span>
           ${this.state.rules.map((rule, i) => this._renderRule(rule, i))}
