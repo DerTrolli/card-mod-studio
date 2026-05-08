@@ -857,7 +857,6 @@ function mapAnimation(haCard, claimed) {
 function mapToStudioState(parsed) {
   const haCard = findTarget(parsed.targets, "ha-card");
   const haStateIcon = findTarget(parsed.targets, "ha-state-icon");
-  findTarget(parsed.targets, ":host");
   const titleP = findTarget(parsed.targets, ".title p");
   const titleIcon = findTarget(parsed.targets, ".title ha-icon");
   const container = findTarget(parsed.targets, ".container");
@@ -870,7 +869,7 @@ function mapToStudioState(parsed) {
     animation: mapAnimation(haCard, claimed),
     border: mapBorder(haCard, claimed),
     headingStyle: mapHeadingStyle(titleP, titleIcon, container, claimed),
-    threshold: mapThreshold(),
+    threshold: mapThreshold(haCard, haStateIcon, claimed),
     advanced: mapAdvanced(parsed, claimed)
   };
 }
@@ -960,6 +959,17 @@ function mapIconColor(haStateIcon, claimed) {
   const colorProp = findProp(haStateIcon, "color");
   if (!colorProp) return { ...DEFAULT_ICON_COLOR };
   claimed.add(claimKey(haStateIcon.selector, "color"));
+  if (colorProp.hasCondition && colorProp.value.includes("rgb_color")) {
+    const fallbackMatch = colorProp.value.match(/else\s+'([^']+)'/);
+    const colorOff = fallbackMatch ? fallbackMatch[1] : DEFAULT_ICON_COLOR.colorOff;
+    return {
+      enabled: true,
+      mode: "light",
+      color: colorOff,
+      colorOn: colorOff,
+      colorOff
+    };
+  }
   if (colorProp.hasCondition && colorProp.onValue && colorProp.offValue) {
     return {
       enabled: true,
@@ -1109,7 +1119,64 @@ function mapHeadingStyle(titleP, titleIcon, container, claimed) {
   }
   return state;
 }
-function mapThreshold(_haCard, _haStateIcon, _hostTarget, _claimed) {
+function parseThresholdJinja(value) {
+  if (!value.includes("float(0)")) return null;
+  const RULE_RE = /'(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)'\s+if\s+states\('([^']+)'\)\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*([\d.]+(?:\.\d+)?)/g;
+  const DEFAULT_RE = /else\s+'(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)'\s*[)}\s]/;
+  const rules = [];
+  let entityId = "";
+  let idx = 0;
+  let match;
+  while ((match = RULE_RE.exec(value)) !== null) {
+    const [, color, entity, operator, numStr] = match;
+    entityId = entity;
+    rules.push({
+      id: String(idx++),
+      operator,
+      value: parseFloat(numStr),
+      color
+    });
+  }
+  if (rules.length === 0 || !entityId) return null;
+  const defaultMatch = DEFAULT_RE.exec(value);
+  const defaultColor = defaultMatch ? defaultMatch[1] : DEFAULT_THRESHOLD.defaultColor;
+  return { entityId, rules, defaultColor };
+}
+function mapThreshold(haCard, haStateIcon, claimed) {
+  const candidates = [];
+  if (haCard) {
+    const bgProp = findProp(haCard, "background");
+    if (bgProp?.hasCondition && !bgProp.onValue)
+      candidates.push({ target: haCard, cssProperty: "background", thresholdProperty: "background" });
+    const colorProp = findProp(haCard, "color");
+    if (colorProp?.hasCondition && !colorProp.onValue)
+      candidates.push({ target: haCard, cssProperty: "color", thresholdProperty: "text-color" });
+    const accentProp = findProp(haCard, "--accent-color");
+    if (accentProp?.hasCondition && !accentProp.onValue)
+      candidates.push({ target: haCard, cssProperty: "--accent-color", thresholdProperty: "accent-color" });
+    const borderColorProp = findProp(haCard, "border-color");
+    if (borderColorProp?.hasCondition && !borderColorProp.onValue)
+      candidates.push({ target: haCard, cssProperty: "border-color", thresholdProperty: "border-color" });
+  }
+  if (haStateIcon) {
+    const colorProp = findProp(haStateIcon, "color");
+    if (colorProp?.hasCondition && !colorProp.onValue)
+      candidates.push({ target: haStateIcon, cssProperty: "color", thresholdProperty: "icon-color" });
+  }
+  for (const { target, cssProperty, thresholdProperty } of candidates) {
+    const prop = findProp(target, cssProperty);
+    const parsed = parseThresholdJinja(prop.value);
+    if (parsed) {
+      claimed.add(claimKey(target.selector, cssProperty));
+      return {
+        enabled: true,
+        entityId: parsed.entityId,
+        property: thresholdProperty,
+        rules: parsed.rules,
+        defaultColor: parsed.defaultColor
+      };
+    }
+  }
   return { ...DEFAULT_THRESHOLD };
 }
 function mapAdvanced(parsed, claimed) {
@@ -1278,6 +1345,12 @@ function iconColorBlock(s2) {
   color: ${s2.color} !important;
 }`;
   }
+  if (s2.mode === "light") {
+    const jinja = `{{ 'rgb(' ~ (state_attr(config.entity, 'rgb_color') | join(', ')) ~ ')' if is_state(config.entity, 'on') and state_attr(config.entity, 'rgb_color') else '${s2.colorOff}' }}`;
+    return `ha-state-icon {
+  color: ${jinja} !important;
+}`;
+  }
   return `ha-state-icon {
   color: {{ '${s2.colorOn}' if is_state(config.entity, 'on') else '${s2.colorOff}' }} !important;
 }`;
@@ -1285,14 +1358,21 @@ function iconColorBlock(s2) {
 function thresholdBlock(s2) {
   if (!s2 || !s2.enabled || !s2.entityId || s2.rules.length === 0) return "";
   const stateExpr = `states('${s2.entityId}') | float(0)`;
+  const firstOp = s2.rules[0]?.operator ?? ">";
+  const sortedRules = [...s2.rules];
+  if (firstOp === ">" || firstOp === ">=") {
+    sortedRules.sort((a2, b2) => b2.value - a2.value);
+  } else if (firstOp === "<" || firstOp === "<=") {
+    sortedRules.sort((a2, b2) => a2.value - b2.value);
+  }
   let jinja = "{{ ";
-  for (let i4 = 0; i4 < s2.rules.length; i4++) {
-    const rule = s2.rules[i4];
+  for (let i4 = 0; i4 < sortedRules.length; i4++) {
+    const rule = sortedRules[i4];
     if (i4 > 0) jinja += " else (";
     jinja += `'${rule.color}' if ${stateExpr} ${rule.operator} ${rule.value}`;
   }
   jinja += ` else '${s2.defaultColor}'`;
-  jinja += ")".repeat(s2.rules.length - 1);
+  jinja += ")".repeat(sortedRules.length - 1);
   jinja += " }}";
   switch (s2.property) {
     case "icon-color":
@@ -1310,6 +1390,10 @@ function thresholdBlock(s2) {
     case "accent-color":
       return `ha-card {
   --accent-color: ${jinja};
+}`;
+    case "border-color":
+      return `ha-card {
+  border-color: ${jinja};
 }`;
     default:
       return "";
@@ -1769,6 +1853,7 @@ class IconColorModule extends i$2 {
       ...DEFAULT_ICON_COLOR
     };
     this.stateAware = true;
+    this.isLightCard = false;
     this._open = false;
   }
   static {
@@ -1832,6 +1917,9 @@ class IconColorModule extends i$2 {
                     >
                       ON / OFF colors
                     </option>
+                    ${this.isLightCard ? b`<option value="light" ?selected=${effectiveMode === "light"}>
+                          Light color (auto)
+                        </option>` : A}
                   </select>
                 </div>
               </div>
@@ -1846,6 +1934,21 @@ class IconColorModule extends i$2 {
                     @color-changed=${(e2) => this._emit({ color: e2.detail.value })}
                   ></cms-color-picker>
                 </div>
+              </div>
+            ` : effectiveMode === "light" ? b`
+              <div class="control-row">
+                <span class="control-label">Color when OFF</span>
+                <div class="control-right">
+                  <cms-color-picker
+                    .value=${this.state.colorOff}
+                    @color-changed=${(e2) => this._emit({ colorOff: e2.detail.value })}
+                  ></cms-color-picker>
+                </div>
+              </div>
+              <div class="control-row">
+                <span class="control-label" style="font-size:11px;color:var(--secondary-text-color,#9e9e9e)">
+                  When ON: uses the light's actual color automatically
+                </span>
               </div>
             ` : b`
               <div class="control-row">
@@ -1877,6 +1980,9 @@ __decorateClass$9([
 __decorateClass$9([
   n2({ type: Boolean, attribute: "state-aware" })
 ], IconColorModule.prototype, "stateAware");
+__decorateClass$9([
+  n2({ type: Boolean, attribute: "is-light-card" })
+], IconColorModule.prototype, "isLightCard");
 __decorateClass$9([
   r()
 ], IconColorModule.prototype, "_open");
@@ -2593,6 +2699,9 @@ class ThresholdModule extends i$2 {
               <option value="text-color" ?selected=${this.state.property === "text-color"}>
                 Text Color
               </option>
+              <option value="border-color" ?selected=${this.state.property === "border-color"}>
+                Border Color
+              </option>
             </select>
           </div>
         </div>
@@ -3028,7 +3137,6 @@ const NO_ICON_COLOR_TYPES = /* @__PURE__ */ new Set([
   "energy-usage-graph",
   "thermostat",
   "humidifier",
-  "light",
   "alarm-panel",
   "media-control",
   "weather-forecast",
@@ -3091,6 +3199,9 @@ class CmsPanel extends i$2 {
   }
   get _showHeadingStyle() {
     return this.config?.type === "heading";
+  }
+  get _isLightCard() {
+    return this.config?.type === "light";
   }
   get _isStateAware() {
     const entityId = this.config?.entity;
@@ -3324,7 +3435,7 @@ class CmsPanel extends i$2 {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.8.3</span>
+        <span class="version">v0.3.10</span>
       </div>
 
       ${!this._cardModPresent ? b`
@@ -3401,6 +3512,7 @@ class CmsPanel extends i$2 {
             <cms-icon-color-module
               .state=${s2.iconColor}
               ?state-aware=${stateAware}
+              ?is-light-card=${this._isLightCard}
               @state-changed=${this._onIconColorChanged}
             ></cms-icon-color-module>
           ` : A}
@@ -3684,7 +3796,7 @@ async function startInjector() {
   patchDialogElement(DialogClass);
   injectIntoExistingDialogs();
 }
-const VERSION = "0.3.8.3";
+const VERSION = "0.3.10";
 if (window.cardModStudio) {
   console.warn(
     `[Card-Mod Studio] Already loaded (v${window.cardModStudio.version}). Skipping load of v${VERSION}. If you see duplicate "Style" buttons, clear your browser cache.`
