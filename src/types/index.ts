@@ -24,6 +24,9 @@ export interface HomeAssistant {
   themes: unknown;
   user: { name: string; is_admin: boolean };
   callService(domain: string, service: string, data?: Record<string, unknown>): Promise<void>;
+  connection: {
+    sendMessagePromise(msg: Record<string, unknown>): Promise<unknown>;
+  };
 }
 
 export interface LovelaceCardConfig {

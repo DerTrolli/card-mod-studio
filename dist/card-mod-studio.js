@@ -616,6 +616,48 @@ function isCardModInstalled() {
   return customElements.get("card-mod") !== void 0;
 }
 const HA_DIALOG_ELEMENT = "hui-dialog-edit-card";
+const HA_KEY = "cms_presets";
+const LS_KEY = "cms-presets";
+function hassAvailable(hass) {
+  return !!hass?.connection?.sendMessagePromise;
+}
+async function loadPresets(hass) {
+  if (hassAvailable(hass)) {
+    try {
+      const result = await hass.connection.sendMessagePromise({
+        type: "frontend/get_user_data",
+        key: HA_KEY
+      });
+      const value = result?.value;
+      if (Array.isArray(value)) return value;
+    } catch (err) {
+      console.warn("[Card-Mod Studio] Preset load from HA failed, using localStorage:", err);
+    }
+  }
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+async function savePresets(presets, hass) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(presets));
+  } catch {
+  }
+  if (hassAvailable(hass)) {
+    try {
+      await hass.connection.sendMessagePromise({
+        type: "frontend/set_user_data",
+        key: HA_KEY,
+        value: presets
+      });
+    } catch (err) {
+      console.warn("[Card-Mod Studio] Preset sync to HA failed (saved to localStorage only):", err);
+    }
+  }
+}
 const PLACEHOLDER_PREFIX = "__CMS_J";
 const PLACEHOLDER_SUFFIX = "__";
 function extractJinja(css) {
@@ -3181,7 +3223,6 @@ const NO_ICON_COLOR_TYPES = /* @__PURE__ */ new Set([
   "picture-entity",
   "heading"
 ]);
-const PRESETS_KEY = "cms-presets";
 class CmsPanel extends i$2 {
   constructor() {
     super(...arguments);
@@ -3196,13 +3237,20 @@ class CmsPanel extends i$2 {
   connectedCallback() {
     super.connectedCallback();
     this._cardModPresent = isCardModInstalled();
-    this._loadPresetsFromStorage();
+    void loadPresets(void 0).then((p2) => {
+      this._presets = p2;
+    });
   }
   updated(changed) {
     super.updated(changed);
     if (changed.has("config") || changed.has("hass")) {
       this._initState();
       this._previewConfig = void 0;
+    }
+    if (changed.has("hass") && this.hass && !changed.get("hass")) {
+      void loadPresets(this.hass).then((p2) => {
+        this._presets = p2;
+      });
     }
   }
   _initState() {
@@ -3330,21 +3378,6 @@ class CmsPanel extends i$2 {
   // ---------------------------------------------------------------------------
   // Preset management
   // ---------------------------------------------------------------------------
-  _loadPresetsFromStorage() {
-    try {
-      const raw = localStorage.getItem(PRESETS_KEY);
-      this._presets = raw ? JSON.parse(raw) : [];
-    } catch {
-      this._presets = [];
-    }
-  }
-  _persistPresets(presets) {
-    try {
-      localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
-    } catch {
-    }
-    this._presets = presets;
-  }
   _saveCurrentAsPreset() {
     if (!this._studioState) return;
     const name = window.prompt("Preset name:");
@@ -3354,8 +3387,9 @@ class CmsPanel extends i$2 {
       ...this._presets.filter((p2) => p2.name !== trimmed),
       { name: trimmed, state: { ...this._studioState } }
     ];
-    this._persistPresets(updated);
+    this._presets = updated;
     this._selectedPreset = trimmed;
+    void savePresets(updated, this.hass);
   }
   _onPresetSelect(e2) {
     const name = e2.target.value;
@@ -3369,8 +3403,9 @@ class CmsPanel extends i$2 {
   _deleteSelectedPreset() {
     if (!this._selectedPreset) return;
     const updated = this._presets.filter((p2) => p2.name !== this._selectedPreset);
-    this._persistPresets(updated);
+    this._presets = updated;
     this._selectedPreset = "";
+    void savePresets(updated, this.hass);
   }
   static {
     this.styles = i$5`
@@ -3584,7 +3619,7 @@ class CmsPanel extends i$2 {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.12</span>
+        <span class="version">v0.3.13</span>
       </div>
 
       <div class="panel-body ${hasPreview ? "" : "no-preview"}">
@@ -3960,7 +3995,7 @@ async function startInjector() {
   patchDialogElement(DialogClass);
   injectIntoExistingDialogs();
 }
-const VERSION = "0.3.12";
+const VERSION = "0.3.13";
 if (window.cardModStudio) {
   console.warn(
     `[Card-Mod Studio] Already loaded (v${window.cardModStudio.version}). Skipping load of v${VERSION}. If you see duplicate "Style" buttons, clear your browser cache.`
