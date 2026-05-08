@@ -61,7 +61,7 @@ const NO_BACKGROUND_TYPES = new Set([
 const NO_ICON_COLOR_TYPES = new Set([
   'gauge', 'history-graph', 'statistics-graph', 'statistic',
   'energy-distribution', 'energy-usage-graph',
-  'thermostat', 'humidifier', 'light', 'alarm-panel',
+  'thermostat', 'humidifier', 'alarm-panel',
   'media-control', 'weather-forecast', 'calendar', 'logbook', 'activity',
   'markdown', 'map', 'iframe', 'webpage', 'shopping-list', 'todo-list',
   'picture', 'picture-entity',
@@ -124,6 +124,10 @@ export class CmsPanel extends LitElement {
 
   private get _showHeadingStyle(): boolean {
     return this.config?.type === 'heading';
+  }
+
+  private get _isLightCard(): boolean {
+    return this.config?.type === 'light';
   }
 
   private get _isStateAware(): boolean {
@@ -363,7 +367,7 @@ export class CmsPanel extends LitElement {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.9</span>
+        <span class="version">v0.3.10</span>
       </div>
 
       ${!this._cardModPresent
@@ -457,6 +461,7 @@ export class CmsPanel extends LitElement {
             <cms-icon-color-module
               .state=${s.iconColor}
               ?state-aware=${stateAware}
+              ?is-light-card=${this._isLightCard}
               @state-changed=${this._onIconColorChanged}
             ></cms-icon-color-module>
           `

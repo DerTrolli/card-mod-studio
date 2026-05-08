@@ -12,6 +12,8 @@ export class IconColorModule extends LitElement {
 
   /** When false the card has no binary entity state (e.g. sensor cards). */
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
+  /** When true a third "Light color" mode is offered that reads rgb_color attribute. */
+  @property({ type: Boolean, attribute: 'is-light-card' }) isLightCard = false;
 
   @state() private _open = false;
 
@@ -74,7 +76,8 @@ export class IconColorModule extends LitElement {
                       this._emit({
                         mode: (e.target as HTMLSelectElement).value as
                           | 'plain'
-                          | 'conditional',
+                          | 'conditional'
+                          | 'light',
                       })}
                   >
                     <option value="plain" ?selected=${effectiveMode === 'plain'}>
@@ -86,6 +89,11 @@ export class IconColorModule extends LitElement {
                     >
                       ON / OFF colors
                     </option>
+                    ${this.isLightCard
+                      ? html`<option value="light" ?selected=${effectiveMode === 'light'}>
+                          Light color (auto)
+                        </option>`
+                      : nothing}
                   </select>
                 </div>
               </div>
@@ -103,6 +111,24 @@ export class IconColorModule extends LitElement {
                       this._emit({ color: e.detail.value })}
                   ></cms-color-picker>
                 </div>
+              </div>
+            `
+          : effectiveMode === 'light'
+          ? html`
+              <div class="control-row">
+                <span class="control-label">Color when OFF</span>
+                <div class="control-right">
+                  <cms-color-picker
+                    .value=${this.state.colorOff}
+                    @color-changed=${(e: CustomEvent) =>
+                      this._emit({ colorOff: e.detail.value })}
+                  ></cms-color-picker>
+                </div>
+              </div>
+              <div class="control-row">
+                <span class="control-label" style="font-size:11px;color:var(--secondary-text-color,#9e9e9e)">
+                  When ON: uses the light's actual color automatically
+                </span>
               </div>
             `
           : html`

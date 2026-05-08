@@ -200,6 +200,14 @@ function iconColorBlock(s: IconColorModuleState): string {
     return `ha-state-icon {\n  color: ${s.color} !important;\n}`;
   }
 
+  if (s.mode === 'light') {
+    const jinja =
+      `{{ 'rgb(' ~ (state_attr(config.entity, 'rgb_color') | join(', ')) ~ ')' ` +
+      `if is_state(config.entity, 'on') and state_attr(config.entity, 'rgb_color') ` +
+      `else '${s.colorOff}' }}`;
+    return `ha-state-icon {\n  color: ${jinja} !important;\n}`;
+  }
+
   // Conditional mode
   return (
     `ha-state-icon {\n` +

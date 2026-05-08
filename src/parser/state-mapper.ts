@@ -298,6 +298,19 @@ function mapIconColor(
 
   claimed.add(claimKey(haStateIcon.selector, 'color'));
 
+  // Light mode — contains rgb_color attribute access
+  if (colorProp.hasCondition && colorProp.value.includes('rgb_color')) {
+    const fallbackMatch = colorProp.value.match(/else\s+'([^']+)'/);
+    const colorOff = fallbackMatch ? fallbackMatch[1] : DEFAULT_ICON_COLOR.colorOff;
+    return {
+      enabled: true,
+      mode: 'light',
+      color: colorOff,
+      colorOn: colorOff,
+      colorOff,
+    };
+  }
+
   if (colorProp.hasCondition && colorProp.onValue && colorProp.offValue) {
     // Jinja2 on/off conditional — map to conditional mode
     return {
