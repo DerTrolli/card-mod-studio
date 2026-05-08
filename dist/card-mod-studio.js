@@ -3153,19 +3153,22 @@ const NO_ICON_COLOR_TYPES = /* @__PURE__ */ new Set([
   "picture-entity",
   "heading"
 ]);
+const PRESETS_KEY = "cms-presets";
 class CmsPanel extends i$2 {
   constructor() {
     super(...arguments);
     this._cardModPresent = false;
     this._studioState = null;
-    this._previewOpen = true;
     this._previewConfig = void 0;
     this._previewKey = 0;
+    this._presets = [];
+    this._selectedPreset = "";
     this._lastEmittedConfigJson = null;
   }
   connectedCallback() {
     super.connectedCallback();
     this._cardModPresent = isCardModInstalled();
+    this._loadPresetsFromStorage();
   }
   updated(changed) {
     super.updated(changed);
@@ -3185,6 +3188,9 @@ class CmsPanel extends i$2 {
     const parsed = parseCardModConfig(this.config);
     this._studioState = mapToStudioState(parsed);
   }
+  // ---------------------------------------------------------------------------
+  // Card-type helpers
+  // ---------------------------------------------------------------------------
   get _isContainerCard() {
     return CONTAINER_CARD_TYPES.has(this.config?.type ?? "");
   }
@@ -3293,61 +3299,180 @@ class CmsPanel extends i$2 {
       })
     );
   }
+  // ---------------------------------------------------------------------------
+  // Preset management
+  // ---------------------------------------------------------------------------
+  _loadPresetsFromStorage() {
+    try {
+      const raw = localStorage.getItem(PRESETS_KEY);
+      this._presets = raw ? JSON.parse(raw) : [];
+    } catch {
+      this._presets = [];
+    }
+  }
+  _persistPresets(presets) {
+    try {
+      localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
+    } catch {
+    }
+    this._presets = presets;
+  }
+  _saveCurrentAsPreset() {
+    if (!this._studioState) return;
+    const name = window.prompt("Preset name:");
+    if (!name?.trim()) return;
+    const trimmed = name.trim();
+    const updated = [
+      ...this._presets.filter((p2) => p2.name !== trimmed),
+      { name: trimmed, state: { ...this._studioState } }
+    ];
+    this._persistPresets(updated);
+    this._selectedPreset = trimmed;
+  }
+  _onPresetSelect(e2) {
+    const name = e2.target.value;
+    this._selectedPreset = name;
+    if (!name) return;
+    const preset = this._presets.find((p2) => p2.name === name);
+    if (!preset) return;
+    this._studioState = { ...preset.state };
+    this._emitConfigChanged();
+  }
+  _deleteSelectedPreset() {
+    if (!this._selectedPreset) return;
+    const updated = this._presets.filter((p2) => p2.name !== this._selectedPreset);
+    this._persistPresets(updated);
+    this._selectedPreset = "";
+  }
   static {
     this.styles = i$5`
     :host {
-      display: block;
+      display: flex;
+      flex-direction: column;
       position: absolute;
       inset: 0;
       z-index: 10;
-      overflow-y: auto;
-      padding: 16px;
       background: var(--card-background-color, var(--ha-card-background, #1c1c1c));
       font-family: var(--primary-font-family, sans-serif);
       color: var(--primary-text-color, #e1e1e1);
       box-sizing: border-box;
+      overflow: hidden;
     }
 
+    /* ---- Header ---- */
+
     .header {
+      flex-shrink: 0;
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
+      padding: 10px 16px;
       border-bottom: 1px solid var(--divider-color, #383838);
     }
 
-    .header h2 { margin: 0; font-size: 18px; font-weight: 500; }
+    .header h2 { margin: 0; font-size: 16px; font-weight: 500; }
     .header .version {
       font-size: 11px;
       color: var(--secondary-text-color, #9e9e9e);
       margin-left: auto;
     }
 
+    /* ---- Two-column body ---- */
+
+    .panel-body {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .panel-body.no-preview {
+      grid-template-columns: 1fr;
+    }
+
+    /* ---- Left column: modules ---- */
+
+    .modules-col {
+      overflow-y: auto;
+      padding: 10px 14px 16px;
+      min-width: 0;
+    }
+
+    /* ---- Preset bar ---- */
+
+    .preset-bar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--divider-color, #383838);
+    }
+
+    .preset-bar select {
+      flex: 1;
+      min-width: 0;
+      padding: 5px 8px;
+      font-size: 12px;
+      background: var(--card-background-color, #1c1c1c);
+      color: var(--primary-text-color, #e1e1e1);
+      border: 1px solid var(--divider-color, #383838);
+      border-radius: 4px;
+    }
+
+    .btn-preset-save {
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      background: rgba(33, 150, 243, 0.15);
+      color: #2196f3;
+      border: 1px solid rgba(33, 150, 243, 0.3);
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .btn-preset-save:hover { background: rgba(33, 150, 243, 0.25); }
+
+    .btn-preset-delete {
+      padding: 5px 8px;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      background: rgba(255, 0, 0, 0.12);
+      color: #ff6b6b;
+      border: 1px solid rgba(255, 0, 0, 0.25);
+      border-radius: 4px;
+    }
+
+    .btn-preset-delete:hover { background: rgba(255, 0, 0, 0.22); }
+
+    /* ---- Banners ---- */
+
     .warning-banner {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 10px 12px;
+      padding: 8px 12px;
       border-radius: 8px;
       background: rgba(255, 152, 0, 0.15);
       border: 1px solid #ff9800;
       color: #ff9800;
-      font-size: 13px;
-      margin-bottom: 16px;
+      font-size: 12px;
+      margin-bottom: 10px;
     }
 
     .info-banner {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 12px;
+      padding: 7px 12px;
       border-radius: 8px;
       background: rgba(33, 150, 243, 0.1);
       border: 1px solid #2196F3;
       color: #2196F3;
       font-size: 12px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .no-config {
@@ -3359,65 +3484,15 @@ class CmsPanel extends i$2 {
       font-size: 13px;
     }
 
-    /* ---- Embedded live preview ---- */
-
-    .preview-section {
-      border: 1px solid var(--divider-color, #383838);
-      border-radius: 8px;
-      overflow: hidden;
-      margin-bottom: 16px;
-    }
-
-    .preview-toggle {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 14px;
-      background: rgba(255, 255, 255, 0.04);
-      cursor: pointer;
-      user-select: none;
-      font-size: 12px;
-      color: var(--secondary-text-color, #9e9e9e);
-      transition: background 0.15s ease;
-    }
-
-    .preview-toggle:hover {
-      background: rgba(255, 255, 255, 0.08);
-    }
-
-    .preview-chevron { font-size: 9px; }
-
-    .preview-body {
-      padding: 12px;
-      border-top: 1px solid var(--divider-color, #383838);
-      background: var(--lovelace-background, #111111);
-      display: flex;
-      justify-content: center;
-      /* Prevent accidentally clicking interactive card elements */
-      pointer-events: none;
-    }
-
-    .preview-body hui-card {
-      width: 100%;
-      pointer-events: none;
-    }
-
-    .preview-unavailable {
-      font-size: 11px;
-      color: var(--secondary-text-color, #9e9e9e);
-      text-align: center;
-      margin: 8px 0;
-    }
-
     .container-banner {
-      padding: 12px 14px;
+      padding: 10px 14px;
       border-radius: 8px;
       background: rgba(156, 39, 176, 0.12);
       border: 1px solid #9c27b0;
       color: #ce93d8;
-      font-size: 13px;
+      font-size: 12px;
       line-height: 1.5;
-      margin-bottom: 16px;
+      margin-bottom: 10px;
     }
 
     .container-banner strong {
@@ -3425,52 +3500,115 @@ class CmsPanel extends i$2 {
       margin-bottom: 4px;
       color: #e1bee7;
     }
+
+    /* ---- Right column: preview ---- */
+
+    .preview-col {
+      border-left: 1px solid var(--divider-color, #383838);
+      padding: 10px 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .preview-col-label {
+      flex-shrink: 0;
+      font-size: 11px;
+      color: var(--secondary-text-color, #9e9e9e);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .preview-card-wrapper {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      background: var(--lovelace-background, #111111);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 0;
+      /* Prevent clicking live card elements */
+      pointer-events: none;
+    }
+
+    .preview-card-wrapper hui-card {
+      width: 100%;
+    }
+
+    .preview-unavailable {
+      font-size: 11px;
+      color: var(--secondary-text-color, #9e9e9e);
+      text-align: center;
+      margin: auto;
+    }
   `;
   }
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
   render() {
+    const hasPreview = !!(this.config && this.hass);
     return b`
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.10</span>
+        <span class="version">v0.3.11</span>
       </div>
 
-      ${!this._cardModPresent ? b`
-            <div class="warning-banner">
-              ⚠️ card-mod not detected — install card-mod first or styles won't apply.
-            </div>
-          ` : A}
+      <div class="panel-body ${hasPreview ? "" : "no-preview"}">
+        <div class="modules-col">
+          ${!this._cardModPresent ? b`<div class="warning-banner">
+                ⚠️ card-mod not detected — install card-mod first or styles won't apply.
+              </div>` : A}
 
-      ${this._studioState ? this._renderModules(this._studioState) : b`<div class="no-config">No card selected.</div>`}
-    `;
-  }
-  _renderPreview() {
-    if (!this.config || !this.hass) return A;
-    const hasHuiCard = Boolean(customElements.get("hui-card"));
-    const previewConfig = this._previewConfig ?? this.config;
-    return b`
-      <div class="preview-section">
-        <div
-          class="preview-toggle"
-          @click=${() => {
-      this._previewOpen = !this._previewOpen;
-    }}
-        >
-          <span class="preview-chevron">${this._previewOpen ? "▼" : "▶"}</span>
-          <span>Live Preview</span>
+          ${this._studioState ? b`
+                ${this._renderPresetBar()}
+                ${this._renderModuleList(this._studioState)}
+              ` : b`<div class="no-config">No card selected.</div>`}
         </div>
-        ${this._previewOpen ? b`
-              <div class="preview-body">
-                ${hasHuiCard ? i3(this._previewKey, b`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`) : b`<p class="preview-unavailable">Preview unavailable — open a card editor first.</p>`}
+
+        ${hasPreview ? b`
+              <div class="preview-col">
+                <span class="preview-col-label">Preview</span>
+                <div class="preview-card-wrapper">
+                  ${this._renderPreviewContent()}
+                </div>
               </div>
             ` : A}
       </div>
     `;
   }
-  _renderModules(s2) {
+  _renderPreviewContent() {
+    if (!this.config || !this.hass) return A;
+    const hasHuiCard = Boolean(customElements.get("hui-card"));
+    if (!hasHuiCard) {
+      return b`<p class="preview-unavailable">Preview unavailable — open a card editor first.</p>`;
+    }
+    const previewConfig = this._previewConfig ?? this.config;
+    return i3(
+      this._previewKey,
+      b`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`
+    );
+  }
+  _renderPresetBar() {
+    return b`
+      <div class="preset-bar">
+        <select .value=${this._selectedPreset} @change=${this._onPresetSelect}>
+          <option value="">📋 Load preset…</option>
+          ${this._presets.map(
+      (p2) => b`<option value=${p2.name} ?selected=${p2.name === this._selectedPreset}>${p2.name}</option>`
+    )}
+        </select>
+        ${this._selectedPreset ? b`<button class="btn-preset-delete" title="Delete preset" @click=${this._deleteSelectedPreset}>×</button>` : A}
+        <button class="btn-preset-save" @click=${this._saveCurrentAsPreset}>💾 Save</button>
+      </div>
+    `;
+  }
+  _renderModuleList(s2) {
     if (this._isContainerCard) {
       return this._renderContainerCard(s2);
     }
@@ -3481,41 +3619,31 @@ class CmsPanel extends i$2 {
     const showHeadingStyle = this._showHeadingStyle;
     const hasUnrecognisedCss = !!s2.advanced.rawCss.trim();
     return b`
-      ${this._renderPreview()}
+      ${hasUnrecognisedCss ? b`<div class="info-banner">
+            ℹ️ Some existing styles weren't recognised — preserved in Advanced CSS.
+          </div>` : A}
 
-      ${hasUnrecognisedCss ? b`
-            <div class="info-banner">
-              ℹ️ Some existing styles weren't recognised — they're preserved in Advanced CSS.
-            </div>
-          ` : A}
-
-      ${showHeadingStyle ? b`
-            <cms-heading-style-module
-              .state=${s2.headingStyle}
-              @state-changed=${this._onHeadingStyleChanged}
-            ></cms-heading-style-module>
-          ` : A}
+      ${showHeadingStyle ? b`<cms-heading-style-module
+            .state=${s2.headingStyle}
+            @state-changed=${this._onHeadingStyleChanged}
+          ></cms-heading-style-module>` : A}
 
       <cms-filter-module
         .state=${s2.filter}
         @state-changed=${this._onFilterChanged}
       ></cms-filter-module>
 
-      ${!showHeadingStyle ? b`
-            <cms-accent-color-module
-              .state=${s2.accentColor}
-              @state-changed=${this._onAccentColorChanged}
-            ></cms-accent-color-module>
-          ` : A}
+      ${!showHeadingStyle ? b`<cms-accent-color-module
+            .state=${s2.accentColor}
+            @state-changed=${this._onAccentColorChanged}
+          ></cms-accent-color-module>` : A}
 
-      ${showIconColor ? b`
-            <cms-icon-color-module
-              .state=${s2.iconColor}
-              ?state-aware=${stateAware}
-              ?is-light-card=${this._isLightCard}
-              @state-changed=${this._onIconColorChanged}
-            ></cms-icon-color-module>
-          ` : A}
+      ${showIconColor ? b`<cms-icon-color-module
+            .state=${s2.iconColor}
+            ?state-aware=${stateAware}
+            ?is-light-card=${this._isLightCard}
+            @state-changed=${this._onIconColorChanged}
+          ></cms-icon-color-module>` : A}
 
       <cms-threshold-module
         .state=${s2.threshold}
@@ -3523,19 +3651,15 @@ class CmsPanel extends i$2 {
         @state-changed=${this._onThresholdChanged}
       ></cms-threshold-module>
 
-      ${showBackground ? b`
-            <cms-background-module
-              .state=${s2.background}
-              @state-changed=${this._onBackgroundChanged}
-            ></cms-background-module>
-          ` : A}
+      ${showBackground ? b`<cms-background-module
+            .state=${s2.background}
+            @state-changed=${this._onBackgroundChanged}
+          ></cms-background-module>` : A}
 
-      ${showAnimation ? b`
-            <cms-animation-module
-              .state=${s2.animation}
-              @state-changed=${this._onAnimationChanged}
-            ></cms-animation-module>
-          ` : A}
+      ${showAnimation ? b`<cms-animation-module
+            .state=${s2.animation}
+            @state-changed=${this._onAnimationChanged}
+          ></cms-animation-module>` : A}
 
       <cms-border-module
         .state=${s2.border}
@@ -3553,8 +3677,6 @@ class CmsPanel extends i$2 {
     const cardType = this.config?.type ?? "layout";
     const hasUnrecognisedCss = !!s2.advanced.rawCss.trim();
     return b`
-      ${this._renderPreview()}
-
       <div class="container-banner">
         <strong>🗂️ Layout card — style the child cards</strong>
         "${cardType}" is a container. Card-mod styles applied here have no
@@ -3562,11 +3684,9 @@ class CmsPanel extends i$2 {
         button there.
       </div>
 
-      ${hasUnrecognisedCss ? b`
-            <div class="info-banner">
-              ℹ️ Some existing styles weren't recognised — they're preserved in Advanced CSS.
-            </div>
-          ` : A}
+      ${hasUnrecognisedCss ? b`<div class="info-banner">
+            ℹ️ Some existing styles weren't recognised — preserved in Advanced CSS.
+          </div>` : A}
 
       <cms-border-module
         .state=${s2.border}
@@ -3595,13 +3715,16 @@ __decorateClass$1([
 ], CmsPanel.prototype, "_studioState");
 __decorateClass$1([
   r()
-], CmsPanel.prototype, "_previewOpen");
-__decorateClass$1([
-  r()
 ], CmsPanel.prototype, "_previewConfig");
 __decorateClass$1([
   r()
 ], CmsPanel.prototype, "_previewKey");
+__decorateClass$1([
+  r()
+], CmsPanel.prototype, "_presets");
+__decorateClass$1([
+  r()
+], CmsPanel.prototype, "_selectedPreset");
 customElements.define("cms-panel", CmsPanel);
 var __defProp = Object.defineProperty;
 var __decorateClass = (decorators, target, key, kind) => {
@@ -3696,11 +3819,21 @@ function getPanelHost(dialog) {
   const cardEditor = root.querySelector("hui-card-element-editor");
   return cardEditor?.shadowRoot ?? root;
 }
+function tryExpandDialog(dialog) {
+  const root = dialog.shadowRoot;
+  if (!root) return;
+  const haDialog = root.querySelector("ha-dialog");
+  if (haDialog) {
+    haDialog.style.setProperty("--mdc-dialog-max-height", "92vh");
+    haDialog.style.setProperty("--mdc-dialog-min-height", "60vh");
+  }
+}
 function togglePanel(dialog, active) {
   const host = getPanelHost(dialog);
   if (!host) return;
   let panel = host.getElementById(CMS_PANEL_ID);
   if (active) {
+    tryExpandDialog(dialog);
     if (!panel) {
       panel = document.createElement("cms-panel");
       panel.id = CMS_PANEL_ID;
@@ -3796,7 +3929,7 @@ async function startInjector() {
   patchDialogElement(DialogClass);
   injectIntoExistingDialogs();
 }
-const VERSION = "0.3.10";
+const VERSION = "0.3.11";
 if (window.cardModStudio) {
   console.warn(
     `[Card-Mod Studio] Already loaded (v${window.cardModStudio.version}). Skipping load of v${VERSION}. If you see duplicate "Style" buttons, clear your browser cache.`

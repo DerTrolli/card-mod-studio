@@ -64,6 +64,20 @@ function getPanelHost(dialog: HuiDialogEditCard): ShadowRoot | null {
   return cardEditor?.shadowRoot ?? root;
 }
 
+/**
+ * Attempts to expand the HA dialog to use more vertical space.
+ * Sets --mdc-dialog-max-height on the ha-dialog element inside the shadow root.
+ */
+function tryExpandDialog(dialog: HuiDialogEditCard): void {
+  const root = dialog.shadowRoot;
+  if (!root) return;
+  const haDialog = root.querySelector('ha-dialog') as HTMLElement | null;
+  if (haDialog) {
+    haDialog.style.setProperty('--mdc-dialog-max-height', '92vh');
+    haDialog.style.setProperty('--mdc-dialog-min-height', '60vh');
+  }
+}
+
 function togglePanel(dialog: HuiDialogEditCard, active: boolean): void {
   const host = getPanelHost(dialog);
   if (!host) return;
@@ -73,6 +87,7 @@ function togglePanel(dialog: HuiDialogEditCard, active: boolean): void {
     | null;
 
   if (active) {
+    tryExpandDialog(dialog);
     if (!panel) {
       panel = document.createElement('cms-panel') as import('./cms-panel.js').CmsPanel;
       panel.id = CMS_PANEL_ID;

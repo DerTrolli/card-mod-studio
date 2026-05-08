@@ -41,7 +41,6 @@ const CONTAINER_CARD_TYPES = new Set([
   'grid', 'vertical-stack', 'horizontal-stack', 'sections', 'conditional',
 ]);
 
-// Cards where animating ha-card makes no sense (data viz, complex UI, picture).
 const NO_ANIMATION_TYPES = new Set([
   'gauge', 'history-graph', 'statistics-graph', 'statistic',
   'energy-distribution', 'energy-usage-graph',
@@ -51,13 +50,11 @@ const NO_ANIMATION_TYPES = new Set([
   'heading', 'picture', 'picture-entity', 'picture-glance', 'picture-elements',
 ]);
 
-// Cards where background styling is irrelevant (image fills card, or iframe).
 const NO_BACKGROUND_TYPES = new Set([
   'picture', 'picture-entity', 'picture-glance', 'picture-elements',
   'iframe', 'webpage', 'map',
 ]);
 
-// Cards where ha-state-icon is absent — Icon Color module is hidden.
 const NO_ICON_COLOR_TYPES = new Set([
   'gauge', 'history-graph', 'statistics-graph', 'statistic',
   'energy-distribution', 'energy-usage-graph',
@@ -68,21 +65,30 @@ const NO_ICON_COLOR_TYPES = new Set([
   'heading',
 ]);
 
+interface StylePreset {
+  name: string;
+  state: StudioState;
+}
+
+const PRESETS_KEY = 'cms-presets';
+
 export class CmsPanel extends LitElement {
   @property({ attribute: false }) config?: CardModCardConfig;
   @property({ attribute: false }) hass?: HomeAssistant;
 
   @state() private _cardModPresent = false;
   @state() private _studioState: StudioState | null = null;
-  @state() private _previewOpen = true;
   @state() private _previewConfig: CardModCardConfig | undefined = undefined;
   @state() private _previewKey = 0;
+  @state() private _presets: StylePreset[] = [];
+  @state() private _selectedPreset = '';
 
   private _lastEmittedConfigJson: string | null = null;
 
   override connectedCallback() {
     super.connectedCallback();
     this._cardModPresent = isCardModInstalled();
+    this._loadPresetsFromStorage();
   }
 
   override updated(changed: Map<PropertyKey, unknown>) {
@@ -105,6 +111,10 @@ export class CmsPanel extends LitElement {
     const parsed = parseCardModConfig(this.config);
     this._studioState = mapToStudioState(parsed);
   }
+
+  // ---------------------------------------------------------------------------
+  // Card-type helpers
+  // ---------------------------------------------------------------------------
 
   private get _isContainerCard(): boolean {
     return CONTAINER_CARD_TYPES.has(this.config?.type ?? '');
@@ -210,7 +220,7 @@ export class CmsPanel extends LitElement {
     const css = generateCss(this._studioState, this.config?.type);
     const newConfig = applyCardModStyle(css, this.config);
     this._previewConfig = newConfig;
-    this._previewKey++;  // Force hui-card to re-create with new config
+    this._previewKey++;
     this._lastEmittedConfigJson = JSON.stringify(newConfig);
     this.dispatchEvent(
       new CustomEvent('config-changed', {
@@ -222,63 +232,189 @@ export class CmsPanel extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
+  // Preset management
+  // ---------------------------------------------------------------------------
+
+  private _loadPresetsFromStorage() {
+    try {
+      const raw = localStorage.getItem(PRESETS_KEY);
+      this._presets = raw ? (JSON.parse(raw) as StylePreset[]) : [];
+    } catch {
+      this._presets = [];
+    }
+  }
+
+  private _persistPresets(presets: StylePreset[]) {
+    try {
+      localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
+    } catch {
+      // localStorage quota exceeded or unavailable — silently ignore
+    }
+    this._presets = presets;
+  }
+
+  private _saveCurrentAsPreset() {
+    if (!this._studioState) return;
+    const name = window.prompt('Preset name:');
+    if (!name?.trim()) return;
+    const trimmed = name.trim();
+    const updated = [
+      ...this._presets.filter((p) => p.name !== trimmed),
+      { name: trimmed, state: { ...this._studioState } },
+    ];
+    this._persistPresets(updated);
+    this._selectedPreset = trimmed;
+  }
+
+  private _onPresetSelect(e: Event) {
+    const name = (e.target as HTMLSelectElement).value;
+    this._selectedPreset = name;
+    if (!name) return;
+    const preset = this._presets.find((p) => p.name === name);
+    if (!preset) return;
+    this._studioState = { ...preset.state };
+    this._emitConfigChanged();
+  }
+
+  private _deleteSelectedPreset() {
+    if (!this._selectedPreset) return;
+    const updated = this._presets.filter((p) => p.name !== this._selectedPreset);
+    this._persistPresets(updated);
+    this._selectedPreset = '';
+  }
+
+  // ---------------------------------------------------------------------------
   // Styles
   // ---------------------------------------------------------------------------
 
   static override styles = css`
     :host {
-      display: block;
+      display: flex;
+      flex-direction: column;
       position: absolute;
       inset: 0;
       z-index: 10;
-      overflow-y: auto;
-      padding: 16px;
       background: var(--card-background-color, var(--ha-card-background, #1c1c1c));
       font-family: var(--primary-font-family, sans-serif);
       color: var(--primary-text-color, #e1e1e1);
       box-sizing: border-box;
+      overflow: hidden;
     }
 
+    /* ---- Header ---- */
+
     .header {
+      flex-shrink: 0;
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
+      padding: 10px 16px;
       border-bottom: 1px solid var(--divider-color, #383838);
     }
 
-    .header h2 { margin: 0; font-size: 18px; font-weight: 500; }
+    .header h2 { margin: 0; font-size: 16px; font-weight: 500; }
     .header .version {
       font-size: 11px;
       color: var(--secondary-text-color, #9e9e9e);
       margin-left: auto;
     }
 
+    /* ---- Two-column body ---- */
+
+    .panel-body {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .panel-body.no-preview {
+      grid-template-columns: 1fr;
+    }
+
+    /* ---- Left column: modules ---- */
+
+    .modules-col {
+      overflow-y: auto;
+      padding: 10px 14px 16px;
+      min-width: 0;
+    }
+
+    /* ---- Preset bar ---- */
+
+    .preset-bar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--divider-color, #383838);
+    }
+
+    .preset-bar select {
+      flex: 1;
+      min-width: 0;
+      padding: 5px 8px;
+      font-size: 12px;
+      background: var(--card-background-color, #1c1c1c);
+      color: var(--primary-text-color, #e1e1e1);
+      border: 1px solid var(--divider-color, #383838);
+      border-radius: 4px;
+    }
+
+    .btn-preset-save {
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      background: rgba(33, 150, 243, 0.15);
+      color: #2196f3;
+      border: 1px solid rgba(33, 150, 243, 0.3);
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .btn-preset-save:hover { background: rgba(33, 150, 243, 0.25); }
+
+    .btn-preset-delete {
+      padding: 5px 8px;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      background: rgba(255, 0, 0, 0.12);
+      color: #ff6b6b;
+      border: 1px solid rgba(255, 0, 0, 0.25);
+      border-radius: 4px;
+    }
+
+    .btn-preset-delete:hover { background: rgba(255, 0, 0, 0.22); }
+
+    /* ---- Banners ---- */
+
     .warning-banner {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 10px 12px;
+      padding: 8px 12px;
       border-radius: 8px;
       background: rgba(255, 152, 0, 0.15);
       border: 1px solid #ff9800;
       color: #ff9800;
-      font-size: 13px;
-      margin-bottom: 16px;
+      font-size: 12px;
+      margin-bottom: 10px;
     }
 
     .info-banner {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 12px;
+      padding: 7px 12px;
       border-radius: 8px;
       background: rgba(33, 150, 243, 0.1);
       border: 1px solid #2196F3;
       color: #2196F3;
       font-size: 12px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .no-config {
@@ -290,71 +426,66 @@ export class CmsPanel extends LitElement {
       font-size: 13px;
     }
 
-    /* ---- Embedded live preview ---- */
-
-    .preview-section {
-      border: 1px solid var(--divider-color, #383838);
-      border-radius: 8px;
-      overflow: hidden;
-      margin-bottom: 16px;
-    }
-
-    .preview-toggle {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 14px;
-      background: rgba(255, 255, 255, 0.04);
-      cursor: pointer;
-      user-select: none;
-      font-size: 12px;
-      color: var(--secondary-text-color, #9e9e9e);
-      transition: background 0.15s ease;
-    }
-
-    .preview-toggle:hover {
-      background: rgba(255, 255, 255, 0.08);
-    }
-
-    .preview-chevron { font-size: 9px; }
-
-    .preview-body {
-      padding: 12px;
-      border-top: 1px solid var(--divider-color, #383838);
-      background: var(--lovelace-background, #111111);
-      display: flex;
-      justify-content: center;
-      /* Prevent accidentally clicking interactive card elements */
-      pointer-events: none;
-    }
-
-    .preview-body hui-card {
-      width: 100%;
-      pointer-events: none;
-    }
-
-    .preview-unavailable {
-      font-size: 11px;
-      color: var(--secondary-text-color, #9e9e9e);
-      text-align: center;
-      margin: 8px 0;
-    }
-
     .container-banner {
-      padding: 12px 14px;
+      padding: 10px 14px;
       border-radius: 8px;
       background: rgba(156, 39, 176, 0.12);
       border: 1px solid #9c27b0;
       color: #ce93d8;
-      font-size: 13px;
+      font-size: 12px;
       line-height: 1.5;
-      margin-bottom: 16px;
+      margin-bottom: 10px;
     }
 
     .container-banner strong {
       display: block;
       margin-bottom: 4px;
       color: #e1bee7;
+    }
+
+    /* ---- Right column: preview ---- */
+
+    .preview-col {
+      border-left: 1px solid var(--divider-color, #383838);
+      padding: 10px 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .preview-col-label {
+      flex-shrink: 0;
+      font-size: 11px;
+      color: var(--secondary-text-color, #9e9e9e);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .preview-card-wrapper {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      background: var(--lovelace-background, #111111);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 0;
+      /* Prevent clicking live card elements */
+      pointer-events: none;
+    }
+
+    .preview-card-wrapper hui-card {
+      width: 100%;
+    }
+
+    .preview-unavailable {
+      font-size: 11px;
+      color: var(--secondary-text-color, #9e9e9e);
+      text-align: center;
+      margin: auto;
     }
   `;
 
@@ -363,46 +494,37 @@ export class CmsPanel extends LitElement {
   // ---------------------------------------------------------------------------
 
   override render() {
+    const hasPreview = !!(this.config && this.hass);
     return html`
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.10</span>
+        <span class="version">v0.3.11</span>
       </div>
 
-      ${!this._cardModPresent
-        ? html`
-            <div class="warning-banner">
-              ⚠️ card-mod not detected — install card-mod first or styles won't apply.
-            </div>
-          `
-        : nothing}
+      <div class="panel-body ${hasPreview ? '' : 'no-preview'}">
+        <div class="modules-col">
+          ${!this._cardModPresent
+            ? html`<div class="warning-banner">
+                ⚠️ card-mod not detected — install card-mod first or styles won't apply.
+              </div>`
+            : nothing}
 
-      ${this._studioState
-        ? this._renderModules(this._studioState)
-        : html`<div class="no-config">No card selected.</div>`}
-    `;
-  }
-
-  private _renderPreview() {
-    if (!this.config || !this.hass) return nothing;
-    const hasHuiCard = Boolean(customElements.get('hui-card'));
-    const previewConfig = this._previewConfig ?? this.config;
-    return html`
-      <div class="preview-section">
-        <div
-          class="preview-toggle"
-          @click=${() => { this._previewOpen = !this._previewOpen; }}
-        >
-          <span class="preview-chevron">${this._previewOpen ? '▼' : '▶'}</span>
-          <span>Live Preview</span>
+          ${this._studioState
+            ? html`
+                ${this._renderPresetBar()}
+                ${this._renderModuleList(this._studioState)}
+              `
+            : html`<div class="no-config">No card selected.</div>`}
         </div>
-        ${this._previewOpen
+
+        ${hasPreview
           ? html`
-              <div class="preview-body">
-                ${hasHuiCard
-                  ? keyed(this._previewKey, html`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`)
-                  : html`<p class="preview-unavailable">Preview unavailable — open a card editor first.</p>`}
+              <div class="preview-col">
+                <span class="preview-col-label">Preview</span>
+                <div class="preview-card-wrapper">
+                  ${this._renderPreviewContent()}
+                </div>
               </div>
             `
           : nothing}
@@ -410,7 +532,37 @@ export class CmsPanel extends LitElement {
     `;
   }
 
-  private _renderModules(s: StudioState) {
+  private _renderPreviewContent() {
+    if (!this.config || !this.hass) return nothing;
+    const hasHuiCard = Boolean(customElements.get('hui-card'));
+    if (!hasHuiCard) {
+      return html`<p class="preview-unavailable">Preview unavailable — open a card editor first.</p>`;
+    }
+    const previewConfig = this._previewConfig ?? this.config;
+    return keyed(
+      this._previewKey,
+      html`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`,
+    );
+  }
+
+  private _renderPresetBar() {
+    return html`
+      <div class="preset-bar">
+        <select .value=${this._selectedPreset} @change=${this._onPresetSelect}>
+          <option value="">📋 Load preset…</option>
+          ${this._presets.map(
+            (p) => html`<option value=${p.name} ?selected=${p.name === this._selectedPreset}>${p.name}</option>`,
+          )}
+        </select>
+        ${this._selectedPreset
+          ? html`<button class="btn-preset-delete" title="Delete preset" @click=${this._deleteSelectedPreset}>×</button>`
+          : nothing}
+        <button class="btn-preset-save" @click=${this._saveCurrentAsPreset}>💾 Save</button>
+      </div>
+    `;
+  }
+
+  private _renderModuleList(s: StudioState) {
     if (this._isContainerCard) {
       return this._renderContainerCard(s);
     }
@@ -423,23 +575,17 @@ export class CmsPanel extends LitElement {
     const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
 
     return html`
-      ${this._renderPreview()}
-
       ${hasUnrecognisedCss
-        ? html`
-            <div class="info-banner">
-              ℹ️ Some existing styles weren't recognised — they're preserved in Advanced CSS.
-            </div>
-          `
+        ? html`<div class="info-banner">
+            ℹ️ Some existing styles weren't recognised — preserved in Advanced CSS.
+          </div>`
         : nothing}
 
       ${showHeadingStyle
-        ? html`
-            <cms-heading-style-module
-              .state=${s.headingStyle}
-              @state-changed=${this._onHeadingStyleChanged}
-            ></cms-heading-style-module>
-          `
+        ? html`<cms-heading-style-module
+            .state=${s.headingStyle}
+            @state-changed=${this._onHeadingStyleChanged}
+          ></cms-heading-style-module>`
         : nothing}
 
       <cms-filter-module
@@ -448,23 +594,19 @@ export class CmsPanel extends LitElement {
       ></cms-filter-module>
 
       ${!showHeadingStyle
-        ? html`
-            <cms-accent-color-module
-              .state=${s.accentColor}
-              @state-changed=${this._onAccentColorChanged}
-            ></cms-accent-color-module>
-          `
+        ? html`<cms-accent-color-module
+            .state=${s.accentColor}
+            @state-changed=${this._onAccentColorChanged}
+          ></cms-accent-color-module>`
         : nothing}
 
       ${showIconColor
-        ? html`
-            <cms-icon-color-module
-              .state=${s.iconColor}
-              ?state-aware=${stateAware}
-              ?is-light-card=${this._isLightCard}
-              @state-changed=${this._onIconColorChanged}
-            ></cms-icon-color-module>
-          `
+        ? html`<cms-icon-color-module
+            .state=${s.iconColor}
+            ?state-aware=${stateAware}
+            ?is-light-card=${this._isLightCard}
+            @state-changed=${this._onIconColorChanged}
+          ></cms-icon-color-module>`
         : nothing}
 
       <cms-threshold-module
@@ -474,21 +616,17 @@ export class CmsPanel extends LitElement {
       ></cms-threshold-module>
 
       ${showBackground
-        ? html`
-            <cms-background-module
-              .state=${s.background}
-              @state-changed=${this._onBackgroundChanged}
-            ></cms-background-module>
-          `
+        ? html`<cms-background-module
+            .state=${s.background}
+            @state-changed=${this._onBackgroundChanged}
+          ></cms-background-module>`
         : nothing}
 
       ${showAnimation
-        ? html`
-            <cms-animation-module
-              .state=${s.animation}
-              @state-changed=${this._onAnimationChanged}
-            ></cms-animation-module>
-          `
+        ? html`<cms-animation-module
+            .state=${s.animation}
+            @state-changed=${this._onAnimationChanged}
+          ></cms-animation-module>`
         : nothing}
 
       <cms-border-module
@@ -508,8 +646,6 @@ export class CmsPanel extends LitElement {
     const cardType = this.config?.type ?? 'layout';
     const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
     return html`
-      ${this._renderPreview()}
-
       <div class="container-banner">
         <strong>🗂️ Layout card — style the child cards</strong>
         "${cardType}" is a container. Card-mod styles applied here have no
@@ -518,11 +654,9 @@ export class CmsPanel extends LitElement {
       </div>
 
       ${hasUnrecognisedCss
-        ? html`
-            <div class="info-banner">
-              ℹ️ Some existing styles weren't recognised — they're preserved in Advanced CSS.
-            </div>
-          `
+        ? html`<div class="info-banner">
+            ℹ️ Some existing styles weren't recognised — preserved in Advanced CSS.
+          </div>`
         : nothing}
 
       <cms-border-module
