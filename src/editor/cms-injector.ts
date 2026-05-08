@@ -71,10 +71,18 @@ function getPanelHost(dialog: HuiDialogEditCard): ShadowRoot | null {
 function tryExpandDialog(dialog: HuiDialogEditCard): void {
   const root = dialog.shadowRoot;
   if (!root) return;
+
+  // Expand the MDC dialog surface to use more viewport height
   const haDialog = root.querySelector('ha-dialog') as HTMLElement | null;
   if (haDialog) {
     haDialog.style.setProperty('--mdc-dialog-max-height', '92vh');
-    haDialog.style.setProperty('--mdc-dialog-min-height', '60vh');
+  }
+
+  // Force hui-card-element-editor to be tall enough for our 2-column panel.
+  // Without this, a simple card with few native options produces a tiny dialog.
+  const cardEditor = root.querySelector('hui-card-element-editor') as HTMLElement | null;
+  if (cardEditor) {
+    cardEditor.style.minHeight = '72vh';
   }
 }
 

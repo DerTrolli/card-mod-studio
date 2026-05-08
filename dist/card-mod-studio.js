@@ -616,6 +616,48 @@ function isCardModInstalled() {
   return customElements.get("card-mod") !== void 0;
 }
 const HA_DIALOG_ELEMENT = "hui-dialog-edit-card";
+const HA_KEY = "cms_presets";
+const LS_KEY = "cms-presets";
+function hassAvailable(hass) {
+  return !!hass?.connection?.sendMessagePromise;
+}
+async function loadPresets(hass) {
+  if (hassAvailable(hass)) {
+    try {
+      const result = await hass.connection.sendMessagePromise({
+        type: "frontend/get_user_data",
+        key: HA_KEY
+      });
+      const value = result?.value;
+      if (Array.isArray(value)) return value;
+    } catch (err) {
+      console.warn("[Card-Mod Studio] Preset load from HA failed, using localStorage:", err);
+    }
+  }
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+async function savePresets(presets, hass) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(presets));
+  } catch {
+  }
+  if (hassAvailable(hass)) {
+    try {
+      await hass.connection.sendMessagePromise({
+        type: "frontend/set_user_data",
+        key: HA_KEY,
+        value: presets
+      });
+    } catch (err) {
+      console.warn("[Card-Mod Studio] Preset sync to HA failed (saved to localStorage only):", err);
+    }
+  }
+}
 const PLACEHOLDER_PREFIX = "__CMS_J";
 const PLACEHOLDER_SUFFIX = "__";
 function extractJinja(css) {
@@ -1157,6 +1199,9 @@ function mapThreshold(haCard, haStateIcon, claimed) {
     const borderColorProp = findProp(haCard, "border-color");
     if (borderColorProp?.hasCondition && !borderColorProp.onValue)
       candidates.push({ target: haCard, cssProperty: "border-color", thresholdProperty: "border-color" });
+    const borderShorthandProp = findProp(haCard, "border");
+    if (borderShorthandProp?.hasCondition && !borderShorthandProp.onValue)
+      candidates.push({ target: haCard, cssProperty: "border", thresholdProperty: "border-color" });
   }
   if (haStateIcon) {
     const colorProp = findProp(haStateIcon, "color");
@@ -1168,12 +1213,18 @@ function mapThreshold(haCard, haStateIcon, claimed) {
     const parsed = parseThresholdJinja(prop.value);
     if (parsed) {
       claimed.add(claimKey(target.selector, cssProperty));
+      let borderWidth;
+      if (cssProperty === "border") {
+        const bwMatch = prop.value.match(/^(\d+)px/);
+        borderWidth = bwMatch ? parseInt(bwMatch[1], 10) : 2;
+      }
       return {
         enabled: true,
         entityId: parsed.entityId,
         property: thresholdProperty,
         rules: parsed.rules,
-        defaultColor: parsed.defaultColor
+        defaultColor: parsed.defaultColor,
+        ...borderWidth !== void 0 ? { borderWidth } : {}
       };
     }
   }
@@ -1393,7 +1444,7 @@ function thresholdBlock(s2) {
 }`;
     case "border-color":
       return `ha-card {
-  border-color: ${jinja};
+  border: ${s2.borderWidth ?? 2}px solid ${jinja};
 }`;
     default:
       return "";
@@ -2706,6 +2757,25 @@ class ThresholdModule extends i$2 {
           </div>
         </div>
 
+        ${this.state.property === "border-color" ? b`
+              <div class="control-row">
+                <span class="control-label">Border width</span>
+                <div class="control-right">
+                  <input
+                    type="number"
+                    min="1"
+                    max="16"
+                    style="width:60px"
+                    .value=${String(this.state.borderWidth ?? 2)}
+                    @input=${(e2) => this._emit({
+      borderWidth: Math.max(1, parseFloat(e2.target.value) || 2)
+    })}
+                  />
+                  <span class="rule-label">px</span>
+                </div>
+              </div>
+            ` : A}
+
         <div class="rules-container">
           <span class="rules-label">Rules (evaluated top to bottom):</span>
           ${this.state.rules.map((rule, i4) => this._renderRule(rule, i4))}
@@ -3153,7 +3223,6 @@ const NO_ICON_COLOR_TYPES = /* @__PURE__ */ new Set([
   "picture-entity",
   "heading"
 ]);
-const PRESETS_KEY = "cms-presets";
 class CmsPanel extends i$2 {
   constructor() {
     super(...arguments);
@@ -3168,13 +3237,20 @@ class CmsPanel extends i$2 {
   connectedCallback() {
     super.connectedCallback();
     this._cardModPresent = isCardModInstalled();
-    this._loadPresetsFromStorage();
+    void loadPresets(void 0).then((p2) => {
+      this._presets = p2;
+    });
   }
   updated(changed) {
     super.updated(changed);
     if (changed.has("config") || changed.has("hass")) {
       this._initState();
       this._previewConfig = void 0;
+    }
+    if (changed.has("hass") && this.hass && !changed.get("hass")) {
+      void loadPresets(this.hass).then((p2) => {
+        this._presets = p2;
+      });
     }
   }
   _initState() {
@@ -3302,21 +3378,6 @@ class CmsPanel extends i$2 {
   // ---------------------------------------------------------------------------
   // Preset management
   // ---------------------------------------------------------------------------
-  _loadPresetsFromStorage() {
-    try {
-      const raw = localStorage.getItem(PRESETS_KEY);
-      this._presets = raw ? JSON.parse(raw) : [];
-    } catch {
-      this._presets = [];
-    }
-  }
-  _persistPresets(presets) {
-    try {
-      localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
-    } catch {
-    }
-    this._presets = presets;
-  }
   _saveCurrentAsPreset() {
     if (!this._studioState) return;
     const name = window.prompt("Preset name:");
@@ -3326,8 +3387,9 @@ class CmsPanel extends i$2 {
       ...this._presets.filter((p2) => p2.name !== trimmed),
       { name: trimmed, state: { ...this._studioState } }
     ];
-    this._persistPresets(updated);
+    this._presets = updated;
     this._selectedPreset = trimmed;
+    void savePresets(updated, this.hass);
   }
   _onPresetSelect(e2) {
     const name = e2.target.value;
@@ -3341,8 +3403,9 @@ class CmsPanel extends i$2 {
   _deleteSelectedPreset() {
     if (!this._selectedPreset) return;
     const updated = this._presets.filter((p2) => p2.name !== this._selectedPreset);
-    this._persistPresets(updated);
+    this._presets = updated;
     this._selectedPreset = "";
+    void savePresets(updated, this.hass);
   }
   static {
     this.styles = i$5`
@@ -3556,7 +3619,7 @@ class CmsPanel extends i$2 {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.11</span>
+        <span class="version">v0.3.13</span>
       </div>
 
       <div class="panel-body ${hasPreview ? "" : "no-preview"}">
@@ -3825,7 +3888,10 @@ function tryExpandDialog(dialog) {
   const haDialog = root.querySelector("ha-dialog");
   if (haDialog) {
     haDialog.style.setProperty("--mdc-dialog-max-height", "92vh");
-    haDialog.style.setProperty("--mdc-dialog-min-height", "60vh");
+  }
+  const cardEditor = root.querySelector("hui-card-element-editor");
+  if (cardEditor) {
+    cardEditor.style.minHeight = "72vh";
   }
 }
 function togglePanel(dialog, active) {
@@ -3929,7 +3995,7 @@ async function startInjector() {
   patchDialogElement(DialogClass);
   injectIntoExistingDialogs();
 }
-const VERSION = "0.3.11";
+const VERSION = "0.3.13";
 if (window.cardModStudio) {
   console.warn(
     `[Card-Mod Studio] Already loaded (v${window.cardModStudio.version}). Skipping load of v${VERSION}. If you see duplicate "Style" buttons, clear your browser cache.`

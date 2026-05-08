@@ -16,6 +16,8 @@ import type {
   HeadingStyleModuleState,
 } from '../types/index.js';
 import { isCardModInstalled } from '../utils/dom-helpers.js';
+import { loadPresets, savePresets } from '../utils/preset-storage.js';
+import type { StylePreset } from '../utils/preset-storage.js';
 import { parseCardModConfig } from '../parser/yaml-parser.js';
 import { mapToStudioState } from '../parser/state-mapper.js';
 import { generateCss } from '../generator/css-generator.js';
@@ -65,13 +67,6 @@ const NO_ICON_COLOR_TYPES = new Set([
   'heading',
 ]);
 
-interface StylePreset {
-  name: string;
-  state: StudioState;
-}
-
-const PRESETS_KEY = 'cms-presets';
-
 export class CmsPanel extends LitElement {
   @property({ attribute: false }) config?: CardModCardConfig;
   @property({ attribute: false }) hass?: HomeAssistant;
@@ -88,7 +83,8 @@ export class CmsPanel extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
     this._cardModPresent = isCardModInstalled();
-    this._loadPresetsFromStorage();
+    // Load from localStorage immediately (sync); HA sync happens when hass arrives
+    void loadPresets(undefined).then((p) => { this._presets = p; });
   }
 
   override updated(changed: Map<PropertyKey, unknown>) {
@@ -96,6 +92,10 @@ export class CmsPanel extends LitElement {
     if (changed.has('config') || changed.has('hass')) {
       this._initState();
       this._previewConfig = undefined;
+    }
+    // When hass first becomes available, reload presets from HA (cross-device sync)
+    if (changed.has('hass') && this.hass && !changed.get('hass')) {
+      void loadPresets(this.hass).then((p) => { this._presets = p; });
     }
   }
 
@@ -235,24 +235,6 @@ export class CmsPanel extends LitElement {
   // Preset management
   // ---------------------------------------------------------------------------
 
-  private _loadPresetsFromStorage() {
-    try {
-      const raw = localStorage.getItem(PRESETS_KEY);
-      this._presets = raw ? (JSON.parse(raw) as StylePreset[]) : [];
-    } catch {
-      this._presets = [];
-    }
-  }
-
-  private _persistPresets(presets: StylePreset[]) {
-    try {
-      localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
-    } catch {
-      // localStorage quota exceeded or unavailable — silently ignore
-    }
-    this._presets = presets;
-  }
-
   private _saveCurrentAsPreset() {
     if (!this._studioState) return;
     const name = window.prompt('Preset name:');
@@ -262,8 +244,9 @@ export class CmsPanel extends LitElement {
       ...this._presets.filter((p) => p.name !== trimmed),
       { name: trimmed, state: { ...this._studioState } },
     ];
-    this._persistPresets(updated);
+    this._presets = updated;
     this._selectedPreset = trimmed;
+    void savePresets(updated, this.hass);
   }
 
   private _onPresetSelect(e: Event) {
@@ -279,8 +262,9 @@ export class CmsPanel extends LitElement {
   private _deleteSelectedPreset() {
     if (!this._selectedPreset) return;
     const updated = this._presets.filter((p) => p.name !== this._selectedPreset);
-    this._persistPresets(updated);
+    this._presets = updated;
     this._selectedPreset = '';
+    void savePresets(updated, this.hass);
   }
 
   // ---------------------------------------------------------------------------
@@ -499,7 +483,7 @@ export class CmsPanel extends LitElement {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.11</span>
+        <span class="version">v0.3.13</span>
       </div>
 
       <div class="panel-body ${hasPreview ? '' : 'no-preview'}">

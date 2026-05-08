@@ -587,6 +587,11 @@ function mapThreshold(
     const borderColorProp = findProp(haCard, 'border-color');
     if (borderColorProp?.hasCondition && !borderColorProp.onValue)
       candidates.push({ target: haCard, cssProperty: 'border-color', thresholdProperty: 'border-color' });
+
+    // Also recognise "border: 2px solid {{ jinja }}" shorthand
+    const borderShorthandProp = findProp(haCard, 'border');
+    if (borderShorthandProp?.hasCondition && !borderShorthandProp.onValue)
+      candidates.push({ target: haCard, cssProperty: 'border', thresholdProperty: 'border-color' });
   }
 
   if (haStateIcon) {
@@ -600,12 +605,19 @@ function mapThreshold(
     const parsed = parseThresholdJinja(prop.value);
     if (parsed) {
       claimed.add(claimKey(target.selector, cssProperty));
+      // For "border: 2px solid {{ ... }}" extract the width from the leading non-Jinja part
+      let borderWidth: number | undefined;
+      if (cssProperty === 'border') {
+        const bwMatch = prop.value.match(/^(\d+)px/);
+        borderWidth = bwMatch ? parseInt(bwMatch[1], 10) : 2;
+      }
       return {
         enabled: true,
         entityId: parsed.entityId,
         property: thresholdProperty,
         rules: parsed.rules,
         defaultColor: parsed.defaultColor,
+        ...(borderWidth !== undefined ? { borderWidth } : {}),
       };
     }
   }
