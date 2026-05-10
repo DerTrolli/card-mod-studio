@@ -1309,6 +1309,9 @@ function filterDecls(s2) {
 function accentColorDecls(s2, cardType) {
   if (!s2.enabled) return [];
   const decls = [`--accent-color: ${s2.color};`];
+  if (cardType === "tile") {
+    decls.push(`--tile-color: ${s2.color};`, `--state-icon-color: ${s2.color};`);
+  }
   if (cardType === "thermostat") {
     decls.push(
       `--state-climate-heat-color: ${s2.color};`,
@@ -1317,6 +1320,12 @@ function accentColorDecls(s2, cardType) {
       `--state-climate-idle-color: ${s2.color};`,
       `--control-circular-slider-color: ${s2.color};`
     );
+  }
+  if (cardType === "gauge") {
+    decls.push(`--gauge-color: ${s2.color};`);
+  }
+  if (!["tile", "thermostat", "gauge", "heading"].includes(cardType ?? "")) {
+    decls.push(`--state-icon-color: ${s2.color};`, `--paper-item-icon-active-color: ${s2.color};`);
   }
   return decls;
 }

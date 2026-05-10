@@ -97,6 +97,11 @@ function accentColorDecls(s: AccentColorModuleState, cardType?: string): string[
 
   const decls = [`--accent-color: ${s.color};`];
 
+  // Tile card: icon background/state color is driven by --tile-color
+  if (cardType === 'tile') {
+    decls.push(`--tile-color: ${s.color};`, `--state-icon-color: ${s.color};`);
+  }
+
   // Thermostat cards use climate state color variables
   if (cardType === 'thermostat') {
     decls.push(
@@ -106,6 +111,16 @@ function accentColorDecls(s: AccentColorModuleState, cardType?: string): string[
       `--state-climate-idle-color: ${s.color};`,
       `--control-circular-slider-color: ${s.color};`,
     );
+  }
+
+  // Gauge card uses its own color variable
+  if (cardType === 'gauge') {
+    decls.push(`--gauge-color: ${s.color};`);
+  }
+
+  // Button card (HA built-in) and generic entity-state cards
+  if (!['tile', 'thermostat', 'gauge', 'heading'].includes(cardType ?? '')) {
+    decls.push(`--state-icon-color: ${s.color};`, `--paper-item-icon-active-color: ${s.color};`);
   }
 
   return decls;
