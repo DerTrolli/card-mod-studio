@@ -7,46 +7,127 @@ A visual GUI editor for [card-mod](https://github.com/thomasloven/lovelace-card-
 
 Instead of hand-writing YAML + CSS + Jinja2 templates, Card-Mod Studio gives you color pickers, sliders, and animation presets — and generates the correct `card_mod` YAML automatically.
 
-> **Current version: v0.4.0**
+![Style button in the card editor](images/01%20Style%20button.png)
 
 ---
 
 ## What it does
 
-Card-Mod Studio adds a **"🎨 Style" button** to the Home Assistant card editor. Clicking it opens a two-column style panel alongside the native editor:
+Card-Mod Studio adds a **🎨 Style button** to the Home Assistant card editor. Clicking it opens a two-column style panel alongside the native editor — no separate page, no copy-pasting YAML.
 
-- **Left column** — scrollable list of style modules
-- **Right column** — always-visible live card preview
+- **Left column** — scrollable list of style modules, each collapsible
+- **Right column** — always-visible live card preview that updates as you change settings
 
-### Style modules
+![Card-Mod Studio panel](images/02%20Card-Mod%20Studio.png)
 
-| Module | Controls |
+All changes are serialised to `card_mod` YAML and saved with the card config through HA's normal save flow. If you open a card that already has hand-written `card_mod` CSS, the panel reads it back and pre-fills the controls.
+
+---
+
+## Style modules
+
+### Icon Color & Accent Color
+
+Set a static color for the card's icon or accent, choose separate colors for when the entity is **on** vs **off**, or — for light entities — let the icon automatically reflect the light's actual `rgb_color` attribute.
+
+The Accent Color override targets the correct CSS variable per card type: `--tile-color` for tile cards, `--gauge-color` for gauges, and `--state-icon-color` for everything else.
+
+![Icon and accent color controls](images/03%20Accent%20and%20Icon%20Color.png)
+
+### Background
+
+Apply a **solid color** or a **gradient** (with configurable angle) as the card background. Optionally restrict the background to only show when the entity is **on** or **off** — useful for making a card visually "glow" when a device is active.
+
+![Background color module](images/04%20Background%20Color.png)
+
+### Threshold Colors
+
+The most powerful module. Define numeric rules that change visual properties based on a sensor's live value — no coding required.
+
+Each rule has three parts:
+- **Operator** — `<` `<=` `>` `>=` `==` `!=`
+- **Value** — the numeric threshold to compare against
+- **Color** — the color to apply when the rule matches
+
+You can add as many rules as you need, plus a **default color** that applies when no rule matches. At runtime, card-mod evaluates the rules as a Jinja2 ternary chain against the live sensor state.
+
+**Target properties:**
+| Property | What it colors |
 |---|---|
-| Heading Style | Font size, text color, icon size, icon color, alignment |
-| Visual Filters | Grayscale (always / when on / when off), brightness, blur, transition speed |
-| Accent Color | CSS `--accent-color` override |
-| Icon Color | Static, on/off conditional, or auto light color from `rgb_color` attribute |
-| Threshold Colors | Numeric rules (< <= > >= == !=) driving icon color, background, text color, accent color, or border color |
-| Background | Solid or gradient + angle, optional on/off state condition |
-| Animation | Pulse, breathe, gradient-shift, bounce, blink — always or state-triggered |
-| Border | Corner radius + optional colored border with configurable width |
-| Advanced CSS | Raw CSS passthrough for anything else |
+| Icon color | The card's main icon |
+| Background | The entire card background |
+| Text color | The card's state/value text |
+| Accent color | The card's accent (tile glow, gauge fill, etc.) |
+| Border color | The card border (requires Border module) |
 
-All changes are serialised to `card_mod` YAML and saved with the card config through HA's normal save flow.
+**Example:** A temperature sensor could show the icon in blue below 18 °C, green between 18–25 °C, and red above 25 °C — all driven by three threshold rules, no YAML editing.
 
-### Card-type awareness
+### Visual Filters
 
-The panel adapts to the card type:
+Apply CSS filter effects to the entire card:
+- **Grayscale** — always on, only when entity is on, or only when off (great for making inactive devices look "dead")
+- **Brightness** — brighten or dim the card
+- **Blur** — blur the card content
+- **Transition speed** — control how smoothly state changes animate
 
-- **Container cards** (`grid`, `vertical-stack`, `horizontal-stack`, `sections`, `conditional`) — shows a redirect banner explaining that styles should be applied to child cards individually
-- **Heading cards** — replaces icon/accent controls with the dedicated Heading Style module
-- **Light cards** — Icon Color gains an automatic mode that reads the light's actual `rgb_color` attribute
-- **Data-viz / media cards** — hides Animation and Icon Color modules where they have no effect
-- **Picture / iframe cards** — hides Background module
+### Animation
+
+Add a looping CSS animation to the card. Available presets:
+
+| Animation | Effect |
+|---|---|
+| Pulse | Scale up and down rhythmically |
+| Breathe | Soft opacity fade in and out |
+| Gradient-shift | Slowly shift the background gradient colors |
+| Bounce | Periodic vertical bounce |
+| Blink | Abrupt on/off flash |
+
+Each animation can run **always** or only trigger when the entity is **on** or **off**.
+
+### Border
+
+Round the card corners with a configurable **corner radius**, and optionally add a colored **border** with adjustable width. Works well combined with Threshold Colors targeting border color.
+
+### Heading Style
+
+For `heading` type cards: control font size, text color, icon size, icon color, and text alignment — all from one module.
+
+### Advanced CSS
+
+A raw CSS editor for anything the visual modules don't cover. Your CSS is appended after the generated styles and supports full `card_mod` syntax including sub-element selectors and Jinja2 templates.
 
 ### Style presets
 
-Save the current style configuration as a named preset and restore it on any card. Presets are stored in HA's backend per-user (`frontend/get_user_data`) so they are available on every device logged in as the same HA user. localStorage is also written as an instant local fallback.
+Save the full style configuration of any card as a **named preset** and restore it on any other card in one click. Presets are stored per-user in HA's backend (`frontend/get_user_data`) so they sync automatically across every device and browser logged in as the same HA user. localStorage is also written as an instant local fallback.
+
+---
+
+## Entities card per-row styling
+
+For `type: entities` cards, Card-Mod Studio adds a dedicated section for each entity row in the list.
+
+![Entities card styling](images/05%20Entities%20Card.png)
+
+Each row can be styled independently:
+- **Icon color** — static color, or threshold rules based on the row entity's numeric value
+- **Text color** — static color, or threshold rules
+
+The threshold rules per row work identically to the card-level Threshold Colors module: define operators, values, and colors, set a default, and card-mod evaluates the Jinja2 at runtime against that specific entity's state.
+
+![Per-entity modifications](images/06%20Entities%20Card%20Modifications.png)
+
+---
+
+## Card-type awareness
+
+The panel adapts to the card type so you never see irrelevant controls:
+
+- **Container cards** (`grid`, `vertical-stack`, `horizontal-stack`, `sections`, `conditional`) — shows a redirect banner explaining that styles should be applied to child cards individually
+- **Heading cards** — replaces icon/accent controls with the Heading Style module
+- **Light cards** — Icon Color gains an automatic mode that mirrors the light's actual color
+- **Entities cards** — hides card-level Icon Color, Accent Color, and Threshold modules (use per-row styling instead)
+- **Data-viz / media cards** — hides Animation and Icon Color where they have no effect
+- **Picture / iframe cards** — hides Background module
 
 ---
 
@@ -62,7 +143,7 @@ Card-Mod Studio **generates** the card-mod YAML. card-mod **applies** it. Both a
 
 ## Installation
 
-### Via HACS (recommended — not yet in public listing)
+### Via HACS (recommended)
 
 1. Open HACS → Dashboard
 2. Click ⋮ → Custom Repositories
@@ -75,7 +156,7 @@ Card-Mod Studio **generates** the card-mod YAML. card-mod **applies** it. Both a
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.3.15`
+   - URL: `/local/card-mod-studio.js?v=0.4.0`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -84,7 +165,7 @@ Card-Mod Studio **generates** the card-mod YAML. card-mod **applies** it. Both a
 ## Usage
 
 1. Open any card in edit mode (click the pencil icon)
-2. The card editor opens — look for the **🎨 Style** button in the footer
+2. Look for the **🎨 Style** button in the card editor footer
 3. Click it to open the style panel
 4. Adjust controls — changes are previewed live on the right
 5. Click **Save** as normal in the HA editor
@@ -102,6 +183,14 @@ Card-Mod Studio **generates** the card-mod YAML. card-mod **applies** it. Both a
 Card-mod compatibility follows card-mod's own compatibility table. See [card-mod releases](https://github.com/thomasloven/lovelace-card-mod/releases).
 
 > **Note on HA updates:** Card-Mod Studio injects into the card editor using the `hui-dialog-edit-card` element. If a HA update renames this element, the Style button will not appear and a console warning will be shown. Check [GitHub Issues](../../issues) for status after major HA releases.
+
+---
+
+## Limitations
+
+- **card-mod required** — this plugin generates YAML for card-mod; it does not apply CSS itself
+- **Common card types prioritised** — standard HA cards are fully supported; custom cards (Mushroom, Bubble) have varying shadow DOM paths and may need the Advanced CSS editor
+- **Entity-state conditionals only** — the UI supports on/off entity state conditions and numeric threshold rules; complex Jinja2 logic goes in the Advanced CSS editor
 
 ---
 
@@ -141,12 +230,6 @@ cp dist/card-mod-studio.js /path/to/ha/config/www/
 
 Then hard-refresh the browser (Ctrl+Shift+R) and bump the `?v=` query string in the resource URL if caching is stubborn.
 
-### Dev loop
-
-```
-edit .ts file → Vite rebuilds (~200ms) → copy to config/www/ → Ctrl+Shift+R in HA
-```
-
 ---
 
 ## Project structure
@@ -180,15 +263,8 @@ test/
 | 4 | Config integration — generate card_mod YAML and save via HA editor | ✅ Complete |
 | 4.x | Card-type awareness — per-card module visibility, heading card, light card support | ✅ v0.3.10 |
 | 5 | 2-column layout + live preview + style presets + cross-device preset sync | ✅ v0.3.13 |
-| 6 | Entities card per-row styling (icon color + text color per entity) | ✅ v0.3.15 |
-
----
-
-## Limitations
-
-- **card-mod required** — this plugin generates YAML for card-mod; it does not apply CSS itself
-- **Common card types prioritised** — standard HA cards are fully supported; custom cards (Mushroom, Bubble) have varying shadow DOM paths and may need the Advanced CSS editor
-- **Entity-state conditionals only** — the UI supports on/off entity state conditions and numeric threshold rules; complex Jinja2 logic goes in the Advanced CSS editor
+| 6 | Entities card per-row styling (icon color + text color per entity, threshold rules) | ✅ v0.3.16 |
+| 7 | HACS preparation — validation CI, badges, attribution | ✅ v0.4.0 |
 
 ---
 
