@@ -14,6 +14,9 @@ import type {
   ThresholdModuleState,
   AdvancedModuleState,
   HeadingStyleModuleState,
+  EntitiesCardRow,
+  EntitiesRowStyle,
+  EntitiesRowStyles,
 } from '../types/index.js';
 import { isCardModInstalled } from '../utils/dom-helpers.js';
 import { loadPresets, savePresets } from '../utils/preset-storage.js';
@@ -32,6 +35,7 @@ import '../modules/module-border.js';
 import '../modules/module-threshold.js';
 import '../modules/module-advanced.js';
 import '../modules/module-heading-style.js';
+import '../modules/module-entities-rows.js';
 
 const NON_STATE_CARD_TYPES = new Set([
   'sensor', 'gauge', 'history-graph', 'statistics-graph', 'statistic',
@@ -77,6 +81,7 @@ export class CmsPanel extends LitElement {
   @state() private _previewKey = 0;
   @state() private _presets: StylePreset[] = [];
   @state() private _selectedPreset = '';
+  @state() private _entityRowStyles: EntitiesRowStyles = {};
 
   private _lastEmittedConfigJson: string | null = null;
 
@@ -102,6 +107,7 @@ export class CmsPanel extends LitElement {
   private _initState() {
     if (!this.config) {
       this._studioState = null;
+      this._entityRowStyles = {};
       this._lastEmittedConfigJson = null;
       return;
     }
@@ -110,6 +116,66 @@ export class CmsPanel extends LitElement {
 
     const parsed = parseCardModConfig(this.config);
     this._studioState = mapToStudioState(parsed);
+    this._initEntityRowStyles();
+  }
+
+  private _initEntityRowStyles() {
+    if (this.config?.type !== 'entities') {
+      this._entityRowStyles = {};
+      return;
+    }
+    const rows = (this.config as unknown as { entities?: EntitiesCardRow[] }).entities;
+    if (!rows?.length) { this._entityRowStyles = {}; return; }
+
+    const styles: EntitiesRowStyles = {};
+    for (const row of rows) {
+      if (!row.entity) continue;
+      const cardModStyle = (row.card_mod as { style?: string } | undefined)?.style;
+      if (typeof cardModStyle === 'string') {
+        styles[row.entity] = this._parseEntityRowCss(cardModStyle);
+      }
+    }
+    this._entityRowStyles = styles;
+  }
+
+  private _parseEntityRowCss(css: string): EntitiesRowStyle {
+    const style: EntitiesRowStyle = { iconColor: '', textColor: '' };
+    for (const line of css.split('\n')) {
+      const t = line.trim();
+      if (t.startsWith('--paper-item-icon-color:')) {
+        style.iconColor = t.replace('--paper-item-icon-color:', '').trim().replace(/;$/, '');
+      } else if (t.startsWith('color:')) {
+        style.textColor = t.replace('color:', '').trim().replace(/;$/, '');
+      }
+    }
+    return style;
+  }
+
+  private _generateEntityRowCss(style: EntitiesRowStyle): string {
+    const decls: string[] = [];
+    if (style.iconColor) decls.push(`  --paper-item-icon-color: ${style.iconColor};`);
+    if (style.textColor) decls.push(`  color: ${style.textColor};`);
+    if (!decls.length) return '';
+    return `:host {\n${decls.join('\n')}\n}`;
+  }
+
+  private _applyEntityRowStyles(config: CardModCardConfig): CardModCardConfig {
+    const rows = (config as unknown as { entities?: EntitiesCardRow[] }).entities;
+    if (!rows?.length) return config;
+
+    const updatedRows = rows.map((row) => {
+      if (!row.entity) return row;
+      const rowStyle = this._entityRowStyles[row.entity];
+      if (!rowStyle?.iconColor && !rowStyle?.textColor) {
+        // Drop card_mod from this row if present
+        const { card_mod: _cm, ...rest } = row;
+        return rest as EntitiesCardRow;
+      }
+      const rowCss = this._generateEntityRowCss(rowStyle);
+      return { ...row, card_mod: { style: rowCss } };
+    });
+
+    return { ...(config as unknown as object), entities: updatedRows } as unknown as CardModCardConfig;
   }
 
   // ---------------------------------------------------------------------------
@@ -218,7 +284,10 @@ export class CmsPanel extends LitElement {
   private _emitConfigChanged() {
     if (!this.config || !this._studioState) return;
     const css = generateCss(this._studioState, this.config?.type);
-    const newConfig = applyCardModStyle(css, this.config);
+    let newConfig = applyCardModStyle(css, this.config);
+    if (this.config.type === 'entities') {
+      newConfig = this._applyEntityRowStyles(newConfig);
+    }
     this._previewConfig = newConfig;
     this._previewKey++;
     this._lastEmittedConfigJson = JSON.stringify(newConfig);
@@ -229,6 +298,11 @@ export class CmsPanel extends LitElement {
         detail: { config: newConfig },
       }),
     );
+  }
+
+  private _onEntityRowStylesChanged(e: CustomEvent<EntitiesRowStyles>) {
+    this._entityRowStyles = e.detail;
+    this._emitConfigChanged();
   }
 
   // ---------------------------------------------------------------------------
@@ -623,6 +697,14 @@ export class CmsPanel extends LitElement {
         ?open=${hasUnrecognisedCss}
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
+
+      ${this.config?.type === 'entities'
+        ? html`<cms-entities-rows-module
+              .rows=${(this.config as unknown as { entities?: EntitiesCardRow[] }).entities ?? []}
+              .styles=${this._entityRowStyles}
+              @styles-changed=${this._onEntityRowStylesChanged}
+            ></cms-entities-rows-module>`
+        : nothing}
     `;
   }
 

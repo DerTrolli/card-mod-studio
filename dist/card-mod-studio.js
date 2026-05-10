@@ -1624,13 +1624,13 @@ const moduleStyles = i$5`
     width: 100%;
   }
 `;
-var __defProp$b = Object.defineProperty;
-var __decorateClass$b = (decorators, target, key, kind) => {
+var __defProp$c = Object.defineProperty;
+var __decorateClass$c = (decorators, target, key, kind) => {
   var result = void 0;
   for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
     if (decorator = decorators[i4])
       result = decorator(target, key, result) || result;
-  if (result) __defProp$b(target, key, result);
+  if (result) __defProp$c(target, key, result);
   return result;
 };
 class FilterModule extends i$2 {
@@ -1785,30 +1785,30 @@ class FilterModule extends i$2 {
     `;
   }
 }
-__decorateClass$b([
+__decorateClass$c([
   n2({ attribute: false })
 ], FilterModule.prototype, "state");
-__decorateClass$b([
+__decorateClass$c([
   r()
 ], FilterModule.prototype, "_open");
-__decorateClass$b([
+__decorateClass$c([
   r()
 ], FilterModule.prototype, "_brightness");
-__decorateClass$b([
+__decorateClass$c([
   r()
 ], FilterModule.prototype, "_blur");
-__decorateClass$b([
+__decorateClass$c([
   r()
 ], FilterModule.prototype, "_transitionMs");
 customElements.define("cms-filter-module", FilterModule);
-var __defProp$a = Object.defineProperty;
+var __defProp$b = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __decorateClass$a = (decorators, target, key, kind) => {
+var __decorateClass$b = (decorators, target, key, kind) => {
   var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc(target, key) : target;
   for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
     if (decorator = decorators[i4])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$a(target, key, result);
+  if (kind && result) __defProp$b(target, key, result);
   return result;
 };
 const HA_COLOR_PRESETS = [
@@ -1891,19 +1891,19 @@ CmsColorPicker.styles = i$5`
     .custom input[type="color"] { width: 32px; height: 24px; padding: 0; border: none; }
     .custom input[type="text"] { flex: 1; padding: 4px; font-size: 12px; }
   `;
-__decorateClass$a([
+__decorateClass$b([
   n2()
 ], CmsColorPicker.prototype, "value", 2);
-CmsColorPicker = __decorateClass$a([
+CmsColorPicker = __decorateClass$b([
   t("cms-color-picker")
 ], CmsColorPicker);
-var __defProp$9 = Object.defineProperty;
-var __decorateClass$9 = (decorators, target, key, kind) => {
+var __defProp$a = Object.defineProperty;
+var __decorateClass$a = (decorators, target, key, kind) => {
   var result = void 0;
   for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
     if (decorator = decorators[i4])
       result = decorator(target, key, result) || result;
-  if (result) __defProp$9(target, key, result);
+  if (result) __defProp$a(target, key, result);
   return result;
 };
 class IconColorModule extends i$2 {
@@ -2034,26 +2034,26 @@ class IconColorModule extends i$2 {
     `;
   }
 }
-__decorateClass$9([
+__decorateClass$a([
   n2({ attribute: false })
 ], IconColorModule.prototype, "state");
-__decorateClass$9([
+__decorateClass$a([
   n2({ type: Boolean, attribute: "state-aware" })
 ], IconColorModule.prototype, "stateAware");
-__decorateClass$9([
+__decorateClass$a([
   n2({ type: Boolean, attribute: "is-light-card" })
 ], IconColorModule.prototype, "isLightCard");
-__decorateClass$9([
+__decorateClass$a([
   r()
 ], IconColorModule.prototype, "_open");
 customElements.define("cms-icon-color-module", IconColorModule);
-var __defProp$8 = Object.defineProperty;
-var __decorateClass$8 = (decorators, target, key, kind) => {
+var __defProp$9 = Object.defineProperty;
+var __decorateClass$9 = (decorators, target, key, kind) => {
   var result = void 0;
   for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
     if (decorator = decorators[i4])
       result = decorator(target, key, result) || result;
-  if (result) __defProp$8(target, key, result);
+  if (result) __defProp$9(target, key, result);
   return result;
 };
 class AccentColorModule extends i$2 {
@@ -2121,20 +2121,20 @@ class AccentColorModule extends i$2 {
     `;
   }
 }
-__decorateClass$8([
+__decorateClass$9([
   n2({ attribute: false })
 ], AccentColorModule.prototype, "state");
-__decorateClass$8([
+__decorateClass$9([
   r()
 ], AccentColorModule.prototype, "_open");
 customElements.define("cms-accent-color-module", AccentColorModule);
-var __defProp$7 = Object.defineProperty;
-var __decorateClass$7 = (decorators, target, key, kind) => {
+var __defProp$8 = Object.defineProperty;
+var __decorateClass$8 = (decorators, target, key, kind) => {
   var result = void 0;
   for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
     if (decorator = decorators[i4])
       result = decorator(target, key, result) || result;
-  if (result) __defProp$7(target, key, result);
+  if (result) __defProp$8(target, key, result);
   return result;
 };
 class BackgroundModule extends i$2 {
@@ -2273,23 +2273,23 @@ class BackgroundModule extends i$2 {
     `;
   }
 }
-__decorateClass$7([
+__decorateClass$8([
   n2({ attribute: false })
 ], BackgroundModule.prototype, "state");
-__decorateClass$7([
+__decorateClass$8([
   r()
 ], BackgroundModule.prototype, "_open");
-__decorateClass$7([
+__decorateClass$8([
   r()
 ], BackgroundModule.prototype, "_angle");
 customElements.define("cms-background-module", BackgroundModule);
-var __defProp$6 = Object.defineProperty;
-var __decorateClass$6 = (decorators, target, key, kind) => {
+var __defProp$7 = Object.defineProperty;
+var __decorateClass$7 = (decorators, target, key, kind) => {
   var result = void 0;
   for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
     if (decorator = decorators[i4])
       result = decorator(target, key, result) || result;
-  if (result) __defProp$6(target, key, result);
+  if (result) __defProp$7(target, key, result);
   return result;
 };
 const PRESETS = [
@@ -2442,23 +2442,23 @@ class AnimationModule extends i$2 {
     `;
   }
 }
-__decorateClass$6([
+__decorateClass$7([
   n2({ attribute: false })
 ], AnimationModule.prototype, "state");
-__decorateClass$6([
+__decorateClass$7([
   r()
 ], AnimationModule.prototype, "_open");
-__decorateClass$6([
+__decorateClass$7([
   r()
 ], AnimationModule.prototype, "_speedS");
 customElements.define("cms-animation-module", AnimationModule);
-var __defProp$5 = Object.defineProperty;
-var __decorateClass$5 = (decorators, target, key, kind) => {
+var __defProp$6 = Object.defineProperty;
+var __decorateClass$6 = (decorators, target, key, kind) => {
   var result = void 0;
   for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
     if (decorator = decorators[i4])
       result = decorator(target, key, result) || result;
-  if (result) __defProp$5(target, key, result);
+  if (result) __defProp$6(target, key, result);
   return result;
 };
 class BorderModule extends i$2 {
@@ -2565,26 +2565,26 @@ class BorderModule extends i$2 {
     `;
   }
 }
-__decorateClass$5([
+__decorateClass$6([
   n2({ attribute: false })
 ], BorderModule.prototype, "state");
-__decorateClass$5([
+__decorateClass$6([
   r()
 ], BorderModule.prototype, "_open");
-__decorateClass$5([
+__decorateClass$6([
   r()
 ], BorderModule.prototype, "_radiusPx");
-__decorateClass$5([
+__decorateClass$6([
   r()
 ], BorderModule.prototype, "_borderWidth");
 customElements.define("cms-border-module", BorderModule);
-var __defProp$4 = Object.defineProperty;
-var __decorateClass$4 = (decorators, target, key, kind) => {
+var __defProp$5 = Object.defineProperty;
+var __decorateClass$5 = (decorators, target, key, kind) => {
   var result = void 0;
   for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
     if (decorator = decorators[i4])
       result = decorator(target, key, result) || result;
-  if (result) __defProp$4(target, key, result);
+  if (result) __defProp$5(target, key, result);
   return result;
 };
 class ThresholdModule extends i$2 {
@@ -2887,23 +2887,23 @@ class ThresholdModule extends i$2 {
     }
   }
 }
-__decorateClass$4([
+__decorateClass$5([
   n2({ attribute: false })
 ], ThresholdModule.prototype, "state");
-__decorateClass$4([
+__decorateClass$5([
   n2({ type: String })
 ], ThresholdModule.prototype, "cardEntity");
-__decorateClass$4([
+__decorateClass$5([
   r()
 ], ThresholdModule.prototype, "_open");
 customElements.define("cms-threshold-module", ThresholdModule);
-var __defProp$3 = Object.defineProperty;
-var __decorateClass$3 = (decorators, target, key, kind) => {
+var __defProp$4 = Object.defineProperty;
+var __decorateClass$4 = (decorators, target, key, kind) => {
   var result = void 0;
   for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
     if (decorator = decorators[i4])
       result = decorator(target, key, result) || result;
-  if (result) __defProp$3(target, key, result);
+  if (result) __defProp$4(target, key, result);
   return result;
 };
 class AdvancedModule extends i$2 {
@@ -2981,20 +2981,20 @@ class AdvancedModule extends i$2 {
     `;
   }
 }
-__decorateClass$3([
+__decorateClass$4([
   n2({ attribute: false })
 ], AdvancedModule.prototype, "state");
-__decorateClass$3([
+__decorateClass$4([
   n2({ type: Boolean })
 ], AdvancedModule.prototype, "open");
 customElements.define("cms-advanced-module", AdvancedModule);
-var __defProp$2 = Object.defineProperty;
-var __decorateClass$2 = (decorators, target, key, kind) => {
+var __defProp$3 = Object.defineProperty;
+var __decorateClass$3 = (decorators, target, key, kind) => {
   var result = void 0;
   for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
     if (decorator = decorators[i4])
       result = decorator(target, key, result) || result;
-  if (result) __defProp$2(target, key, result);
+  if (result) __defProp$3(target, key, result);
   return result;
 };
 class HeadingStyleModule extends i$2 {
@@ -3127,19 +3127,250 @@ class HeadingStyleModule extends i$2 {
     `;
   }
 }
-__decorateClass$2([
+__decorateClass$3([
   n2({ attribute: false })
 ], HeadingStyleModule.prototype, "state");
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], HeadingStyleModule.prototype, "_open");
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], HeadingStyleModule.prototype, "_fontSize");
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], HeadingStyleModule.prototype, "_iconSize");
 customElements.define("cms-heading-style-module", HeadingStyleModule);
+var __defProp$2 = Object.defineProperty;
+var __decorateClass$2 = (decorators, target, key, kind) => {
+  var result = void 0;
+  for (var i4 = decorators.length - 1, decorator; i4 >= 0; i4--)
+    if (decorator = decorators[i4])
+      result = decorator(target, key, result) || result;
+  if (result) __defProp$2(target, key, result);
+  return result;
+};
+class EntitiesRowsModule extends i$2 {
+  constructor() {
+    super(...arguments);
+    this.rows = [];
+    this.styles = {};
+    this._openRows = /* @__PURE__ */ new Set();
+  }
+  static {
+    this.styles = [
+      moduleStyles,
+      i$5`
+      .entity-section {
+        border: 1px solid var(--divider-color, #383838);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .entity-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: rgba(255, 255, 255, 0.03);
+        cursor: pointer;
+        user-select: none;
+      }
+      .entity-header:hover {
+        background: rgba(255, 255, 255, 0.07);
+      }
+      .entity-chevron {
+        font-size: 9px;
+        color: var(--secondary-text-color, #9e9e9e);
+        width: 12px;
+        flex-shrink: 0;
+      }
+      .entity-name {
+        font-size: 12px;
+        font-weight: 500;
+        flex-shrink: 0;
+      }
+      .entity-id {
+        font-size: 11px;
+        color: var(--secondary-text-color, #9e9e9e);
+        font-family: monospace;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+      }
+      .style-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--accent-color, #2196f3);
+        flex-shrink: 0;
+      }
+      .entity-body {
+        padding: 10px 12px;
+        border-top: 1px solid var(--divider-color, #383838);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .toggle-btn {
+        padding: 3px 10px;
+        font-size: 11px;
+        border-radius: 4px;
+        cursor: pointer;
+        border: 1px solid var(--divider-color, #383838);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--secondary-text-color, #9e9e9e);
+      }
+      .toggle-btn.active {
+        background: rgba(33, 150, 243, 0.15);
+        color: #2196f3;
+        border-color: rgba(33, 150, 243, 0.3);
+      }
+      .clear-btn {
+        margin-top: 4px;
+        padding: 4px 10px;
+        font-size: 11px;
+        cursor: pointer;
+        background: rgba(255, 0, 0, 0.1);
+        color: #ff6b6b;
+        border: 1px solid rgba(255, 0, 0, 0.25);
+        border-radius: 4px;
+        width: 100%;
+      }
+      .clear-btn:hover {
+        background: rgba(255, 0, 0, 0.2);
+      }
+    `
+    ];
+  }
+  _emit(entityId, changes) {
+    const current = this.styles[entityId] ?? { iconColor: "", textColor: "" };
+    const updated = { ...current, ...changes };
+    const newStyles = { ...this.styles, [entityId]: updated };
+    this.dispatchEvent(
+      new CustomEvent("styles-changed", { detail: newStyles })
+    );
+  }
+  _toggleRow(entityId) {
+    const next = new Set(this._openRows);
+    if (next.has(entityId)) next.delete(entityId);
+    else next.add(entityId);
+    this._openRows = next;
+  }
+  render() {
+    const entityRows = this.rows.filter((r2) => r2.entity);
+    if (!entityRows.length) return A;
+    return b`
+      <div class="module">
+        <div class="module-header" style="cursor:default; pointer-events:none">
+          <span class="module-title">👥 Entity Row Styles</span>
+        </div>
+        <div class="module-body">
+          ${entityRows.map((row) => this._renderRow(row))}
+        </div>
+      </div>
+    `;
+  }
+  _renderRow(row) {
+    const id = row.entity;
+    const label = row.name || id.split(".")[1] || id;
+    const isOpen = this._openRows.has(id);
+    const rowStyle = this.styles[id] ?? { iconColor: "", textColor: "" };
+    const hasStyle = !!(rowStyle.iconColor || rowStyle.textColor);
+    return b`
+      <div class="entity-section">
+        <div class="entity-header" @click=${() => this._toggleRow(id)}>
+          <span class="entity-chevron">${isOpen ? "▼" : "▶"}</span>
+          <span class="entity-name">${label}</span>
+          <span class="entity-id">${id}</span>
+          ${hasStyle ? b`<span class="style-dot"></span>` : A}
+        </div>
+        ${isOpen ? this._renderBody(id, rowStyle) : A}
+      </div>
+    `;
+  }
+  _renderBody(entityId, rowStyle) {
+    return b`
+      <div class="entity-body">
+        <div class="control-row">
+          <span class="control-label">Icon color</span>
+          <div class="control-right">
+            ${rowStyle.iconColor ? b`<input
+                    type="color"
+                    .value=${this._toHex(rowStyle.iconColor)}
+                    @input=${(e2) => this._emit(entityId, {
+      iconColor: e2.target.value
+    })}
+                  />` : A}
+            <button
+              class="toggle-btn ${rowStyle.iconColor ? "active" : ""}"
+              @click=${() => this._emit(entityId, {
+      iconColor: rowStyle.iconColor ? "" : "#2196F3"
+    })}
+            >
+              ${rowStyle.iconColor ? "On" : "Off"}
+            </button>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <span class="control-label">Text color</span>
+          <div class="control-right">
+            ${rowStyle.textColor ? b`<input
+                    type="color"
+                    .value=${this._toHex(rowStyle.textColor)}
+                    @input=${(e2) => this._emit(entityId, {
+      textColor: e2.target.value
+    })}
+                  />` : A}
+            <button
+              class="toggle-btn ${rowStyle.textColor ? "active" : ""}"
+              @click=${() => this._emit(entityId, {
+      textColor: rowStyle.textColor ? "" : "#e1e1e1"
+    })}
+            >
+              ${rowStyle.textColor ? "On" : "Off"}
+            </button>
+          </div>
+        </div>
+
+        ${rowStyle.iconColor || rowStyle.textColor ? b`<button
+                class="clear-btn"
+                @click=${() => this._emit(entityId, { iconColor: "", textColor: "" })}
+              >
+                Clear row styles
+              </button>` : A}
+      </div>
+    `;
+  }
+  _toHex(value) {
+    if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
+    if (/^#[0-9a-fA-F]{3}$/.test(value)) {
+      return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`;
+    }
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1;
+      canvas.height = 1;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = value;
+      ctx.fillRect(0, 0, 1, 1);
+      const [r2, g2, b2] = ctx.getImageData(0, 0, 1, 1).data;
+      return `#${r2.toString(16).padStart(2, "0")}${g2.toString(16).padStart(2, "0")}${b2.toString(16).padStart(2, "0")}`;
+    } catch {
+      return "#888888";
+    }
+  }
+}
+__decorateClass$2([
+  n2({ attribute: false })
+], EntitiesRowsModule.prototype, "rows");
+__decorateClass$2([
+  n2({ attribute: false })
+], EntitiesRowsModule.prototype, "styles");
+__decorateClass$2([
+  r()
+], EntitiesRowsModule.prototype, "_openRows");
+customElements.define("cms-entities-rows-module", EntitiesRowsModule);
 var __defProp$1 = Object.defineProperty;
 var __decorateClass$1 = (decorators, target, key, kind) => {
   var result = void 0;
@@ -3241,6 +3472,7 @@ class CmsPanel extends i$2 {
     this._previewKey = 0;
     this._presets = [];
     this._selectedPreset = "";
+    this._entityRowStyles = {};
     this._lastEmittedConfigJson = null;
   }
   connectedCallback() {
@@ -3265,6 +3497,7 @@ class CmsPanel extends i$2 {
   _initState() {
     if (!this.config) {
       this._studioState = null;
+      this._entityRowStyles = {};
       this._lastEmittedConfigJson = null;
       return;
     }
@@ -3272,6 +3505,63 @@ class CmsPanel extends i$2 {
     if (configJson === this._lastEmittedConfigJson) return;
     const parsed = parseCardModConfig(this.config);
     this._studioState = mapToStudioState(parsed);
+    this._initEntityRowStyles();
+  }
+  _initEntityRowStyles() {
+    if (this.config?.type !== "entities") {
+      this._entityRowStyles = {};
+      return;
+    }
+    const rows = this.config.entities;
+    if (!rows?.length) {
+      this._entityRowStyles = {};
+      return;
+    }
+    const styles = {};
+    for (const row of rows) {
+      if (!row.entity) continue;
+      const cardModStyle = row.card_mod?.style;
+      if (typeof cardModStyle === "string") {
+        styles[row.entity] = this._parseEntityRowCss(cardModStyle);
+      }
+    }
+    this._entityRowStyles = styles;
+  }
+  _parseEntityRowCss(css2) {
+    const style = { iconColor: "", textColor: "" };
+    for (const line of css2.split("\n")) {
+      const t2 = line.trim();
+      if (t2.startsWith("--paper-item-icon-color:")) {
+        style.iconColor = t2.replace("--paper-item-icon-color:", "").trim().replace(/;$/, "");
+      } else if (t2.startsWith("color:")) {
+        style.textColor = t2.replace("color:", "").trim().replace(/;$/, "");
+      }
+    }
+    return style;
+  }
+  _generateEntityRowCss(style) {
+    const decls = [];
+    if (style.iconColor) decls.push(`  --paper-item-icon-color: ${style.iconColor};`);
+    if (style.textColor) decls.push(`  color: ${style.textColor};`);
+    if (!decls.length) return "";
+    return `:host {
+${decls.join("\n")}
+}`;
+  }
+  _applyEntityRowStyles(config) {
+    const rows = config.entities;
+    if (!rows?.length) return config;
+    const updatedRows = rows.map((row) => {
+      if (!row.entity) return row;
+      const rowStyle = this._entityRowStyles[row.entity];
+      if (!rowStyle?.iconColor && !rowStyle?.textColor) {
+        const { card_mod: _cm, ...rest } = row;
+        return rest;
+      }
+      const rowCss = this._generateEntityRowCss(rowStyle);
+      return { ...row, card_mod: { style: rowCss } };
+    });
+    return { ...config, entities: updatedRows };
   }
   // ---------------------------------------------------------------------------
   // Card-type helpers
@@ -3372,7 +3662,10 @@ class CmsPanel extends i$2 {
   _emitConfigChanged() {
     if (!this.config || !this._studioState) return;
     const css2 = generateCss(this._studioState, this.config?.type);
-    const newConfig = applyCardModStyle(css2, this.config);
+    let newConfig = applyCardModStyle(css2, this.config);
+    if (this.config.type === "entities") {
+      newConfig = this._applyEntityRowStyles(newConfig);
+    }
     this._previewConfig = newConfig;
     this._previewKey++;
     this._lastEmittedConfigJson = JSON.stringify(newConfig);
@@ -3383,6 +3676,10 @@ class CmsPanel extends i$2 {
         detail: { config: newConfig }
       })
     );
+  }
+  _onEntityRowStylesChanged(e2) {
+    this._entityRowStyles = e2.detail;
+    this._emitConfigChanged();
   }
   // ---------------------------------------------------------------------------
   // Preset management
@@ -3743,6 +4040,12 @@ class CmsPanel extends i$2 {
         ?open=${hasUnrecognisedCss}
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
+
+      ${this.config?.type === "entities" ? b`<cms-entities-rows-module
+              .rows=${this.config.entities ?? []}
+              .styles=${this._entityRowStyles}
+              @styles-changed=${this._onEntityRowStylesChanged}
+            ></cms-entities-rows-module>` : A}
     `;
   }
   _renderContainerCard(s2) {
@@ -3797,6 +4100,9 @@ __decorateClass$1([
 __decorateClass$1([
   r()
 ], CmsPanel.prototype, "_selectedPreset");
+__decorateClass$1([
+  r()
+], CmsPanel.prototype, "_entityRowStyles");
 customElements.define("cms-panel", CmsPanel);
 var __defProp = Object.defineProperty;
 var __decorateClass = (decorators, target, key, kind) => {

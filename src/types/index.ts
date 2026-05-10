@@ -160,6 +160,25 @@ export interface ThresholdModuleState {
   borderWidth?: number;
 }
 
+// ---------------------------------------------------------------------------
+// Entities card per-row style types
+// ---------------------------------------------------------------------------
+
+export interface EntitiesRowStyle {
+  iconColor: string;   // --paper-item-icon-color; '' = not set
+  textColor: string;   // color on :host; '' = not set
+}
+
+export type EntitiesRowStyles = Record<string, EntitiesRowStyle>;
+
+export interface EntitiesCardRow {
+  entity: string;
+  name?: string;
+  icon?: string;
+  card_mod?: { style: string };
+  [key: string]: unknown;
+}
+
 /** Aggregate state of the entire Style panel. */
 export interface StudioState {
   filter: FilterModuleState;
