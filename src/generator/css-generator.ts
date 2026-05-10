@@ -299,7 +299,11 @@ export function generateCss(state: StudioState, cardType?: string): string {
     parts.push(`ha-card {\n${body}\n}`);
   }
 
-  const iconColor = iconColorBlock(state.iconColor);
+  // Skip icon-color module when threshold is already driving icon color — both
+  // emit ha-state-icon { color } and the second block would silently win.
+  const thresholdOwnsIconColor =
+    state.threshold.enabled && state.threshold.property === 'icon-color';
+  const iconColor = thresholdOwnsIconColor ? '' : iconColorBlock(state.iconColor);
   if (iconColor) parts.push(iconColor);
 
   const threshold = thresholdBlock(state.threshold);

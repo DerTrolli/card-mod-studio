@@ -111,7 +111,9 @@ export class EntitiesRowsModule extends LitElement {
   }
 
   override render() {
-    const entityRows = this.rows.filter((r) => r.entity);
+    const entityRows = this.rows.filter(
+      (r): r is EntitiesCardRow & { entity: string } => !!r.entity,
+    );
     if (!entityRows.length) return nothing;
 
     return html`
@@ -126,7 +128,7 @@ export class EntitiesRowsModule extends LitElement {
     `;
   }
 
-  private _renderRow(row: EntitiesCardRow) {
+  private _renderRow(row: EntitiesCardRow & { entity: string }) {
     const id = row.entity;
     const label = row.name || id.split('.')[1] || id;
     const isOpen = this._openRows.has(id);

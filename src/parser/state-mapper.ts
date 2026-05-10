@@ -367,7 +367,39 @@ function mapBackground(
   if (!haCard) return { ...DEFAULT_BACKGROUND };
 
   const bgProp = findProp(haCard, 'background');
-  if (!bgProp || bgProp.hasCondition) return { ...DEFAULT_BACKGROUND };
+  if (!bgProp) return { ...DEFAULT_BACKGROUND };
+
+  // Conditional background: {{ 'color' if is_state(..., 'on'/'off') else 'none' }}
+  if (bgProp.hasCondition && bgProp.onValue !== undefined && bgProp.offValue !== undefined) {
+    const onVal = bgProp.onValue.trim();
+    const offVal = bgProp.offValue.trim();
+    let applyWhen: 'on' | 'off' | null = null;
+    let colorVal = '';
+    if (offVal === 'none' && onVal && onVal !== 'none') {
+      applyWhen = 'on';
+      colorVal = onVal;
+    } else if (onVal === 'none' && offVal && offVal !== 'none') {
+      applyWhen = 'off';
+      colorVal = offVal;
+    }
+    if (applyWhen && colorVal) {
+      claimed.add(claimKey(haCard.selector, 'background'));
+      const gradientMatch = colorVal.match(
+        /^linear-gradient\(\s*(\d+)deg\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)$/i,
+      );
+      if (gradientMatch) {
+        return {
+          enabled: true, type: 'gradient',
+          color1: gradientMatch[2].trim(), color2: gradientMatch[3].trim(),
+          angle: parseInt(gradientMatch[1], 10), applyWhen,
+        };
+      }
+      return { ...DEFAULT_BACKGROUND, enabled: true, type: 'solid', color1: colorVal, applyWhen };
+    }
+    return { ...DEFAULT_BACKGROUND };
+  }
+
+  if (bgProp.hasCondition) return { ...DEFAULT_BACKGROUND };
 
   const value = bgProp.value.trim();
 

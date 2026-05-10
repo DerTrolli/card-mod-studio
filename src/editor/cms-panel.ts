@@ -140,14 +140,11 @@ export class CmsPanel extends LitElement {
 
   private _parseEntityRowCss(css: string): EntitiesRowStyle {
     const style: EntitiesRowStyle = { iconColor: '', textColor: '' };
-    for (const line of css.split('\n')) {
-      const t = line.trim();
-      if (t.startsWith('--paper-item-icon-color:')) {
-        style.iconColor = t.replace('--paper-item-icon-color:', '').trim().replace(/;$/, '');
-      } else if (t.startsWith('color:')) {
-        style.textColor = t.replace('color:', '').trim().replace(/;$/, '');
-      }
-    }
+    const iconMatch = css.match(/--paper-item-icon-color\s*:\s*([^;}\n]+)/);
+    if (iconMatch) style.iconColor = iconMatch[1].trim();
+    // Match 'color:' only when not preceded by '--' (avoid matching CSS variable names)
+    const textMatch = css.match(/(?<!--)(?:^|[;\s{])color\s*:\s*([^;}\n]+)/m);
+    if (textMatch) style.textColor = textMatch[1].trim();
     return style;
   }
 

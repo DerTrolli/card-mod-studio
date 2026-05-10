@@ -1044,7 +1044,39 @@ function mapAccentColor(haCard, claimed) {
 function mapBackground(haCard, claimed) {
   if (!haCard) return { ...DEFAULT_BACKGROUND };
   const bgProp = findProp(haCard, "background");
-  if (!bgProp || bgProp.hasCondition) return { ...DEFAULT_BACKGROUND };
+  if (!bgProp) return { ...DEFAULT_BACKGROUND };
+  if (bgProp.hasCondition && bgProp.onValue !== void 0 && bgProp.offValue !== void 0) {
+    const onVal = bgProp.onValue.trim();
+    const offVal = bgProp.offValue.trim();
+    let applyWhen = null;
+    let colorVal = "";
+    if (offVal === "none" && onVal && onVal !== "none") {
+      applyWhen = "on";
+      colorVal = onVal;
+    } else if (onVal === "none" && offVal && offVal !== "none") {
+      applyWhen = "off";
+      colorVal = offVal;
+    }
+    if (applyWhen && colorVal) {
+      claimed.add(claimKey(haCard.selector, "background"));
+      const gradientMatch2 = colorVal.match(
+        /^linear-gradient\(\s*(\d+)deg\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)$/i
+      );
+      if (gradientMatch2) {
+        return {
+          enabled: true,
+          type: "gradient",
+          color1: gradientMatch2[2].trim(),
+          color2: gradientMatch2[3].trim(),
+          angle: parseInt(gradientMatch2[1], 10),
+          applyWhen
+        };
+      }
+      return { ...DEFAULT_BACKGROUND, enabled: true, type: "solid", color1: colorVal, applyWhen };
+    }
+    return { ...DEFAULT_BACKGROUND };
+  }
+  if (bgProp.hasCondition) return { ...DEFAULT_BACKGROUND };
   const value = bgProp.value.trim();
   const gradientMatch = value.match(
     /^linear-gradient\(\s*(\d+)deg\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)$/i
@@ -1476,7 +1508,8 @@ function generateCss(state, cardType) {
 ${body}
 }`);
   }
-  const iconColor = iconColorBlock(state.iconColor);
+  const thresholdOwnsIconColor = state.threshold.enabled && state.threshold.property === "icon-color";
+  const iconColor = thresholdOwnsIconColor ? "" : iconColorBlock(state.iconColor);
   if (iconColor) parts.push(iconColor);
   const threshold = thresholdBlock(state.threshold);
   if (threshold) parts.push(threshold);
@@ -3257,7 +3290,9 @@ class EntitiesRowsModule extends i$2 {
     this._openRows = next;
   }
   render() {
-    const entityRows = this.rows.filter((r2) => r2.entity);
+    const entityRows = this.rows.filter(
+      (r2) => !!r2.entity
+    );
     if (!entityRows.length) return A;
     return b`
       <div class="module">
@@ -3529,14 +3564,10 @@ class CmsPanel extends i$2 {
   }
   _parseEntityRowCss(css2) {
     const style = { iconColor: "", textColor: "" };
-    for (const line of css2.split("\n")) {
-      const t2 = line.trim();
-      if (t2.startsWith("--paper-item-icon-color:")) {
-        style.iconColor = t2.replace("--paper-item-icon-color:", "").trim().replace(/;$/, "");
-      } else if (t2.startsWith("color:")) {
-        style.textColor = t2.replace("color:", "").trim().replace(/;$/, "");
-      }
-    }
+    const iconMatch = css2.match(/--paper-item-icon-color\s*:\s*([^;}\n]+)/);
+    if (iconMatch) style.iconColor = iconMatch[1].trim();
+    const textMatch = css2.match(/(?<!--)(?:^|[;\s{])color\s*:\s*([^;}\n]+)/m);
+    if (textMatch) style.textColor = textMatch[1].trim();
     return style;
   }
   _generateEntityRowCss(style) {

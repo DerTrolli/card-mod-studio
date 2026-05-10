@@ -172,7 +172,7 @@ export interface EntitiesRowStyle {
 export type EntitiesRowStyles = Record<string, EntitiesRowStyle>;
 
 export interface EntitiesCardRow {
-  entity: string;
+  entity?: string;
   name?: string;
   icon?: string;
   card_mod?: { style: string };
