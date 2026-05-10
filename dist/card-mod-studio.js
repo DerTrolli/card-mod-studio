@@ -3202,7 +3202,7 @@ class EntitiesRowsModule extends i$2 {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 8px 12px;
+        padding: 9px 12px;
         background: rgba(255, 255, 255, 0.03);
         cursor: pointer;
         user-select: none;
@@ -3217,7 +3217,7 @@ class EntitiesRowsModule extends i$2 {
         flex-shrink: 0;
       }
       .entity-name {
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 500;
         flex-shrink: 0;
       }
@@ -3238,39 +3238,14 @@ class EntitiesRowsModule extends i$2 {
         flex-shrink: 0;
       }
       .entity-body {
-        padding: 10px 12px;
+        padding: 12px 14px;
         border-top: 1px solid var(--divider-color, #383838);
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
       }
-      .toggle-btn {
-        padding: 3px 10px;
-        font-size: 11px;
-        border-radius: 4px;
-        cursor: pointer;
-        border: 1px solid var(--divider-color, #383838);
-        background: rgba(255, 255, 255, 0.04);
-        color: var(--secondary-text-color, #9e9e9e);
-      }
-      .toggle-btn.active {
-        background: rgba(33, 150, 243, 0.15);
-        color: #2196f3;
-        border-color: rgba(33, 150, 243, 0.3);
-      }
-      .clear-btn {
+      cms-color-picker {
         margin-top: 4px;
-        padding: 4px 10px;
-        font-size: 11px;
-        cursor: pointer;
-        background: rgba(255, 0, 0, 0.1);
-        color: #ff6b6b;
-        border: 1px solid rgba(255, 0, 0, 0.25);
-        border-radius: 4px;
-        width: 100%;
-      }
-      .clear-btn:hover {
-        background: rgba(255, 0, 0, 0.2);
       }
     `
     ];
@@ -3278,9 +3253,10 @@ class EntitiesRowsModule extends i$2 {
   _emit(entityId, changes) {
     const current = this.styles[entityId] ?? { iconColor: "", textColor: "" };
     const updated = { ...current, ...changes };
-    const newStyles = { ...this.styles, [entityId]: updated };
     this.dispatchEvent(
-      new CustomEvent("styles-changed", { detail: newStyles })
+      new CustomEvent("styles-changed", {
+        detail: { ...this.styles, [entityId]: updated }
+      })
     );
   }
   _toggleRow(entityId) {
@@ -3297,7 +3273,7 @@ class EntitiesRowsModule extends i$2 {
     return b`
       <div class="module">
         <div class="module-header" style="cursor:default; pointer-events:none">
-          <span class="module-title">👥 Entity Row Styles</span>
+          <span class="module-title">🏠 Entities</span>
         </div>
         <div class="module-body">
           ${entityRows.map((row) => this._renderRow(row))}
@@ -3329,71 +3305,36 @@ class EntitiesRowsModule extends i$2 {
         <div class="control-row">
           <span class="control-label">Icon color</span>
           <div class="control-right">
-            ${rowStyle.iconColor ? b`<input
-                    type="color"
-                    .value=${this._toHex(rowStyle.iconColor)}
-                    @input=${(e2) => this._emit(entityId, {
-      iconColor: e2.target.value
+            <ha-switch
+              .checked=${!!rowStyle.iconColor}
+              @change=${(e2) => this._emit(entityId, {
+      iconColor: e2.target.checked ? "#2196F3" : ""
     })}
-                  />` : A}
-            <button
-              class="toggle-btn ${rowStyle.iconColor ? "active" : ""}"
-              @click=${() => this._emit(entityId, {
-      iconColor: rowStyle.iconColor ? "" : "#2196F3"
-    })}
-            >
-              ${rowStyle.iconColor ? "On" : "Off"}
-            </button>
+            ></ha-switch>
           </div>
         </div>
+        ${rowStyle.iconColor ? b`<cms-color-picker
+                .value=${rowStyle.iconColor}
+                @color-changed=${(e2) => this._emit(entityId, { iconColor: e2.detail.value })}
+              ></cms-color-picker>` : A}
 
         <div class="control-row">
-          <span class="control-label">Text color</span>
+          <span class="control-label">Text / state color</span>
           <div class="control-right">
-            ${rowStyle.textColor ? b`<input
-                    type="color"
-                    .value=${this._toHex(rowStyle.textColor)}
-                    @input=${(e2) => this._emit(entityId, {
-      textColor: e2.target.value
+            <ha-switch
+              .checked=${!!rowStyle.textColor}
+              @change=${(e2) => this._emit(entityId, {
+      textColor: e2.target.checked ? "#e1e1e1" : ""
     })}
-                  />` : A}
-            <button
-              class="toggle-btn ${rowStyle.textColor ? "active" : ""}"
-              @click=${() => this._emit(entityId, {
-      textColor: rowStyle.textColor ? "" : "#e1e1e1"
-    })}
-            >
-              ${rowStyle.textColor ? "On" : "Off"}
-            </button>
+            ></ha-switch>
           </div>
         </div>
-
-        ${rowStyle.iconColor || rowStyle.textColor ? b`<button
-                class="clear-btn"
-                @click=${() => this._emit(entityId, { iconColor: "", textColor: "" })}
-              >
-                Clear row styles
-              </button>` : A}
+        ${rowStyle.textColor ? b`<cms-color-picker
+                .value=${rowStyle.textColor}
+                @color-changed=${(e2) => this._emit(entityId, { textColor: e2.detail.value })}
+              ></cms-color-picker>` : A}
       </div>
     `;
-  }
-  _toHex(value) {
-    if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
-    if (/^#[0-9a-fA-F]{3}$/.test(value)) {
-      return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`;
-    }
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = 1;
-      canvas.height = 1;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = value;
-      ctx.fillRect(0, 0, 1, 1);
-      const [r2, g2, b2] = ctx.getImageData(0, 0, 1, 1).data;
-      return `#${r2.toString(16).padStart(2, "0")}${g2.toString(16).padStart(2, "0")}${b2.toString(16).padStart(2, "0")}`;
-    } catch {
-      return "#888888";
-    }
   }
 }
 __decorateClass$2([
@@ -3564,15 +3505,18 @@ class CmsPanel extends i$2 {
   }
   _parseEntityRowCss(css2) {
     const style = { iconColor: "", textColor: "" };
-    const iconMatch = css2.match(/--paper-item-icon-color\s*:\s*([^;}\n]+)/);
-    if (iconMatch) style.iconColor = iconMatch[1].trim();
+    const stateIconMatch = css2.match(/--state-icon-color\s*:\s*([^;}\n]+)/);
+    const paperIconMatch = css2.match(/--paper-item-icon-color\s*:\s*([^;}\n]+)/);
+    style.iconColor = (stateIconMatch?.[1] ?? paperIconMatch?.[1] ?? "").trim();
     const textMatch = css2.match(/(?<!--)(?:^|[;\s{])color\s*:\s*([^;}\n]+)/m);
     if (textMatch) style.textColor = textMatch[1].trim();
     return style;
   }
   _generateEntityRowCss(style) {
     const decls = [];
-    if (style.iconColor) decls.push(`  --paper-item-icon-color: ${style.iconColor};`);
+    if (style.iconColor) {
+      decls.push(`  --state-icon-color: ${style.iconColor};`);
+    }
     if (style.textColor) decls.push(`  color: ${style.textColor};`);
     if (!decls.length) return "";
     return `:host {
@@ -3601,7 +3545,11 @@ ${decls.join("\n")}
     return CONTAINER_CARD_TYPES.has(this.config?.type ?? "");
   }
   get _showIconColor() {
+    if (this.config?.type === "entities") return false;
     return !NO_ICON_COLOR_TYPES.has(this.config?.type ?? "");
+  }
+  get _isEntitiesCard() {
+    return this.config?.type === "entities";
   }
   get _showAnimation() {
     return !NO_ANIMATION_TYPES.has(this.config?.type ?? "");
@@ -3956,7 +3904,7 @@ ${decls.join("\n")}
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.14</span>
+        <span class="version">v0.3.15</span>
       </div>
 
       <div class="panel-body ${hasPreview ? "" : "no-preview"}">
@@ -4033,7 +3981,7 @@ ${decls.join("\n")}
         @state-changed=${this._onFilterChanged}
       ></cms-filter-module>
 
-      ${!showHeadingStyle ? b`<cms-accent-color-module
+      ${!showHeadingStyle && !this._isEntitiesCard ? b`<cms-accent-color-module
             .state=${s2.accentColor}
             @state-changed=${this._onAccentColorChanged}
           ></cms-accent-color-module>` : A}
@@ -4045,11 +3993,11 @@ ${decls.join("\n")}
             @state-changed=${this._onIconColorChanged}
           ></cms-icon-color-module>` : A}
 
-      <cms-threshold-module
-        .state=${s2.threshold}
-        .cardEntity=${this.config?.entity ?? ""}
-        @state-changed=${this._onThresholdChanged}
-      ></cms-threshold-module>
+      ${!this._isEntitiesCard ? b`<cms-threshold-module
+              .state=${s2.threshold}
+              .cardEntity=${this.config?.entity ?? ""}
+              @state-changed=${this._onThresholdChanged}
+            ></cms-threshold-module>` : A}
 
       ${showBackground ? b`<cms-background-module
             .state=${s2.background}
@@ -4341,7 +4289,7 @@ async function startInjector() {
   patchDialogElement(DialogClass);
   injectIntoExistingDialogs();
 }
-const VERSION = "0.3.14";
+const VERSION = "0.3.15";
 if (window.cardModStudio) {
   console.warn(
     `[Card-Mod Studio] Already loaded (v${window.cardModStudio.version}). Skipping load of v${VERSION}. If you see duplicate "Style" buttons, clear your browser cache.`

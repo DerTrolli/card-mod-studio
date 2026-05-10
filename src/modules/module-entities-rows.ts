@@ -2,6 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles } from '../types/index.js';
 import { moduleStyles } from './module-base.js';
+import '../components/cms-color-picker.js';
 
 export class EntitiesRowsModule extends LitElement {
   @property({ attribute: false }) rows: EntitiesCardRow[] = [];
@@ -21,7 +22,7 @@ export class EntitiesRowsModule extends LitElement {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 8px 12px;
+        padding: 9px 12px;
         background: rgba(255, 255, 255, 0.03);
         cursor: pointer;
         user-select: none;
@@ -36,7 +37,7 @@ export class EntitiesRowsModule extends LitElement {
         flex-shrink: 0;
       }
       .entity-name {
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 500;
         flex-shrink: 0;
       }
@@ -57,39 +58,14 @@ export class EntitiesRowsModule extends LitElement {
         flex-shrink: 0;
       }
       .entity-body {
-        padding: 10px 12px;
+        padding: 12px 14px;
         border-top: 1px solid var(--divider-color, #383838);
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
       }
-      .toggle-btn {
-        padding: 3px 10px;
-        font-size: 11px;
-        border-radius: 4px;
-        cursor: pointer;
-        border: 1px solid var(--divider-color, #383838);
-        background: rgba(255, 255, 255, 0.04);
-        color: var(--secondary-text-color, #9e9e9e);
-      }
-      .toggle-btn.active {
-        background: rgba(33, 150, 243, 0.15);
-        color: #2196f3;
-        border-color: rgba(33, 150, 243, 0.3);
-      }
-      .clear-btn {
+      cms-color-picker {
         margin-top: 4px;
-        padding: 4px 10px;
-        font-size: 11px;
-        cursor: pointer;
-        background: rgba(255, 0, 0, 0.1);
-        color: #ff6b6b;
-        border: 1px solid rgba(255, 0, 0, 0.25);
-        border-radius: 4px;
-        width: 100%;
-      }
-      .clear-btn:hover {
-        background: rgba(255, 0, 0, 0.2);
       }
     `,
   ];
@@ -97,9 +73,10 @@ export class EntitiesRowsModule extends LitElement {
   private _emit(entityId: string, changes: Partial<EntitiesRowStyle>) {
     const current = this.styles[entityId] ?? { iconColor: '', textColor: '' };
     const updated = { ...current, ...changes };
-    const newStyles = { ...this.styles, [entityId]: updated };
     this.dispatchEvent(
-      new CustomEvent<EntitiesRowStyles>('styles-changed', { detail: newStyles }),
+      new CustomEvent<EntitiesRowStyles>('styles-changed', {
+        detail: { ...this.styles, [entityId]: updated },
+      }),
     );
   }
 
@@ -119,7 +96,7 @@ export class EntitiesRowsModule extends LitElement {
     return html`
       <div class="module">
         <div class="module-header" style="cursor:default; pointer-events:none">
-          <span class="module-title">👥 Entity Row Styles</span>
+          <span class="module-title">🏠 Entities</span>
         </div>
         <div class="module-body">
           ${entityRows.map((row) => this._renderRow(row))}
@@ -154,82 +131,44 @@ export class EntitiesRowsModule extends LitElement {
         <div class="control-row">
           <span class="control-label">Icon color</span>
           <div class="control-right">
-            ${rowStyle.iconColor
-              ? html`<input
-                    type="color"
-                    .value=${this._toHex(rowStyle.iconColor)}
-                    @input=${(e: Event) =>
-                      this._emit(entityId, {
-                        iconColor: (e.target as HTMLInputElement).value,
-                      })}
-                  />`
-              : nothing}
-            <button
-              class="toggle-btn ${rowStyle.iconColor ? 'active' : ''}"
-              @click=${() =>
+            <ha-switch
+              .checked=${!!rowStyle.iconColor}
+              @change=${(e: Event) =>
                 this._emit(entityId, {
-                  iconColor: rowStyle.iconColor ? '' : '#2196F3',
+                  iconColor: (e.target as HTMLInputElement).checked ? '#2196F3' : '',
                 })}
-            >
-              ${rowStyle.iconColor ? 'On' : 'Off'}
-            </button>
+            ></ha-switch>
           </div>
         </div>
+        ${rowStyle.iconColor
+          ? html`<cms-color-picker
+                .value=${rowStyle.iconColor}
+                @color-changed=${(e: CustomEvent) =>
+                  this._emit(entityId, { iconColor: e.detail.value })}
+              ></cms-color-picker>`
+          : nothing}
 
         <div class="control-row">
-          <span class="control-label">Text color</span>
+          <span class="control-label">Text / state color</span>
           <div class="control-right">
-            ${rowStyle.textColor
-              ? html`<input
-                    type="color"
-                    .value=${this._toHex(rowStyle.textColor)}
-                    @input=${(e: Event) =>
-                      this._emit(entityId, {
-                        textColor: (e.target as HTMLInputElement).value,
-                      })}
-                  />`
-              : nothing}
-            <button
-              class="toggle-btn ${rowStyle.textColor ? 'active' : ''}"
-              @click=${() =>
+            <ha-switch
+              .checked=${!!rowStyle.textColor}
+              @change=${(e: Event) =>
                 this._emit(entityId, {
-                  textColor: rowStyle.textColor ? '' : '#e1e1e1',
+                  textColor: (e.target as HTMLInputElement).checked ? '#e1e1e1' : '',
                 })}
-            >
-              ${rowStyle.textColor ? 'On' : 'Off'}
-            </button>
+            ></ha-switch>
           </div>
         </div>
-
-        ${rowStyle.iconColor || rowStyle.textColor
-          ? html`<button
-                class="clear-btn"
-                @click=${() => this._emit(entityId, { iconColor: '', textColor: '' })}
-              >
-                Clear row styles
-              </button>`
+        ${rowStyle.textColor
+          ? html`<cms-color-picker
+                .value=${rowStyle.textColor}
+                @color-changed=${(e: CustomEvent) =>
+                  this._emit(entityId, { textColor: e.detail.value })}
+              ></cms-color-picker>`
           : nothing}
       </div>
     `;
-  }
-
-  private _toHex(value: string): string {
-    if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
-    if (/^#[0-9a-fA-F]{3}$/.test(value)) {
-      return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`;
-    }
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1;
-      canvas.height = 1;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = value;
-      ctx.fillRect(0, 0, 1, 1);
-      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-    } catch {
-      return '#888888';
-    }
   }
 }
 

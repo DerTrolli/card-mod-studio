@@ -4,7 +4,7 @@ A visual GUI editor for [card-mod](https://github.com/thomasloven/lovelace-card-
 
 Instead of hand-writing YAML + CSS + Jinja2 templates, Card-Mod Studio gives you color pickers, sliders, and animation presets — and generates the correct `card_mod` YAML automatically.
 
-> **Current version: v0.3.14**
+> **Current version: v0.3.15**
 
 ---
 
@@ -72,7 +72,7 @@ Card-Mod Studio **generates** the card-mod YAML. card-mod **applies** it. Both a
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.3.14`
+   - URL: `/local/card-mod-studio.js?v=0.3.15`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -177,7 +177,7 @@ test/
 | 4 | Config integration — generate card_mod YAML and save via HA editor | ✅ Complete |
 | 4.x | Card-type awareness — per-card module visibility, heading card, light card support | ✅ v0.3.10 |
 | 5 | 2-column layout + live preview + style presets + cross-device preset sync | ✅ v0.3.13 |
-| 6 | Entities card per-row styling (icon color + text color per entity) | ✅ v0.3.14 |
+| 6 | Entities card per-row styling (icon color + text color per entity) | ✅ v0.3.15 |
 
 ---
 

@@ -140,9 +140,10 @@ export class CmsPanel extends LitElement {
 
   private _parseEntityRowCss(css: string): EntitiesRowStyle {
     const style: EntitiesRowStyle = { iconColor: '', textColor: '' };
-    const iconMatch = css.match(/--paper-item-icon-color\s*:\s*([^;}\n]+)/);
-    if (iconMatch) style.iconColor = iconMatch[1].trim();
-    // Match 'color:' only when not preceded by '--' (avoid matching CSS variable names)
+    // --state-icon-color is the modern HA variable; fall back to legacy --paper-item-icon-color
+    const stateIconMatch = css.match(/--state-icon-color\s*:\s*([^;}\n]+)/);
+    const paperIconMatch = css.match(/--paper-item-icon-color\s*:\s*([^;}\n]+)/);
+    style.iconColor = (stateIconMatch?.[1] ?? paperIconMatch?.[1] ?? '').trim();
     const textMatch = css.match(/(?<!--)(?:^|[;\s{])color\s*:\s*([^;}\n]+)/m);
     if (textMatch) style.textColor = textMatch[1].trim();
     return style;
@@ -150,7 +151,9 @@ export class CmsPanel extends LitElement {
 
   private _generateEntityRowCss(style: EntitiesRowStyle): string {
     const decls: string[] = [];
-    if (style.iconColor) decls.push(`  --paper-item-icon-color: ${style.iconColor};`);
+    if (style.iconColor) {
+      decls.push(`  --state-icon-color: ${style.iconColor};`);
+    }
     if (style.textColor) decls.push(`  color: ${style.textColor};`);
     if (!decls.length) return '';
     return `:host {\n${decls.join('\n')}\n}`;
@@ -184,7 +187,12 @@ export class CmsPanel extends LitElement {
   }
 
   private get _showIconColor(): boolean {
+    if (this.config?.type === 'entities') return false;
     return !NO_ICON_COLOR_TYPES.has(this.config?.type ?? '');
+  }
+
+  private get _isEntitiesCard(): boolean {
+    return this.config?.type === 'entities';
   }
 
   private get _showAnimation(): boolean {
@@ -554,7 +562,7 @@ export class CmsPanel extends LitElement {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.14</span>
+        <span class="version">v0.3.15</span>
       </div>
 
       <div class="panel-body ${hasPreview ? '' : 'no-preview'}">
@@ -648,7 +656,7 @@ export class CmsPanel extends LitElement {
         @state-changed=${this._onFilterChanged}
       ></cms-filter-module>
 
-      ${!showHeadingStyle
+      ${!showHeadingStyle && !this._isEntitiesCard
         ? html`<cms-accent-color-module
             .state=${s.accentColor}
             @state-changed=${this._onAccentColorChanged}
@@ -664,11 +672,13 @@ export class CmsPanel extends LitElement {
           ></cms-icon-color-module>`
         : nothing}
 
-      <cms-threshold-module
-        .state=${s.threshold}
-        .cardEntity=${this.config?.entity ?? ''}
-        @state-changed=${this._onThresholdChanged}
-      ></cms-threshold-module>
+      ${!this._isEntitiesCard
+        ? html`<cms-threshold-module
+              .state=${s.threshold}
+              .cardEntity=${this.config?.entity ?? ''}
+              @state-changed=${this._onThresholdChanged}
+            ></cms-threshold-module>`
+        : nothing}
 
       ${showBackground
         ? html`<cms-background-module
