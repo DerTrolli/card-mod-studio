@@ -23,7 +23,8 @@ import { loadPresets, savePresets } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
 import { parseCardModConfig } from '../parser/yaml-parser.js';
 import { mapToStudioState } from '../parser/state-mapper.js';
-import { generateCss } from '../generator/css-generator.js';
+import { generateCss, buildThresholdJinja } from '../generator/css-generator.js';
+import { parseThresholdJinja } from '../parser/state-mapper.js';
 import { applyCardModStyle } from '../generator/yaml-generator.js';
 
 import '../modules/module-filter.js';
@@ -140,21 +141,52 @@ export class CmsPanel extends LitElement {
 
   private _parseEntityRowCss(css: string): EntitiesRowStyle {
     const style: EntitiesRowStyle = { iconColor: '', textColor: '' };
-    // --state-icon-color is the modern HA variable; fall back to legacy --paper-item-icon-color
+
     const stateIconMatch = css.match(/--state-icon-color\s*:\s*([^;}\n]+)/);
     const paperIconMatch = css.match(/--paper-item-icon-color\s*:\s*([^;}\n]+)/);
-    style.iconColor = (stateIconMatch?.[1] ?? paperIconMatch?.[1] ?? '').trim();
+    const iconVal = (stateIconMatch?.[1] ?? paperIconMatch?.[1] ?? '').trim();
+    if (iconVal.includes('float(0)')) {
+      const parsed = parseThresholdJinja(iconVal);
+      if (parsed) {
+        style.iconMode = 'threshold';
+        style.iconRules = parsed.rules;
+        style.iconDefault = parsed.defaultColor;
+      }
+    } else {
+      style.iconColor = iconVal;
+    }
+
     const textMatch = css.match(/(?<!--)(?:^|[;\s{])color\s*:\s*([^;}\n]+)/m);
-    if (textMatch) style.textColor = textMatch[1].trim();
+    const textVal = textMatch?.[1]?.trim() ?? '';
+    if (textVal.includes('float(0)')) {
+      const parsed = parseThresholdJinja(textVal);
+      if (parsed) {
+        style.textMode = 'threshold';
+        style.textRules = parsed.rules;
+        style.textDefault = parsed.defaultColor;
+      }
+    } else {
+      style.textColor = textVal;
+    }
+
     return style;
   }
 
-  private _generateEntityRowCss(style: EntitiesRowStyle): string {
+  private _generateEntityRowCss(style: EntitiesRowStyle, entityId: string): string {
     const decls: string[] = [];
-    if (style.iconColor) {
+
+    if (style.iconMode === 'threshold' && style.iconRules?.length && style.iconDefault) {
+      decls.push(`  --state-icon-color: ${buildThresholdJinja(style.iconRules, style.iconDefault, entityId)};`);
+    } else if (style.iconColor) {
       decls.push(`  --state-icon-color: ${style.iconColor};`);
     }
-    if (style.textColor) decls.push(`  color: ${style.textColor};`);
+
+    if (style.textMode === 'threshold' && style.textRules?.length && style.textDefault) {
+      decls.push(`  color: ${buildThresholdJinja(style.textRules, style.textDefault, entityId)};`);
+    } else if (style.textColor) {
+      decls.push(`  color: ${style.textColor};`);
+    }
+
     if (!decls.length) return '';
     return `:host {\n${decls.join('\n')}\n}`;
   }
@@ -171,7 +203,7 @@ export class CmsPanel extends LitElement {
         const { card_mod: _cm, ...rest } = row;
         return rest as EntitiesCardRow;
       }
-      const rowCss = this._generateEntityRowCss(rowStyle);
+      const rowCss = this._generateEntityRowCss(rowStyle, row.entity!);
       return { ...row, card_mod: { style: rowCss } };
     });
 
@@ -562,7 +594,7 @@ export class CmsPanel extends LitElement {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.15</span>
+        <span class="version">v0.3.16</span>
       </div>
 
       <div class="panel-body ${hasPreview ? '' : 'no-preview'}">

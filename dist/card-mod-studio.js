@@ -1447,11 +1447,10 @@ function iconColorBlock(s2) {
   color: {{ '${s2.colorOn}' if is_state(config.entity, 'on') else '${s2.colorOff}' }} !important;
 }`;
 }
-function thresholdBlock(s2) {
-  if (!s2 || !s2.enabled || !s2.entityId || s2.rules.length === 0) return "";
-  const stateExpr = `states('${s2.entityId}') | float(0)`;
-  const firstOp = s2.rules[0]?.operator ?? ">";
-  const sortedRules = [...s2.rules];
+function buildThresholdJinja(rules, defaultColor, entityId) {
+  const stateExpr = `states('${entityId}') | float(0)`;
+  const firstOp = rules[0]?.operator ?? ">";
+  const sortedRules = [...rules];
   if (firstOp === ">" || firstOp === ">=") {
     sortedRules.sort((a2, b2) => b2.value - a2.value);
   } else if (firstOp === "<" || firstOp === "<=") {
@@ -1463,9 +1462,14 @@ function thresholdBlock(s2) {
     if (i4 > 0) jinja += " else (";
     jinja += `'${rule.color}' if ${stateExpr} ${rule.operator} ${rule.value}`;
   }
-  jinja += ` else '${s2.defaultColor}'`;
+  jinja += ` else '${defaultColor}'`;
   jinja += ")".repeat(sortedRules.length - 1);
   jinja += " }}";
+  return jinja;
+}
+function thresholdBlock(s2) {
+  if (!s2 || !s2.enabled || !s2.entityId || s2.rules.length === 0) return "";
+  const jinja = buildThresholdJinja(s2.rules, s2.defaultColor, s2.entityId);
   switch (s2.property) {
     case "icon-color":
       return `ha-state-icon {
@@ -3244,13 +3248,103 @@ class EntitiesRowsModule extends i$2 {
         flex-direction: column;
         gap: 10px;
       }
-      cms-color-picker {
+      .mode-toggle {
+        display: flex;
+        border: 1px solid var(--divider-color, #383838);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .mode-btn {
+        padding: 3px 10px;
+        font-size: 11px;
+        cursor: pointer;
+        background: transparent;
+        color: var(--secondary-text-color, #9e9e9e);
+        border: none;
+      }
+      .mode-btn.active {
+        background: rgba(33, 150, 243, 0.2);
+        color: #2196f3;
+      }
+      .color-section-label {
+        font-size: 12px;
+        color: var(--secondary-text-color, #9e9e9e);
+        font-weight: 500;
+        margin-bottom: 2px;
+      }
+      /* Threshold rule styles */
+      .rule {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        padding: 6px 8px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 4px;
+      }
+      .rule select,
+      .rule input[type='number'] {
+        padding: 4px 6px;
+        font-size: 12px;
+        background: var(--card-background-color, #1c1c1c);
+        color: var(--primary-text-color, #e1e1e1);
+        border: 1px solid var(--divider-color, #383838);
+        border-radius: 4px;
+      }
+      .rule input[type='number'] { width: 70px; }
+      .rule select { width: 60px; }
+      .rule input[type='color'] {
+        width: 32px;
+        height: 24px;
+        padding: 0;
+        border: 1px solid var(--divider-color, #383838);
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .rule button {
+        padding: 2px 8px;
+        cursor: pointer;
+        background: rgba(255, 0, 0, 0.15);
+        color: #ff6b6b;
+        border: 1px solid rgba(255, 0, 0, 0.3);
+        border-radius: 4px;
+        font-size: 14px;
+        line-height: 1;
+      }
+      .rule button:hover { background: rgba(255, 0, 0, 0.25); }
+      .rule-label {
+        font-size: 11px;
+        color: var(--secondary-text-color, #9e9e9e);
+      }
+      .add-rule-btn {
         margin-top: 4px;
+        padding: 5px 10px;
+        cursor: pointer;
+        background: rgba(33, 150, 243, 0.12);
+        color: #2196f3;
+        border: 1px solid rgba(33, 150, 243, 0.3);
+        border-radius: 4px;
+        font-size: 12px;
+        width: 100%;
+      }
+      .add-rule-btn:hover { background: rgba(33, 150, 243, 0.22); }
+      .rules-container {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 6px;
+      }
+      .divider {
+        border: none;
+        border-top: 1px solid var(--divider-color, #383838);
+        margin: 4px 0;
       }
     `
     ];
   }
-  _emit(entityId, changes) {
+  // ---------------------------------------------------------------------------
+  // Emit helpers
+  // ---------------------------------------------------------------------------
+  _updateRow(entityId, changes) {
     const current = this.styles[entityId] ?? { iconColor: "", textColor: "" };
     const updated = { ...current, ...changes };
     this.dispatchEvent(
@@ -3265,6 +3359,9 @@ class EntitiesRowsModule extends i$2 {
     else next.add(entityId);
     this._openRows = next;
   }
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
   render() {
     const entityRows = this.rows.filter(
       (r2) => !!r2.entity
@@ -3286,7 +3383,7 @@ class EntitiesRowsModule extends i$2 {
     const label = row.name || id.split(".")[1] || id;
     const isOpen = this._openRows.has(id);
     const rowStyle = this.styles[id] ?? { iconColor: "", textColor: "" };
-    const hasStyle = !!(rowStyle.iconColor || rowStyle.textColor);
+    const hasStyle = !!(rowStyle.iconColor || rowStyle.iconMode === "threshold" || rowStyle.textColor || rowStyle.textMode === "threshold");
     return b`
       <div class="entity-section">
         <div class="entity-header" @click=${() => this._toggleRow(id)}>
@@ -3300,41 +3397,208 @@ class EntitiesRowsModule extends i$2 {
     `;
   }
   _renderBody(entityId, rowStyle) {
+    const iconEnabled = !!(rowStyle.iconColor || rowStyle.iconMode === "threshold");
+    const iconIsThreshold = rowStyle.iconMode === "threshold";
+    const textEnabled = !!(rowStyle.textColor || rowStyle.textMode === "threshold");
+    const textIsThreshold = rowStyle.textMode === "threshold";
     return b`
       <div class="entity-body">
+
+        <!-- Icon color -->
         <div class="control-row">
           <span class="control-label">Icon color</span>
           <div class="control-right">
+            ${iconEnabled ? b`<div class="mode-toggle">
+                    <button
+                      class="mode-btn ${!iconIsThreshold ? "active" : ""}"
+                      @click=${(e2) => {
+      e2.stopPropagation();
+      this._setMode(entityId, "icon", "static");
+    }}
+                    >Static</button>
+                    <button
+                      class="mode-btn ${iconIsThreshold ? "active" : ""}"
+                      @click=${(e2) => {
+      e2.stopPropagation();
+      this._setMode(entityId, "icon", "threshold");
+    }}
+                    >Threshold</button>
+                  </div>` : A}
             <ha-switch
-              .checked=${!!rowStyle.iconColor}
-              @change=${(e2) => this._emit(entityId, {
-      iconColor: e2.target.checked ? "#2196F3" : ""
-    })}
+              .checked=${iconEnabled}
+              @change=${(e2) => {
+      const on = e2.target.checked;
+      this._updateRow(entityId, on ? { iconColor: "#2196F3", iconMode: "static" } : { iconColor: "", iconMode: void 0, iconRules: void 0, iconDefault: void 0 });
+    }}
             ></ha-switch>
           </div>
         </div>
-        ${rowStyle.iconColor ? b`<cms-color-picker
+        ${iconEnabled && !iconIsThreshold ? b`<cms-color-picker
                 .value=${rowStyle.iconColor}
-                @color-changed=${(e2) => this._emit(entityId, { iconColor: e2.detail.value })}
+                @color-changed=${(e2) => this._updateRow(entityId, { iconColor: e2.detail.value })}
               ></cms-color-picker>` : A}
+        ${iconEnabled && iconIsThreshold ? this._renderRuleBuilder(entityId, "icon", rowStyle.iconRules ?? [], rowStyle.iconDefault ?? "#888888") : A}
 
+        <hr class="divider" />
+
+        <!-- Text / state color -->
         <div class="control-row">
           <span class="control-label">Text / state color</span>
           <div class="control-right">
+            ${textEnabled ? b`<div class="mode-toggle">
+                    <button
+                      class="mode-btn ${!textIsThreshold ? "active" : ""}"
+                      @click=${(e2) => {
+      e2.stopPropagation();
+      this._setMode(entityId, "text", "static");
+    }}
+                    >Static</button>
+                    <button
+                      class="mode-btn ${textIsThreshold ? "active" : ""}"
+                      @click=${(e2) => {
+      e2.stopPropagation();
+      this._setMode(entityId, "text", "threshold");
+    }}
+                    >Threshold</button>
+                  </div>` : A}
             <ha-switch
-              .checked=${!!rowStyle.textColor}
-              @change=${(e2) => this._emit(entityId, {
-      textColor: e2.target.checked ? "#e1e1e1" : ""
-    })}
+              .checked=${textEnabled}
+              @change=${(e2) => {
+      const on = e2.target.checked;
+      this._updateRow(entityId, on ? { textColor: "#e1e1e1", textMode: "static" } : { textColor: "", textMode: void 0, textRules: void 0, textDefault: void 0 });
+    }}
             ></ha-switch>
           </div>
         </div>
-        ${rowStyle.textColor ? b`<cms-color-picker
+        ${textEnabled && !textIsThreshold ? b`<cms-color-picker
                 .value=${rowStyle.textColor}
-                @color-changed=${(e2) => this._emit(entityId, { textColor: e2.detail.value })}
+                @color-changed=${(e2) => this._updateRow(entityId, { textColor: e2.detail.value })}
               ></cms-color-picker>` : A}
+        ${textEnabled && textIsThreshold ? this._renderRuleBuilder(entityId, "text", rowStyle.textRules ?? [], rowStyle.textDefault ?? "#888888") : A}
+
       </div>
     `;
+  }
+  // ---------------------------------------------------------------------------
+  // Threshold rule builder
+  // ---------------------------------------------------------------------------
+  _renderRuleBuilder(entityId, prop, rules, defaultColor) {
+    return b`
+      <div class="rules-container">
+        <span class="rule-label">Rules (top to bottom):</span>
+        ${rules.map((rule, i4) => b`
+          <div class="rule">
+            <span class="rule-label">If</span>
+            <select
+              .value=${rule.operator}
+              @change=${(e2) => this._updateRule(entityId, prop, i4, {
+      operator: e2.target.value
+    })}
+            >
+              <option value="<"  ?selected=${rule.operator === "<"}>&lt;</option>
+              <option value="<=" ?selected=${rule.operator === "<="}>&lt;=</option>
+              <option value=">"  ?selected=${rule.operator === ">"}>&gt;</option>
+              <option value=">=" ?selected=${rule.operator === ">="}>&gt;=</option>
+              <option value="==" ?selected=${rule.operator === "=="}>==</option>
+              <option value="!=" ?selected=${rule.operator === "!="}>!=</option>
+            </select>
+            <input
+              type="number"
+              .value=${String(rule.value)}
+              @input=${(e2) => this._updateRule(entityId, prop, i4, {
+      value: parseFloat(e2.target.value) || 0
+    })}
+            />
+            <span class="rule-label">→</span>
+            <input
+              type="color"
+              .value=${this._toHex(rule.color)}
+              @input=${(e2) => this._updateRule(entityId, prop, i4, {
+      color: e2.target.value
+    })}
+            />
+            <button @click=${() => this._removeRule(entityId, prop, i4)}>×</button>
+          </div>
+        `)}
+        <button class="add-rule-btn" @click=${() => this._addRule(entityId, prop)}>+ Add Rule</button>
+        <div class="control-row" style="margin-top:4px">
+          <span class="control-label">Default color</span>
+          <div class="control-right">
+            <input
+              type="color"
+              .value=${this._toHex(defaultColor)}
+              @input=${(e2) => {
+      const key = prop === "icon" ? "iconDefault" : "textDefault";
+      this._updateRow(entityId, { [key]: e2.target.value });
+    }}
+            />
+            <span class="rule-label">${defaultColor}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  _setMode(entityId, prop, mode) {
+    const current = this.styles[entityId] ?? { iconColor: "", textColor: "" };
+    if (prop === "icon") {
+      this._updateRow(entityId, {
+        iconMode: mode,
+        iconColor: mode === "static" ? current.iconColor || "#2196F3" : "",
+        iconRules: mode === "threshold" ? current.iconRules ?? [] : void 0,
+        iconDefault: mode === "threshold" ? current.iconDefault ?? "#888888" : void 0
+      });
+    } else {
+      this._updateRow(entityId, {
+        textMode: mode,
+        textColor: mode === "static" ? current.textColor || "#e1e1e1" : "",
+        textRules: mode === "threshold" ? current.textRules ?? [] : void 0,
+        textDefault: mode === "threshold" ? current.textDefault ?? "#888888" : void 0
+      });
+    }
+  }
+  _addRule(entityId, prop) {
+    const current = this.styles[entityId] ?? { iconColor: "", textColor: "" };
+    const key = prop === "icon" ? "iconRules" : "textRules";
+    const rules = [...current[key] ?? []];
+    rules.push({
+      id: `rule-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      operator: "<",
+      value: 0,
+      color: "#2196F3"
+    });
+    this._updateRow(entityId, { [key]: rules });
+  }
+  _removeRule(entityId, prop, index) {
+    const current = this.styles[entityId] ?? { iconColor: "", textColor: "" };
+    const key = prop === "icon" ? "iconRules" : "textRules";
+    const rules = [...current[key] ?? []];
+    rules.splice(index, 1);
+    this._updateRow(entityId, { [key]: rules });
+  }
+  _updateRule(entityId, prop, index, changes) {
+    const current = this.styles[entityId] ?? { iconColor: "", textColor: "" };
+    const key = prop === "icon" ? "iconRules" : "textRules";
+    const rules = [...current[key] ?? []];
+    rules[index] = { ...rules[index], ...changes };
+    this._updateRow(entityId, { [key]: rules });
+  }
+  _toHex(value) {
+    if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
+    if (/^#[0-9a-fA-F]{3}$/.test(value)) {
+      return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`;
+    }
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1;
+      canvas.height = 1;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = value;
+      ctx.fillRect(0, 0, 1, 1);
+      const [r2, g2, b2] = ctx.getImageData(0, 0, 1, 1).data;
+      return `#${r2.toString(16).padStart(2, "0")}${g2.toString(16).padStart(2, "0")}${b2.toString(16).padStart(2, "0")}`;
+    } catch {
+      return "#888888";
+    }
   }
 }
 __decorateClass$2([
@@ -3507,17 +3771,43 @@ class CmsPanel extends i$2 {
     const style = { iconColor: "", textColor: "" };
     const stateIconMatch = css2.match(/--state-icon-color\s*:\s*([^;}\n]+)/);
     const paperIconMatch = css2.match(/--paper-item-icon-color\s*:\s*([^;}\n]+)/);
-    style.iconColor = (stateIconMatch?.[1] ?? paperIconMatch?.[1] ?? "").trim();
+    const iconVal = (stateIconMatch?.[1] ?? paperIconMatch?.[1] ?? "").trim();
+    if (iconVal.includes("float(0)")) {
+      const parsed = parseThresholdJinja(iconVal);
+      if (parsed) {
+        style.iconMode = "threshold";
+        style.iconRules = parsed.rules;
+        style.iconDefault = parsed.defaultColor;
+      }
+    } else {
+      style.iconColor = iconVal;
+    }
     const textMatch = css2.match(/(?<!--)(?:^|[;\s{])color\s*:\s*([^;}\n]+)/m);
-    if (textMatch) style.textColor = textMatch[1].trim();
+    const textVal = textMatch?.[1]?.trim() ?? "";
+    if (textVal.includes("float(0)")) {
+      const parsed = parseThresholdJinja(textVal);
+      if (parsed) {
+        style.textMode = "threshold";
+        style.textRules = parsed.rules;
+        style.textDefault = parsed.defaultColor;
+      }
+    } else {
+      style.textColor = textVal;
+    }
     return style;
   }
-  _generateEntityRowCss(style) {
+  _generateEntityRowCss(style, entityId) {
     const decls = [];
-    if (style.iconColor) {
+    if (style.iconMode === "threshold" && style.iconRules?.length && style.iconDefault) {
+      decls.push(`  --state-icon-color: ${buildThresholdJinja(style.iconRules, style.iconDefault, entityId)};`);
+    } else if (style.iconColor) {
       decls.push(`  --state-icon-color: ${style.iconColor};`);
     }
-    if (style.textColor) decls.push(`  color: ${style.textColor};`);
+    if (style.textMode === "threshold" && style.textRules?.length && style.textDefault) {
+      decls.push(`  color: ${buildThresholdJinja(style.textRules, style.textDefault, entityId)};`);
+    } else if (style.textColor) {
+      decls.push(`  color: ${style.textColor};`);
+    }
     if (!decls.length) return "";
     return `:host {
 ${decls.join("\n")}
@@ -3533,7 +3823,7 @@ ${decls.join("\n")}
         const { card_mod: _cm, ...rest } = row;
         return rest;
       }
-      const rowCss = this._generateEntityRowCss(rowStyle);
+      const rowCss = this._generateEntityRowCss(rowStyle, row.entity);
       return { ...row, card_mod: { style: rowCss } };
     });
     return { ...config, entities: updatedRows };
@@ -3904,7 +4194,7 @@ ${decls.join("\n")}
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.15</span>
+        <span class="version">v0.3.16</span>
       </div>
 
       <div class="panel-body ${hasPreview ? "" : "no-preview"}">
@@ -4289,7 +4579,7 @@ async function startInjector() {
   patchDialogElement(DialogClass);
   injectIntoExistingDialogs();
 }
-const VERSION = "0.3.15";
+const VERSION = "0.3.16";
 if (window.cardModStudio) {
   console.warn(
     `[Card-Mod Studio] Already loaded (v${window.cardModStudio.version}). Skipping load of v${VERSION}. If you see duplicate "Style" buttons, clear your browser cache.`

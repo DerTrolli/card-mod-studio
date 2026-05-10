@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles } from '../types/index.js';
+import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, ThresholdRule } from '../types/index.js';
 import { moduleStyles } from './module-base.js';
 import '../components/cms-color-picker.js';
 
@@ -64,13 +64,104 @@ export class EntitiesRowsModule extends LitElement {
         flex-direction: column;
         gap: 10px;
       }
-      cms-color-picker {
+      .mode-toggle {
+        display: flex;
+        border: 1px solid var(--divider-color, #383838);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .mode-btn {
+        padding: 3px 10px;
+        font-size: 11px;
+        cursor: pointer;
+        background: transparent;
+        color: var(--secondary-text-color, #9e9e9e);
+        border: none;
+      }
+      .mode-btn.active {
+        background: rgba(33, 150, 243, 0.2);
+        color: #2196f3;
+      }
+      .color-section-label {
+        font-size: 12px;
+        color: var(--secondary-text-color, #9e9e9e);
+        font-weight: 500;
+        margin-bottom: 2px;
+      }
+      /* Threshold rule styles */
+      .rule {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        padding: 6px 8px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 4px;
+      }
+      .rule select,
+      .rule input[type='number'] {
+        padding: 4px 6px;
+        font-size: 12px;
+        background: var(--card-background-color, #1c1c1c);
+        color: var(--primary-text-color, #e1e1e1);
+        border: 1px solid var(--divider-color, #383838);
+        border-radius: 4px;
+      }
+      .rule input[type='number'] { width: 70px; }
+      .rule select { width: 60px; }
+      .rule input[type='color'] {
+        width: 32px;
+        height: 24px;
+        padding: 0;
+        border: 1px solid var(--divider-color, #383838);
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .rule button {
+        padding: 2px 8px;
+        cursor: pointer;
+        background: rgba(255, 0, 0, 0.15);
+        color: #ff6b6b;
+        border: 1px solid rgba(255, 0, 0, 0.3);
+        border-radius: 4px;
+        font-size: 14px;
+        line-height: 1;
+      }
+      .rule button:hover { background: rgba(255, 0, 0, 0.25); }
+      .rule-label {
+        font-size: 11px;
+        color: var(--secondary-text-color, #9e9e9e);
+      }
+      .add-rule-btn {
         margin-top: 4px;
+        padding: 5px 10px;
+        cursor: pointer;
+        background: rgba(33, 150, 243, 0.12);
+        color: #2196f3;
+        border: 1px solid rgba(33, 150, 243, 0.3);
+        border-radius: 4px;
+        font-size: 12px;
+        width: 100%;
+      }
+      .add-rule-btn:hover { background: rgba(33, 150, 243, 0.22); }
+      .rules-container {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 6px;
+      }
+      .divider {
+        border: none;
+        border-top: 1px solid var(--divider-color, #383838);
+        margin: 4px 0;
       }
     `,
   ];
 
-  private _emit(entityId: string, changes: Partial<EntitiesRowStyle>) {
+  // ---------------------------------------------------------------------------
+  // Emit helpers
+  // ---------------------------------------------------------------------------
+
+  private _updateRow(entityId: string, changes: Partial<EntitiesRowStyle>) {
     const current = this.styles[entityId] ?? { iconColor: '', textColor: '' };
     const updated = { ...current, ...changes };
     this.dispatchEvent(
@@ -86,6 +177,10 @@ export class EntitiesRowsModule extends LitElement {
     else next.add(entityId);
     this._openRows = next;
   }
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   override render() {
     const entityRows = this.rows.filter(
@@ -110,7 +205,12 @@ export class EntitiesRowsModule extends LitElement {
     const label = row.name || id.split('.')[1] || id;
     const isOpen = this._openRows.has(id);
     const rowStyle = this.styles[id] ?? { iconColor: '', textColor: '' };
-    const hasStyle = !!(rowStyle.iconColor || rowStyle.textColor);
+    const hasStyle = !!(
+      rowStyle.iconColor ||
+      rowStyle.iconMode === 'threshold' ||
+      rowStyle.textColor ||
+      rowStyle.textMode === 'threshold'
+    );
 
     return html`
       <div class="entity-section">
@@ -126,49 +226,221 @@ export class EntitiesRowsModule extends LitElement {
   }
 
   private _renderBody(entityId: string, rowStyle: EntitiesRowStyle) {
+    const iconEnabled = !!(rowStyle.iconColor || rowStyle.iconMode === 'threshold');
+    const iconIsThreshold = rowStyle.iconMode === 'threshold';
+    const textEnabled = !!(rowStyle.textColor || rowStyle.textMode === 'threshold');
+    const textIsThreshold = rowStyle.textMode === 'threshold';
+
     return html`
       <div class="entity-body">
+
+        <!-- Icon color -->
         <div class="control-row">
           <span class="control-label">Icon color</span>
           <div class="control-right">
+            ${iconEnabled
+              ? html`<div class="mode-toggle">
+                    <button
+                      class="mode-btn ${!iconIsThreshold ? 'active' : ''}"
+                      @click=${(e: Event) => { e.stopPropagation(); this._setMode(entityId, 'icon', 'static'); }}
+                    >Static</button>
+                    <button
+                      class="mode-btn ${iconIsThreshold ? 'active' : ''}"
+                      @click=${(e: Event) => { e.stopPropagation(); this._setMode(entityId, 'icon', 'threshold'); }}
+                    >Threshold</button>
+                  </div>`
+              : nothing}
             <ha-switch
-              .checked=${!!rowStyle.iconColor}
-              @change=${(e: Event) =>
-                this._emit(entityId, {
-                  iconColor: (e.target as HTMLInputElement).checked ? '#2196F3' : '',
-                })}
+              .checked=${iconEnabled}
+              @change=${(e: Event) => {
+                const on = (e.target as HTMLInputElement).checked;
+                this._updateRow(entityId, on
+                  ? { iconColor: '#2196F3', iconMode: 'static' }
+                  : { iconColor: '', iconMode: undefined, iconRules: undefined, iconDefault: undefined });
+              }}
             ></ha-switch>
           </div>
         </div>
-        ${rowStyle.iconColor
+        ${iconEnabled && !iconIsThreshold
           ? html`<cms-color-picker
                 .value=${rowStyle.iconColor}
-                @color-changed=${(e: CustomEvent) =>
-                  this._emit(entityId, { iconColor: e.detail.value })}
+                @color-changed=${(e: CustomEvent) => this._updateRow(entityId, { iconColor: e.detail.value })}
               ></cms-color-picker>`
           : nothing}
+        ${iconEnabled && iconIsThreshold
+          ? this._renderRuleBuilder(entityId, 'icon', rowStyle.iconRules ?? [], rowStyle.iconDefault ?? '#888888')
+          : nothing}
 
+        <hr class="divider" />
+
+        <!-- Text / state color -->
         <div class="control-row">
           <span class="control-label">Text / state color</span>
           <div class="control-right">
+            ${textEnabled
+              ? html`<div class="mode-toggle">
+                    <button
+                      class="mode-btn ${!textIsThreshold ? 'active' : ''}"
+                      @click=${(e: Event) => { e.stopPropagation(); this._setMode(entityId, 'text', 'static'); }}
+                    >Static</button>
+                    <button
+                      class="mode-btn ${textIsThreshold ? 'active' : ''}"
+                      @click=${(e: Event) => { e.stopPropagation(); this._setMode(entityId, 'text', 'threshold'); }}
+                    >Threshold</button>
+                  </div>`
+              : nothing}
             <ha-switch
-              .checked=${!!rowStyle.textColor}
-              @change=${(e: Event) =>
-                this._emit(entityId, {
-                  textColor: (e.target as HTMLInputElement).checked ? '#e1e1e1' : '',
-                })}
+              .checked=${textEnabled}
+              @change=${(e: Event) => {
+                const on = (e.target as HTMLInputElement).checked;
+                this._updateRow(entityId, on
+                  ? { textColor: '#e1e1e1', textMode: 'static' }
+                  : { textColor: '', textMode: undefined, textRules: undefined, textDefault: undefined });
+              }}
             ></ha-switch>
           </div>
         </div>
-        ${rowStyle.textColor
+        ${textEnabled && !textIsThreshold
           ? html`<cms-color-picker
                 .value=${rowStyle.textColor}
-                @color-changed=${(e: CustomEvent) =>
-                  this._emit(entityId, { textColor: e.detail.value })}
+                @color-changed=${(e: CustomEvent) => this._updateRow(entityId, { textColor: e.detail.value })}
               ></cms-color-picker>`
           : nothing}
+        ${textEnabled && textIsThreshold
+          ? this._renderRuleBuilder(entityId, 'text', rowStyle.textRules ?? [], rowStyle.textDefault ?? '#888888')
+          : nothing}
+
       </div>
     `;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Threshold rule builder
+  // ---------------------------------------------------------------------------
+
+  private _renderRuleBuilder(
+    entityId: string,
+    prop: 'icon' | 'text',
+    rules: ThresholdRule[],
+    defaultColor: string,
+  ) {
+    return html`
+      <div class="rules-container">
+        <span class="rule-label">Rules (top to bottom):</span>
+        ${rules.map((rule, i) => html`
+          <div class="rule">
+            <span class="rule-label">If</span>
+            <select
+              .value=${rule.operator}
+              @change=${(e: Event) => this._updateRule(entityId, prop, i, {
+                operator: (e.target as HTMLSelectElement).value as ThresholdRule['operator'],
+              })}
+            >
+              <option value="<"  ?selected=${rule.operator === '<'}>&lt;</option>
+              <option value="<=" ?selected=${rule.operator === '<='}>&lt;=</option>
+              <option value=">"  ?selected=${rule.operator === '>'}>&gt;</option>
+              <option value=">=" ?selected=${rule.operator === '>='}>&gt;=</option>
+              <option value="==" ?selected=${rule.operator === '=='}>==</option>
+              <option value="!=" ?selected=${rule.operator === '!='}>!=</option>
+            </select>
+            <input
+              type="number"
+              .value=${String(rule.value)}
+              @input=${(e: Event) => this._updateRule(entityId, prop, i, {
+                value: parseFloat((e.target as HTMLInputElement).value) || 0,
+              })}
+            />
+            <span class="rule-label">→</span>
+            <input
+              type="color"
+              .value=${this._toHex(rule.color)}
+              @input=${(e: Event) => this._updateRule(entityId, prop, i, {
+                color: (e.target as HTMLInputElement).value,
+              })}
+            />
+            <button @click=${() => this._removeRule(entityId, prop, i)}>×</button>
+          </div>
+        `)}
+        <button class="add-rule-btn" @click=${() => this._addRule(entityId, prop)}>+ Add Rule</button>
+        <div class="control-row" style="margin-top:4px">
+          <span class="control-label">Default color</span>
+          <div class="control-right">
+            <input
+              type="color"
+              .value=${this._toHex(defaultColor)}
+              @input=${(e: Event) => {
+                const key = prop === 'icon' ? 'iconDefault' : 'textDefault';
+                this._updateRow(entityId, { [key]: (e.target as HTMLInputElement).value });
+              }}
+            />
+            <span class="rule-label">${defaultColor}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private _setMode(entityId: string, prop: 'icon' | 'text', mode: 'static' | 'threshold') {
+    const current = this.styles[entityId] ?? { iconColor: '', textColor: '' };
+    if (prop === 'icon') {
+      this._updateRow(entityId, {
+        iconMode: mode,
+        iconColor: mode === 'static' ? (current.iconColor || '#2196F3') : '',
+        iconRules: mode === 'threshold' ? (current.iconRules ?? []) : undefined,
+        iconDefault: mode === 'threshold' ? (current.iconDefault ?? '#888888') : undefined,
+      });
+    } else {
+      this._updateRow(entityId, {
+        textMode: mode,
+        textColor: mode === 'static' ? (current.textColor || '#e1e1e1') : '',
+        textRules: mode === 'threshold' ? (current.textRules ?? []) : undefined,
+        textDefault: mode === 'threshold' ? (current.textDefault ?? '#888888') : undefined,
+      });
+    }
+  }
+
+  private _addRule(entityId: string, prop: 'icon' | 'text') {
+    const current = this.styles[entityId] ?? { iconColor: '', textColor: '' };
+    const key = prop === 'icon' ? 'iconRules' : 'textRules';
+    const rules = [...(current[key] ?? [])];
+    rules.push({
+      id: `rule-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      operator: '<',
+      value: 0,
+      color: '#2196F3',
+    });
+    this._updateRow(entityId, { [key]: rules });
+  }
+
+  private _removeRule(entityId: string, prop: 'icon' | 'text', index: number) {
+    const current = this.styles[entityId] ?? { iconColor: '', textColor: '' };
+    const key = prop === 'icon' ? 'iconRules' : 'textRules';
+    const rules = [...(current[key] ?? [])];
+    rules.splice(index, 1);
+    this._updateRow(entityId, { [key]: rules });
+  }
+
+  private _updateRule(entityId: string, prop: 'icon' | 'text', index: number, changes: Partial<ThresholdRule>) {
+    const current = this.styles[entityId] ?? { iconColor: '', textColor: '' };
+    const key = prop === 'icon' ? 'iconRules' : 'textRules';
+    const rules = [...(current[key] ?? [])];
+    rules[index] = { ...rules[index], ...changes };
+    this._updateRow(entityId, { [key]: rules });
+  }
+
+  private _toHex(value: string): string {
+    if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
+    if (/^#[0-9a-fA-F]{3}$/.test(value)) {
+      return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`;
+    }
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1; canvas.height = 1;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = value; ctx.fillRect(0, 0, 1, 1);
+      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    } catch { return '#888888'; }
   }
 }
 

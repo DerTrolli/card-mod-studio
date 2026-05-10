@@ -14,6 +14,7 @@ import type {
   BorderModuleState,
   HeadingStyleModuleState,
   ThresholdModuleState,
+  ThresholdRule,
 } from '../types/index.js';
 
 // ---------------------------------------------------------------------------
@@ -231,33 +232,39 @@ function iconColorBlock(s: IconColorModuleState): string {
   );
 }
 
-function thresholdBlock(s: ThresholdModuleState | undefined): string {
-  if (!s || !s.enabled || !s.entityId || s.rules.length === 0) return '';
-
-  // Build nested Jinja2 ternary expression
-  // {{ '#blue' if states('sensor.temp') | float(0) < 18 else ('#red' if ... else '#default') }}
-
-  const stateExpr = `states('${s.entityId}') | float(0)`;
-
-  // Sort so the nested ternary evaluates correctly:
-  // > / >= operators need highest value first; < / <= need lowest first.
-  const firstOp = s.rules[0]?.operator ?? '>';
-  const sortedRules = [...s.rules];
+/**
+ * Builds the nested Jinja2 ternary string used for threshold color expressions.
+ * Exported so the entity-row generator can reuse it.
+ */
+export function buildThresholdJinja(
+  rules: ThresholdRule[],
+  defaultColor: string,
+  entityId: string,
+): string {
+  const stateExpr = `states('${entityId}') | float(0)`;
+  const firstOp = rules[0]?.operator ?? '>';
+  const sortedRules = [...rules];
   if (firstOp === '>' || firstOp === '>=') {
     sortedRules.sort((a, b) => b.value - a.value);
   } else if (firstOp === '<' || firstOp === '<=') {
     sortedRules.sort((a, b) => a.value - b.value);
   }
-
   let jinja = '{{ ';
   for (let i = 0; i < sortedRules.length; i++) {
     const rule = sortedRules[i];
     if (i > 0) jinja += ' else (';
     jinja += `'${rule.color}' if ${stateExpr} ${rule.operator} ${rule.value}`;
   }
-  jinja += ` else '${s.defaultColor}'`;
+  jinja += ` else '${defaultColor}'`;
   jinja += ')'.repeat(sortedRules.length - 1);
   jinja += ' }}';
+  return jinja;
+}
+
+function thresholdBlock(s: ThresholdModuleState | undefined): string {
+  if (!s || !s.enabled || !s.entityId || s.rules.length === 0) return '';
+
+  const jinja = buildThresholdJinja(s.rules, s.defaultColor, s.entityId);
 
   // Generate CSS based on property type
   switch (s.property) {

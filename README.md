@@ -4,7 +4,7 @@ A visual GUI editor for [card-mod](https://github.com/thomasloven/lovelace-card-
 
 Instead of hand-writing YAML + CSS + Jinja2 templates, Card-Mod Studio gives you color pickers, sliders, and animation presets — and generates the correct `card_mod` YAML automatically.
 
-> **Current version: v0.3.15**
+> **Current version: v0.3.16**
 
 ---
 

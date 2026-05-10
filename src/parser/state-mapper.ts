@@ -555,7 +555,7 @@ function mapHeadingStyle(
 // Threshold module
 // ---------------------------------------------------------------------------
 
-function parseThresholdJinja(value: string): {
+export function parseThresholdJinja(value: string): {
   entityId: string;
   rules: ThresholdRule[];
   defaultColor: string;

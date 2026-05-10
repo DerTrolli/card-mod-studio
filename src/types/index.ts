@@ -165,8 +165,14 @@ export interface ThresholdModuleState {
 // ---------------------------------------------------------------------------
 
 export interface EntitiesRowStyle {
-  iconColor: string;   // --paper-item-icon-color; '' = not set
-  textColor: string;   // color on :host; '' = not set
+  iconColor: string;            // static icon color; '' = not set
+  iconMode?: 'static' | 'threshold';
+  iconRules?: ThresholdRule[];
+  iconDefault?: string;
+  textColor: string;            // static text color; '' = not set
+  textMode?: 'static' | 'threshold';
+  textRules?: ThresholdRule[];
+  textDefault?: string;
 }
 
 export type EntitiesRowStyles = Record<string, EntitiesRowStyle>;
