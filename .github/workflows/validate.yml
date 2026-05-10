@@ -31,3 +31,8 @@ jobs:
 
       - name: Verify dist file exists
         run: test -f dist/card-mod-studio.js && echo "Build OK" || (echo "Build FAILED" && exit 1)
+
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: plugin

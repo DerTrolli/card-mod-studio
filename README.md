@@ -1,10 +1,13 @@
 # Card-Mod Studio
 
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![GitHub Release](https://img.shields.io/github/v/release/dertrolli/card-mod-visual-editor)](https://github.com/dertrolli/card-mod-visual-editor/releases)
+
 A visual GUI editor for [card-mod](https://github.com/thomasloven/lovelace-card-mod) CSS styles in Home Assistant.
 
 Instead of hand-writing YAML + CSS + Jinja2 templates, Card-Mod Studio gives you color pickers, sliders, and animation presets — and generates the correct `card_mod` YAML automatically.
 
-> **Current version: v0.3.16**
+> **Current version: v0.4.0**
 
 ---
 
@@ -200,3 +203,9 @@ MIT — see [LICENSE](LICENSE)
 - [card-mod](https://github.com/thomasloven/lovelace-card-mod) by thomasloven — the engine that applies the generated YAML
 - [Lit](https://lit.dev) — the web components library used for the editor UI
 - [custom-cards boilerplate](https://github.com/custom-cards/boilerplate-card) — project structure inspiration
+
+---
+
+## Attribution
+
+The concept, UX design, and product direction for Card-Mod Studio were created by [DerTrolli](https://github.com/dertrolli). The implementation was coded by [Claude](https://claude.ai) (AI assistant by [Anthropic](https://anthropic.com)).

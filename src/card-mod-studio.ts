@@ -20,7 +20,7 @@ import { startInjector } from './editor/cms-injector.js';
 import { isCardModInstalled } from './utils/dom-helpers.js';
 import type { CardModStudioMeta } from './types/index.js';
 
-const VERSION = '0.3.16';
+const VERSION = '0.4.0';
 
 // ---------------------------------------------------------------------------
 // Guard against double-loading
@@ -53,7 +53,11 @@ if (window.cardModStudio) {
   startInjector()
     .then(() => {
       meta.injected = true;
-      console.info(`[Card-Mod Studio] v${VERSION} loaded and injected successfully.`);
+      console.info(
+        `%c CARD-MOD STUDIO %c v${VERSION} `,
+        'color: white; background: #03a9f4; font-weight: bold; padding: 2px 4px; border-radius: 3px 0 0 3px;',
+        'color: #03a9f4; background: #fff; font-weight: bold; padding: 2px 4px; border-radius: 0 3px 3px 0; border: 1px solid #03a9f4;',
+      );
     })
     .catch((err: unknown) => {
       console.error('[Card-Mod Studio] Injection failed:', err);
