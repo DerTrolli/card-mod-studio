@@ -4579,7 +4579,7 @@ async function startInjector() {
   patchDialogElement(DialogClass);
   injectIntoExistingDialogs();
 }
-const VERSION = "0.3.16";
+const VERSION = "0.4.0";
 if (window.cardModStudio) {
   console.warn(
     `[Card-Mod Studio] Already loaded (v${window.cardModStudio.version}). Skipping load of v${VERSION}. If you see duplicate "Style" buttons, clear your browser cache.`
@@ -4596,7 +4596,11 @@ if (window.cardModStudio) {
   }
   startInjector().then(() => {
     meta.injected = true;
-    console.info(`[Card-Mod Studio] v${VERSION} loaded and injected successfully.`);
+    console.info(
+      `%c CARD-MOD STUDIO %c v${VERSION} `,
+      "color: white; background: #03a9f4; font-weight: bold; padding: 2px 4px; border-radius: 3px 0 0 3px;",
+      "color: #03a9f4; background: #fff; font-weight: bold; padding: 2px 4px; border-radius: 0 3px 3px 0; border: 1px solid #03a9f4;"
+    );
   }).catch((err) => {
     console.error("[Card-Mod Studio] Injection failed:", err);
   });
