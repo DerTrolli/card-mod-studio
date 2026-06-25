@@ -63,16 +63,31 @@ const NO_ANIMATION_TYPES = new Set([
 const NO_BACKGROUND_TYPES = new Set([
   'picture', 'picture-entity', 'picture-glance', 'picture-elements',
   'iframe', 'webpage', 'map',
+  // heading cards have no painted ha-card box — background has no visual effect
+  // (verified empirically). See docs/CARD_SUPPORT_MATRIX.md.
+  'heading',
+]);
+
+// Border (width/colour + radius) has no visual effect on heading cards (no
+// painted box). Radius/filter aside, the whole module is moot there.
+const NO_BORDER_TYPES = new Set([
+  'heading',
 ]);
 
 const NO_ICON_COLOR_TYPES = new Set([
   'gauge', 'history-graph', 'statistics-graph', 'statistic',
   'energy-distribution', 'energy-usage-graph',
-  'thermostat', 'humidifier', 'alarm-panel',
-  'media-control', 'weather-forecast', 'calendar', 'logbook', 'activity',
+  'thermostat', 'humidifier',
+  'weather-forecast', 'calendar', 'logbook', 'activity',
   'markdown', 'map', 'iframe', 'webpage', 'shopping-list', 'todo-list',
   'picture', 'picture-entity',
   'heading',
+  // glance renders its icon inside a nested <state-badge> shadow root that a
+  // card-mod rule can't pierce, and the colour is applied inline from state —
+  // no selector recolours it (verified empirically), so don't offer a dead
+  // control. alarm-panel and media-control DO honour icon colour (plain mode)
+  // and are intentionally NOT listed here.
+  'glance',
 ]);
 
 export class CmsPanel extends LitElement {
@@ -249,6 +264,10 @@ export class CmsPanel extends LitElement {
 
   private get _showBackground(): boolean {
     return !NO_BACKGROUND_TYPES.has(this.config?.type ?? '');
+  }
+
+  private get _showBorder(): boolean {
+    return !NO_BORDER_TYPES.has(this.config?.type ?? '');
   }
 
   private get _showHeadingStyle(): boolean {
@@ -682,6 +701,7 @@ export class CmsPanel extends LitElement {
     const showIconColor = this._showIconColor;
     const showAnimation = this._showAnimation;
     const showBackground = this._showBackground;
+    const showBorder = this._showBorder;
     const showHeadingStyle = this._showHeadingStyle;
     const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
 
@@ -742,10 +762,12 @@ export class CmsPanel extends LitElement {
           ></cms-animation-module>`
         : nothing}
 
-      <cms-border-module
-        .state=${s.border}
-        @state-changed=${this._onBorderChanged}
-      ></cms-border-module>
+      ${showBorder
+        ? html`<cms-border-module
+            .state=${s.border}
+            @state-changed=${this._onBorderChanged}
+          ></cms-border-module>`
+        : nothing}
 
       <cms-advanced-module
         .state=${s.advanced}

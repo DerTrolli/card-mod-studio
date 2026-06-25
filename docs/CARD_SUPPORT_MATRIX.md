@@ -5,8 +5,17 @@
 applied by real card-mod, verdict = did the target element's **computed style**
 actually change vs baseline. Reproduce with [`tools/sandbox`](../tools/sandbox/README.md).
 
-This is ground truth measured by the testing sandbox — it supersedes the
-hand-authored assumptions in `CARD_TYPE_PLAN.md` where they disagree.
+> ⚠️ **Methodology caveat — standalone mount vs real dashboard.** The bulk of
+> this matrix mounts each card standalone via `document.createElement('hui-card')`,
+> which is fast but can diverge from a real dashboard: the `button` card *errors*
+> standalone yet renders fine in a view. **Treat standalone results as a lead, not
+> a verdict.** Decisions that changed code were re-verified in a real
+> `sections`/`grid` dashboard (`tools/sandbox/harness/dash_verify.mjs`); those are
+> marked ✔︎ verified below. Single-property measurements can also mislead — see
+> the accent-color correction.
+
+This complements (not blindly supersedes) `CARD_TYPE_PLAN.md`; where they disagree
+and the cell was dashboard-verified, trust this doc.
 
 ---
 
@@ -44,38 +53,50 @@ hand-authored assumptions in `CARD_TYPE_PLAN.md` where they disagree.
 | `border` | `ha-card { border: …px solid … }` | `ha-card` `border-top-width` |
 | `filter` | `ha-card { filter: grayscale(100%) }` | `ha-card` `filter` |
 
-**Caveats:** `icon_color`/`accent_color` are measured **on the icon**. So `—` means
-"no icon element," and `accent_color` specifically measures *"does accent reach the
-icon."* For gauge/thermostat, accent still colors the arc/ring — not captured here.
+**Caveats:** the `icon_color` and `accent_color` columns are measured **only on the
+icon** (`ha-state-icon` `color`). So `—` means "no icon element," and the
+`accent_color` column answers *only* "does accent recolor the icon" — **not**
+"does accent do anything." That distinction broke finding #1 below.
 
 ---
 
 ## Findings & recommended changes
 
-### 1. Accent color is broadly ineffective as shipped (HIGH)
-`accent_color` = ❌ on tile, entity, glance, light, alarm-panel, media-control,
-button. The tool emits `--tile-color` / `--state-icon-color` etc. **without
-`!important`**, and these cards set those variables **inline** from entity state,
-so card-mod's stylesheet rule loses. Verified fix: with `!important` the tile icon
-goes orange→red (`rgb(255,164,82)`→`rgb(255,0,0)`).
-→ **`accentColorDecls()` in `css-generator.ts` should emit `!important`** on the
-color variables.
+### 1. ~~Accent color is broadly broken~~ — RETRACTED (the column was measuring the wrong thing)
+The `accent_color` column shows ❌ for many cards, but that only means **accent
+doesn't recolor the icon** — which is mostly *not what accent is for*. On a
+`sensor` card the accent colours the **graph line**; on a `tile` it themes the
+`--tile-color`. Verified against a real production dashboard: accent-coloured
+sensor graphs render correctly with the current (no-`!important`) output.
 
-### 2. `heading` doesn't honor background or border (MEDIUM)
-`heading` = ❌ for `background` and `border` (only `border_radius` and `filter`
-work). But `CARD_TYPE_PLAN.md` lists heading as "Keep: Background, Border," and the
-panel still shows the Background module for heading cards.
-→ **Hide Background/Border for `heading`** (add to the relevant `NO_*` sets), or
-re-target a real heading element.
+An earlier attempt to "fix" this by stamping `!important` on the accent vars was
+**reverted** because it is net-harmful: it only changes the icon on `tile`, does
+nothing for entity/light/alarm/media (their icons live in a nested `state-badge`
+shadow root card-mod can't reach), and it would **break the common dynamic-accent
+pattern** — a static `--accent-color: X !important` block would override a later
+threshold-driven `--accent-color: {{ … }}` block that has no `!important`.
+→ **No generator change.** If static accent on tiles is ever wanted, it must also
+make the threshold accent block `!important` so the dynamic value still wins.
 
-### 3. `glance` icon color doesn't work (MEDIUM)
-`ha-state-icon { color: … !important }` does not recolor glance icons, yet the
-panel offers Icon Color for glance (not in `NO_ICON_COLOR_TYPES`).
-→ **Hide icon color for `glance`, or re-target** the glance icon element/variable.
+### 2. `heading` doesn't honor background or border ✔︎ verified (real dashboard)
+A heading card's `ha-card` has no painted box: background stays `rgba(0,0,0,0)` and
+`border-top-width` stays `0px` when styled (`dash_verify.mjs`). The panel used to
+show Background (and Border) for headings — dead controls.
+→ **Done:** `heading` added to `NO_BACKGROUND_TYPES` and a new `NO_BORDER_TYPES`.
+Heading styling stays available via the dedicated Heading Style module.
 
-### 4. `media-control` icon color *does* work, but the tool hides it (LOW)
-`media-control` is in `NO_ICON_COLOR_TYPES` yet `icon_color` = ✅.
-→ Consider **allowing** icon color for `media-control`.
+### 3. `glance` icon color doesn't work ✔︎ verified (real dashboard)
+Glance renders its icon inside a nested `<state-badge>` shadow root, coloured
+inline from state; six candidate selectors (`ha-state-icon`, `state-badge`,
+`.entity`, `--state-icon-color`, `--paper-item-icon-color`, `--mdc-icon-color`) all
+left it unchanged, and so did a real-dashboard re-test.
+→ **Done:** `glance` added to `NO_ICON_COLOR_TYPES`. (A future option: emit
+card-mod's nested shadow-piercing syntax for glance.)
+
+### 4. `alarm-panel` and `media-control` icon color *do* work, but were hidden ✔︎ verified
+Both went white→red in a real dashboard, yet both were in `NO_ICON_COLOR_TYPES`.
+→ **Done:** removed both from `NO_ICON_COLOR_TYPES` (plain mode is used for the
+non-state `media-control`).
 
 ### 5. `entities` card-level icon color = ❌ (confirms design)
 Card-level `ha-state-icon { color }` doesn't reach entity rows — which is exactly
@@ -83,13 +104,22 @@ why the tool styles entities **per-row**. No change; validation of the approach.
 
 ### 6. ha-card-level styling is the reliable foundation
 `background` / `border_radius` / `border` / `filter` work on essentially every
-card (heading bg/border excepted). These are safe defaults across card types.
+card (heading excepted, per #2). These are safe defaults across card types.
 
 ---
+
+## What changed in the tool from these findings
+
+Only **panel module visibility** changed (which controls are shown per card type);
+**no generated CSS changed**, so existing dashboards are unaffected:
+- `heading`: Background + Border modules hidden (Heading Style remains).
+- `glance`: Icon Color hidden.
+- `alarm-panel`, `media-control`: Icon Color now shown.
 
 ## Notes for re-running
 
 - 15 card types mount cleanly standalone and are measured programmatically; the
-  `button` card needs a real dashboard (see `tools/sandbox/harness/button_matrix.mjs`).
-- To extend: measure accent on the gauge arc / thermostat ring, and add
-  `threshold` / `animation` / `heading-style` settings. See the sandbox README.
+  `button` card needs a real dashboard (`button_matrix.mjs`). Use `dash_verify.mjs`
+  to re-confirm any contested cell in a real `sections`/`grid` view.
+- To extend: measure accent on the **graph line / gauge arc / thermostat ring**
+  (not the icon), and add `threshold` / `animation` / `heading-style` settings.
