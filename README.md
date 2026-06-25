@@ -160,7 +160,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.4.0`
+   - URL: `/local/card-mod-studio.js?v=0.4.1`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
