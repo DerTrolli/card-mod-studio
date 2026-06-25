@@ -38,6 +38,9 @@ import '../modules/module-advanced.js';
 import '../modules/module-heading-style.js';
 import '../modules/module-entities-rows.js';
 
+declare const __APP_VERSION__: string;
+const VERSION = __APP_VERSION__;
+
 const NON_STATE_CARD_TYPES = new Set([
   'sensor', 'gauge', 'history-graph', 'statistics-graph', 'statistic',
   'energy-distribution', 'energy-usage-graph', 'calendar', 'todo-list',
@@ -198,12 +201,25 @@ export class CmsPanel extends LitElement {
     const updatedRows = rows.map((row) => {
       if (!row.entity) return row;
       const rowStyle = this._entityRowStyles[row.entity];
-      if (!rowStyle?.iconColor && !rowStyle?.textColor) {
+      // A row is "styled" if it has a static color OR a threshold mode with at
+      // least one rule. Checking only static colors would silently discard
+      // threshold-mode rows (whose static colors are empty by design).
+      const hasIcon = !!(
+        rowStyle?.iconColor ||
+        (rowStyle?.iconMode === 'threshold' && rowStyle?.iconRules?.length)
+      );
+      const hasText = !!(
+        rowStyle?.textColor ||
+        (rowStyle?.textMode === 'threshold' && rowStyle?.textRules?.length)
+      );
+      const rowCss = hasIcon || hasText
+        ? this._generateEntityRowCss(rowStyle!, row.entity)
+        : '';
+      if (!rowCss) {
         // Drop card_mod from this row if present
         const { card_mod: _cm, ...rest } = row;
         return rest as EntitiesCardRow;
       }
-      const rowCss = this._generateEntityRowCss(rowStyle, row.entity!);
       return { ...row, card_mod: { style: rowCss } };
     });
 
@@ -594,7 +610,7 @@ export class CmsPanel extends LitElement {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.16</span>
+        <span class="version">v${VERSION}</span>
       </div>
 
       <div class="panel-body ${hasPreview ? '' : 'no-preview'}">

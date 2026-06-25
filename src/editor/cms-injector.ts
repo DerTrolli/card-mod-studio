@@ -23,7 +23,7 @@
  * - Our button needs slot="secondaryAction" to appear in the same footer area
  */
 
-import { HA_DIALOG_ELEMENT } from '../utils/dom-helpers.js';
+import { HA_DIALOG_ELEMENT, HA_CARD_EDITOR_ELEMENT } from '../utils/dom-helpers.js';
 import type { CardModCardConfig, HomeAssistant } from '../types/index.js';
 
 const CMS_BUTTON_ATTR = 'data-cms-injected';
@@ -60,7 +60,7 @@ interface HuiDialogEditCard extends HTMLElement {
 function getPanelHost(dialog: HuiDialogEditCard): ShadowRoot | null {
   const root = dialog.shadowRoot;
   if (!root) return null;
-  const cardEditor = root.querySelector('hui-card-element-editor');
+  const cardEditor = root.querySelector(HA_CARD_EDITOR_ELEMENT);
   return cardEditor?.shadowRoot ?? root;
 }
 
@@ -146,7 +146,7 @@ function injectButton(dialog: HuiDialogEditCard): void {
         'This may be caused by a Home Assistant update. ' +
         'Shadow root direct children: ' +
         (children.length ? children.join(', ') : '(none)') +
-        '\nPlease report at https://github.com/dertrolli/card-mod-visual-editor/issues',
+        '\nPlease report at https://github.com/dertrolli/card-mod-studio/issues',
     );
     return;
   }

@@ -1,7 +1,7 @@
 # Card-Mod Studio
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![GitHub Release](https://img.shields.io/github/v/release/dertrolli/card-mod-visual-editor)](https://github.com/dertrolli/card-mod-visual-editor/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/dertrolli/card-mod-studio)](https://github.com/dertrolli/card-mod-studio/releases)
 
 A visual GUI editor for [card-mod](https://github.com/thomasloven/lovelace-card-mod) CSS styles in Home Assistant.
 
@@ -147,7 +147,7 @@ Card-Mod Studio **generates** the card-mod YAML. card-mod **applies** it. Both a
 
 1. Open HACS → Dashboard
 2. Click ⋮ → Custom Repositories
-3. Add `https://github.com/dertrolli/card-mod-visual-editor` as **Dashboard** type
+3. Add `https://github.com/dertrolli/card-mod-studio` as **Dashboard** type
 4. Install "Card-Mod Studio"
 5. Add the resource to Home Assistant (HACS does this automatically on modern versions)
 
@@ -206,8 +206,8 @@ npm --version
 ### Setup
 
 ```bash
-git clone https://github.com/dertrolli/card-mod-visual-editor
-cd card-mod-visual-editor
+git clone https://github.com/dertrolli/card-mod-studio
+cd card-mod-studio
 npm install
 ```
 

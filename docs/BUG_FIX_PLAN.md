@@ -1295,6 +1295,6 @@ src/
 
 ### Contact & Support
 
-- **Repository:** https://github.com/dertrolli/card-mod-visual-editor
+- **Repository:** https://github.com/dertrolli/card-mod-studio
 - **Issues:** Report bugs and feature requests on GitHub
 - **card-mod:** https://github.com/thomasloven/lovelace-card-mod
