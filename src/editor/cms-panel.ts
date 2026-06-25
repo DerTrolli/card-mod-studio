@@ -101,14 +101,30 @@ export class CmsPanel extends LitElement {
   @state() private _presets: StylePreset[] = [];
   @state() private _selectedPreset = '';
   @state() private _entityRowStyles: EntitiesRowStyles = {};
+  /** True when the panel is too narrow for the side-by-side preview. */
+  @state() private _narrow = false;
 
   private _lastEmittedConfigJson: string | null = null;
+  private _resizeObserver?: ResizeObserver;
 
   override connectedCallback() {
     super.connectedCallback();
     this._cardModPresent = isCardModInstalled();
     // Load from localStorage immediately (sync); HA sync happens when hass arrives
     void loadPresets(undefined).then((p) => { this._presets = p; });
+    // Width-responsive: the side preview is a fixed 280px, so below ~600px the
+    // controls get crushed. Observe our own width and stack the preview instead.
+    this._resizeObserver = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w > 0) this._narrow = w < 600;
+    });
+    this._resizeObserver.observe(this);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this._resizeObserver?.disconnect();
+    this._resizeObserver = undefined;
   }
 
   override updated(changed: Map<PropertyKey, unknown>) {
@@ -463,6 +479,24 @@ export class CmsPanel extends LitElement {
       grid-template-columns: 1fr;
     }
 
+    /* Narrow editors (mobile / slim side panel): stack the preview below the
+       controls instead of starving them of width. */
+    .panel-body.narrow {
+      grid-template-columns: 1fr;
+      overflow-y: auto;
+    }
+    .panel-body.narrow .modules-col {
+      overflow: visible;
+    }
+    .panel-body.narrow .preview-col {
+      border-left: none;
+      border-top: 1px solid var(--divider-color, #383838);
+      overflow: visible;
+    }
+    .panel-body.narrow .preview-card-wrapper {
+      min-height: 160px;
+    }
+
     /* ---- Left column: modules ---- */
 
     .modules-col {
@@ -632,7 +666,7 @@ export class CmsPanel extends LitElement {
         <span class="version">v${VERSION}</span>
       </div>
 
-      <div class="panel-body ${hasPreview ? '' : 'no-preview'}">
+      <div class="panel-body ${hasPreview ? '' : 'no-preview'} ${this._narrow ? 'narrow' : ''}">
         <div class="modules-col">
           ${!this._cardModPresent
             ? html`<div class="warning-banner">

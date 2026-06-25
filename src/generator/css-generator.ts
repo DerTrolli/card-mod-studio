@@ -197,8 +197,12 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
   ];
   const titleP = `.title p {\n${titlePDecls.map((d) => `  ${d}`).join('\n')}\n}`;
 
+  // --mdc-icon-size is the var the heading icon honours today, but MDC custom
+  // properties are deprecated in HA (2026.4+). Emit --ha-icon-size alongside it
+  // as a forward-compatible fallback so sizing survives the MDC removal.
   const iconDecls = [
     `--mdc-icon-size: ${s.iconSize}px;`,
+    `--ha-icon-size: ${s.iconSize}px;`,
     `color: ${s.iconColor} !important;`,
   ];
   const titleIcon = `.title ha-icon {\n${iconDecls.map((d) => `  ${d}`).join('\n')}\n}`;

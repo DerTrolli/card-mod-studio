@@ -342,6 +342,7 @@ describe('generateCss — heading style', () => {
     );
     expect(css).toContain('.title ha-icon');
     expect(css).toContain('--mdc-icon-size: 32px;');
+    expect(css).toContain('--ha-icon-size: 32px;'); // forward-compat fallback
     expect(css).toContain('color: #00ff00 !important;');
   });
 
