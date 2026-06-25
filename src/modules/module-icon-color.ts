@@ -35,10 +35,14 @@ export class IconColorModule extends LitElement {
   }
 
   private _emit(changes: Partial<IconColorModuleState>) {
+    const detail = { ...this.state, ...changes };
+    // Cards without a binary entity state can't use on/off or light modes — the
+    // UI already forces the plain color picker, so pin the emitted mode to
+    // 'plain' too. Otherwise the generator would emit an is_state() template
+    // that never matches and the icon would render the wrong (off) color.
+    if (!this.stateAware) detail.mode = 'plain';
     this.dispatchEvent(
-      new CustomEvent<IconColorModuleState>('state-changed', {
-        detail: { ...this.state, ...changes },
-      }),
+      new CustomEvent<IconColorModuleState>('state-changed', { detail }),
     );
   }
 

@@ -18,8 +18,8 @@ This document explains how to set up a local development environment and test Ca
 ## First-time setup
 
 ```bash
-git clone https://github.com/dertrolli/card-mod-visual-editor
-cd card-mod-visual-editor
+git clone https://github.com/dertrolli/card-mod-studio
+cd card-mod-studio
 npm install
 ```
 
@@ -120,23 +120,26 @@ If the Style button doesn't appear:
 
 1. Open browser DevTools (F12) → Console
 2. Look for `[Card-Mod Studio]` messages:
-   - `Waiting for hui-card-element-editor...` — plugin loaded, waiting for HA to define the element
-   - `hui-card-element-editor patched successfully.` — injection worked
-   - `Could not find action container` — HA's internal structure changed, see below
-3. If you see the warning about `action container`, inspect the shadow DOM of `hui-card-element-editor` to find the current structure and update `cms-injector.ts`
+   - `Waiting for hui-dialog-edit-card...` — plugin loaded, waiting for HA to define the element
+   - `hui-dialog-edit-card patched successfully.` — injection worked
+   - `Could not find ha-button[slot=secondaryAction]...` — HA's internal structure changed, see below
+3. If you see that warning, inspect the shadow DOM of `hui-dialog-edit-card` to find the current structure and update `cms-injector.ts`
 
 ### Inspecting the shadow DOM
 
-In DevTools Console:
+In DevTools Console (with a card editor open):
 ```javascript
-// Find the editor element
-const ed = document.querySelector('hui-card-element-editor');
+// Find the dialog element
+const dlg = document.querySelector('hui-dialog-edit-card');
 
 // Inspect its shadow root
-ed.shadowRoot.innerHTML;
+dlg.shadowRoot.innerHTML;
 
 // Or list child elements
-Array.from(ed.shadowRoot.children).map(el => el.tagName + '.' + el.className);
+Array.from(dlg.shadowRoot.children).map(el => el.tagName + '.' + el.className);
+
+// Confirm the footer button selector still resolves
+dlg.shadowRoot.querySelector('ha-button[slot=secondaryAction]');
 ```
 
 This tells you what selectors to update in `injectButton()` inside `cms-injector.ts`.
@@ -159,22 +162,28 @@ Tests use Vitest and are for the CSS/YAML generator and parser logic only. UI in
 
 ### Injection mechanism
 
-The plugin patches the `updated()` lifecycle method on `hui-card-element-editor`'s prototype. This is the same technique used by card-mod and other injection-based HA plugins.
+The plugin patches the `updated()` lifecycle method on `hui-dialog-edit-card`'s prototype (the card-editor dialog). This is the same element and technique card-mod itself patches for its brush-icon indicator.
 
 ```
 Browser loads card-mod-studio.js
   → registers cms-panel and cms-tab-button custom elements
   → calls startInjector()
-    → customElements.whenDefined('hui-card-element-editor')
-    → patches HuiCardElementEditor.prototype.updated()
+    → customElements.whenDefined('hui-dialog-edit-card')
+    → patches the dialog class prototype's updated()
 
 User opens card editor
-  → HA creates hui-card-element-editor
+  → HA creates hui-dialog-edit-card
   → HA calls updated() → our patch runs
   → requestAnimationFrame defers by one paint
-  → injectButton() adds <cms-tab-button> to the shadow root
+  → injectButton() inserts <cms-tab-button> next to
+    ha-button[slot=secondaryAction] (the Cancel/Save footer)
   → User clicks button → togglePanel() creates/shows <cms-panel>
+    inside hui-card-element-editor's shadow root
 ```
+
+The card config is read from the dialog's `_cardConfig` property and the
+`hass` object from the dialog; changes are emitted back via a `config-changed`
+CustomEvent that HA's normal save flow picks up.
 
 ### Data flow (planned, Phases 2–4)
 
@@ -194,22 +203,25 @@ User adjusts UI control in cms-panel
 
 ## Compatibility notes
 
-### hui-card-element-editor
+### hui-dialog-edit-card
 
 This is an internal HA element name. If HA renames it:
-1. The warning `Could not find action container` will appear
-2. Update the constant `HA_CARD_EDITOR_ELEMENT` in `src/utils/dom-helpers.ts`
-3. Update the selector list in `injectButton()` in `src/editor/cms-injector.ts`
+1. The warning `Could not find ha-button[slot=secondaryAction]` will appear
+   in the console
+2. Update the constant `HA_DIALOG_ELEMENT` in `src/utils/dom-helpers.ts`
+3. Update the `SECONDARY_ACTION_SELECTOR` and panel-host lookup in
+   `src/editor/cms-injector.ts`
 
 ### Shadow DOM selectors
 
-The selector list in `injectButton()` tries multiple fallback targets:
+`injectButton()` finds the dialog footer via a single confirmed selector:
 ```typescript
-const actionContainer =
-  root.querySelector('div.action-items') ??    // primary target
-  root.querySelector('.header') ??             // fallback 1
-  root.querySelector('ha-card') ??             // fallback 2
-  root.querySelector(':first-child');          // last resort
+const SECONDARY_ACTION_SELECTOR = 'ha-button[slot=secondaryAction]';
 ```
 
-If HA renames or restructures these containers, update this list. Always inspect the live shadow DOM first (see Debugging section).
+The `<cms-tab-button>` is inserted before the existing Cancel/Save button and
+carries `slot="secondaryAction"` so it lands in the same footer area. The panel
+itself is hosted in `hui-card-element-editor`'s shadow root (see `getPanelHost`),
+falling back to the dialog's own shadow root. If HA restructures the dialog,
+update these in `cms-injector.ts`. Always inspect the live shadow DOM first
+(see Debugging section).

@@ -39,6 +39,14 @@
 
 ## How injection works
 
+> **Historical note:** Phase 1 originally patched `hui-card-element-editor`.
+> The shipping implementation instead patches **`hui-dialog-edit-card`** (the
+> card-editor dialog) and injects the Style button next to
+> `ha-button[slot=secondaryAction]` — the same element card-mod patches. The
+> prototype-patching technique described below is unchanged; only the target
+> element differs. See `src/editor/cms-injector.ts` and
+> [DEVELOPMENT.md](DEVELOPMENT.md#injection-mechanism) for the current details.
+
 The core challenge of Phase 1 is getting our UI *inside* the HA card editor, which lives inside multiple layers of Shadow DOM.
 
 ### The approach: prototype patching
