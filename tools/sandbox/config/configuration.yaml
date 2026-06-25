@@ -1,0 +1,29 @@
+homeassistant:
+  name: Sandbox
+  latitude: 0
+  longitude: 0
+  elevation: 0
+  unit_system: metric
+  time_zone: UTC
+  country: US
+  currency: USD
+
+# The demo integration auto-creates a broad set of entities (lights with rgb,
+# sensors, climate, covers, media players, fans, etc.) — our test fixtures.
+demo:
+
+frontend: {}
+
+http:
+  server_host: 0.0.0.0
+  server_port: 8123
+
+# YAML-mode dashboard so we never touch the storage/editor onboarding. HA
+# re-reads ui-lovelace.yaml on every page load, which the harness relies on.
+lovelace:
+  mode: yaml
+  resources:
+    - url: /local/card-mod.js
+      type: module
+    - url: /local/card-mod-studio.js
+      type: module

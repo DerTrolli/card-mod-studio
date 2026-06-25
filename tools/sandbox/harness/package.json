@@ -1,0 +1,9 @@
+{
+  "name": "card-mod-studio-sandbox-harness",
+  "private": true,
+  "type": "module",
+  "description": "Playwright harness that measures card-mod CSS effects on real HA cards",
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
