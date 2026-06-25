@@ -1,8 +1,9 @@
 /**
- * module-base.ts — shared Lit CSS for all visual module components.
+ * module-base.ts — shared Lit CSS + helpers for all visual module components.
  */
 
-import { css } from 'lit';
+import { css, html, nothing } from 'lit';
+import type { TemplateResult } from 'lit';
 
 export const moduleStyles = css`
   :host {
@@ -129,4 +130,117 @@ export const moduleStyles = css`
     cursor: pointer;
     width: 100%;
   }
+
+  /* Shared "Apply when" hint + custom-entity input (see renderWhen). */
+  .when-hint {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--secondary-text-color, #9e9e9e);
+  }
+
+  .when-entity {
+    flex: 1;
+    background: var(--card-background-color, #1c1c1c);
+    color: var(--primary-text-color, #e1e1e1);
+    border: 1px solid var(--divider-color, #383838);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
 `;
+
+// ---------------------------------------------------------------------------
+// Shared conditional ("Apply when") control
+// ---------------------------------------------------------------------------
+
+export type WhenValue = 'always' | 'on' | 'off' | 'custom';
+
+export interface WhenControlOptions {
+  /** Current stored value (applyWhen / grayscaleWhen / trigger). */
+  value: WhenValue;
+  /** False when the card's entity has no on/off state (e.g. a sensor). */
+  stateAware: boolean;
+  /** Noun used in the hint, e.g. "background", "grayscale", "animation". */
+  noun: string;
+  /** Offer the "another entity" option (Animation). */
+  allowCustom?: boolean;
+  /** entity_id for the custom trigger. */
+  customEntity?: string;
+  onChange: (v: WhenValue) => void;
+  onCustomEntity?: (id: string) => void;
+}
+
+function whenHint(v: WhenValue, o: WhenControlOptions): string {
+  switch (v) {
+    case 'on':
+      return `Applies the ${o.noun} only while this card's entity is on (removed when off).`;
+    case 'off':
+      return `Applies the ${o.noun} only while this card's entity is off (removed when on).`;
+    case 'custom':
+      return `Applies the ${o.noun} only while ${o.customEntity || 'the chosen entity'} is on.`;
+    default:
+      return `Always applies the ${o.noun}.`;
+  }
+}
+
+/**
+ * Renders a consistent "Apply when" control across modules. On non-state-aware
+ * cards the ON/OFF options are hidden so the user can't pick a condition that
+ * never matches — but an existing on/off value is preserved and stays editable,
+ * so nothing changes silently. Returns the rows + a plain-language hint.
+ */
+export function renderWhen(o: WhenControlOptions): TemplateResult {
+  const hasStateValue = o.value === 'on' || o.value === 'off';
+  const showOnOff = o.stateAware || hasStateValue;
+  // If "Always" is the only meaningful choice, drop the single-option dropdown.
+  const showSelect = showOnOff || !!o.allowCustom;
+
+  const opts: Array<{ v: WhenValue; label: string }> = [{ v: 'always', label: 'Always' }];
+  if (showOnOff) {
+    opts.push({ v: 'on', label: 'Only while entity is ON' });
+    opts.push({ v: 'off', label: 'Only while entity is OFF' });
+  }
+  if (o.allowCustom) opts.push({ v: 'custom', label: 'While another entity is ON…' });
+
+  return html`
+    ${showSelect
+      ? html`
+          <div class="control-row">
+            <span class="control-label">Apply when</span>
+            <div class="control-right">
+              <select
+                .value=${o.value}
+                @change=${(e: Event) =>
+                  o.onChange((e.target as HTMLSelectElement).value as WhenValue)}
+              >
+                ${opts.map(
+                  (opt) =>
+                    html`<option value=${opt.v} ?selected=${o.value === opt.v}>
+                      ${opt.label}
+                    </option>`,
+                )}
+              </select>
+            </div>
+          </div>
+        `
+      : nothing}
+    ${o.value === 'custom'
+      ? html`
+          <div class="control-row">
+            <span class="control-label">Entity</span>
+            <div class="control-right">
+              <input
+                class="when-entity"
+                type="text"
+                placeholder="input_boolean.my_entity"
+                .value=${o.customEntity ?? ''}
+                @change=${(e: Event) =>
+                  o.onCustomEntity?.((e.target as HTMLInputElement).value.trim())}
+              />
+            </div>
+          </div>
+        `
+      : nothing}
+    <div class="when-hint">${whenHint(o.value, o)}</div>
+  `;
+}

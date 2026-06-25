@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { generateCss } from '../src/generator/css-generator.js';
+import { generateCss, sortThresholdRules } from '../src/generator/css-generator.js';
 import { applyCardModStyle } from '../src/generator/yaml-generator.js';
 import {
   DEFAULT_FILTER,
@@ -342,6 +342,7 @@ describe('generateCss — heading style', () => {
     );
     expect(css).toContain('.title ha-icon');
     expect(css).toContain('--mdc-icon-size: 32px;');
+    expect(css).toContain('--ha-icon-size: 32px;'); // forward-compat fallback
     expect(css).toContain('color: #00ff00 !important;');
   });
 
@@ -435,6 +436,42 @@ describe('generateCss — threshold', () => {
     expect(css).toContain('ha-state-icon');
     expect(css).toContain('color:');
     expect(css).toContain('>= 30');
+  });
+
+  it('ladder works regardless of input order (default blue, >10 green, >20 red)', () => {
+    // Rules added "out of order" (>10 before >20) must still evaluate >20 first
+    // so a value of 25 is red, 15 green, 5 blue.
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true,
+        entityId: 'sensor.x',
+        property: 'icon-color',
+        rules: [
+          { id: 'a', operator: '>', value: 10, color: '#00ff00' },
+          { id: 'b', operator: '>', value: 20, color: '#ff0000' },
+        ],
+        defaultColor: '#0000ff',
+      },
+    }));
+    expect(css.indexOf('> 20')).toBeLessThan(css.indexOf('> 10')); // 20 checked first
+    expect(css.indexOf('#ff0000')).toBeLessThan(css.indexOf('#00ff00'));
+    expect(css).toContain("else '#0000ff'"); // blue default last
+  });
+});
+
+describe('sortThresholdRules', () => {
+  it('orders > rules high→low and < rules low→high (matches generator output)', () => {
+    const desc = sortThresholdRules([
+      { id: 'a', operator: '>', value: 10, color: 'g' },
+      { id: 'b', operator: '>', value: 20, color: 'r' },
+    ]).map((r) => r.value);
+    expect(desc).toEqual([20, 10]);
+
+    const asc = sortThresholdRules([
+      { id: 'a', operator: '<', value: 20, color: 'r' },
+      { id: 'b', operator: '<', value: 10, color: 'g' },
+    ]).map((r) => r.value);
+    expect(asc).toEqual([10, 20]);
   });
 });
 

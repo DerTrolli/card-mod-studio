@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { AnimationModuleState } from '../types/index.js';
 import { DEFAULT_ANIMATION } from '../parser/state-mapper.js';
-import { moduleStyles } from './module-base.js';
+import { moduleStyles, renderWhen } from './module-base.js';
 
 type AnimationPreset = AnimationModuleState['preset'];
 type AnimationTrigger = AnimationModuleState['trigger'];
@@ -19,6 +19,9 @@ export class AnimationModule extends LitElement {
   @property({ attribute: false }) state: AnimationModuleState = {
     ...DEFAULT_ANIMATION,
   };
+
+  /** False when the card has no binary entity state (e.g. sensor cards). */
+  @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
 
   @state() private _open = false;
   @state() private _speedS = DEFAULT_ANIMATION.speedS;
@@ -111,51 +114,15 @@ export class AnimationModule extends LitElement {
           </div>
         </div>
 
-        <div class="control-row">
-          <span class="control-label">Trigger</span>
-          <div class="control-right">
-            <select
-              .value=${this.state.trigger}
-              @change=${(e: Event) =>
-                this._emit({
-                  trigger: (e.target as HTMLSelectElement).value as AnimationTrigger,
-                })}
-            >
-              <option value="always" ?selected=${this.state.trigger === 'always'}>
-                Always
-              </option>
-              <option value="on" ?selected=${this.state.trigger === 'on'}>
-                When entity ON
-              </option>
-              <option value="off" ?selected=${this.state.trigger === 'off'}>
-                When entity OFF
-              </option>
-              <option value="custom" ?selected=${this.state.trigger === 'custom'}>
-                Custom entity
-              </option>
-            </select>
-          </div>
-        </div>
-
-        ${this.state.trigger === 'custom'
-          ? html`
-              <div class="control-row">
-                <span class="control-label">Entity</span>
-                <div class="control-right">
-                  <input
-                    type="text"
-                    placeholder="input_boolean.my_entity"
-                    .value=${this.state.customEntity ?? ''}
-                    @change=${(e: Event) =>
-                      this._emit({
-                        customEntity: (e.target as HTMLInputElement).value.trim(),
-                      })}
-                    style="flex:1;background:var(--card-background-color,#1c1c1c);color:var(--primary-text-color,#e1e1e1);border:1px solid var(--divider-color,#383838);border-radius:4px;padding:6px 8px;font-size:12px;"
-                  />
-                </div>
-              </div>
-            `
-          : nothing}
+        ${renderWhen({
+          value: this.state.trigger,
+          stateAware: this.stateAware,
+          allowCustom: true,
+          noun: 'animation',
+          customEntity: this.state.customEntity,
+          onChange: (v) => this._emit({ trigger: v as AnimationTrigger }),
+          onCustomEntity: (id) => this._emit({ customEntity: id }),
+        })}
 
         ${this.state.preset === 'gradient-shift'
           ? html`

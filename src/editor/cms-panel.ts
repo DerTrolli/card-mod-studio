@@ -63,16 +63,31 @@ const NO_ANIMATION_TYPES = new Set([
 const NO_BACKGROUND_TYPES = new Set([
   'picture', 'picture-entity', 'picture-glance', 'picture-elements',
   'iframe', 'webpage', 'map',
+  // heading cards have no painted ha-card box — background has no visual effect
+  // (verified empirically). See docs/CARD_SUPPORT_MATRIX.md.
+  'heading',
+]);
+
+// Border (width/colour + radius) has no visual effect on heading cards (no
+// painted box). Radius/filter aside, the whole module is moot there.
+const NO_BORDER_TYPES = new Set([
+  'heading',
 ]);
 
 const NO_ICON_COLOR_TYPES = new Set([
   'gauge', 'history-graph', 'statistics-graph', 'statistic',
   'energy-distribution', 'energy-usage-graph',
-  'thermostat', 'humidifier', 'alarm-panel',
-  'media-control', 'weather-forecast', 'calendar', 'logbook', 'activity',
+  'thermostat', 'humidifier',
+  'weather-forecast', 'calendar', 'logbook', 'activity',
   'markdown', 'map', 'iframe', 'webpage', 'shopping-list', 'todo-list',
   'picture', 'picture-entity',
   'heading',
+  // glance renders its icon inside a nested <state-badge> shadow root that a
+  // card-mod rule can't pierce, and the colour is applied inline from state —
+  // no selector recolours it (verified empirically), so don't offer a dead
+  // control. alarm-panel and media-control DO honour icon colour (plain mode)
+  // and are intentionally NOT listed here.
+  'glance',
 ]);
 
 export class CmsPanel extends LitElement {
@@ -86,14 +101,30 @@ export class CmsPanel extends LitElement {
   @state() private _presets: StylePreset[] = [];
   @state() private _selectedPreset = '';
   @state() private _entityRowStyles: EntitiesRowStyles = {};
+  /** True when the panel is too narrow for the side-by-side preview. */
+  @state() private _narrow = false;
 
   private _lastEmittedConfigJson: string | null = null;
+  private _resizeObserver?: ResizeObserver;
 
   override connectedCallback() {
     super.connectedCallback();
     this._cardModPresent = isCardModInstalled();
     // Load from localStorage immediately (sync); HA sync happens when hass arrives
     void loadPresets(undefined).then((p) => { this._presets = p; });
+    // Width-responsive: the side preview is a fixed 280px, so below ~600px the
+    // controls get crushed. Observe our own width and stack the preview instead.
+    this._resizeObserver = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w > 0) this._narrow = w < 600;
+    });
+    this._resizeObserver.observe(this);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this._resizeObserver?.disconnect();
+    this._resizeObserver = undefined;
   }
 
   override updated(changed: Map<PropertyKey, unknown>) {
@@ -249,6 +280,10 @@ export class CmsPanel extends LitElement {
 
   private get _showBackground(): boolean {
     return !NO_BACKGROUND_TYPES.has(this.config?.type ?? '');
+  }
+
+  private get _showBorder(): boolean {
+    return !NO_BORDER_TYPES.has(this.config?.type ?? '');
   }
 
   private get _showHeadingStyle(): boolean {
@@ -444,6 +479,24 @@ export class CmsPanel extends LitElement {
       grid-template-columns: 1fr;
     }
 
+    /* Narrow editors (mobile / slim side panel): stack the preview below the
+       controls instead of starving them of width. */
+    .panel-body.narrow {
+      grid-template-columns: 1fr;
+      overflow-y: auto;
+    }
+    .panel-body.narrow .modules-col {
+      overflow: visible;
+    }
+    .panel-body.narrow .preview-col {
+      border-left: none;
+      border-top: 1px solid var(--divider-color, #383838);
+      overflow: visible;
+    }
+    .panel-body.narrow .preview-card-wrapper {
+      min-height: 160px;
+    }
+
     /* ---- Left column: modules ---- */
 
     .modules-col {
@@ -613,7 +666,7 @@ export class CmsPanel extends LitElement {
         <span class="version">v${VERSION}</span>
       </div>
 
-      <div class="panel-body ${hasPreview ? '' : 'no-preview'}">
+      <div class="panel-body ${hasPreview ? '' : 'no-preview'} ${this._narrow ? 'narrow' : ''}">
         <div class="modules-col">
           ${!this._cardModPresent
             ? html`<div class="warning-banner">
@@ -682,6 +735,7 @@ export class CmsPanel extends LitElement {
     const showIconColor = this._showIconColor;
     const showAnimation = this._showAnimation;
     const showBackground = this._showBackground;
+    const showBorder = this._showBorder;
     const showHeadingStyle = this._showHeadingStyle;
     const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
 
@@ -701,6 +755,7 @@ export class CmsPanel extends LitElement {
 
       <cms-filter-module
         .state=${s.filter}
+        .stateAware=${stateAware}
         @state-changed=${this._onFilterChanged}
       ></cms-filter-module>
 
@@ -714,8 +769,8 @@ export class CmsPanel extends LitElement {
       ${showIconColor
         ? html`<cms-icon-color-module
             .state=${s.iconColor}
-            ?state-aware=${stateAware}
-            ?is-light-card=${this._isLightCard}
+            .stateAware=${stateAware}
+            .isLightCard=${this._isLightCard}
             @state-changed=${this._onIconColorChanged}
           ></cms-icon-color-module>`
         : nothing}
@@ -731,6 +786,7 @@ export class CmsPanel extends LitElement {
       ${showBackground
         ? html`<cms-background-module
             .state=${s.background}
+            .stateAware=${stateAware}
             @state-changed=${this._onBackgroundChanged}
           ></cms-background-module>`
         : nothing}
@@ -738,14 +794,17 @@ export class CmsPanel extends LitElement {
       ${showAnimation
         ? html`<cms-animation-module
             .state=${s.animation}
+            .stateAware=${stateAware}
             @state-changed=${this._onAnimationChanged}
           ></cms-animation-module>`
         : nothing}
 
-      <cms-border-module
-        .state=${s.border}
-        @state-changed=${this._onBorderChanged}
-      ></cms-border-module>
+      ${showBorder
+        ? html`<cms-border-module
+            .state=${s.border}
+            @state-changed=${this._onBorderChanged}
+          ></cms-border-module>`
+        : nothing}
 
       <cms-advanced-module
         .state=${s.advanced}

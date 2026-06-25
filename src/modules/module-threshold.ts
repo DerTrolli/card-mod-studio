@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { ThresholdModuleState, ThresholdRule } from '../types/index.js';
 import { DEFAULT_THRESHOLD } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
+import { sortThresholdRules } from '../generator/css-generator.js';
 
 export class ThresholdModule extends LitElement {
   @property({ attribute: false }) state: ThresholdModuleState = {
@@ -96,6 +97,40 @@ export class ThresholdModule extends LitElement {
         color: var(--secondary-text-color, #9e9e9e);
         margin-bottom: 8px;
         display: block;
+      }
+      .legend {
+        margin-top: 12px;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--divider-color, #383838);
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .legend-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--secondary-text-color, #9e9e9e);
+        margin-bottom: 2px;
+      }
+      .legend-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 12px;
+      }
+      .legend-cond {
+        color: var(--primary-text-color, #e1e1e1);
+        font-variant-numeric: tabular-nums;
+      }
+      .legend-sw {
+        width: 26px;
+        height: 16px;
+        border-radius: 3px;
+        border: 1px solid var(--divider-color, #383838);
+        flex-shrink: 0;
       }
     `,
   ];
@@ -214,7 +249,7 @@ export class ThresholdModule extends LitElement {
           : nothing}
 
         <div class="rules-container">
-          <span class="rules-label">Rules (evaluated top to bottom):</span>
+          <span class="rules-label">Rules — order doesn't matter, they're sorted automatically:</span>
           ${this.state.rules.map((rule, i) => this._renderRule(rule, i))}
           <button class="add-btn" @click=${this._addRule}>+ Add Rule</button>
         </div>
@@ -230,6 +265,50 @@ export class ThresholdModule extends LitElement {
             />
             <span class="color-label">${this.state.defaultColor}</span>
           </div>
+        </div>
+
+        ${this._renderLegend()}
+      </div>
+    `;
+  }
+
+  /**
+   * Read-only "what actually happens" legend. Uses the exact same sort the
+   * generator uses, so the colours shown here are the colours that will render.
+   */
+  private _renderLegend() {
+    const sorted = sortThresholdRules(this.state.rules);
+    const defaultSwatch = html`<span
+      class="legend-sw"
+      style="background:${this._toHex(this.state.defaultColor)}"
+    ></span>`;
+
+    if (sorted.length === 0) {
+      return html`
+        <div class="legend">
+          <span class="legend-title">Result</span>
+          <div class="legend-row">
+            <span class="legend-cond">Always</span>${defaultSwatch}
+          </div>
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="legend">
+        <span class="legend-title">Result — first match wins (top to bottom)</span>
+        ${sorted.map(
+          (r, i) => html`
+            <div class="legend-row">
+              <span class="legend-cond">
+                ${i === 0 ? 'If' : 'else if'} value ${r.operator} ${r.value}
+              </span>
+              <span class="legend-sw" style="background:${this._toHex(r.color)}"></span>
+            </div>
+          `,
+        )}
+        <div class="legend-row">
+          <span class="legend-cond">otherwise (default)</span>${defaultSwatch}
         </div>
       </div>
     `;

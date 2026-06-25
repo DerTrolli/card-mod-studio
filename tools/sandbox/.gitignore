@@ -16,6 +16,7 @@ harness/tokens.json
 harness/shots/
 harness/matrix.json
 harness/matrix.md
+harness/editor-audit.json
 
 # Python bytecode
 __pycache__/

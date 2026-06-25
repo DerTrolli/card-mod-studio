@@ -2,10 +2,13 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { FilterModuleState } from '../types/index.js';
 import { DEFAULT_FILTER } from '../parser/state-mapper.js';
-import { moduleStyles } from './module-base.js';
+import { moduleStyles, renderWhen } from './module-base.js';
 
 export class FilterModule extends LitElement {
   @property({ attribute: false }) state: FilterModuleState = { ...DEFAULT_FILTER };
+
+  /** False when the card has no binary entity state (e.g. sensor cards). */
+  @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
 
   @state() private _open = false;
   @state() private _brightness = DEFAULT_FILTER.brightness;
@@ -74,36 +77,13 @@ export class FilterModule extends LitElement {
         </div>
 
         ${this.state.grayscale
-          ? html`
-              <div class="control-row">
-                <span class="control-label">Apply when</span>
-                <div class="control-right">
-                  <select
-                    .value=${this.state.grayscaleWhen}
-                    @change=${(e: Event) =>
-                      this._emit({
-                        grayscaleWhen: (e.target as HTMLSelectElement).value as
-                          | 'always'
-                          | 'on'
-                          | 'off',
-                      })}
-                  >
-                    <option
-                      value="always"
-                      ?selected=${this.state.grayscaleWhen === 'always'}
-                    >Always</option>
-                    <option
-                      value="off"
-                      ?selected=${this.state.grayscaleWhen === 'off'}
-                    >Entity OFF</option>
-                    <option
-                      value="on"
-                      ?selected=${this.state.grayscaleWhen === 'on'}
-                    >Entity ON</option>
-                  </select>
-                </div>
-              </div>
-            `
+          ? renderWhen({
+              value: this.state.grayscaleWhen,
+              stateAware: this.stateAware,
+              noun: 'grayscale',
+              onChange: (v) =>
+                this._emit({ grayscaleWhen: v as 'always' | 'on' | 'off' }),
+            })
           : nothing}
 
         <!-- Brightness -->
