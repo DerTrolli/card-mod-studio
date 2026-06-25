@@ -58,7 +58,7 @@ from the audit.
 
 | # | Item | Description | Effort |
 |---|---|---|---|
-| 17 | **Submit to HACS default repository** | Currently a custom repo. Meet HACS default-listing requirements (repo description, topics, brands entry, release hygiene) and open the PR. | M |
+| 17 | ✅ **HACS default repository** | **Done** — accepted into the HACS default store (2026-06). README updated to the default-store install flow. | — |
 | 18 | **Release hygiene** | `dist/` is built by CI on tag (`release.yml`) and is correctly gitignored (no longer committed). Keep `package.json` the single version source; the panel header now reads `__APP_VERSION__`. Ensure each release bumps `package.json` and tags `vX.Y.Z`. | S |
 
 ---
