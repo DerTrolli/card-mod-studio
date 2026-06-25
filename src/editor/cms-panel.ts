@@ -721,6 +721,7 @@ export class CmsPanel extends LitElement {
 
       <cms-filter-module
         .state=${s.filter}
+        .stateAware=${stateAware}
         @state-changed=${this._onFilterChanged}
       ></cms-filter-module>
 
@@ -734,8 +735,8 @@ export class CmsPanel extends LitElement {
       ${showIconColor
         ? html`<cms-icon-color-module
             .state=${s.iconColor}
-            ?state-aware=${stateAware}
-            ?is-light-card=${this._isLightCard}
+            .stateAware=${stateAware}
+            .isLightCard=${this._isLightCard}
             @state-changed=${this._onIconColorChanged}
           ></cms-icon-color-module>`
         : nothing}
@@ -751,6 +752,7 @@ export class CmsPanel extends LitElement {
       ${showBackground
         ? html`<cms-background-module
             .state=${s.background}
+            .stateAware=${stateAware}
             @state-changed=${this._onBackgroundChanged}
           ></cms-background-module>`
         : nothing}
@@ -758,6 +760,7 @@ export class CmsPanel extends LitElement {
       ${showAnimation
         ? html`<cms-animation-module
             .state=${s.animation}
+            .stateAware=${stateAware}
             @state-changed=${this._onAnimationChanged}
           ></cms-animation-module>`
         : nothing}

@@ -2,13 +2,16 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { BackgroundModuleState } from '../types/index.js';
 import { DEFAULT_BACKGROUND } from '../parser/state-mapper.js';
-import { moduleStyles } from './module-base.js';
+import { moduleStyles, renderWhen } from './module-base.js';
 import '../components/cms-color-picker.js';
 
 export class BackgroundModule extends LitElement {
   @property({ attribute: false }) state: BackgroundModuleState = {
     ...DEFAULT_BACKGROUND,
   };
+
+  /** False when the card has no binary entity state (e.g. sensor cards). */
+  @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
 
   @state() private _open = false;
   @state() private _angle = DEFAULT_BACKGROUND.angle;
@@ -126,31 +129,12 @@ export class BackgroundModule extends LitElement {
             `
           : nothing}
 
-        <div class="control-row">
-          <span class="control-label">Apply when</span>
-          <div class="control-right">
-            <select
-              .value=${this.state.applyWhen}
-              @change=${(e: Event) =>
-                this._emit({
-                  applyWhen: (e.target as HTMLSelectElement).value as
-                    | 'always'
-                    | 'on'
-                    | 'off',
-                })}
-            >
-              <option value="always" ?selected=${this.state.applyWhen === 'always'}>
-                Always
-              </option>
-              <option value="on" ?selected=${this.state.applyWhen === 'on'}>
-                Entity ON
-              </option>
-              <option value="off" ?selected=${this.state.applyWhen === 'off'}>
-                Entity OFF
-              </option>
-            </select>
-          </div>
-        </div>
+        ${renderWhen({
+          value: this.state.applyWhen,
+          stateAware: this.stateAware,
+          noun: 'background',
+          onChange: (v) => this._emit({ applyWhen: v as 'always' | 'on' | 'off' }),
+        })}
       </div>
     `;
   }

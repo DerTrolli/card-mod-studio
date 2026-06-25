@@ -72,7 +72,7 @@ export class IconColorModule extends LitElement {
         ${this.stateAware
           ? html`
               <div class="control-row">
-                <span class="control-label">Mode</span>
+                <span class="control-label">Color mode</span>
                 <div class="control-right">
                   <select
                     .value=${effectiveMode}
@@ -85,21 +85,28 @@ export class IconColorModule extends LitElement {
                       })}
                   >
                     <option value="plain" ?selected=${effectiveMode === 'plain'}>
-                      Single color
+                      One fixed color
                     </option>
                     <option
                       value="conditional"
                       ?selected=${effectiveMode === 'conditional'}
                     >
-                      ON / OFF colors
+                      Different for ON / OFF
                     </option>
                     ${this.isLightCard
                       ? html`<option value="light" ?selected=${effectiveMode === 'light'}>
-                          Light color (auto)
+                          Match the light's color
                         </option>`
                       : nothing}
                   </select>
                 </div>
+              </div>
+              <div class="when-hint">
+                ${effectiveMode === 'plain'
+                  ? 'One color, shown all the time.'
+                  : effectiveMode === 'light'
+                  ? "Uses the light's real color while on; your chosen color while off."
+                  : 'One color while the entity is on, another while off.'}
               </div>
             `
           : nothing}
