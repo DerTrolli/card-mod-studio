@@ -233,6 +233,23 @@ function iconColorBlock(s: IconColorModuleState): string {
 }
 
 /**
+ * Sorts threshold rules into evaluation order: highest value first for `>`/`>=`
+ * (so the largest matching threshold wins), lowest first for `<`/`<=`. The first
+ * rule's operator decides the direction. Exported so the editor can show the
+ * exact same order it will generate. Returns a new array; input is untouched.
+ */
+export function sortThresholdRules(rules: ThresholdRule[]): ThresholdRule[] {
+  const firstOp = rules[0]?.operator ?? '>';
+  const sorted = [...rules];
+  if (firstOp === '>' || firstOp === '>=') {
+    sorted.sort((a, b) => b.value - a.value);
+  } else if (firstOp === '<' || firstOp === '<=') {
+    sorted.sort((a, b) => a.value - b.value);
+  }
+  return sorted;
+}
+
+/**
  * Builds the nested Jinja2 ternary string used for threshold color expressions.
  * Exported so the entity-row generator can reuse it.
  */
@@ -242,13 +259,7 @@ export function buildThresholdJinja(
   entityId: string,
 ): string {
   const stateExpr = `states('${entityId}') | float(0)`;
-  const firstOp = rules[0]?.operator ?? '>';
-  const sortedRules = [...rules];
-  if (firstOp === '>' || firstOp === '>=') {
-    sortedRules.sort((a, b) => b.value - a.value);
-  } else if (firstOp === '<' || firstOp === '<=') {
-    sortedRules.sort((a, b) => a.value - b.value);
-  }
+  const sortedRules = sortThresholdRules(rules);
   let jinja = '{{ ';
   for (let i = 0; i < sortedRules.length; i++) {
     const rule = sortedRules[i];
