@@ -55,7 +55,10 @@ export const DEFAULT_ICON_COLOR: IconColorModuleState = {
 
 export const DEFAULT_ACCENT_COLOR: AccentColorModuleState = {
   enabled: false,
+  mode: 'plain',
   color: '#03a9f4',
+  colorOn: '#03a9f4',
+  colorOff: '#6b6b6b',
 };
 
 export const DEFAULT_BACKGROUND: BackgroundModuleState = {
@@ -409,13 +412,31 @@ function mapAccentColor(
   if (!haCard) return { ...DEFAULT_ACCENT_COLOR };
 
   const prop = findProp(haCard, '--accent-color');
-  if (!prop || prop.hasCondition) return { ...DEFAULT_ACCENT_COLOR };
+  if (!prop) return { ...DEFAULT_ACCENT_COLOR };
+
+  if (prop.hasCondition) {
+    // Jinja2 on/off conditional — map to conditional mode (mirrors mapIconColor).
+    if (prop.onValue && prop.offValue) {
+      claimed.add(claimKey(haCard.selector, '--accent-color'));
+      return {
+        ...DEFAULT_ACCENT_COLOR,
+        enabled: true,
+        mode: 'conditional',
+        colorOn: prop.onValue,
+        colorOff: prop.offValue,
+        ...(prop.entityId ? { entityId: prop.entityId } : {}),
+      };
+    }
+    // A more complex conditional (e.g. threshold's multi-branch ternary) —
+    // leave unclaimed so mapThreshold or Advanced CSS gets a chance at it.
+    return { ...DEFAULT_ACCENT_COLOR };
+  }
 
   const value = prop.value.trim();
   if (!value) return { ...DEFAULT_ACCENT_COLOR };
 
   claimed.add(claimKey(haCard.selector, '--accent-color'));
-  return { enabled: true, color: value };
+  return { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'plain', color: value };
 }
 
 // ---------------------------------------------------------------------------

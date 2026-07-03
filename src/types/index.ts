@@ -126,7 +126,13 @@ export interface IconColorModuleState {
 
 export interface AccentColorModuleState {
   enabled: boolean;
-  color: string;
+  /** plain = single static color; conditional = on/off entity-state colors */
+  mode: 'plain' | 'conditional';
+  color: string;            // used when mode='plain'
+  colorOn: string;          // used when mode='conditional'
+  colorOff: string;         // used when mode='conditional'
+  /** Which entity's on/off state drives conditional mode. Empty/undefined = the card's own entity. */
+  entityId?: string;
 }
 
 export interface BackgroundModuleState {

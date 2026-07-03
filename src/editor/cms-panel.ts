@@ -921,6 +921,9 @@ export class CmsPanel extends LitElement {
       ${!showHeadingStyle && !this._isEntitiesCard
         ? html`<cms-accent-color-module
             .state=${s.accentColor}
+            .stateAware=${stateAware}
+            .cardEntity=${this.config?.entity ?? ''}
+            .hass=${this.hass}
             @state-changed=${this._onAccentColorChanged}
           ></cms-accent-color-module>`
         : nothing}

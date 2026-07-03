@@ -161,6 +161,51 @@ describe('generateCss — accent color', () => {
     );
     expect(css).toContain('--accent-color: #03a9f4;');
   });
+
+  it('conditional mode emits an is_state() ternary using config.entity by default', () => {
+    const css = generateCss(makeState({
+      accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'conditional', colorOn: '#00ff00', colorOff: '#888888' },
+    }));
+    expect(css).toContain("is_state(config.entity, 'on')");
+    expect(css).toContain("'#00ff00'");
+    expect(css).toContain("'#888888'");
+  });
+
+  it('conditional mode targets a custom entity when entityId is set (not the card\'s own)', () => {
+    const css = generateCss(makeState({
+      accentColor: {
+        ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'conditional',
+        colorOn: '#00ff00', colorOff: '#888888', entityId: 'binary_sensor.preheat_active',
+      },
+    }));
+    expect(css).toContain("is_state('binary_sensor.preheat_active', 'on')");
+    expect(css).not.toContain('config.entity');
+  });
+
+  it('conditional mode substitutes into per-card-type variables too (e.g. tile)', () => {
+    const css = generateCss(
+      makeState({
+        accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'conditional', colorOn: '#00ff00', colorOff: '#888888' },
+      }),
+      'tile',
+    );
+    const tileMatch = css.match(/--tile-color: (\{\{[^\n]*\}\});/);
+    const accentMatch = css.match(/--accent-color: (\{\{[^\n]*\}\});/);
+    expect(tileMatch?.[1]).toBe(accentMatch?.[1]);
+  });
+
+  it('round-trips a custom-entity conditional accent color', () => {
+    const original =
+      "ha-card {\n  --accent-color: {{ '#00ff00' if is_state('binary_sensor.preheat_active', 'on') else '#888888' }};\n}";
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+    expect(state.accentColor.enabled).toBe(true);
+    expect(state.accentColor.mode).toBe('conditional');
+    expect(state.accentColor.entityId).toBe('binary_sensor.preheat_active');
+    expect(state.accentColor.colorOn).toBe('#00ff00');
+    expect(state.accentColor.colorOff).toBe('#888888');
+    expect(state.advanced.rawCss).toBe('');
+  });
 });
 
 // ---------------------------------------------------------------------------

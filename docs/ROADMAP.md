@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-03 · **Current version:** v0.6.2 (stable) · v0.7.0-beta.1 (pre-release, HACS beta opt-in)
+**Last updated:** 2026-07-03 · **Current version:** v0.6.2 (stable) · v0.7.0-beta.2 (pre-release, HACS beta opt-in)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -27,6 +27,17 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | v0.9 | Depth | Property-level templating beyond color (border width, icon size, blur/opacity driven by entity state — natural extension of v0.7's entity binding). Plus dict-form/`$`-pierce round-trip safety (item #1 below), which unblocks nested-shadow-DOM targets (glance icon, Mushroom/Bubble). |
 | v1.0 | Structural completeness | Container child-card editing (item #7 — styling a card inside a grid/stack/sections view currently targets the wrong card; probably the single biggest remaining hole) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
 | Post-1.0 | Stretch | Official Mushroom/Bubble selectors, a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
+
+## Recently shipped (v0.7.0-beta.2)
+
+- **Icon Color and Accent Color's conditional mode is no longer hidden on
+  cards whose own entity has no on/off state** (e.g. a `button` card) — it
+  now always offers "Different for ON/OFF," with a clear warning if neither
+  the card's own entity nor a picked "controlled by" entity is toggleable.
+- **Accent Color gained the same conditional/entity-binding option every
+  other module already had** — previously static-color-only.
+- Dropped the `--accent-color` CSS-variable name/explanation from the
+  Accent Color panel — no other module exposes its underlying variable.
 
 ## Recently shipped (v0.7.0-beta.1)
 

@@ -166,7 +166,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.7.0-beta.1`
+   - URL: `/local/card-mod-studio.js?v=0.7.0-beta.2`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -296,6 +296,7 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 10 | UX polish + correctness fixes — resizable style dialog, threshold color palette, card_mod:/uix: merge-on-edit, same-selector CSS parsing bug | ✅ v0.6.1 |
 | 11 | Threshold color-palette popover positioning fix — correct inside HA's real (transformed, modal) card-edit dialog | ✅ v0.6.2 |
 | 12 | Searchable entity picker everywhere + cross-entity control for Icon Color/Background/Filter + multi-property threshold rules | 🧪 v0.7.0-beta.1 (pre-release) |
+| 13 | Icon Color/Accent Color conditional mode available regardless of the card's own entity state-awareness + Accent Color entity binding + drop `--accent-color` variable exposition | 🧪 v0.7.0-beta.2 (pre-release) |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

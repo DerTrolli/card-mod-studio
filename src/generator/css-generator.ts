@@ -113,32 +113,37 @@ function filterDecls(s: FilterModuleState): string[] {
 function accentColorDecls(s: AccentColorModuleState, cardType?: string): string[] {
   if (!s.enabled) return [];
 
-  const decls = [`--accent-color: ${s.color};`];
+  const value =
+    s.mode === 'conditional'
+      ? `{{ '${s.colorOn}' if is_state(${entityRef(s.entityId)}, 'on') else '${s.colorOff}' }}`
+      : s.color;
+
+  const decls = [`--accent-color: ${value};`];
 
   // Tile card: icon background/state color is driven by --tile-color
   if (cardType === 'tile') {
-    decls.push(`--tile-color: ${s.color};`, `--state-icon-color: ${s.color};`);
+    decls.push(`--tile-color: ${value};`, `--state-icon-color: ${value};`);
   }
 
   // Thermostat cards use climate state color variables
   if (cardType === 'thermostat') {
     decls.push(
-      `--state-climate-heat-color: ${s.color};`,
-      `--state-climate-cool-color: ${s.color};`,
-      `--state-climate-auto-color: ${s.color};`,
-      `--state-climate-idle-color: ${s.color};`,
-      `--control-circular-slider-color: ${s.color};`,
+      `--state-climate-heat-color: ${value};`,
+      `--state-climate-cool-color: ${value};`,
+      `--state-climate-auto-color: ${value};`,
+      `--state-climate-idle-color: ${value};`,
+      `--control-circular-slider-color: ${value};`,
     );
   }
 
   // Gauge card uses its own color variable
   if (cardType === 'gauge') {
-    decls.push(`--gauge-color: ${s.color};`);
+    decls.push(`--gauge-color: ${value};`);
   }
 
   // Button card (HA built-in) and generic entity-state cards
   if (!['tile', 'thermostat', 'gauge', 'heading'].includes(cardType ?? '')) {
-    decls.push(`--state-icon-color: ${s.color};`, `--paper-item-icon-active-color: ${s.color};`);
+    decls.push(`--state-icon-color: ${value};`, `--paper-item-icon-active-color: ${value};`);
   }
 
   return decls;

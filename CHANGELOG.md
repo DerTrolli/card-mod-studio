@@ -5,6 +5,41 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0-beta.2] — 2026-07-03
+
+**Pre-release**, continuing the same 0.7.0 beta cycle — see the note under
+`[0.7.0-beta.1]` below for what that means. Bug fixes found while dogfooding
+`beta.1` against a real dashboard (a `button` card, whose entity has no
+on/off state of its own).
+
+### Fixed
+- **Icon Color and Accent Color couldn't be set to "Different for ON/OFF"
+  at all on cards whose own entity has no on/off state** (e.g. a `button`
+  card) — the mode dropdown was hidden outright, so there was no way to
+  reach the "controlled by a different entity" option `beta.1` had just
+  added, even though binding to a *different*, toggleable entity would
+  have worked fine. Both modules now always offer the conditional mode;
+  when the card's own entity genuinely has no on/off state and no other
+  entity has been picked yet, an inline warning explains why (rather than
+  the mode silently doing nothing).
+- **Accent Color had no conditional/entity-binding option at all** — it was
+  static-color-only, unlike every other conditional module. It's now on
+  equal footing with Icon Color: a mode switch (one fixed color / different
+  for ON-OFF), on/off colors, and a "Controlled by" entity picker.
+- **The `--accent-color` CSS-variable name and its explanatory paragraph
+  were shown in the Accent Color panel** (`Color (--accent-color)`, "Sets
+  `--accent-color` on ha-card…") — no other module exposes its underlying
+  CSS variable name this way, and it wasn't adding anything a user editing
+  visually needs; removed. (Anyone who wants to see the generated CSS
+  already has the code editor for that.)
+
+### Verified
+- Reproduced the exact reported scenario live against HA's real card-edit
+  dialog (not a synthetic mount) — a `button` card, entity with no on/off
+  state, both modules' "Controlled by" picker fully on-screen at 900px
+  width, picking a different entity reaching the emitted `card_mod.style`.
+  See `tools/sandbox/harness/button_card_binding_check.mjs`.
+
 ## [0.7.0-beta.1] — 2026-07-03
 
 **Pre-release** — install manually or via HACS with beta versions enabled
@@ -346,6 +381,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.7.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0-beta.2
 [0.7.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0-beta.1
 [0.6.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.2
 [0.6.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.1

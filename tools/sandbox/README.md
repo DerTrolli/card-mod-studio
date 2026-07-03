@@ -62,6 +62,7 @@ node compat_check.mjs    # card_mod:/uix: cross-compat warning banner (real cms-
 node palette_check.mjs   # threshold color-palette picker (card + entities-row level)
 node dialog_popover_check.mjs  # same popover, but inside HA's real (transformed, modal) card-edit dialog
 node entity_binding_check.mjs  # cms-entity-picker + cross-entity binding (Icon Color/Background/Filter) + multi-property threshold
+node button_card_binding_check.mjs  # conditional mode available on cards with no on/off state (e.g. button) + Accent Color entity binding
 node scan.mjs            # which card types mount cleanly standalone
 ```
 
@@ -139,6 +140,17 @@ run.sh
   `docs/DEVELOPMENT.md`'s "`<ha-entity-picker>` needs a real ancestor" note
   for why every other check script's `document.body` convention doesn't
   work for this one.
+- **`harness/button_card_binding_check.mjs`** — reproduces a real user
+  report against a `button` card (entity with no on/off state of its own):
+  Icon Color and Accent Color's "Different for ON/OFF" mode used to be
+  hidden entirely in that case, with no way to reach the "controlled by a
+  different entity" option that would have made it work anyway. Verifies
+  the mode is always offered, a warning explains why it's inert without a
+  toggleable entity picked, picking one actually reaches the emitted CSS,
+  and the entity-picker rows fit on-screen at 900px width (the original
+  bug report: the old plain-text entity input "goes off the edge"). Uses
+  the real card-edit dialog, not a synthetic mount, for the same
+  `<ha-entity-picker>` context reason as `entity_binding_check.mjs`.
 
 ---
 
