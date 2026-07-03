@@ -293,7 +293,7 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 7 | HACS preparation — validation CI, badges, attribution | ✅ v0.4.0 |
 | 8 | UX overhaul — unified "Apply when" controls, threshold legend, responsive layout | ✅ v0.5.0 |
 | 9 | UIX support — dual-key parse/generate, reverse-compat warning | ✅ v0.6.0 |
-| 10 | UX polish — resizable style dialog, consistent color palette for thresholds | ✅ v0.6.1 |
+| 10 | UX polish + correctness fixes — resizable style dialog, threshold color palette, card_mod:/uix: merge-on-edit, same-selector CSS parsing bug | ✅ v0.6.1 |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

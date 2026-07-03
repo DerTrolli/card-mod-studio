@@ -190,6 +190,37 @@ export function mapToStudioState(parsed: CardModStyleState): StudioState {
   };
 }
 
+/**
+ * Merges two independently-parsed StudioStates — typically one from a
+ * card's card_mod.style and one from its uix.style, which can genuinely
+ * diverge (e.g. edited under card-mod, then separately edited again after
+ * switching to UIX) — into one, so no module's settings are lost just
+ * because they only live under the currently-inactive key.
+ *
+ * For each module, `primary` (the currently active engine's key — see
+ * pickOutputKey()) wins whenever it has that module enabled; a module only
+ * enabled in `secondary` fills the gap. This matches what a merge-and-clean
+ * edit should produce: primary's settings for anything it already defines,
+ * secondary's settings folded in for anything primary doesn't. rawCss is
+ * primary's, falling back to secondary's only when primary has none —
+ * unstructured CSS can't be safely merged declaration-by-declaration the
+ * way the recognised modules can, so this is a whole-or-nothing choice
+ * rather than a partial merge.
+ */
+export function mergeStudioStates(primary: StudioState, secondary: StudioState): StudioState {
+  return {
+    filter: primary.filter.enabled ? primary.filter : secondary.filter,
+    iconColor: primary.iconColor.enabled ? primary.iconColor : secondary.iconColor,
+    accentColor: primary.accentColor.enabled ? primary.accentColor : secondary.accentColor,
+    background: primary.background.enabled ? primary.background : secondary.background,
+    animation: primary.animation.enabled ? primary.animation : secondary.animation,
+    border: primary.border.enabled ? primary.border : secondary.border,
+    headingStyle: primary.headingStyle.enabled ? primary.headingStyle : secondary.headingStyle,
+    threshold: primary.threshold.enabled ? primary.threshold : secondary.threshold,
+    advanced: { rawCss: primary.advanced.rawCss || secondary.advanced.rawCss },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Target + property lookup
 // ---------------------------------------------------------------------------
@@ -644,6 +675,29 @@ export function parseEntityRowCss(css: string): EntitiesRowStyle {
   }
 
   return style;
+}
+
+/**
+ * Row-level counterpart to mergeStudioStates — merges two independently
+ * parsed EntitiesRowStyles (a row's card_mod.style and uix.style) so a
+ * setting that only lives under the currently-inactive key isn't lost.
+ * Icon and text are merged independently: primary wins whichever one it has
+ * set (static color or threshold rules), secondary fills in whichever one
+ * primary doesn't have.
+ */
+export function mergeEntityRowStyles(primary: EntitiesRowStyle, secondary: EntitiesRowStyle): EntitiesRowStyle {
+  const iconSet = !!(primary.iconColor || primary.iconMode === 'threshold');
+  const textSet = !!(primary.textColor || primary.textMode === 'threshold');
+  return {
+    iconColor: iconSet ? primary.iconColor : secondary.iconColor,
+    iconMode: iconSet ? primary.iconMode : secondary.iconMode,
+    iconRules: iconSet ? primary.iconRules : secondary.iconRules,
+    iconDefault: iconSet ? primary.iconDefault : secondary.iconDefault,
+    textColor: textSet ? primary.textColor : secondary.textColor,
+    textMode: textSet ? primary.textMode : secondary.textMode,
+    textRules: textSet ? primary.textRules : secondary.textRules,
+    textDefault: textSet ? primary.textDefault : secondary.textDefault,
+  };
 }
 
 function mapThreshold(

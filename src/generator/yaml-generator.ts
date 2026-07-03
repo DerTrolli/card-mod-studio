@@ -50,19 +50,24 @@ function clearUixStyle(existingConfig: CardModCardConfig): UixConfig | undefined
  *   winning: a stale card_mod.style reactivates via UIX's own fallback once
  *   uix.style is gone, and a stale uix.style keeps outranking a freshly
  *   card_mod-cleared card since UIX always prefers uix over card_mod.
- * - When writing a non-empty style to card_mod, a pre-existing uix.style is
- *   kept in sync (UIX prioritizes uix.style over card_mod.style, so without
- *   this a studio edit could silently have no effect under UIX — it would
- *   look correct in the studio's own preview while a stale uix.style kept
- *   winning at render time) — *unless* that uix block uses macros/billets,
- *   in which case it's hand-authored/UIX-specific content the studio can't
- *   safely regenerate, so it's left untouched rather than silently
- *   overwritten with plain generated CSS.
- * - When writing a non-empty style to uix, card_mod is left untouched: since
- *   uix now has real content, UIX's own precedence guarantees uix wins
- *   regardless of what card_mod says, so there's nothing to sync.
+ * - Otherwise, `css` is written to the active (outputKey) key, and the
+ *   *other* key's .style is cleared — not synced. The caller is expected to
+ *   have already merged any settings that only existed under the other key
+ *   into `css` (see cms-panel.ts's _buildMergedState / mergeStudioStates in
+ *   state-mapper.ts), so by the time this function runs, the other key's
+ *   .style is fully redundant: either it duplicates something the active
+ *   key already expresses, or its unique settings have already been folded
+ *   into `css`. Leaving it in place — whether stale (untouched) or synced
+ *   (mirrored) — just re-introduces the dual-key duplication this function
+ *   exists to clean up, and a stale copy left behind after switching engines
+ *   is exactly the "still has the old card_mod code" bug this fixed.
+ *   card_mod is dropped entirely when it's the *other* key (no other fields
+ *   to preserve); uix keeps debug/macros/billets and only loses .style
+ *   (clearUixStyle) — *unless* that uix block uses macros/billets, in which
+ *   case it's hand-authored/UIX-specific content this function can't safely
+ *   determine is redundant, so it's left untouched rather than cleared.
  * - Writing to uix always overwrites uix.style directly, even if it already
- *   uses macros/billets — unlike the card_mod branch's guard above, there's
+ *   uses macros/billets — unlike the "other key is uix" guard above, there's
  *   no fallback key to write to instead here (outputKey is only ever 'uix'
  *   when card-mod isn't installed), so skipping the write would silently eat
  *   the user's edit with no key left to reflect it at all. cms-panel.ts's
@@ -91,12 +96,19 @@ export function applyCardModStyle(
   }
 
   if (outputKey === 'uix') {
-    return { ...existingConfig, uix: { ...existingConfig.uix, style: trimmed } };
+    const next: CardModCardConfig = { ...existingConfig, uix: { ...existingConfig.uix, style: trimmed } };
+    delete next.card_mod;
+    return next;
   }
 
   const next: CardModCardConfig = { ...existingConfig, card_mod: { style: trimmed } };
   if (next.uix?.style !== undefined && !usesUixOnlyFeaturesInBlock(next.uix)) {
-    next.uix = { ...next.uix, style: trimmed };
+    const cleanedUix = clearUixStyle(next);
+    if (cleanedUix === undefined) {
+      delete next.uix;
+    } else {
+      next.uix = cleanedUix;
+    }
   }
   return next;
 }

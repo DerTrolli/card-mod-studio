@@ -201,3 +201,18 @@ Against the real running integration (not just source-reading or unit tests):
    by dispatching the same `state-changed` event the Background module's own
    template binding listens for) emits `uix:` — not `card_mod:` — proving
    `pickOutputKey()` picks correctly against a live UIX install.
+
+### `merge_check.mjs` — card_mod:/uix: merge-and-cleanup on edit
+
+Also runs against `run-uix.sh`'s UIX-only rig (the environment the bug this
+covers was reported against). Mounts the real `cms-panel` editor and drives a
+real edit (dispatching the same `state-changed`/`styles-changed` events the
+modules' own template bindings listen for) to verify: a `card_mod:`-only card
+edited once UIX is active gets **renamed** to `uix:` (not duplicated); a card
+with divergent settings under each key gets them **merged** into the single
+active key, with the inactive key **cleared**; and the same for an individual
+entities-card row, a separate code path from the card-level one. Includes the
+exact real-world card that surfaced both this bug and the same-selector
+CSS-parsing bug fixed alongside it (see `test/merge-dedup.test.ts` for the
+equivalent unit-level coverage, and `src/generator/yaml-generator.ts`'s
+`applyCardModStyle` doc comment for the design).

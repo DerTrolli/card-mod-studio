@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.1] — 2026-07-03
 
-UX polish on top of v0.6.0, plus a real correctness fix found while building
+UX polish on top of v0.6.0, plus real correctness fixes found while building
 it: a consistent color palette for Threshold Colors, a resizable style
-dialog, and a silent data-loss bug in entities-row threshold parsing.
+dialog, a silent data-loss bug in entities-row threshold parsing, and a
+card_mod:/uix: duplication bug reported after v0.6.1's own initial release —
+this changelog entry covers everything that shipped under the v0.6.1 tag.
 
 ### Added
 - **Color palette for Threshold Colors** — `cms-color-picker` gained a
@@ -55,6 +57,47 @@ dialog, and a silent data-loss bug in entities-row threshold parsing.
   same parser already used for card-level CSS), reused via a new exported
   `parseEntityRowCss` in `state-mapper.ts` — which also makes this path unit
   testable for the first time (9 new tests in `test/parser.test.ts`).
+- **Editing an already-styled card left a stale duplicate of the *other*
+  key's content sitting alongside the new one, instead of consolidating to
+  a single source of truth.** Reported: a card styled under `card_mod:`
+  from before UIX was installed, edited after switching to UIX, ended up
+  with *both* a new `uix:` block *and* the old, now-dead `card_mod:` block
+  still present. On open, the panel now merges settings from **both** keys
+  (not just whichever `resolveStyle()` would pick) when both carry real
+  content, so a setting that only lives under the currently-inactive key —
+  left over from switching engines, or from editing each key separately —
+  isn't invisible to the editor or silently dropped on the next save
+  (`mergeStudioStates` / `mergeEntityRowStyles` in `state-mapper.ts`, wired
+  in via `cms-panel.ts`'s `_buildMergedState`). On save, `applyCardModStyle`
+  now writes the merged result to the active key and **clears** the other
+  key's `.style` — rename instead of duplicate when only one side had
+  content, consolidate-and-clear when both did — rather than leaving it
+  stale or syncing it forever. A `uix:` block using macros/billets is still
+  never touched (can't be safely parsed into recognised state or determined
+  redundant), matching the existing untouchable-content rule. The distinct
+  "Copy to card_mod" fix button (for when neither engine can be confirmed
+  installed) now has its own implementation that copies `uix.style` into
+  `card_mod.style` **verbatim** and deliberately leaves `uix.style` alone —
+  it's a defensive fallback-add, not a settings edit, so the new
+  clear-the-other-key behavior doesn't apply to it.
+- **A style with the same selector declared twice — e.g. a static default
+  in one `ha-card { }` block, later overridden by a conditional value in a
+  second `ha-card { }` block, a common hand-edited pattern — silently lost
+  the second (actually live) declaration entirely, not even preserving it
+  in Advanced CSS.** `findTarget`/`findProp` only ever looked at the first
+  matching selector, and the "unclaimed → Advanced CSS" reconciliation keys
+  purely on `selector+property` strings, so the second block's property
+  collided with the first's claim key and was dropped without ever being
+  read into any module's state. `parseCss` now coalesces same-selector
+  blocks (and de-duplicates repeated properties within one block) using
+  real CSS cascade semantics — later declaration wins — before any
+  recognizer runs, matching what actually renders. Found via a real
+  user-reported card that used exactly this pattern for a threshold
+  override; both the coalescing itself and the merge fix above are needed
+  to correctly round-trip that card (5 new tests in `test/parser.test.ts` +
+  `test/generator.test.ts`, plus a dedicated `test/merge-dedup.test.ts` and
+  a new live sandbox check, `tools/sandbox/harness/merge_check.mjs`,
+  covering both fixes against a real UIX instance).
 
 ## [0.6.0] — 2026-07-03
 

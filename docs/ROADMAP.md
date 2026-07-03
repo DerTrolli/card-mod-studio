@@ -30,6 +30,23 @@ Priorities reflect both user value and the findings in
   palette feature above; fixed by routing through the existing Jinja-safe
   `parseCss` instead of an ad-hoc regex. Now unit tested
   (`parseEntityRowCss` in `state-mapper.ts`).
+- **Fixed card_mod:/uix: duplication on edit** — editing an already-styled
+  card left a stale copy of the *other* key sitting alongside the new one
+  instead of consolidating to a single source of truth. The panel now merges
+  settings from both keys on open (`mergeStudioStates`/`mergeEntityRowStyles`)
+  so nothing is lost, and clears the inactive key on save instead of leaving
+  it stale or syncing it forever (`applyCardModStyle`). The separate "Copy to
+  card_mod" fix button keeps its own verbatim-copy behavior, since it exists
+  specifically for when neither engine can be confirmed installed.
+- **Fixed silent CSS data loss when a selector is declared twice** — a
+  hand-edited pattern (static default in one `ha-card { }` block, later
+  overridden by a conditional value in a second `ha-card { }` block) made
+  the second, actually-live declaration vanish during parsing instead of
+  either being recognised or falling through to Advanced CSS. `parseCss`
+  now coalesces same-selector blocks using real CSS cascade semantics
+  (later declaration wins) before any module recognizer runs. Found via a
+  real user-reported card and required to correctly round-trip it alongside
+  the merge fix above.
 
 ## Recently shipped (v0.6.0)
 

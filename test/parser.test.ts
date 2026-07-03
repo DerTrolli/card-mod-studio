@@ -166,6 +166,59 @@ describe('parseCss', () => {
     expect(value).toContain('}}');
     expect(value).toContain('is_state');
   });
+
+  // ---------------------------------------------------------------------------
+  // Same-selector / same-property coalescing (later declaration wins)
+  //
+  // Regression coverage: a hand-layered "static default, then a later
+  // conditional override" pattern — two separate ha-card { } blocks, the
+  // second overriding a property the first also sets — used to make the
+  // *live* (second) value collide on the same claimKey(selector, property)
+  // as the first and vanish silently (not even landing in Advanced CSS),
+  // since findTarget/findProp only ever looked at the first match.
+  // ---------------------------------------------------------------------------
+
+  it('merges two blocks with the same selector into one target', () => {
+    const css = `
+      ha-card { --accent-color: red; }
+      ha-card { --state-icon-color: blue; }
+    `;
+    const result = parseCss(css);
+    expect(result).toHaveLength(1);
+    expect(result[0].selector).toBe('ha-card');
+    const names = result[0].properties.map((p) => p.property);
+    expect(names).toEqual(['--accent-color', '--state-icon-color']);
+  });
+
+  it('keeps only the later occurrence when the same selector+property repeats across blocks', () => {
+    const css = `
+      ha-card { --accent-color: var(--red-color); }
+      ha-card { --accent-color: {{ '#f44336' if states('sensor.x') | float(0) > 0 else '#888888' }}; }
+    `;
+    const result = parseCss(css);
+    expect(result).toHaveLength(1);
+    const accentProps = result[0].properties.filter((p) => p.property === '--accent-color');
+    expect(accentProps).toHaveLength(1);
+    expect(accentProps[0].hasCondition).toBe(true);
+    expect(accentProps[0].value).toContain('float(0)');
+  });
+
+  it('keeps only the later occurrence when the same property repeats within one block', () => {
+    const result = parseCss('ha-card { --accent-color: red; --accent-color: blue; }');
+    expect(result[0].properties).toHaveLength(1);
+    expect(result[0].properties[0].value).toBe('blue');
+  });
+
+  it('selector coalescing is case/whitespace-insensitive', () => {
+    const css = `
+      ha-card { color: red; }
+      HA-CARD  { background: blue; }
+    `;
+    const result = parseCss(css);
+    expect(result).toHaveLength(1);
+    const names = result[0].properties.map((p) => p.property);
+    expect(names).toEqual(['color', 'background']);
+  });
 });
 
 // =============================================================================

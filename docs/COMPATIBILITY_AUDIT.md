@@ -1,7 +1,7 @@
 # Card-Mod Studio — card-mod 4.x / HA 2026 Compatibility Audit
 
 **Audit date:** 2026-06-25 (card-mod/HA) · 2026-07-03 (UIX addendum, §9)
-**Audited version:** v0.4.0 (card-mod/HA) · v0.6.0 (UIX) · v0.6.1 (entities-row parser fix, §10 item 5a)
+**Audited version:** v0.4.0 (card-mod/HA) · v0.6.0 (UIX) · v0.6.1 (entities-row parser fix §10 item 5a, card_mod:/uix: dedup-on-edit §10 item 5b, same-selector-twice parse bug §10 item 5c)
 **Reference targets:**
 - card-mod **v4.2.1** (latest; released 2026-02-08). Major breaking release was
   **v4.0.0** (2026-11-18, requires HA 2025.11+).
@@ -276,6 +276,34 @@ being duplicated).
    `#888888` on every panel re-open. Fixed by routing through the existing
    Jinja-safe `parseCss` instead (now exported as `parseEntityRowCss` in
    `state-mapper.ts`, with unit test coverage).
+5b. ✅ **[High] card_mod:/uix: duplication instead of consolidation on edit**
+   — **Fixed (v0.6.1)**. `applyCardModStyle`'s `outputKey === 'uix'` branch
+   wrote the new `uix.style` but left an existing `card_mod.style`
+   completely untouched (and the `outputKey === 'card_mod'` branch only
+   *synced* `uix.style` to match, never clearing it) — repeated edits after
+   switching engines left both keys populated indefinitely, with the
+   inactive one silently going stale. The panel now merges settings from
+   both keys on open (when both carry real content) and clears the inactive
+   key's `.style` on save, so a genuine edit consolidates to one source of
+   truth instead of accumulating duplicates. A `uix:` block using
+   macros/billets is still never touched. The "Copy to card_mod" fix button
+   (§9, item 4 above) is unaffected — it now has its own verbatim-copy
+   implementation that deliberately doesn't clear `uix.style`, since it's a
+   defensive fallback-add for when neither engine is confirmed installed,
+   not a settings edit.
+5c. ✅ **[High] Same selector declared twice loses the second (live)
+   declaration entirely** — **Fixed (v0.6.1)**. `findTarget`/`findProp`
+   only ever inspected the first target matching a given selector, and the
+   "unclaimed → Advanced CSS" fallback keys purely on `selector+property`
+   strings — so a CSS pattern like a static default in one `ha-card { }`
+   block later overridden by a conditional value in a second `ha-card { }`
+   block (a plausible hand-edit, and exactly what a real user-reported card
+   contained) had its second, actually-rendered declaration collide with
+   the first's claim key and vanish without a trace — not recognised as a
+   module, not preserved in Advanced CSS either. `parseCss` now coalesces
+   same-selector blocks (and de-dupes repeated properties within one block)
+   using real CSS cascade semantics — later declaration wins — before any
+   recognizer runs.
 6. **[Med] Duplicate-entity-ID rows cross-contaminate styling** (§9) — needs a
    positional row key instead of entity-keyed. ROADMAP #24.
 7. **[Low] Phase out `--paper-item-icon-active-color`** in the accent module.

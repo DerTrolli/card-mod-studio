@@ -19,11 +19,11 @@ import type {
   EntitiesRowStyles,
 } from '../types/index.js';
 import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
-import { isUixOnlyStyle, usesUixOnlyFeatures, hasUixOnlyRow, resolveStyle } from '../utils/style-compat.js';
+import { isUixOnlyStyle, usesUixOnlyFeatures, hasUixOnlyRow, hasStyleContent } from '../utils/style-compat.js';
 import { loadPresets, savePresets } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
-import { parseCardModConfig } from '../parser/yaml-parser.js';
-import { mapToStudioState, parseEntityRowCss } from '../parser/state-mapper.js';
+import { parseStyleValue } from '../parser/yaml-parser.js';
+import { mapToStudioState, mergeStudioStates, parseEntityRowCss, mergeEntityRowStyles } from '../parser/state-mapper.js';
 import { generateCss, buildThresholdJinja } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
 
@@ -151,9 +151,38 @@ export class CmsPanel extends LitElement {
     const configJson = JSON.stringify(this.config);
     if (configJson === this._lastEmittedConfigJson) return;
 
-    const parsed = parseCardModConfig(this.config);
-    this._studioState = mapToStudioState(parsed);
+    this._studioState = this._buildMergedState(this.config);
     this._initEntityRowStyles();
+  }
+
+  /**
+   * Builds studio state from a card_mod/uix-bearing object, merging settings
+   * from BOTH keys when both carry real (string-form) content — not just
+   * whichever resolveStyle() would pick — so a setting that only lives under
+   * the currently-inactive key (e.g. left over from before switching card-mod
+   * <-> UIX, or from a divergent hand-edit under each) isn't invisible to the
+   * editor, and isn't silently dropped the next time this card is saved. The
+   * active key (per pickOutputKey()) wins on conflicts; see
+   * mergeStudioStates in state-mapper.ts for the per-module merge rule.
+   *
+   * Skips the secondary key when it's a uix: block using macros/billets —
+   * that's hand-authored, UIX-exclusive content this parser can't safely
+   * represent as recognised module state, so it's left out of the merge
+   * entirely (and, per applyCardModStyle's matching guard, never cleared
+   * either).
+   */
+  private _buildMergedState(config: CardModCardConfig): StudioState {
+    const outputKey = pickOutputKey();
+    const primaryStyle = outputKey === 'uix' ? config.uix?.style : config.card_mod?.style;
+    const secondaryStyle = outputKey === 'uix' ? config.card_mod?.style : config.uix?.style;
+
+    const primaryState = mapToStudioState(parseStyleValue(primaryStyle));
+
+    const secondaryUsable = outputKey === 'uix' || !usesUixOnlyFeatures(config);
+    if (!hasStyleContent(secondaryStyle) || !secondaryUsable) return primaryState;
+
+    const secondaryState = mapToStudioState(parseStyleValue(secondaryStyle));
+    return mergeStudioStates(primaryState, secondaryState);
   }
 
   private _initEntityRowStyles() {
@@ -164,19 +193,25 @@ export class CmsPanel extends LitElement {
     const rows = (this.config as unknown as { entities?: EntitiesCardRow[] }).entities;
     if (!rows?.length) { this._entityRowStyles = {}; return; }
 
+    const outputKey = pickOutputKey();
     const styles: EntitiesRowStyles = {};
     for (const row of rows) {
       if (!row.entity) continue;
-      // Same uix:/card_mod: precedence UIX itself uses (see style-compat.ts),
-      // so a row hand-authored (or previously saved) under uix: reads back
-      // correctly, and an explicit-but-empty uix.style doesn't mask a real
-      // card_mod.style.
-      const modStyle = resolveStyle(row);
-      if (typeof modStyle === 'string') {
-        styles[row.entity] = parseEntityRowCss(modStyle);
-      }
+      styles[row.entity] = this._buildMergedRowStyle(row, outputKey);
     }
     this._entityRowStyles = styles;
+  }
+
+  /** Row-level counterpart to _buildMergedState — see its doc comment. Rows have no macros/billets concept, so there's no secondary-key guard to check here. */
+  private _buildMergedRowStyle(row: EntitiesCardRow, outputKey: ReturnType<typeof pickOutputKey>): EntitiesRowStyle {
+    const primaryStyle = outputKey === 'uix' ? row.uix?.style : row.card_mod?.style;
+    const secondaryStyle = outputKey === 'uix' ? row.card_mod?.style : row.uix?.style;
+
+    const primaryRowStyle = parseEntityRowCss(typeof primaryStyle === 'string' ? primaryStyle : '');
+    if (!hasStyleContent(secondaryStyle)) return primaryRowStyle;
+
+    const secondaryRowStyle = parseEntityRowCss(typeof secondaryStyle === 'string' ? secondaryStyle : '');
+    return mergeEntityRowStyles(primaryRowStyle, secondaryRowStyle);
   }
 
   private _generateEntityRowCss(style: EntitiesRowStyle, entityId: string): string {
@@ -279,16 +314,48 @@ export class CmsPanel extends LitElement {
   }
 
   /**
-   * Re-saves the card with its current studio state so uix-only styling (card
-   * level and/or per-row) gets a card_mod: block too. Since _studioState and
-   * _entityRowStyles were parsed from uix.style with the same precedence UIX
-   * itself uses, and pickOutputKey() already resolves to 'card_mod' whenever
-   * UIX isn't installed, this is just "save now" without waiting for the user
-   * to touch an unrelated control first — _emitConfigChanged() already
-   * reapplies every row for entities cards, so this fixes rows too.
+   * Copies uix.style (card level and/or per at-risk row) verbatim into
+   * card_mod.style, leaving uix.style completely untouched.
+   *
+   * Deliberately does NOT go through _emitConfigChanged() -> applyCardModStyle():
+   * that path clears the *other* key once it's confident which engine is
+   * active, which is right for a genuine settings edit but wrong here — this
+   * button exists precisely because neither engine could be confirmed
+   * installed (_uixOnlyAtRisk / _uixOnlyRowsAtRisk only fire when UIX isn't
+   * detected), so clearing uix.style on a guess would destroy the original
+   * hand-authored styling if that guess is wrong (UIX actually is installed
+   * some other way, or gets installed later). A verbatim copy is also more
+   * faithful than re-deriving through parse -> state -> generate, which is
+   * lossy for anything the recognisers don't perfectly round-trip (and for
+   * dict-form uix.style, which mapToStudioState can't represent losslessly
+   * at all).
    */
   private _copyUixStyleToCardMod() {
-    this._emitConfigChanged();
+    if (!this.config) return;
+    let next: CardModCardConfig = { ...this.config };
+
+    if (hasStyleContent(this.config.uix?.style) && !hasStyleContent(this.config.card_mod?.style)) {
+      next = { ...next, card_mod: { style: this.config.uix!.style! } };
+    }
+
+    if (this.config.type === 'entities') {
+      const rows = (this.config as unknown as { entities?: EntitiesCardRow[] }).entities;
+      if (rows?.length) {
+        const updatedRows = rows.map((row) =>
+          hasStyleContent(row.uix?.style) && !hasStyleContent(row.card_mod?.style)
+            ? { ...row, card_mod: { style: row.uix!.style! } }
+            : row,
+        );
+        next = { ...(next as unknown as object), entities: updatedRows } as unknown as CardModCardConfig;
+      }
+    }
+
+    this._previewConfig = next;
+    this._previewKey++;
+    this._lastEmittedConfigJson = JSON.stringify(next);
+    this.dispatchEvent(
+      new CustomEvent('config-changed', { bubbles: true, composed: true, detail: { config: next } }),
+    );
   }
 
   // ---------------------------------------------------------------------------

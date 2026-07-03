@@ -203,19 +203,38 @@ User adjusts UI control in cms-panel
   → yaml-generator.ts: pickOutputKey() picks card_mod (default) or uix
       (only when UIX is installed and card-mod is not)
   → yaml-generator.ts: applyCardModStyle() wraps the CSS in that key,
-      syncing a pre-existing uix.style too if writing card_mod (UIX
-      prioritizes uix: over card_mod:, so a stale uix.style would
-      otherwise silently win over a fresh edit)
+      and clears the *other* key's .style — not syncs it — since the state
+      it was built from was already merged from both keys on open (below),
+      so the other key is redundant by the time this runs. Left untouched
+      instead if it's a uix: block using macros/billets, which can't be
+      safely parsed or determined redundant.
   → cms-panel fires config-changed CustomEvent
   → HA's editor picks this up → marks card as modified
   → User clicks Save → HA saves the config
   → card-mod/UIX reads card_mod.style or uix.style → applies CSS
 ```
 
-Reading works the same way in reverse: `yaml-parser.ts`'s `parseCardModConfig()`
-reads `config.uix?.style ?? config.card_mod?.style` — the same precedence UIX
-itself uses — so the panel always pre-fills from whichever key is actually
-live, including cards styled by hand outside the Studio.
+Reading works the other way: `yaml-parser.ts`'s `parseCardModConfig()` reads
+`config.uix?.style ?? config.card_mod?.style` (`resolveStyle()`, the same
+precedence UIX itself uses) for the *single-key* case. But cms-panel.ts's
+`_buildMergedState`/`_buildMergedRowStyle` go further — when **both** keys
+carry real content (e.g. left over from switching card-mod ↔ UIX, or edited
+separately under each), they parse both independently and merge them
+(`mergeStudioStates`/`mergeEntityRowStyles` in `state-mapper.ts`): the active
+key (per `pickOutputKey()`) wins per-module on conflicts, a module only
+enabled under the *inactive* key fills the gap. This is what lets the next
+save consolidate to one key without losing a setting that only lived under
+the other one.
+
+A related parser subtlety worth knowing when touching `css-parser.ts`: the
+same selector can legally appear in more than one block in a single style
+(e.g. a static default in one `ha-card { }`, later overridden by a
+conditional value in a second `ha-card { }`) — real CSS treats the later
+declaration of a repeated property as the one that renders. `parseCss`
+coalesces same-selector blocks (and de-dupes repeated properties within one
+block) this way *before* any module recognizer sees them, so `findTarget`
+picking "the" target for a selector is always looking at the fully-merged,
+actually-live view — not just the first block that happened to match.
 
 ---
 

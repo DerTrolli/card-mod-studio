@@ -168,12 +168,19 @@ function splitIntoBlocks(
 /**
  * Parses a CSS declaration block string into CssProperty objects.
  * Handles !important and restores Jinja2 placeholders.
+ *
+ * A property declared more than once in the same block keeps only its last
+ * occurrence (at its first-seen position) — matching real CSS cascade rules,
+ * where a later declaration of the same property at equal specificity wins.
+ * Without this, `findProp`'s `.find()` would return the first (overridden,
+ * dead) occurrence instead of the one that's actually rendered.
  */
 function parseDeclarations(
   declarationBlock: string,
   jinjaMap: Map<string, string>,
 ): CssProperty[] {
   const properties: CssProperty[] = [];
+  const indexByProperty = new Map<string, number>();
 
   // Split on ";" — trailing empties are fine, we skip them below.
   const declarations = declarationBlock.split(';');
@@ -200,12 +207,15 @@ function parseDeclarations(
     // Restore Jinja2 content so analyzeJinja sees the real expression.
     const value = restoreJinja(rawValue, jinjaMap);
     const jinjaInfo = analyzeJinja(value);
+    const entry: CssProperty = { property: propertyName, value, ...jinjaInfo };
 
-    properties.push({
-      property: propertyName,
-      value,
-      ...jinjaInfo,
-    });
+    const existingIndex = indexByProperty.get(propertyName);
+    if (existingIndex !== undefined) {
+      properties[existingIndex] = entry;
+    } else {
+      indexByProperty.set(propertyName, properties.length);
+      properties.push(entry);
+    }
   }
 
   return properties;
@@ -216,10 +226,51 @@ function parseDeclarations(
 // ---------------------------------------------------------------------------
 
 /**
+ * Merges targets that share the same (normalised) selector into one,
+ * matching real CSS cascade semantics: at equal specificity, a later
+ * same-selector block's declaration of a property is what's actually
+ * rendered, overriding an earlier block's declaration of that same
+ * property. This is a common hand/tool-authored card-mod pattern — a static
+ * default in one `ha-card { }` block, layered under a later conditional
+ * override in a second `ha-card { }` block.
+ *
+ * Every downstream consumer (`findTarget`/`findProp` in state-mapper.ts)
+ * only ever looks at the *first* target matching a selector, and claims
+ * properties keyed by plain `selector+property` strings. Without this
+ * coalescing step, a second block's property would silently collide on that
+ * same claim key as the first — treated as "already claimed" without its
+ * value ever having been read into any module's state, and (worse than
+ * falling through to Advanced CSS) permanently discarded on the next save.
+ */
+function coalesceBySelector(targets: CssTarget[]): CssTarget[] {
+  const order: string[] = [];
+  const bySelector = new Map<string, CssTarget>();
+
+  for (const target of targets) {
+    const key = target.selector.trim().toLowerCase();
+    const existing = bySelector.get(key);
+    if (!existing) {
+      order.push(key);
+      bySelector.set(key, { selector: target.selector, properties: [...target.properties] });
+      continue;
+    }
+    for (const prop of target.properties) {
+      const i = existing.properties.findIndex((p) => p.property === prop.property);
+      if (i === -1) existing.properties.push(prop);
+      else existing.properties[i] = prop;
+    }
+  }
+
+  return order.map((key) => bySelector.get(key)!);
+}
+
+/**
  * Parses a CSS string (with optional Jinja2 templates) into CssTarget[].
  *
  * @param css  Raw CSS string from card_mod.style
- * @returns    Array of targets — one per selector block found in the CSS.
+ * @returns    Array of targets — one per unique selector found in the CSS
+ *             (see coalesceBySelector for what happens when a selector
+ *             appears in more than one block).
  *             Returns an empty array on empty input; never throws.
  */
 export function parseCss(css: string): CssTarget[] {
@@ -228,7 +279,7 @@ export function parseCss(css: string): CssTarget[] {
   const { cleaned, map } = extractJinja(css);
   const blocks = splitIntoBlocks(cleaned);
 
-  return blocks
+  const targets = blocks
     .map(({ selector, declarationBlock }) => {
       // Restore selector in case a Jinja2 expression appeared in it (unusual
       // but possible with dynamic selectors).
@@ -241,4 +292,6 @@ export function parseCss(css: string): CssTarget[] {
       };
     })
     .filter((target) => target.properties.length > 0);
+
+  return coalesceBySelector(targets);
 }
