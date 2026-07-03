@@ -5,7 +5,13 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.0] — 2026-07-03
+## [0.7.0-beta.1] — 2026-07-03
+
+**Pre-release** — install manually or via HACS with beta versions enabled
+for this repository; not yet the default update for existing installs. Once
+this settles, a final `[0.7.0]` entry will replace this heading rather than
+sitting alongside it (this section's history will just be folded into that
+one — beta iterations aren't separate shipped versions of their own).
 
 The first step of a broader push toward v1.0: making cross-entity styling a
 first-class, discoverable feature instead of something only possible by
@@ -340,7 +346,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
-[0.7.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0
+[0.7.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0-beta.1
 [0.6.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.2
 [0.6.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.1
 [0.6.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.0

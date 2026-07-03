@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-03 · **Current version:** v0.7.0
+**Last updated:** 2026-07-03 · **Current version:** v0.6.2 (stable) · v0.7.0-beta.1 (pre-release, HACS beta opt-in)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -28,7 +28,7 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | v1.0 | Structural completeness | Container child-card editing (item #7 — styling a card inside a grid/stack/sections view currently targets the wrong card; probably the single biggest remaining hole) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
 | Post-1.0 | Stretch | Official Mushroom/Bubble selectors, a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
 
-## Recently shipped (v0.7.0)
+## Recently shipped (v0.7.0-beta.1)
 
 - **Searchable entity picker everywhere** — every entity field (Threshold's
   entity, Animation's custom trigger, and the new "controlled by" fields
