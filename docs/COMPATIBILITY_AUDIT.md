@@ -128,12 +128,13 @@ verbatim and only append. Do **not** silently flatten. See ROADMAP.
 | `--gauge-color` | Accent color (gauge) | Current. | None. |
 | `--state-climate-*`, `--control-circular-slider-color` | Accent color (thermostat) | Current climate control vars. | None. |
 
-> `--paper-item-icon-color` is **not** emitted by the shipped generator. Note
-> that `docs/BUG_FIX_PLAN.md` describes a sensor-specific
-> `:host { --paper-item-icon-color }` path, but that path is **not present** in
-> the current `iconColorBlock()` — icon color is emitted as
-> `ha-state-icon { color }` for all card types (see §6). The bug-fix doc is a
-> historical session log and has drifted from the code here.
+> `--paper-item-icon-color` is **not** emitted by the shipped generator.
+> `iconColorBlock()` has never had card-type branching — icon color is
+> emitted as `ha-state-icon { color }` for all card types (see §6), and
+> `CARD_SUPPORT_MATRIX.md` confirms that selector already works for sensor
+> cards. An earlier historical planning doc describing a sensor-specific
+> `:host { --paper-item-icon-color }` path had drifted from the code and was
+> retired (§10 item 4).
 
 ---
 
@@ -331,5 +332,7 @@ being duplicated).
 7. **[Low] Phase out `--paper-item-icon-active-color`** in the accent module.
 8. **[Low] Pin/verify card-mod version** in docs (state "tested against card-mod
    4.2.x") and add it to the compatibility table in the README.
-9. **[Housekeeping] Reconcile `docs/BUG_FIX_PLAN.md`** with the shipped
-   `iconColorBlock()` (the sensor `--paper-item-icon-color` path is not in code).
+9. ✅ **[Housekeeping] Reconcile `docs/BUG_FIX_PLAN.md`** with the shipped
+   `iconColorBlock()` — **Done (v0.6.2 repo cleanup)**. Confirmed the sensor
+   `--paper-item-icon-color` path it described was never in the shipped
+   generator; retired the file (ROADMAP #4).

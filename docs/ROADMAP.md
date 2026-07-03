@@ -4,8 +4,10 @@
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
-styling → HACS prep). This document is the forward-looking plan. It supersedes
-the scattered "Future" sections in `CARD_TYPE_PLAN.md` and `BUG_FIX_PLAN.md`.
+styling → HACS prep). This document is the forward-looking plan — the original
+phase-by-phase planning docs it superseded (`CARD_TYPE_PLAN.md`,
+`docs/BUG_FIX_PLAN.md`, `docs/PHASE-1.md`) have been retired now that their
+content is either shipped or captured here.
 
 Priorities reflect both user value and the findings in
 [COMPATIBILITY_AUDIT.md](COMPATIBILITY_AUDIT.md).
@@ -120,7 +122,7 @@ from the audit.
 | 1 | **Protect dictionary-form `card_mod` from lossy save** | Opening + saving a hand-written `$`-pierce/dict style can corrupt it (audit §4). Detect dict form on open; preserve verbatim or show a read-only banner instead of flattening to string. | M |
 | 2 ✅ | **Heading module: stop relying on `--mdc-icon-size`** | **Done (v0.5.0)** — now emits `--mdc-icon-size` + `--ha-icon-size`. Sandbox confirmed `--mdc-icon-size` still sizes the heading icon today and `--ha-icon-size` is the harmless forward-compat fallback. | S |
 | 3 ◐ | **Per-card icon-color selectors** | **Partly done (v0.5.0):** dead/missing controls corrected (glance hidden, alarm-panel/media-control exposed). **Remaining:** actually *style* icons that live in nested shadow roots (glance) via card-mod `$`-pierce — depends on #1. | L |
-| 4 | **Reconcile docs with code** | `BUG_FIX_PLAN.md` describes a sensor `--paper-item-icon-color` path that isn't in the shipped generator. Update or retire the stale section. | S |
+| 4 ✅ | **Reconcile docs with code** | **Done (v0.6.2 repo cleanup)** — the retired `docs/BUG_FIX_PLAN.md` described a sensor `--paper-item-icon-color` path that was never in the shipped generator (`iconColorBlock()` has no card-type branching and never has); confirmed against current source, and against `CARD_SUPPORT_MATRIX.md` showing plain `ha-state-icon` already works for sensor cards. Stale section retired along with the rest of that file. | S |
 | 5 | **Pin card-mod version in README** | State "tested against card-mod 4.2.x / HA 2026.6" in the compatibility table so users know the support baseline. | S |
 | 6 | **Phase out `--paper-item-icon-active-color`** in the accent module | Legacy paper var (audit §5). Low risk, low urgency. | S |
 
@@ -130,7 +132,7 @@ from the audit.
 
 | # | Item | Description | Effort |
 |---|---|---|---|
-| 7 | **Container child-card editing** | The long-standing gap (`CARD_TYPE_PLAN.md` Phase 7; `BUG_FIX_PLAN.md` #10–12). When editing a child inside a grid/stack/sections card, HA's dialog only exposes the top-level `_cardConfig`, so styles target the wrong card. Investigate: (a) DOM-hierarchy detection of the parent container, (b) searching `hass.lovelace.config` for the card's path, (c) attaching when HA opens a nested child editor. Start with the detection + an accurate "editing child of `<type>`" banner. | L |
+| 7 | **Container child-card editing** | The long-standing gap: when editing a child inside a grid/stack/sections card, HA's dialog only exposes the top-level `_cardConfig`, so styles target the wrong card. Investigate: (a) DOM-hierarchy detection of the parent container, (b) searching `hass.lovelace.config` for the card's path, (c) attaching when HA opens a nested child editor. Start with the detection + an accurate "editing child of `<type>`" banner. | L |
 | 8 | **Modern card coverage: `sections` / `heading` / `area`** | **Verified (v0.5.0):** heading module selectors (`.title p`, `.title ha-icon`, `.container`) still match current HA, and `sections` views work in production. **Remaining:** the `area` card and styling hooks for section **heading badges**. | M |
 | 9 | **Tile card feature styling** | The tile card gained features (trend graph, bar gauge, media/fan/valve controls, inline vs bottom position, `state_content`). Sandbox confirms features render in `hui-card-features` — **recommended next build**: targeted controls/selectors for feature rows rather than Advanced CSS. | M |
 | 10 | **Custom-card support: Mushroom & Bubble** | Most-requested. Detect the custom card type and offer the correct shadow-DOM selectors (these need `$`-pierce, so depends on #1 landing first). | L |
@@ -181,7 +183,7 @@ from the audit.
 
 ## Explicitly out of scope
 
-Carried over from `CARD_TYPE_PLAN.md` — not worth supporting:
+Not worth supporting:
 
 - `iframe` / `webpage`, `map` — cross-origin / Leaflet; only border/radius apply.
 - Deep `energy-*` SVG styling — Advanced CSS only.
