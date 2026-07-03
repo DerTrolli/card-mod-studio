@@ -4,6 +4,8 @@
 
 import { css, html, nothing } from 'lit';
 import type { TemplateResult } from 'lit';
+import type { HomeAssistant } from '../types/index.js';
+import '../components/cms-entity-picker.js';
 
 export const moduleStyles = css`
   :host {
@@ -138,15 +140,6 @@ export const moduleStyles = css`
     color: var(--secondary-text-color, #9e9e9e);
   }
 
-  .when-entity {
-    flex: 1;
-    background: var(--card-background-color, #1c1c1c);
-    color: var(--primary-text-color, #e1e1e1);
-    border: 1px solid var(--divider-color, #383838);
-    border-radius: 4px;
-    padding: 6px 8px;
-    font-size: 12px;
-  }
 `;
 
 // ---------------------------------------------------------------------------
@@ -162,10 +155,12 @@ export interface WhenControlOptions {
   stateAware: boolean;
   /** Noun used in the hint, e.g. "background", "grayscale", "animation". */
   noun: string;
-  /** Offer the "another entity" option (Animation). */
+  /** Offer the "another entity" option. */
   allowCustom?: boolean;
   /** entity_id for the custom trigger. */
   customEntity?: string;
+  /** Needed to render a searchable cms-entity-picker instead of a bare text input. */
+  hass?: HomeAssistant;
   onChange: (v: WhenValue) => void;
   onCustomEntity?: (id: string) => void;
 }
@@ -229,14 +224,14 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
           <div class="control-row">
             <span class="control-label">Entity</span>
             <div class="control-right">
-              <input
-                class="when-entity"
-                type="text"
-                placeholder="input_boolean.my_entity"
+              <cms-entity-picker
+                .hass=${o.hass}
                 .value=${o.customEntity ?? ''}
-                @change=${(e: Event) =>
-                  o.onCustomEntity?.((e.target as HTMLInputElement).value.trim())}
-              />
+                label="Controlling entity"
+                placeholder="input_boolean.my_entity"
+                @value-changed=${(e: CustomEvent<{ value: string }>) =>
+                  o.onCustomEntity?.(e.detail.value.trim())}
+              ></cms-entity-picker>
             </div>
           </div>
         `

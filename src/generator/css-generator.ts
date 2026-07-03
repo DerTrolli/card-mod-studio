@@ -15,7 +15,21 @@ import type {
   HeadingStyleModuleState,
   ThresholdModuleState,
   ThresholdRule,
+  ThresholdProperty,
+  ColorStop,
 } from '../types/index.js';
+
+/**
+ * Renders the entity reference used inside an `is_state(...)`/`state_attr(...)`
+ * Jinja2 call: the card's own entity (`config.entity`, unquoted — a template
+ * variable card-mod provides) when no override is set, or a quoted entity_id
+ * literal when a module is bound to a different entity. Shared by every
+ * module below so a "controlled by [entity]" binding round-trips the same
+ * way everywhere (see ENTITY_STATE_PATTERN in css-parser.ts).
+ */
+function entityRef(entityId?: string): string {
+  return entityId ? `'${entityId}'` : 'config.entity';
+}
 
 // ---------------------------------------------------------------------------
 // Animation @keyframes presets
@@ -74,6 +88,10 @@ function filterDecls(s: FilterModuleState): string[] {
       decls.push(
         `filter: {{ '${grayVal}' if is_state(config.entity, 'off') else '${otherVal}' }};`,
       );
+    } else if (s.grayscaleWhen === 'custom' && s.customEntity) {
+      decls.push(
+        `filter: {{ '${grayVal}' if is_state(${entityRef(s.customEntity)}, 'on') else '${otherVal}' }};`,
+      );
     } else {
       decls.push(
         `filter: {{ '${grayVal}' if is_state(config.entity, 'on') else '${otherVal}' }};`,
@@ -96,32 +114,37 @@ function filterDecls(s: FilterModuleState): string[] {
 function accentColorDecls(s: AccentColorModuleState, cardType?: string): string[] {
   if (!s.enabled) return [];
 
-  const decls = [`--accent-color: ${s.color};`];
+  const value =
+    s.mode === 'conditional'
+      ? `{{ '${s.colorOn}' if is_state(${entityRef(s.entityId)}, 'on') else '${s.colorOff}' }}`
+      : s.color;
+
+  const decls = [`--accent-color: ${value};`];
 
   // Tile card: icon background/state color is driven by --tile-color
   if (cardType === 'tile') {
-    decls.push(`--tile-color: ${s.color};`, `--state-icon-color: ${s.color};`);
+    decls.push(`--tile-color: ${value};`, `--state-icon-color: ${value};`);
   }
 
   // Thermostat cards use climate state color variables
   if (cardType === 'thermostat') {
     decls.push(
-      `--state-climate-heat-color: ${s.color};`,
-      `--state-climate-cool-color: ${s.color};`,
-      `--state-climate-auto-color: ${s.color};`,
-      `--state-climate-idle-color: ${s.color};`,
-      `--control-circular-slider-color: ${s.color};`,
+      `--state-climate-heat-color: ${value};`,
+      `--state-climate-cool-color: ${value};`,
+      `--state-climate-auto-color: ${value};`,
+      `--state-climate-idle-color: ${value};`,
+      `--control-circular-slider-color: ${value};`,
     );
   }
 
   // Gauge card uses its own color variable
   if (cardType === 'gauge') {
-    decls.push(`--gauge-color: ${s.color};`);
+    decls.push(`--gauge-color: ${value};`);
   }
 
   // Button card (HA built-in) and generic entity-state cards
   if (!['tile', 'thermostat', 'gauge', 'heading'].includes(cardType ?? '')) {
-    decls.push(`--state-icon-color: ${s.color};`, `--paper-item-icon-active-color: ${s.color};`);
+    decls.push(`--state-icon-color: ${value};`, `--paper-item-icon-active-color: ${value};`);
   }
 
   return decls;
@@ -136,17 +159,28 @@ function backgroundDecls(s: BackgroundModuleState): string[] {
       : s.color1;
 
   if (s.applyWhen === 'always') return [`background: ${bgValue};`];
+  if (s.applyWhen === 'custom' && s.customEntity) {
+    return [
+      `background: {{ '${bgValue}' if is_state(${entityRef(s.customEntity)}, 'on') else 'none' }};`,
+    ];
+  }
   const when = s.applyWhen === 'on' ? 'on' : 'off';
   return [
     `background: {{ '${bgValue}' if is_state(config.entity, '${when}') else 'none' }};`,
   ];
 }
 
-function borderDecls(s: BorderModuleState): string[] {
+/**
+ * @param skipColor  Omit the `border: Npx solid COLOR` declaration — used
+ *   when the Threshold module already owns border-color for this card, so
+ *   the two modules don't emit conflicting `border` declarations in the
+ *   same `ha-card` block (border-radius still applies either way).
+ */
+function borderDecls(s: BorderModuleState, skipColor = false): string[] {
   if (!s.enabled) return [];
   const decls: string[] = [];
   if (s.radiusPx > 0) decls.push(`border-radius: ${s.radiusPx}px;`);
-  if (s.borderWidth > 0) decls.push(`border: ${s.borderWidth}px solid ${s.borderColor};`);
+  if (!skipColor && s.borderWidth > 0) decls.push(`border: ${s.borderWidth}px solid ${s.borderColor};`);
   return decls;
 }
 
@@ -220,10 +254,12 @@ function iconColorBlock(s: IconColorModuleState): string {
     return `ha-state-icon {\n  color: ${s.color} !important;\n}`;
   }
 
+  const ref = entityRef(s.entityId);
+
   if (s.mode === 'light') {
     const jinja =
-      `{{ 'rgb(' ~ (state_attr(config.entity, 'rgb_color') | join(', ')) ~ ')' ` +
-      `if is_state(config.entity, 'on') and state_attr(config.entity, 'rgb_color') ` +
+      `{{ 'rgb(' ~ (state_attr(${ref}, 'rgb_color') | join(', ')) ~ ')' ` +
+      `if is_state(${ref}, 'on') and state_attr(${ref}, 'rgb_color') ` +
       `else '${s.colorOff}' }}`;
     return `ha-state-icon {\n  color: ${jinja} !important;\n}`;
   }
@@ -231,7 +267,7 @@ function iconColorBlock(s: IconColorModuleState): string {
   // Conditional mode
   return (
     `ha-state-icon {\n` +
-    `  color: {{ '${s.colorOn}' if is_state(config.entity, 'on') else '${s.colorOff}' }} !important;\n` +
+    `  color: {{ '${s.colorOn}' if is_state(${ref}, 'on') else '${s.colorOff}' }} !important;\n` +
     `}`
   );
 }
@@ -276,26 +312,158 @@ export function buildThresholdJinja(
   return jinja;
 }
 
-function thresholdBlock(s: ThresholdModuleState | undefined): string {
-  if (!s || !s.enabled || !s.entityId || s.rules.length === 0) return '';
+// ---------------------------------------------------------------------------
+// Gradient (fade) mode — approximates a continuous fade between colorStops
+// as a chain of closely-spaced discrete threshold rules, reusing the exact
+// same generation/parsing/entity-binding/multi-property machinery switch
+// mode already has. True continuous color math isn't reasonably expressible
+// in HA's sandboxed Jinja2 (no hex-formatting filter to build a color string
+// from computed numbers) — a dense discrete approximation is invisible in
+// practice at normal HA update rates, and far more robust.
+// ---------------------------------------------------------------------------
 
-  const jinja = buildThresholdJinja(s.rules, s.defaultColor, s.entityId);
+const GRADIENT_STEPS = 32;
+/** Custom property carrying the real anchor points, so re-opening the editor
+ *  recovers your actual stops instead of GRADIENT_STEPS generated rules. */
+export const GRADIENT_MARKER_PROPERTY = '--cms-gradient-stops';
 
-  // Generate CSS based on property type
-  switch (s.property) {
+function normalizeHex(value: string): string {
+  if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
+  const m = value.match(/^#([0-9a-fA-F]{3})$/);
+  if (m) return `#${[...m[1]].map((c) => c + c).join('')}`;
+  return '#888888';
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = normalizeHex(hex).slice(1);
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+  return `#${[r, g, b].map((c) => clamp(c).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** Linearly interpolates between two hex colors; t=0 -> c1, t=1 -> c2. */
+export function lerpColor(c1: string, c2: string, t: number): string {
+  const [r1, g1, b1] = hexToRgb(c1);
+  const [r2, g2, b2] = hexToRgb(c2);
+  return rgbToHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
+}
+
+/** The color a gradient with these stops would show at a given value — clamped at the ends. */
+export function colorAtValue(stops: ColorStop[], value: number): string {
+  const sorted = [...stops].sort((a, b) => a.value - b.value);
+  if (sorted.length === 0) return '#888888';
+  if (sorted.length === 1) return normalizeHex(sorted[0].color);
+  if (value <= sorted[0].value) return normalizeHex(sorted[0].color);
+  const last = sorted[sorted.length - 1];
+  if (value >= last.value) return normalizeHex(last.color);
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i];
+    const b = sorted[i + 1];
+    if (value >= a.value && value <= b.value) {
+      const t = b.value === a.value ? 0 : (value - a.value) / (b.value - a.value);
+      return lerpColor(a.color, b.color, t);
+    }
+  }
+  return normalizeHex(last.color);
+}
+
+/**
+ * Approximates colorStops as GRADIENT_STEPS discrete '>=' rules plus a
+ * default (the clamp-below-minimum color) — the exact shape thresholdBlock
+ * already knows how to turn into Jinja2 via buildThresholdJinja.
+ */
+export function gradientToRules(stops: ColorStop[]): { rules: ThresholdRule[]; defaultColor: string } {
+  const sorted = [...stops].sort((a, b) => a.value - b.value);
+  if (sorted.length < 2) return { rules: [], defaultColor: normalizeHex(sorted[0]?.color ?? '#888888') };
+
+  const min = sorted[0].value;
+  const max = sorted[sorted.length - 1].value;
+  const rules: ThresholdRule[] = [];
+  for (let i = 1; i <= GRADIENT_STEPS; i++) {
+    const value = Math.round((min + ((max - min) * i) / GRADIENT_STEPS) * 100) / 100;
+    rules.push({ id: `grad-${i}`, operator: '>=', value, color: colorAtValue(sorted, value) });
+  }
+  return { rules, defaultColor: normalizeHex(sorted[0].color) };
+}
+
+/**
+ * Deliberately NOT JSON. Real card-mod's own style-string parsing (not
+ * this project's) breaks — silently, with no error, no style applied at
+ * all — the moment a `{`/`}` character appears inside a CSS custom
+ * property's value, even safely inside a quoted string a spec-compliant
+ * CSS tokenizer would treat as inert. Confirmed directly against a live
+ * card-mod instance: a JSON-braced marker produced zero applied style,
+ * an otherwise-identical brace-free one worked correctly every time. A
+ * simple `value:color,value:color` list needs no braces at all.
+ */
+export function encodeGradientStops(stops: ColorStop[]): string {
+  return stops.map((s) => `${s.value}:${s.color}`).join(',');
+}
+
+/** Inverse of encodeGradientStops — returns null on anything malformed. */
+export function decodeGradientStops(encoded: string): ColorStop[] | null {
+  const parts = encoded.split(',').filter((p) => p.trim());
+  if (parts.length < 2) return null;
+  const stops: ColorStop[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const m = parts[i].trim().match(/^(-?\d+(?:\.\d+)?):(#[0-9a-fA-F]{3,8})$/);
+    if (!m) return null;
+    stops.push({ id: `stop-${i}`, value: parseFloat(m[1]), color: m[2] });
+  }
+  return stops;
+}
+
+function thresholdPropertyBlock(
+  property: ThresholdProperty,
+  jinja: string,
+  borderWidth: number,
+  gradientMarker: string | null,
+): string {
+  const marker = gradientMarker ? `  ${GRADIENT_MARKER_PROPERTY}: ${gradientMarker};\n` : '';
+  switch (property) {
     case 'icon-color':
-      return `ha-state-icon {\n  color: ${jinja} !important;\n}`;
+      return `ha-state-icon {\n${marker}  color: ${jinja} !important;\n}`;
     case 'background':
-      return `ha-card {\n  background: ${jinja};\n}`;
+      return `ha-card {\n${marker}  background: ${jinja};\n}`;
     case 'text-color':
-      return `ha-card {\n  color: ${jinja};\n}`;
+      return `ha-card {\n${marker}  color: ${jinja};\n}`;
     case 'accent-color':
-      return `ha-card {\n  --accent-color: ${jinja};\n}`;
+      return `ha-card {\n${marker}  --accent-color: ${jinja};\n}`;
     case 'border-color':
-      return `ha-card {\n  border: ${s.borderWidth ?? 2}px solid ${jinja};\n}`;
+      return `ha-card {\n${marker}  border: ${borderWidth}px solid ${jinja};\n}`;
     default:
       return '';
   }
+}
+
+/**
+ * Threshold rules can drive more than one CSS property at once (e.g. icon
+ * color AND accent color changing together off the same rule set) — one
+ * block is emitted per selected property, all sharing the same computed
+ * Jinja2 expression.
+ */
+function thresholdBlock(s: ThresholdModuleState | undefined): string {
+  if (!s || !s.enabled || !s.entityId || s.properties.length === 0) return '';
+
+  let rules = s.rules;
+  let defaultColor = s.defaultColor;
+  let gradientMarker: string | null = null;
+
+  if (s.valueMode === 'gradient') {
+    if (s.colorStops.length < 2) return '';
+    ({ rules, defaultColor } = gradientToRules(s.colorStops));
+    gradientMarker = `'${encodeGradientStops(s.colorStops)}'`;
+  } else if (rules.length === 0) {
+    return '';
+  }
+
+  const jinja = buildThresholdJinja(rules, defaultColor, s.entityId);
+  return s.properties
+    .map((property) => thresholdPropertyBlock(property, jinja, s.borderWidth ?? 2, gradientMarker))
+    .join('\n\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -308,12 +476,19 @@ export function generateCss(state: StudioState, cardType?: string): string {
   const kf = animationKeyframes(state.animation);
   if (kf) parts.push(kf);
 
+  // A property the Threshold module already drives is skipped in the
+  // corresponding static module's output — both would otherwise write the
+  // same declaration into the same ha-card block, and only the one that
+  // happens to render later would actually take effect (silently ignoring
+  // the static module's own control).
+  const thresholdProps = new Set(state.threshold.enabled ? state.threshold.properties : []);
+
   // ha-card block
   const haCardDecls = [
-    ...accentColorDecls(state.accentColor, cardType),
+    ...(thresholdProps.has('accent-color') ? [] : accentColorDecls(state.accentColor, cardType)),
     ...filterDecls(state.filter),
-    ...backgroundDecls(state.background),
-    ...borderDecls(state.border),
+    ...(thresholdProps.has('background') ? [] : backgroundDecls(state.background)),
+    ...borderDecls(state.border, thresholdProps.has('border-color')),
     ...animationDecls(state.animation),
   ];
   if (haCardDecls.length > 0) {
@@ -323,9 +498,7 @@ export function generateCss(state: StudioState, cardType?: string): string {
 
   // Skip icon-color module when threshold is already driving icon color — both
   // emit ha-state-icon { color } and the second block would silently win.
-  const thresholdOwnsIconColor =
-    state.threshold.enabled && state.threshold.property === 'icon-color';
-  const iconColor = thresholdOwnsIconColor ? '' : iconColorBlock(state.iconColor);
+  const iconColor = thresholdProps.has('icon-color') ? '' : iconColorBlock(state.iconColor);
   if (iconColor) parts.push(iconColor);
 
   const threshold = thresholdBlock(state.threshold);

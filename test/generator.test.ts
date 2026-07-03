@@ -4,7 +4,15 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { generateCss, sortThresholdRules } from '../src/generator/css-generator.js';
+import {
+  generateCss,
+  sortThresholdRules,
+  lerpColor,
+  colorAtValue,
+  gradientToRules,
+  encodeGradientStops,
+  decodeGradientStops,
+} from '../src/generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../src/generator/yaml-generator.js';
 import {
   DEFAULT_FILTER,
@@ -160,6 +168,51 @@ describe('generateCss — accent color', () => {
       makeState({ accentColor: { enabled: true, color: '#03a9f4' } }),
     );
     expect(css).toContain('--accent-color: #03a9f4;');
+  });
+
+  it('conditional mode emits an is_state() ternary using config.entity by default', () => {
+    const css = generateCss(makeState({
+      accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'conditional', colorOn: '#00ff00', colorOff: '#888888' },
+    }));
+    expect(css).toContain("is_state(config.entity, 'on')");
+    expect(css).toContain("'#00ff00'");
+    expect(css).toContain("'#888888'");
+  });
+
+  it('conditional mode targets a custom entity when entityId is set (not the card\'s own)', () => {
+    const css = generateCss(makeState({
+      accentColor: {
+        ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'conditional',
+        colorOn: '#00ff00', colorOff: '#888888', entityId: 'binary_sensor.preheat_active',
+      },
+    }));
+    expect(css).toContain("is_state('binary_sensor.preheat_active', 'on')");
+    expect(css).not.toContain('config.entity');
+  });
+
+  it('conditional mode substitutes into per-card-type variables too (e.g. tile)', () => {
+    const css = generateCss(
+      makeState({
+        accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'conditional', colorOn: '#00ff00', colorOff: '#888888' },
+      }),
+      'tile',
+    );
+    const tileMatch = css.match(/--tile-color: (\{\{[^\n]*\}\});/);
+    const accentMatch = css.match(/--accent-color: (\{\{[^\n]*\}\});/);
+    expect(tileMatch?.[1]).toBe(accentMatch?.[1]);
+  });
+
+  it('round-trips a custom-entity conditional accent color', () => {
+    const original =
+      "ha-card {\n  --accent-color: {{ '#00ff00' if is_state('binary_sensor.preheat_active', 'on') else '#888888' }};\n}";
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+    expect(state.accentColor.enabled).toBe(true);
+    expect(state.accentColor.mode).toBe('conditional');
+    expect(state.accentColor.entityId).toBe('binary_sensor.preheat_active');
+    expect(state.accentColor.colorOn).toBe('#00ff00');
+    expect(state.accentColor.colorOff).toBe('#888888');
+    expect(state.advanced.rawCss).toBe('');
   });
 });
 
@@ -385,7 +438,7 @@ describe('generateCss — threshold', () => {
       threshold: {
         enabled: true,
         entityId: 'sensor.score',
-        property: 'background',
+        properties: ['background'],
         rules: [
           { id: '0', operator: '>', value: 0, color: '#000000' },
           { id: '1', operator: '>', value: 50, color: '#ff0000' },
@@ -407,7 +460,7 @@ describe('generateCss — threshold', () => {
       threshold: {
         enabled: true,
         entityId: 'sensor.score',
-        property: 'background',
+        properties: ['background'],
         rules: [
           { id: '0', operator: '<', value: 80, color: '#00ff00' },
           { id: '1', operator: '<', value: 50, color: '#ff0000' },
@@ -428,7 +481,7 @@ describe('generateCss — threshold', () => {
       threshold: {
         enabled: true,
         entityId: 'sensor.temp',
-        property: 'icon-color',
+        properties: ['icon-color'],
         rules: [{ id: '0', operator: '>=', value: 30, color: '#ff0000' }],
         defaultColor: '#888888',
       },
@@ -445,7 +498,7 @@ describe('generateCss — threshold', () => {
       threshold: {
         enabled: true,
         entityId: 'sensor.x',
-        property: 'icon-color',
+        properties: ['icon-color'],
         rules: [
           { id: 'a', operator: '>', value: 10, color: '#00ff00' },
           { id: 'b', operator: '>', value: 20, color: '#ff0000' },
@@ -456,6 +509,315 @@ describe('generateCss — threshold', () => {
     expect(css.indexOf('> 20')).toBeLessThan(css.indexOf('> 10')); // 20 checked first
     expect(css.indexOf('#ff0000')).toBeLessThan(css.indexOf('#00ff00'));
     expect(css).toContain("else '#0000ff'"); // blue default last
+  });
+
+  it('drives icon color AND accent color together from one rule set', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true,
+        entityId: 'sensor.temp',
+        properties: ['icon-color', 'accent-color'],
+        rules: [{ id: '0', operator: '>=', value: 30, color: '#ff0000' }],
+        defaultColor: '#888888',
+      },
+    }));
+    expect(css).toMatch(/ha-state-icon\s*\{\s*color: \{\{/);
+    expect(css).toMatch(/ha-card\s*\{\s*--accent-color: \{\{/);
+    // Both blocks share the identical Jinja2 expression.
+    const iconMatch = css.match(/ha-state-icon\s*\{\s*color: (\{\{[^\n]*\}\})\s*!important;/);
+    const accentMatch = css.match(/ha-card\s*\{\s*--accent-color: (\{\{[^\n]*\}\});/);
+    expect(iconMatch?.[1]).toBe(accentMatch?.[1]);
+  });
+
+  it('round-trips a multi-property threshold (icon + accent) back into one module state', () => {
+    const original =
+      "ha-state-icon {\n  color: {{ '#ff0000' if states('sensor.temp') | float(0) >= 30 else '#888888' }} !important;\n}\n\n" +
+      "ha-card {\n  --accent-color: {{ '#ff0000' if states('sensor.temp') | float(0) >= 30 else '#888888' }};\n}";
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+
+    expect(state.threshold.enabled).toBe(true);
+    expect(state.threshold.properties.sort()).toEqual(['accent-color', 'icon-color']);
+    expect(state.accentColor.enabled).toBe(false); // claimed by threshold, not the static module
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('does not merge two genuinely different threshold configs into one module', () => {
+    // icon-color driven by sensor.temp, accent-color driven by a different
+    // rule set entirely — a real conflict, not the same setting duplicated.
+    // Only one of the two can be represented by the single Threshold module
+    // (its rules/entity are shared across every property it drives) — which
+    // one "wins" the module is an implementation detail, but the loser must
+    // never be silently dropped: it has to survive in Advanced CSS.
+    const original =
+      "ha-state-icon {\n  color: {{ '#ff0000' if states('sensor.temp') | float(0) >= 30 else '#888888' }} !important;\n}\n\n" +
+      "ha-card {\n  --accent-color: {{ '#00ff00' if states('sensor.other') | float(0) >= 5 else '#000000' }};\n}";
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+
+    expect(state.threshold.enabled).toBe(true);
+    expect(state.threshold.properties).toHaveLength(1);
+    const loser = state.threshold.properties[0] === 'icon-color' ? '--accent-color' : 'color: {{';
+    expect(state.advanced.rawCss).toContain(loser);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Threshold — gradient (fade) mode
+// ---------------------------------------------------------------------------
+
+describe('gradient color math', () => {
+  it('lerpColor interpolates linearly between two hex colors', () => {
+    expect(lerpColor('#000000', '#ffffff', 0)).toBe('#000000');
+    expect(lerpColor('#000000', '#ffffff', 1)).toBe('#ffffff');
+    expect(lerpColor('#000000', '#ffffff', 0.5)).toBe('#808080');
+  });
+
+  it('colorAtValue clamps below the lowest stop and above the highest', () => {
+    const stops = [
+      { id: 'a', value: 0, color: '#9e9e9e' },
+      { id: 'b', value: 100, color: '#f44336' },
+    ];
+    expect(colorAtValue(stops, -50)).toBe('#9e9e9e');
+    expect(colorAtValue(stops, 500)).toBe('#f44336');
+    expect(colorAtValue(stops, 0)).toBe('#9e9e9e');
+    expect(colorAtValue(stops, 100)).toBe('#f44336');
+  });
+
+  it('colorAtValue interpolates within the middle of a segment', () => {
+    const stops = [
+      { id: 'a', value: 0, color: '#000000' },
+      { id: 'b', value: 100, color: '#ffffff' },
+    ];
+    expect(colorAtValue(stops, 50)).toBe('#808080');
+  });
+
+  it('colorAtValue picks the right segment across 3+ stops', () => {
+    const stops = [
+      { id: 'a', value: 0, color: '#9e9e9e' },
+      { id: 'b', value: 150, color: '#ff9800' },
+      { id: 'c', value: 220, color: '#ff5722' },
+    ];
+    // Between b and c, not a and b.
+    const mid = colorAtValue(stops, 185);
+    expect(mid).not.toBe('#9e9e9e');
+    expect(mid).not.toBe('#ff9800');
+    expect(mid).not.toBe('#ff5722');
+  });
+
+  it('gradientToRules produces a discrete >= chain whose default is the lowest stop\'s color', () => {
+    const stops = [
+      { id: 'a', value: 0, color: '#9e9e9e' },
+      { id: 'b', value: 240, color: '#f44336' },
+    ];
+    const { rules, defaultColor } = gradientToRules(stops);
+    expect(defaultColor).toBe('#9e9e9e');
+    expect(rules.length).toBeGreaterThan(1);
+    expect(rules.every((r) => r.operator === '>=')).toBe(true);
+    // The highest-value rule should land on (or very near) the top stop's color.
+    const top = rules.reduce((a, b) => (a.value > b.value ? a : b));
+    expect(top.color).toBe('#f44336');
+  });
+
+  it('encodeGradientStops/decodeGradientStops round-trip', () => {
+    const stops = [
+      { id: 'a', value: 0, color: '#9e9e9e' },
+      { id: 'b', value: 150, color: '#ff9800' },
+      { id: 'c', value: 220, color: '#ff5722' },
+    ];
+    const decoded = decodeGradientStops(encodeGradientStops(stops));
+    expect(decoded).toEqual(stops.map((s) => ({ id: expect.any(String), value: s.value, color: s.color })));
+  });
+
+  it('decodeGradientStops rejects malformed input instead of throwing', () => {
+    expect(decodeGradientStops('not a real value')).toBeNull();
+    expect(decodeGradientStops('')).toBeNull();
+    expect(decodeGradientStops('0')).toBeNull(); // needs at least 2 stops
+    expect(decodeGradientStops('0:notahexcolor,10:#fff')).toBeNull();
+  });
+
+  it('encodeGradientStops never emits { or } — real card-mod silently fails to apply ANY style in the block if it does', () => {
+    // Confirmed directly against a live card-mod instance: a JSON-braced
+    // marker produced zero applied style (not even an error) on the exact
+    // same block; a brace-free encoding of the identical data worked. This
+    // is why encodeGradientStops isn't JSON — guard against it regressing.
+    const stops = [
+      { id: 'a', value: 0, color: '#9e9e9e' },
+      { id: 'b', value: 150, color: '#ff9800' },
+      { id: 'c', value: 220, color: '#ff5722' },
+    ];
+    const encoded = encodeGradientStops(stops);
+    expect(encoded).not.toContain('{');
+    expect(encoded).not.toContain('}');
+  });
+
+  it('the full generated gradient marker declaration contains no braces anywhere', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true, entityId: 'sensor.temp', properties: ['icon-color'],
+        valueMode: 'gradient', rules: [], defaultColor: '#888888',
+        colorStops: [
+          { id: 'a', value: 0, color: '#9e9e9e' },
+          { id: 'b', value: 150, color: '#ff9800' },
+          { id: 'c', value: 220, color: '#ff5722' },
+        ],
+      },
+    }));
+    const markerLine = css.split('\n').find((l) => l.includes('--cms-gradient-stops'));
+    expect(markerLine).toBeDefined();
+    expect(markerLine).not.toContain('{');
+    expect(markerLine).not.toContain('}');
+  });
+});
+
+describe('generateCss — threshold gradient mode', () => {
+  const stops = [
+    { id: 'a', value: 0, color: '#9e9e9e' },
+    { id: 'b', value: 150, color: '#ff9800' },
+    { id: 'c', value: 220, color: '#ff5722' },
+  ];
+
+  it('emits a discrete-approximation ternary plus the recoverable gradient marker', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true, entityId: 'sensor.temp', properties: ['icon-color'],
+        valueMode: 'gradient', rules: [], defaultColor: '#888888', colorStops: stops,
+      },
+    }));
+    expect(css).toContain('ha-state-icon');
+    expect(css).toContain('--cms-gradient-stops:');
+    expect(css).toContain("states('sensor.temp')");
+  });
+
+  it('round-trips gradient mode back into colorStops, not ~32 switch-mode rules', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true, entityId: 'sensor.temp', properties: ['icon-color'],
+        valueMode: 'gradient', rules: [], defaultColor: '#888888', colorStops: stops,
+      },
+    }));
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+
+    expect(state.threshold.enabled).toBe(true);
+    expect(state.threshold.valueMode).toBe('gradient');
+    expect(state.threshold.colorStops.map((s) => ({ value: s.value, color: s.color })))
+      .toEqual(stops.map((s) => ({ value: s.value, color: s.color })));
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('gradient mode can drive multiple properties from one set of stops', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true, entityId: 'sensor.temp', properties: ['icon-color', 'accent-color'],
+        valueMode: 'gradient', rules: [], defaultColor: '#888888', colorStops: stops,
+      },
+    }));
+    expect(css).toMatch(/ha-state-icon\s*\{/);
+    expect(css).toMatch(/ha-card\s*\{[\s\S]*?--accent-color:/);
+
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.threshold.valueMode).toBe('gradient');
+    expect(state.threshold.properties.sort()).toEqual(['accent-color', 'icon-color']);
+  });
+
+  it('does nothing when fewer than 2 stops are configured', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true, entityId: 'sensor.temp', properties: ['icon-color'],
+        valueMode: 'gradient', rules: [], defaultColor: '#888888',
+        colorStops: [{ id: 'a', value: 0, color: '#9e9e9e' }],
+      },
+    }));
+    expect(css).toBe('');
+  });
+});
+
+describe('generateCss — entity binding (controlled by a different entity)', () => {
+  it('icon color conditional mode targets a custom entity, not config.entity', () => {
+    const css = generateCss(makeState({
+      iconColor: {
+        enabled: true,
+        mode: 'conditional',
+        color: '#fff',
+        colorOn: '#00ff00',
+        colorOff: '#888888',
+        entityId: 'binary_sensor.preheat_active',
+      },
+    }));
+    expect(css).toContain("is_state('binary_sensor.preheat_active', 'on')");
+    expect(css).not.toContain('config.entity');
+  });
+
+  it('icon color conditional mode falls back to config.entity when entityId is unset', () => {
+    const css = generateCss(makeState({
+      iconColor: {
+        enabled: true,
+        mode: 'conditional',
+        color: '#fff',
+        colorOn: '#00ff00',
+        colorOff: '#888888',
+      },
+    }));
+    expect(css).toContain("is_state(config.entity, 'on')");
+  });
+
+  it('round-trips icon color conditional mode with a custom entity', () => {
+    const original =
+      "ha-state-icon {\n  color: {{ '#00ff00' if is_state('binary_sensor.preheat_active', 'on') else '#888888' }} !important;\n}";
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+    expect(state.iconColor.enabled).toBe(true);
+    expect(state.iconColor.mode).toBe('conditional');
+    expect(state.iconColor.entityId).toBe('binary_sensor.preheat_active');
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('background "custom" applyWhen targets a different entity', () => {
+    const css = generateCss(makeState({
+      background: {
+        enabled: true,
+        type: 'solid',
+        color1: '#03a9f4',
+        color2: '#ff8c00',
+        angle: 135,
+        applyWhen: 'custom',
+        customEntity: 'binary_sensor.preheat_active',
+      },
+    }));
+    expect(css).toContain("is_state('binary_sensor.preheat_active', 'on')");
+  });
+
+  it('round-trips background "custom" applyWhen with a custom entity', () => {
+    const original =
+      "ha-card {\n  background: {{ '#03a9f4' if is_state('binary_sensor.preheat_active', 'on') else 'none' }};\n}";
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+    expect(state.background.enabled).toBe(true);
+    expect(state.background.applyWhen).toBe('custom');
+    expect(state.background.customEntity).toBe('binary_sensor.preheat_active');
+  });
+
+  it('filter grayscale "custom" trigger targets a different entity and round-trips', () => {
+    const css = generateCss(makeState({
+      filter: {
+        enabled: true,
+        grayscale: true,
+        grayscaleWhen: 'custom',
+        customEntity: 'binary_sensor.preheat_active',
+        brightness: 100,
+        blur: 0,
+        transitionMs: 300,
+      },
+    }));
+    expect(css).toContain("is_state('binary_sensor.preheat_active', 'on')");
+
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.filter.grayscale).toBe(true);
+    expect(state.filter.grayscaleWhen).toBe('custom');
+    expect(state.filter.customEntity).toBe('binary_sensor.preheat_active');
   });
 });
 
@@ -798,7 +1160,7 @@ describe('round-trip', () => {
 
     expect(state.threshold.enabled).toBe(true);
     expect(state.threshold.entityId).toBe('sensor.temp');
-    expect(state.threshold.property).toBe('background');
+    expect(state.threshold.properties).toEqual(['background']);
     expect(state.threshold.rules).toHaveLength(2);
     expect(state.threshold.defaultColor).toBe('#888888');
     expect(state.advanced.rawCss).toBe('');
@@ -820,7 +1182,7 @@ describe('round-trip', () => {
     const state = mapToStudioState(parsed);
 
     expect(state.threshold.enabled).toBe(true);
-    expect(state.threshold.property).toBe('icon-color');
+    expect(state.threshold.properties).toEqual(['icon-color']);
     expect(state.threshold.rules).toHaveLength(2);
     expect(state.threshold.rules.map((r) => r.color)).toEqual(['var(--red-color)', 'var(--orange-color)']);
     expect(state.threshold.defaultColor).toBe('var(--grey-color)');
@@ -847,7 +1209,7 @@ describe('round-trip', () => {
 
     expect(state.accentColor.enabled).toBe(false);
     expect(state.threshold.enabled).toBe(true);
-    expect(state.threshold.property).toBe('accent-color');
+    expect(state.threshold.properties).toEqual(['accent-color']);
     expect(state.threshold.entityId).toBe('sensor.power');
     expect(state.threshold.rules).toEqual([{ id: '0', operator: '>', value: 0, color: '#f44336' }]);
     expect(state.threshold.defaultColor).toBe('#888888');

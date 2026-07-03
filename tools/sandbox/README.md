@@ -61,6 +61,12 @@ node button_matrix.mjs   # adds the button row via a real dashboard
 node compat_check.mjs    # card_mod:/uix: cross-compat warning banner (real cms-panel)
 node palette_check.mjs   # threshold color-palette picker (card + entities-row level)
 node dialog_popover_check.mjs  # same popover, but inside HA's real (transformed, modal) card-edit dialog
+node entity_binding_check.mjs  # cms-entity-picker + cross-entity binding (Icon Color/Background/Filter) + multi-property threshold
+node button_card_binding_check.mjs  # conditional mode available on cards with no on/off state (e.g. button) + Accent Color entity binding
+node gradient_mode_check.mjs  # Threshold "Fade" (gradient) mode — generation, marker round-trip, live preview
+node gradient_typing_check.mjs  # typing a value into a gradient point can't scramble a different point mid-edit
+node gradient_uix_compat_check.mjs  # gradient marker actually applies against REAL card-mod (getComputedStyle), not just this project's own parser
+node preset_stale_state_check.mjs  # reused-panel + preset-load edge case that was suspected (wrongly) to lose gradient state on a duplicated card
 node scan.mjs            # which card types mount cleanly standalone
 ```
 
@@ -128,6 +134,51 @@ run.sh
   clickable at its rendered position (piercing shadow roots via nested
   `elementFromPoint` calls) rather than just present-but-occluded in the
   DOM. See `cms-color-picker.ts`'s `_ensurePortal` doc comment for the fix.
+- **`harness/entity_binding_check.mjs`** — the v0.7.0 entity-binding UX:
+  `cms-entity-picker` renders HA's real `<ha-entity-picker>` (not its
+  text-input fallback), Icon Color/Background/Filter round-trip a
+  "controlled by a different entity" block instead of always assuming
+  `config.entity`, and Threshold's multi-property checkboxes correctly
+  drive more than one CSS property from one shared rule set. Mounts its
+  host under `<home-assistant>` rather than `document.body` — see
+  `docs/DEVELOPMENT.md`'s "`<ha-entity-picker>` needs a real ancestor" note
+  for why every other check script's `document.body` convention doesn't
+  work for this one.
+- **`harness/button_card_binding_check.mjs`** — reproduces a real user
+  report against a `button` card (entity with no on/off state of its own):
+  Icon Color and Accent Color's "Different for ON/OFF" mode used to be
+  hidden entirely in that case, with no way to reach the "controlled by a
+  different entity" option that would have made it work anyway. Verifies
+  the mode is always offered, a warning explains why it's inert without a
+  toggleable entity picked, picking one actually reaches the emitted CSS,
+  and the entity-picker rows fit on-screen at 900px width (the original
+  bug report: the old plain-text entity input "goes off the edge"). Uses
+  the real card-edit dialog, not a synthetic mount, for the same
+  `<ha-entity-picker>` context reason as `entity_binding_check.mjs`.
+- **`harness/gradient_mode_check.mjs`** — Threshold's "Fade" (gradient)
+  value mode: switching to it shows a colorStops editor and a live
+  CSS-gradient preview bar instead of the rule list; the generated CSS is
+  a ~32-rule discrete approximation (verified: not "many" in name only —
+  the actual rule count) carrying a `--cms-gradient-stops` marker property;
+  reopening a saved gradient-mode card recovers the real anchor points, not
+  the ~32 generated rules; and the ▲/▼ swap buttons exchange two points'
+  colors while leaving their values untouched.
+- **`harness/gradient_typing_check.mjs`** — types a real per-keystroke
+  value into a gradient point that briefly sorts before its neighbors
+  mid-edit (via `page.keyboard.type`, not `.value=`, since the bug only
+  reproduces with genuine incremental keystrokes) and verifies the typed
+  value lands on the point you were actually editing, not a different one
+  the list reordered underneath your cursor.
+- **`harness/gradient_uix_compat_check.mjs`** — the gradient marker
+  actually applies against **real card-mod**, checked via
+  `getComputedStyle` on a genuine `<hui-card>`, not just that this
+  project's own parser can read it back. Exists because the `beta.3`
+  marker (JSON) was spec-valid CSS but silently broke real card-mod's own
+  parsing anyway — invisible from source reading or this project's unit
+  tests, only caught by mounting a real card and reading the rendered
+  color. See `docs/DEVELOPMENT.md`'s "Real card-mod silently drops a whole
+  style block" note for the full story and why a fixed `setTimeout` isn't
+  enough to reliably catch this class of bug (poll instead).
 
 ---
 
@@ -237,3 +288,34 @@ exact real-world card that surfaced both this bug and the same-selector
 CSS-parsing bug fixed alongside it (see `test/merge-dedup.test.ts` for the
 equivalent unit-level coverage, and `src/generator/yaml-generator.ts`'s
 `applyCardModStyle` doc comment for the design).
+
+### `gradient_uix_only_compat_check.mjs` — the gradient marker against real UIX
+
+Also runs against `run-uix.sh`'s UIX-only rig: the exact same brace-free
+`--cms-gradient-stops` marker verified against real card-mod in
+`gradient_uix_compat_check.mjs`, here applied via a `uix:` style block on a
+real card and checked via `getComputedStyle`. UIX is a separate
+reimplementation, not literally card-mod's code, so passing against one
+engine doesn't guarantee the other — this was worth checking independently
+given the bug this marker format fixed (see `docs/DEVELOPMENT.md`'s "Real
+card-mod silently drops a whole style block" note) was specific to how
+card-mod's own parsing handles a declaration's value, not something
+`uix_matrix.mjs`'s existing checks happened to cover.
+
+```bash
+cd tools/sandbox/harness
+HA_URL=http://127.0.0.1:8124 node gradient_uix_only_compat_check.mjs
+```
+
+### `preset_stale_state_check.mjs` — reused-panel preset load
+
+Investigated a real report ("save a gradient as a preset, apply it to a
+duplicate of the card, it doesn't render — but rebuilding it from scratch
+on the same card works") that turned out not to be a bug: reproduces the
+one architecturally-real mechanism that could explain it — `cms-injector.ts`
+reuses the same `<cms-panel>` instance across successive "edit a different
+card" actions within one dialog session, and `_initState()`'s dedup guard
+persists across `.config` updates on that reused instance, which a
+byte-identical duplicate card would trigger. Forces exactly that reuse and
+confirms state still rebuilds correctly and the result still renders the
+right color. Kept as a permanent regression check for this mechanism.

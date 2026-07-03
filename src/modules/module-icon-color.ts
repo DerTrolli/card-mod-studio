@@ -1,9 +1,10 @@
 import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import type { IconColorModuleState } from '../types/index.js';
+import type { IconColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
 import '../components/cms-color-picker.js';
+import '../components/cms-entity-picker.js';
 
 export class IconColorModule extends LitElement {
   @property({ attribute: false }) state: IconColorModuleState = {
@@ -14,6 +15,10 @@ export class IconColorModule extends LitElement {
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
   /** When true a third "Light color" mode is offered that reads rgb_color attribute. */
   @property({ type: Boolean, attribute: 'is-light-card' }) isLightCard = false;
+  /** The card's own entity — used as the picker's placeholder and as the implicit default when entityId is unset. */
+  @property({ type: String }) cardEntity = '';
+
+  @property({ attribute: false }) hass?: HomeAssistant;
 
   @state() private _open = false;
 
@@ -36,11 +41,6 @@ export class IconColorModule extends LitElement {
 
   private _emit(changes: Partial<IconColorModuleState>) {
     const detail = { ...this.state, ...changes };
-    // Cards without a binary entity state can't use on/off or light modes — the
-    // UI already forces the plain color picker, so pin the emitted mode to
-    // 'plain' too. Otherwise the generator would emit an is_state() template
-    // that never matches and the icon would render the wrong (off) color.
-    if (!this.stateAware) detail.mode = 'plain';
     this.dispatchEvent(
       new CustomEvent<IconColorModuleState>('state-changed', { detail }),
     );
@@ -65,53 +65,75 @@ export class IconColorModule extends LitElement {
   }
 
   private _renderBody() {
-    const effectiveMode = !this.stateAware ? 'plain' : this.state.mode;
+    const mode = this.state.mode;
+    // Only relevant once mode !== 'plain': does falling back to the card's
+    // own entity (an empty "Controlled by" field) actually mean anything?
+    // Not for a card whose own entity has no on/off state (e.g. a `button`)
+    // unless a different, toggleable entity is picked below.
+    const ownEntityUseless = !this.stateAware && !this.state.entityId;
 
     return html`
       <div class="module-body">
-        ${this.stateAware
+        <div class="control-row">
+          <span class="control-label">Color mode</span>
+          <div class="control-right">
+            <select
+              .value=${mode}
+              @change=${(e: Event) =>
+                this._emit({
+                  mode: (e.target as HTMLSelectElement).value as
+                    | 'plain'
+                    | 'conditional'
+                    | 'light',
+                })}
+            >
+              <option value="plain" ?selected=${mode === 'plain'}>
+                One fixed color
+              </option>
+              <option value="conditional" ?selected=${mode === 'conditional'}>
+                Different for ON / OFF
+              </option>
+              ${this.isLightCard
+                ? html`<option value="light" ?selected=${mode === 'light'}>
+                    Match the light's color
+                  </option>`
+                : nothing}
+            </select>
+          </div>
+        </div>
+        <div class="when-hint">
+          ${mode === 'plain'
+            ? 'One color, shown all the time.'
+            : mode === 'light'
+            ? "Uses the light's real color while on; your chosen color while off."
+            : 'One color while the controlling entity is on, another while off.'}
+        </div>
+        ${mode !== 'plain'
           ? html`
               <div class="control-row">
-                <span class="control-label">Color mode</span>
+                <span class="control-label">Controlled by</span>
                 <div class="control-right">
-                  <select
-                    .value=${effectiveMode}
-                    @change=${(e: Event) =>
-                      this._emit({
-                        mode: (e.target as HTMLSelectElement).value as
-                          | 'plain'
-                          | 'conditional'
-                          | 'light',
-                      })}
-                  >
-                    <option value="plain" ?selected=${effectiveMode === 'plain'}>
-                      One fixed color
-                    </option>
-                    <option
-                      value="conditional"
-                      ?selected=${effectiveMode === 'conditional'}
-                    >
-                      Different for ON / OFF
-                    </option>
-                    ${this.isLightCard
-                      ? html`<option value="light" ?selected=${effectiveMode === 'light'}>
-                          Match the light's color
-                        </option>`
-                      : nothing}
-                  </select>
+                  <cms-entity-picker
+                    .hass=${this.hass}
+                    .value=${this.state.entityId ?? ''}
+                    .placeholder=${this.stateAware ? this.cardEntity : 'binary_sensor.example'}
+                    label="Entity (default: this card's entity)"
+                    @value-changed=${(e: CustomEvent<{ value: string }>) =>
+                      this._emit({ entityId: e.detail.value.trim() })}
+                  ></cms-entity-picker>
                 </div>
               </div>
-              <div class="when-hint">
-                ${effectiveMode === 'plain'
-                  ? 'One color, shown all the time.'
-                  : effectiveMode === 'light'
-                  ? "Uses the light's real color while on; your chosen color while off."
-                  : 'One color while the entity is on, another while off.'}
+              <div class="when-hint" style=${ownEntityUseless ? 'color:var(--warning-color,#ffa600)' : ''}>
+                ${this.state.entityId
+                  ? `Uses ${this.state.entityId}'s on/off state, not this card's own entity.`
+                  : ownEntityUseless
+                  ? `This card's entity (${this.cardEntity || 'none'}) has no on/off state of its own — pick a toggleable entity above, or this mode won't do anything.`
+                  : "Leave empty to use this card's own entity."}
               </div>
             `
           : nothing}
 
-        ${effectiveMode === 'plain'
+        ${mode === 'plain'
           ? html`
               <div class="control-row">
                 <span class="control-label">Color</span>
@@ -124,7 +146,7 @@ export class IconColorModule extends LitElement {
                 </div>
               </div>
             `
-          : effectiveMode === 'light'
+          : mode === 'light'
           ? html`
               <div class="control-row">
                 <span class="control-label">Color when OFF</span>

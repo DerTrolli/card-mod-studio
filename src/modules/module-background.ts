@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import type { BackgroundModuleState } from '../types/index.js';
+import type { BackgroundModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_BACKGROUND } from '../parser/state-mapper.js';
 import { moduleStyles, renderWhen } from './module-base.js';
 import '../components/cms-color-picker.js';
@@ -12,6 +12,8 @@ export class BackgroundModule extends LitElement {
 
   /** False when the card has no binary entity state (e.g. sensor cards). */
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
+
+  @property({ attribute: false }) hass?: HomeAssistant;
 
   @state() private _open = false;
   @state() private _angle = DEFAULT_BACKGROUND.angle;
@@ -133,7 +135,11 @@ export class BackgroundModule extends LitElement {
           value: this.state.applyWhen,
           stateAware: this.stateAware,
           noun: 'background',
-          onChange: (v) => this._emit({ applyWhen: v as 'always' | 'on' | 'off' }),
+          allowCustom: true,
+          customEntity: this.state.customEntity,
+          hass: this.hass,
+          onChange: (v) => this._emit({ applyWhen: v as BackgroundModuleState['applyWhen'] }),
+          onCustomEntity: (id) => this._emit({ customEntity: id }),
         })}
       </div>
     `;

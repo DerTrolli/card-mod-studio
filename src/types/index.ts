@@ -73,6 +73,12 @@ export interface CssProperty {
   onValue?: string;
   /** Off-state value when hasCondition is true. */
   offValue?: string;
+  /**
+   * The entity_id an `is_state(...)` condition checks, when it's a literal
+   * quoted entity rather than the card's own `config.entity`. Undefined
+   * means "the card's own entity" — see entityRef() in css-generator.ts.
+   */
+  entityId?: string;
 }
 
 /** CSS target block — one selector with its properties. */
@@ -99,7 +105,9 @@ export interface CardModStyleState {
 export interface FilterModuleState {
   enabled: boolean;
   grayscale: boolean;
-  grayscaleWhen: 'always' | 'on' | 'off';
+  grayscaleWhen: 'always' | 'on' | 'off' | 'custom';
+  /** entity_id when grayscaleWhen === 'custom' — a different entity than the card's own. */
+  customEntity?: string;
   brightness: number;       // 0–200, default 100
   blur: number;             // px, default 0
   transitionMs: number;     // default 300
@@ -112,11 +120,19 @@ export interface IconColorModuleState {
   color: string;            // used when mode='plain'
   colorOn: string;          // used when mode='conditional'
   colorOff: string;         // used when mode='conditional'
+  /** Which entity's on/off state drives conditional/light mode. Empty/undefined = the card's own entity. */
+  entityId?: string;
 }
 
 export interface AccentColorModuleState {
   enabled: boolean;
-  color: string;
+  /** plain = single static color; conditional = on/off entity-state colors */
+  mode: 'plain' | 'conditional';
+  color: string;            // used when mode='plain'
+  colorOn: string;          // used when mode='conditional'
+  colorOff: string;         // used when mode='conditional'
+  /** Which entity's on/off state drives conditional mode. Empty/undefined = the card's own entity. */
+  entityId?: string;
 }
 
 export interface BackgroundModuleState {
@@ -125,7 +141,9 @@ export interface BackgroundModuleState {
   color1: string;
   color2: string;           // only for gradient
   angle: number;            // degrees, only for gradient
-  applyWhen: 'always' | 'on' | 'off';
+  applyWhen: 'always' | 'on' | 'off' | 'custom';
+  /** entity_id when applyWhen === 'custom' — a different entity than the card's own. */
+  customEntity?: string;
 }
 
 export interface AnimationModuleState {
@@ -163,13 +181,42 @@ export interface ThresholdRule {
   color: string;
 }
 
+export type ThresholdProperty =
+  | 'icon-color'
+  | 'background'
+  | 'text-color'
+  | 'accent-color'
+  | 'border-color';
+
+/** One value→color anchor point for gradient (fade) mode. Color is always hex — interpolation needs concrete RGB. */
+export interface ColorStop {
+  id: string;
+  value: number;
+  color: string;
+}
+
 export interface ThresholdModuleState {
   enabled: boolean;
   entityId: string;
-  property: 'icon-color' | 'background' | 'text-color' | 'accent-color' | 'border-color';
+  /**
+   * Every property these rules drive, all sharing the same entity/rules/
+   * default color — e.g. icon AND accent color changing together off one
+   * threshold. Each selected property gets its own generated CSS block.
+   */
+  properties: ThresholdProperty[];
+  /**
+   * switch = discrete step rules (original behavior): first matching rule
+   * wins, everything else falls to defaultColor.
+   * gradient = smoothly fades between colorStops, clamped at the ends.
+   * Both modes share entityId/properties above.
+   */
+  valueMode: 'switch' | 'gradient';
+  // switch mode
   rules: ThresholdRule[];
   defaultColor: string;
-  /** Border width in px — only used when property === 'border-color'. Defaults to 2. */
+  // gradient mode — at least 2 stops, sorted by value ascending
+  colorStops: ColorStop[];
+  /** Border width in px — only used when properties includes 'border-color'. Defaults to 2. */
   borderWidth?: number;
 }
 

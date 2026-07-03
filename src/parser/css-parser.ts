@@ -74,18 +74,24 @@ function restoreJinja(value: string, map: Map<string, string>): string {
 /**
  * Patterns for the two Jinja2 forms our generator emits:
  *
- *   Form A (off-first): {{ 'VAL_OFF' if is_state(config.entity, 'off') else 'VAL_ON' }}
- *   Form B (on-first):  {{ 'VAL_ON'  if is_state(config.entity, 'on')  else 'VAL_OFF' }}
+ *   Form A (off-first): {{ 'VAL_OFF' if is_state(ENTITY, 'off') else 'VAL_ON' }}
+ *   Form B (on-first):  {{ 'VAL_ON'  if is_state(ENTITY, 'on')  else 'VAL_OFF' }}
  *
- * Groups: [1]=first value, [2]=state ('on'|'off'), [3]=else value
+ * ENTITY is either the literal `config.entity` (the card's own entity — most
+ * modules' default) or a quoted entity_id literal like `'sensor.other'` (a
+ * module-level "controlled by a different entity" binding — see entityRef()
+ * in css-generator.ts). Groups: [1]=first value, [2]=custom entity_id (only
+ * set for the quoted-literal form), [3]=state ('on'|'off'), [4]=else value.
  */
 const ENTITY_STATE_PATTERN =
-  /^\{\{\s*'([^']*)'\s+if\s+is_state\(\s*config\.entity\s*,\s*'(on|off)'\s*\)\s+else\s+'([^']*)'\s*\}\}$/;
+  /^\{\{\s*'([^']*)'\s+if\s+is_state\(\s*(?:config\.entity|'([^']+)')\s*,\s*'(on|off)'\s*\)\s+else\s+'([^']*)'\s*\}\}$/;
 
 interface JinjaAnalysis {
   hasCondition: boolean;
   onValue?: string;
   offValue?: string;
+  /** The custom entity_id from ENTITY_STATE_PATTERN, if any (undefined = config.entity). */
+  entityId?: string;
 }
 
 function analyzeJinja(value: string): JinjaAnalysis {
@@ -93,13 +99,13 @@ function analyzeJinja(value: string): JinjaAnalysis {
 
   const match = trimmed.match(ENTITY_STATE_PATTERN);
   if (match) {
-    const [, val1, state, val2] = match;
+    const [, val1, entityId, state, val2] = match;
     // If the condition checks for 'off', val1 is the off-value
     if (state === 'off') {
-      return { hasCondition: true, offValue: val1, onValue: val2 };
+      return { hasCondition: true, offValue: val1, onValue: val2, entityId };
     }
     // If the condition checks for 'on', val1 is the on-value
-    return { hasCondition: true, onValue: val1, offValue: val2 };
+    return { hasCondition: true, onValue: val1, offValue: val2, entityId };
   }
 
   // Contains Jinja2 but doesn't match our known patterns — flag it but

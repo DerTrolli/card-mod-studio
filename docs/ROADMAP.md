@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-03 · **Current version:** v0.6.2
+**Last updated:** 2026-07-03 · **Current version:** v0.7.0
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -11,6 +11,65 @@ content is either shipped or captured here.
 
 Priorities reflect both user value and the findings in
 [COMPATIBILITY_AUDIT.md](COMPATIBILITY_AUDIT.md).
+
+## Path to v1.0
+
+The goal for v1.0 isn't "every card-mod/UIX feature" — it's that Card-Mod
+Studio is a confident, professional default for styling HA's built-in cards
+without touching CSS or Jinja2 by hand: state-driven styling off *any*
+entity/attribute, a real color system, and correct editing inside nested
+dashboard layouts. Rough shape (effort, not calendar time):
+
+| Version | Theme | Contents |
+|---|---|---|
+| v0.7 ✅ | Entity binding foundation | **Shipped** — see below. Searchable entity picker everywhere; Icon Color/Background/Filter can target a different entity than the card's own; Threshold rules can drive multiple properties at once. |
+| v0.8 | Color system | A Color Palette Manager — add/rename/delete custom presets, override built-in defaults (e.g. what "off" defaults to) — stored via the existing cross-device preset storage. Plus attribute-based thresholds (item #16 below: `battery_level`, `state_attr(...)`, not just raw state). |
+| v0.9 | Depth | Property-level templating beyond color (border width, icon size, blur/opacity driven by entity state — natural extension of v0.7's entity binding). Plus dict-form/`$`-pierce round-trip safety (item #1 below), which unblocks nested-shadow-DOM targets (glance icon, Mushroom/Bubble). |
+| v1.0 | Structural completeness | Container child-card editing (item #7 — styling a card inside a grid/stack/sections view currently targets the wrong card; probably the single biggest remaining hole) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
+| Post-1.0 | Stretch | Official Mushroom/Bubble selectors, a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
+
+## Recently shipped (v0.7.0)
+
+- **Searchable entity picker everywhere** — every entity field (Threshold's
+  entity, Animation's custom trigger, and the new "controlled by" fields
+  below) now uses HA's own `<ha-entity-picker>` via a shared
+  `cms-entity-picker` component, instead of a bare text input.
+- **Cross-entity control for Icon Color, Accent Color, Background, and
+  Filter** — these modules can now be driven by a different entity than the
+  card's own, matching what Threshold and Animation already supported.
+  Directly answers the most-requested pattern: styling one card's appearance
+  off a *different* entity's state (e.g. a button card's icon reflecting a
+  separate status sensor).
+- **Icon Color and Accent Color's conditional mode is no longer hidden on
+  cards whose own entity has no on/off state** (e.g. a `button` card) — it
+  now always offers "Different for ON/OFF," with a clear warning if neither
+  the card's own entity nor a picked "controlled by" entity is toggleable.
+  Dropped the `--accent-color` CSS-variable name/explanation from the
+  Accent Color panel — no other module exposes its underlying variable.
+- **Multi-property threshold rules** — one shared rule set can now drive
+  several CSS properties at once (e.g. icon color *and* accent color
+  together), instead of needing the same rules duplicated per property.
+- **Threshold Colors "Fade" mode** — an alternative to discrete step rules:
+  define value→color points and the color blends smoothly between them,
+  clamped at the ends. Approximated internally as ~32 tightly-spaced step
+  rules (reusing the existing engine) but round-trips back to your actual
+  points, not the generated ones, on reopen. Points can be reordered with
+  ▲/▼ swap buttons.
+- **Fixed a latent silent-data-loss bug** in the Icon Color recognizer
+  (claimed `ha-state-icon.color` even when it didn't understand the value,
+  permanently blocking Threshold/Advanced CSS from ever reading it) — found
+  while testing the multi-property threshold work.
+- **Fixed: Gradient mode's colors could fail to apply against real
+  card-mod.** The internal marker property originally encoded the gradient's
+  anchor points as JSON; real card-mod's own parsing silently drops an
+  entire style block the instant a `{`/`}` character appears anywhere in a
+  custom property's value, even inside a quoted string. Switched to a
+  brace-free encoding, verified end-to-end against both a live card-mod and
+  a live UIX instance.
+- **Fixed: typing a new value into a gradient point could scramble a
+  different point's value mid-edit**, because the list re-sorted on every
+  keystroke with unkeyed rows. Value now commits on blur/Enter; rows are
+  keyed by point id.
 
 ## Recently shipped (v0.6.1)
 
@@ -143,7 +202,7 @@ from the audit.
 
 | # | Item | Description | Effort |
 |---|---|---|---|
-| 11 | **Smooth/gradient thresholds** | Interpolate color between threshold stops instead of hard steps. | M |
+| 11 ✅ | **Smooth/gradient thresholds** | **Done (v0.7.0)** — "Fade" value mode, approximated as ~32 dense step rules with the real anchor points recovered on reopen via a marker property. | M |
 | 12 | **Import / export styles** | Copy a card's full style config to clipboard / paste onto another card (complements presets). | S |
 | 13 | **Preset management UX** | Rename, reorder, duplicate, and export presets; today it's load/save/delete only. | S |
 | 14 ✅ | **Mobile-friendly panel** | **Done (v0.5.0)** — a ResizeObserver stacks the preview below the controls below ~600px instead of starving them. | M |

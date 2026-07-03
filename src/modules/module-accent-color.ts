@@ -1,14 +1,22 @@
 import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import type { AccentColorModuleState } from '../types/index.js';
+import type { AccentColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ACCENT_COLOR } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
 import '../components/cms-color-picker.js';
+import '../components/cms-entity-picker.js';
 
 export class AccentColorModule extends LitElement {
   @property({ attribute: false }) state: AccentColorModuleState = {
     ...DEFAULT_ACCENT_COLOR,
   };
+
+  /** False when the card has no binary entity state (e.g. sensor cards). */
+  @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
+  /** The card's own entity — used as the picker's placeholder and as the implicit default when entityId is unset. */
+  @property({ type: String }) cardEntity = '';
+
+  @property({ attribute: false }) hass?: HomeAssistant;
 
   @state() private _open = false;
 
@@ -50,28 +58,97 @@ export class AccentColorModule extends LitElement {
               this._emit({ enabled: (e.target as HTMLInputElement).checked })}
           ></ha-switch>
         </div>
-        ${this._open
+        ${this._open ? this._renderBody() : nothing}
+      </div>
+    `;
+  }
+
+  private _renderBody() {
+    const mode = this.state.mode;
+    const ownEntityUseless = !this.stateAware && !this.state.entityId;
+
+    return html`
+      <div class="module-body">
+        <div class="control-row">
+          <span class="control-label">Color mode</span>
+          <div class="control-right">
+            <select
+              .value=${mode}
+              @change=${(e: Event) =>
+                this._emit({
+                  mode: (e.target as HTMLSelectElement).value as 'plain' | 'conditional',
+                })}
+            >
+              <option value="plain" ?selected=${mode === 'plain'}>One fixed color</option>
+              <option value="conditional" ?selected=${mode === 'conditional'}>
+                Different for ON / OFF
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="when-hint">
+          ${mode === 'plain'
+            ? 'One color, shown all the time.'
+            : 'One color while the controlling entity is on, another while off.'}
+        </div>
+
+        ${mode === 'conditional'
           ? html`
-              <div class="module-body">
-                <div class="control-row">
-                  <span class="control-label">Color (--accent-color)</span>
-                  <div class="control-right">
-                    <cms-color-picker
-                      .value=${this.state.color}
-                      @color-changed=${(e: CustomEvent) =>
-                        this._emit({ color: e.detail.value })}
-                    ></cms-color-picker>
-                  </div>
+              <div class="control-row">
+                <span class="control-label">Controlled by</span>
+                <div class="control-right">
+                  <cms-entity-picker
+                    .hass=${this.hass}
+                    .value=${this.state.entityId ?? ''}
+                    .placeholder=${this.stateAware ? this.cardEntity : 'binary_sensor.example'}
+                    label="Entity (default: this card's entity)"
+                    @value-changed=${(e: CustomEvent<{ value: string }>) =>
+                      this._emit({ entityId: e.detail.value.trim() })}
+                  ></cms-entity-picker>
                 </div>
-                <p
-                  style="margin:4px 0 0;font-size:11px;color:var(--secondary-text-color,#9e9e9e);"
-                >
-                  Sets <code>--accent-color</code> on ha-card. Affects graph line
-                  color, highlighted borders, and other themed elements.
-                </p>
+              </div>
+              <div class="when-hint" style=${ownEntityUseless ? 'color:var(--warning-color,#ffa600)' : ''}>
+                ${this.state.entityId
+                  ? `Uses ${this.state.entityId}'s on/off state, not this card's own entity.`
+                  : ownEntityUseless
+                  ? `This card's entity (${this.cardEntity || 'none'}) has no on/off state of its own — pick a toggleable entity above, or this mode won't do anything.`
+                  : "Leave empty to use this card's own entity."}
               </div>
             `
           : nothing}
+
+        ${mode === 'plain'
+          ? html`
+              <div class="control-row">
+                <span class="control-label">Color</span>
+                <div class="control-right">
+                  <cms-color-picker
+                    .value=${this.state.color}
+                    @color-changed=${(e: CustomEvent) => this._emit({ color: e.detail.value })}
+                  ></cms-color-picker>
+                </div>
+              </div>
+            `
+          : html`
+              <div class="control-row">
+                <span class="control-label">Color when ON</span>
+                <div class="control-right">
+                  <cms-color-picker
+                    .value=${this.state.colorOn}
+                    @color-changed=${(e: CustomEvent) => this._emit({ colorOn: e.detail.value })}
+                  ></cms-color-picker>
+                </div>
+              </div>
+              <div class="control-row">
+                <span class="control-label">Color when OFF</span>
+                <div class="control-right">
+                  <cms-color-picker
+                    .value=${this.state.colorOff}
+                    @color-changed=${(e: CustomEvent) => this._emit({ colorOff: e.detail.value })}
+                  ></cms-color-picker>
+                </div>
+              </div>
+            `}
       </div>
     `;
   }

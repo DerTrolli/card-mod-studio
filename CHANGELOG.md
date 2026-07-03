@@ -5,6 +5,83 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — 2026-07-03
+
+The first big step toward v1.0: making cross-entity styling a first-class,
+discoverable feature instead of something only possible by hand-typing an
+entity_id, letting one set of threshold rules drive more than one visual
+property at once, and adding a genuine smooth-fade alternative to discrete
+step rules.
+
+### Added
+- **Searchable entity picker everywhere.** Every entity field in the panel
+  (Threshold's entity, Animation's custom trigger entity, and every
+  "controlled by" field below) uses HA's own `<ha-entity-picker>` (search by
+  name, domain icons, autocomplete) via a new shared `cms-entity-picker`
+  component, instead of a bare text input you had to get the entity_id
+  exactly right in.
+- **Icon Color, Background, Filter, and Accent Color can all be controlled
+  by a different entity than the card's own** — the same capability
+  Threshold and Animation already had, generalized to every conditional
+  module. Styling one card's appearance off a *different* entity's state
+  (e.g. a toggle card whose icon color reflects a separate status sensor,
+  not the toggle entity itself) is now a first-class option everywhere, not
+  just something the card's own entity could drive. Available regardless of
+  whether the card's own entity has an on/off state at all — a card like
+  `button` (whose entity has none) still offers conditional coloring bound
+  to a different, toggleable entity, with a clear inline warning if neither
+  the card's own entity nor a picked one is toggleable.
+- **Accent Color gained the same conditional/entity-binding capability
+  every other module already had** — previously static-color-only. Also
+  dropped the `--accent-color` CSS-variable name and its explanation from
+  the panel; no other module exposes its underlying CSS variable name this
+  way, and the code editor is there for anyone who wants to see it.
+- **Threshold rules can drive multiple properties at once** — e.g. icon
+  color *and* accent color changing together off one shared rule set,
+  instead of duplicating the same rules per property. "Apply to" is a set
+  of checkboxes; round-trip parsing recognises matching threshold blocks
+  across properties and merges them into one module state (a genuine
+  mismatch is left alone rather than silently merged, and preserved in
+  Advanced CSS instead of dropped).
+- **Threshold Colors "Fade" mode** — a genuine alternative to discrete step
+  rules: define value→color points (e.g. 0→gray, 150→orange, 220→red) and
+  the color blends smoothly between them, clamped at the ends, with a live
+  gradient-bar preview and per-point ▲/▼ swap buttons for reordering
+  colors without recomputing values by hand. Internally approximated as
+  ~32 closely-spaced step rules — HA's sandboxed Jinja2 has no way to build
+  a color string from interpolated numbers, so true continuous color math
+  isn't reasonably expressible there — but your actual points, not the ~32
+  generated ones, come back correctly when reopening the editor, via a
+  small marker alongside the real rules in the generated CSS.
+
+### Fixed
+- **`ha-state-icon`'s `color` property could be silently claimed by the Icon
+  Color recognizer even when it didn't understand the value**, permanently
+  blocking Threshold (and Advanced CSS) from ever reading it on save —
+  reachable whenever a card had a threshold-driven icon color alongside a
+  *different*, unrelated threshold-driven property. Icon Color now only
+  claims the property in branches where it actually recognises the value.
+- **Gradient mode's colors could fail to apply against real card-mod
+  entirely**, with no error anywhere. Root cause: real card-mod's own
+  style-string parsing — not this project's — silently drops an entire
+  style block the instant a `{`/`}` character appears in any declaration's
+  value, even safely inside a quoted string a spec-compliant CSS tokenizer
+  would treat as inert. The gradient marker's first encoding was JSON,
+  which hit exactly that. Confirmed directly against a live card-mod
+  instance by isolating single-character-class variants; fixed by
+  switching to a brace-free `value:color,value:color,...` encoding, and
+  re-verified end-to-end (Studio UI → generated CSS → real `<hui-card>`
+  render → correct `getComputedStyle` color) against both real card-mod
+  and a real UIX install independently, rather than trusted from source
+  reading alone.
+- **Typing a new value into a gradient point could scramble a different
+  point's value mid-edit** — the point list re-sorts by value on every
+  keystroke, and rows weren't keyed, so Lit's DOM diffing could reuse an
+  input element positionally instead of per-point the instant a partial
+  value crossed another point's position. Fixed by committing the value on
+  blur/Enter instead of every keystroke, and keying the row list by point
+  id so a genuine reorder can't steal a focused, in-progress edit.
+
 ## [0.6.2] — 2026-07-03
 
 Fixes a real bug in the v0.6.1 threshold color-palette popover, reported
@@ -294,6 +371,10 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.7.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0
+[0.6.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.2
+[0.6.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.1
+[0.6.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.0
 [0.5.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.5.0
 [0.4.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.4.1
 [0.4.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.4.0
