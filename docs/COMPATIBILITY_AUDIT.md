@@ -1,7 +1,7 @@
 # Card-Mod Studio — card-mod 4.x / HA 2026 Compatibility Audit
 
 **Audit date:** 2026-06-25 (card-mod/HA) · 2026-07-03 (UIX addendum, §9)
-**Audited version:** v0.4.0 (card-mod/HA) · v0.6.0 (UIX) · v0.6.1 (entities-row parser fix §10 item 5a, card_mod:/uix: dedup-on-edit §10 item 5b, same-selector-twice parse bug §10 item 5c, dialog-transform popover positioning §10 item 5d)
+**Audited version:** v0.4.0 (card-mod/HA) · v0.6.0 (UIX) · v0.6.1 (entities-row parser fix §10 item 5a, card_mod:/uix: dedup-on-edit §10 item 5b, same-selector-twice parse bug §10 item 5c) · v0.6.2 (dialog-transform popover positioning §10 item 5d)
 **Reference targets:**
 - card-mod **v4.2.1** (latest; released 2026-02-08). Major breaking release was
   **v4.0.0** (2026-11-18, requires HA 2025.11+).
@@ -305,7 +305,7 @@ being duplicated).
    using real CSS cascade semantics — later declaration wins — before any
    recognizer runs.
 5d. ✅ **[High] Threshold color-palette popover mispositioned/invisible
-   inside HA's real card-edit dialog** — **Fixed (v0.6.1)**. Reported with
+   inside HA's real card-edit dialog** — **Fixed (v0.6.2)**. Reported with
    a screenshot showing the popover rendered hundreds of pixels off to the
    side. HA's dialog nests a native `<dialog>` two shadow roots deep
    (`ha-dialog` → `wa-dialog` → `<dialog>`) that carries a CSS `transform`
