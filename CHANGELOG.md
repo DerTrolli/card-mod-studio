@@ -5,165 +5,82 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.0-beta.4] — 2026-07-03
+## [0.7.0] — 2026-07-03
 
-**Pre-release**, continuing the same 0.7.0 beta cycle — see the note under
-`[0.7.0-beta.1]` below for what that means. Two real bugs found while
-dogfooding `beta.3` against a real card.
-
-### Fixed
-- **Gradient (Fade) mode's colors never actually applied against real
-  card-mod** — reported as "the color isn't changing at all," and it
-  wasn't: real card-mod's own style-string parsing silently fails to apply
-  *any* declaration in a block the instant a `{`/`}` character appears in a
-  CSS custom property's value — even safely inside a quoted string, which
-  a spec-compliant CSS tokenizer would treat as inert text. The `beta.3`
-  gradient marker was JSON (`--cms-gradient-stops: '[{"v":0,...}]'`), which
-  hit exactly that. No error, no warning — the whole style block was just
-  silently dropped. Confirmed directly against a live card-mod instance by
-  isolating single-character-class variants (this took real live testing
-  to catch; it wasn't visible from the generated CSS just *looking*
-  syntactically valid, because it is — the bug is in card-mod's own
-  parsing, not CSS's). Fixed by switching the marker to a brace-free
-  `value:color,value:color,...` encoding — same information, no JSON.
-  Re-verified against real card-mod end-to-end (Studio UI → generated CSS
-  → real `<hui-card>` render → correct `getComputedStyle` color) rather
-  than trusting the fix from source reading alone — and independently
-  against a real UIX install too, since UIX is a separate reimplementation
-  and passing against one engine doesn't guarantee the other.
-- **Typing a new value into a gradient point could scramble a different
-  point's value mid-edit** — e.g. selecting "140" and typing "2" (partway
-  through typing "200") could, the instant the partial value sorted before
-  another point, silently redirect the rest of your keystrokes into that
-  *other* point's now-relocated input field. Caused by two compounding
-  issues: the point list re-sorts by value on every keystroke (`input`
-  event), and the rows weren't keyed, so Lit's DOM diffing reused input
-  elements positionally rather than per-point. Fixed both ways: the value
-  field now commits on blur/Enter (`change` event) instead of every
-  keystroke, so no reorder happens mid-edit; and the row list now uses
-  Lit's keyed `repeat()` (by point id), so even a genuine reorder can't
-  cause a focused, in-progress edit to jump to a different point.
-
-## [0.7.0-beta.3] — 2026-07-03
-
-**Pre-release**, continuing the same 0.7.0 beta cycle — see the note under
-`[0.7.0-beta.1]` below for what that means.
+The first big step toward v1.0: making cross-entity styling a first-class,
+discoverable feature instead of something only possible by hand-typing an
+entity_id, letting one set of threshold rules drive more than one visual
+property at once, and adding a genuine smooth-fade alternative to discrete
+step rules.
 
 ### Added
-- **Threshold Colors can now fade smoothly instead of switching at fixed
-  points.** A new "Value mode" choice — **Step** (the original behavior:
-  color switches abruptly at each rule) or **Fade** (new: define value→color
-  points, e.g. 0→gray, 150→orange, 220→red, and the color blends smoothly
-  between them, clamped to the nearest end outside that range) — with a
-  live gradient-bar preview in the editor. This replaces the old
-  rules-with-a-"default"-catch-all model for anyone who wants a genuine
-  gradient rather than discrete steps, and sidesteps a real point of
-  confusion the old model had: a "default" color is really "below the
-  lowest rule," not "the extreme/alarm case," which is easy to set up
-  backwards (found from a real report — a sensor showing red at both a
-  clearly-safe low reading and the intended high-alarm reading, because
-  the default color had been set to the alarm color without realizing
-  default fires below the lowest threshold, not above the highest one).
-  Under the hood, Fade mode is approximated as ~32 closely-spaced Step
-  rules (HA's sandboxed Jinja2 has no way to build a color string from
-  interpolated numbers, so true continuous color math isn't reasonably
-  expressible there) — invisible at normal sensor update rates, and reuses
-  all the same entity-binding/multi-property machinery Step mode already
-  has. Your actual points (not the ~32 generated ones) are recovered
-  correctly when reopening the editor, via a small marker alongside the
-  real rules in the generated CSS.
-- **Fade-mode points can be reordered with ▲/▼ swap buttons** — swaps the
-  colors between two adjacent points while keeping their values fixed
-  (editing a point's value directly already re-sorts it to the right
-  position automatically; these buttons are for "these two colors are
-  backwards" without recomputing any values by hand).
-
-## [0.7.0-beta.2] — 2026-07-03
-
-**Pre-release**, continuing the same 0.7.0 beta cycle — see the note under
-`[0.7.0-beta.1]` below for what that means. Bug fixes found while dogfooding
-`beta.1` against a real dashboard (a `button` card, whose entity has no
-on/off state of its own).
-
-### Fixed
-- **Icon Color and Accent Color couldn't be set to "Different for ON/OFF"
-  at all on cards whose own entity has no on/off state** (e.g. a `button`
-  card) — the mode dropdown was hidden outright, so there was no way to
-  reach the "controlled by a different entity" option `beta.1` had just
-  added, even though binding to a *different*, toggleable entity would
-  have worked fine. Both modules now always offer the conditional mode;
-  when the card's own entity genuinely has no on/off state and no other
-  entity has been picked yet, an inline warning explains why (rather than
-  the mode silently doing nothing).
-- **Accent Color had no conditional/entity-binding option at all** — it was
-  static-color-only, unlike every other conditional module. It's now on
-  equal footing with Icon Color: a mode switch (one fixed color / different
-  for ON-OFF), on/off colors, and a "Controlled by" entity picker.
-- **The `--accent-color` CSS-variable name and its explanatory paragraph
-  were shown in the Accent Color panel** (`Color (--accent-color)`, "Sets
-  `--accent-color` on ha-card…") — no other module exposes its underlying
-  CSS variable name this way, and it wasn't adding anything a user editing
-  visually needs; removed. (Anyone who wants to see the generated CSS
-  already has the code editor for that.)
-
-### Verified
-- Reproduced the exact reported scenario live against HA's real card-edit
-  dialog (not a synthetic mount) — a `button` card, entity with no on/off
-  state, both modules' "Controlled by" picker fully on-screen at 900px
-  width, picking a different entity reaching the emitted `card_mod.style`.
-  See `tools/sandbox/harness/button_card_binding_check.mjs`.
-
-## [0.7.0-beta.1] — 2026-07-03
-
-**Pre-release** — install manually or via HACS with beta versions enabled
-for this repository; not yet the default update for existing installs. Once
-this settles, a final `[0.7.0]` entry will replace this heading rather than
-sitting alongside it (this section's history will just be folded into that
-one — beta iterations aren't separate shipped versions of their own).
-
-The first step of a broader push toward v1.0: making cross-entity styling a
-first-class, discoverable feature instead of something only possible by
-hand-typing an entity_id, and letting one set of threshold rules drive more
-than one visual property at once.
-
-### Added
-- **Searchable entity picker everywhere.** Every entity field in the panel —
-  Threshold's entity, Animation's custom trigger entity, and the new
-  "controlled by" fields below — now uses HA's own `<ha-entity-picker>`
-  (search by name, domain icons, autocomplete) via a new shared
-  `cms-entity-picker` component, instead of a bare text input you had to get
-  the entity_id exactly right in.
-- **Icon Color, Background, and Filter can now be controlled by a different
-  entity than the card's own** — the same capability Threshold and
-  Animation already had, generalized to every conditional module. This is
-  the direct fix for "style this card's icon/background off a *different*
-  entity's on/off state" (e.g. a toggle card whose icon color reflects a
-  separate status sensor, not the toggle entity itself): Icon Color gained a
-  "Controlled by" entity field in conditional/light mode; Background and
-  Filter gained a "While another entity is ON…" option alongside their
-  existing Always/On/Off choices, matching the option Animation already had.
-- **Threshold rules can now drive multiple properties at once** — e.g. icon
+- **Searchable entity picker everywhere.** Every entity field in the panel
+  (Threshold's entity, Animation's custom trigger entity, and every
+  "controlled by" field below) uses HA's own `<ha-entity-picker>` (search by
+  name, domain icons, autocomplete) via a new shared `cms-entity-picker`
+  component, instead of a bare text input you had to get the entity_id
+  exactly right in.
+- **Icon Color, Background, Filter, and Accent Color can all be controlled
+  by a different entity than the card's own** — the same capability
+  Threshold and Animation already had, generalized to every conditional
+  module. Styling one card's appearance off a *different* entity's state
+  (e.g. a toggle card whose icon color reflects a separate status sensor,
+  not the toggle entity itself) is now a first-class option everywhere, not
+  just something the card's own entity could drive. Available regardless of
+  whether the card's own entity has an on/off state at all — a card like
+  `button` (whose entity has none) still offers conditional coloring bound
+  to a different, toggleable entity, with a clear inline warning if neither
+  the card's own entity nor a picked one is toggleable.
+- **Accent Color gained the same conditional/entity-binding capability
+  every other module already had** — previously static-color-only. Also
+  dropped the `--accent-color` CSS-variable name and its explanation from
+  the panel; no other module exposes its underlying CSS variable name this
+  way, and the code editor is there for anyone who wants to see it.
+- **Threshold rules can drive multiple properties at once** — e.g. icon
   color *and* accent color changing together off one shared rule set,
-  instead of needing to duplicate the same rules once per property. "Apply
-  to" is now a set of checkboxes instead of a single dropdown. Generated CSS
-  emits one block per selected property, all sharing the same computed
-  Jinja2 expression; round-trip parsing recognises matching threshold blocks
-  across properties and merges them back into one module state (a genuine
-  mismatch — two different properties driven by different rules/entities —
-  is left alone rather than silently merged, and the second one is
-  preserved in Advanced CSS instead of being merged incorrectly or dropped).
+  instead of duplicating the same rules per property. "Apply to" is a set
+  of checkboxes; round-trip parsing recognises matching threshold blocks
+  across properties and merges them into one module state (a genuine
+  mismatch is left alone rather than silently merged, and preserved in
+  Advanced CSS instead of dropped).
+- **Threshold Colors "Fade" mode** — a genuine alternative to discrete step
+  rules: define value→color points (e.g. 0→gray, 150→orange, 220→red) and
+  the color blends smoothly between them, clamped at the ends, with a live
+  gradient-bar preview and per-point ▲/▼ swap buttons for reordering
+  colors without recomputing values by hand. Internally approximated as
+  ~32 closely-spaced step rules — HA's sandboxed Jinja2 has no way to build
+  a color string from interpolated numbers, so true continuous color math
+  isn't reasonably expressible there — but your actual points, not the ~32
+  generated ones, come back correctly when reopening the editor, via a
+  small marker alongside the real rules in the generated CSS.
 
 ### Fixed
 - **`ha-state-icon`'s `color` property could be silently claimed by the Icon
   Color recognizer even when it didn't understand the value**, permanently
-  blocking Threshold (and Advanced CSS) from ever reading it on save. This
-  was latent before this release too — reachable whenever a card had a
-  threshold-driven icon color alongside a *different*, unrelated
-  threshold-driven property (e.g. accent color with its own separate rule
-  set) — but was only found while building the multi-property threshold
-  support above and testing that exact "two different threshold configs on
-  one card" case. Icon Color now only claims the property in the branches
-  where it actually recognises and uses the value.
+  blocking Threshold (and Advanced CSS) from ever reading it on save —
+  reachable whenever a card had a threshold-driven icon color alongside a
+  *different*, unrelated threshold-driven property. Icon Color now only
+  claims the property in branches where it actually recognises the value.
+- **Gradient mode's colors could fail to apply against real card-mod
+  entirely**, with no error anywhere. Root cause: real card-mod's own
+  style-string parsing — not this project's — silently drops an entire
+  style block the instant a `{`/`}` character appears in any declaration's
+  value, even safely inside a quoted string a spec-compliant CSS tokenizer
+  would treat as inert. The gradient marker's first encoding was JSON,
+  which hit exactly that. Confirmed directly against a live card-mod
+  instance by isolating single-character-class variants; fixed by
+  switching to a brace-free `value:color,value:color,...` encoding, and
+  re-verified end-to-end (Studio UI → generated CSS → real `<hui-card>`
+  render → correct `getComputedStyle` color) against both real card-mod
+  and a real UIX install independently, rather than trusted from source
+  reading alone.
+- **Typing a new value into a gradient point could scramble a different
+  point's value mid-edit** — the point list re-sorts by value on every
+  keystroke, and rows weren't keyed, so Lit's DOM diffing could reuse an
+  input element positionally instead of per-point the instant a partial
+  value crossed another point's position. Fixed by committing the value on
+  blur/Enter instead of every keystroke, and keying the row list by point
+  id so a genuine reorder can't steal a focused, in-progress edit.
 
 ## [0.6.2] — 2026-07-03
 
@@ -454,10 +371,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
-[0.7.0-beta.4]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0-beta.4
-[0.7.0-beta.3]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0-beta.3
-[0.7.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0-beta.2
-[0.7.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0-beta.1
+[0.7.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0
 [0.6.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.2
 [0.6.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.1
 [0.6.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.0
