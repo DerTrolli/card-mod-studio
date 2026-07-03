@@ -287,3 +287,21 @@ exact real-world card that surfaced both this bug and the same-selector
 CSS-parsing bug fixed alongside it (see `test/merge-dedup.test.ts` for the
 equivalent unit-level coverage, and `src/generator/yaml-generator.ts`'s
 `applyCardModStyle` doc comment for the design).
+
+### `gradient_uix_only_compat_check.mjs` — the gradient marker against real UIX
+
+Also runs against `run-uix.sh`'s UIX-only rig: the exact same brace-free
+`--cms-gradient-stops` marker verified against real card-mod in
+`gradient_uix_compat_check.mjs`, here applied via a `uix:` style block on a
+real card and checked via `getComputedStyle`. UIX is a separate
+reimplementation, not literally card-mod's code, so passing against one
+engine doesn't guarantee the other — this was worth checking independently
+given the bug this marker format fixed (see `docs/DEVELOPMENT.md`'s "Real
+card-mod silently drops a whole style block" note) was specific to how
+card-mod's own parsing handles a declaration's value, not something
+`uix_matrix.mjs`'s existing checks happened to cover.
+
+```bash
+cd tools/sandbox/harness
+HA_URL=http://127.0.0.1:8124 node gradient_uix_only_compat_check.mjs
+```

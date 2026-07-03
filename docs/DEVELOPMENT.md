@@ -373,6 +373,13 @@ regression check, and it verifies the full real pipeline (Studio UI →
 generated CSS → real `<hui-card>` render → `getComputedStyle`), not just
 that `parseCss` can read the marker back.
 
+The bug was specific to card-mod's own parsing, but the fix was also
+independently verified against a real UIX install
+(`gradient_uix_only_compat_check.mjs`, against `run-uix.sh`'s rig) rather
+than assumed safe by similarity — UIX is a separate reimplementation, not
+literally card-mod's code, so passing against one doesn't guarantee the
+other.
+
 Fixed by encoding the marker as a brace-free `value:color,value:color,...`
 string instead of JSON — same information, no braces anywhere. **Any
 future marker/metadata smuggled through generated CSS must avoid `{` and

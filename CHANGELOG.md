@@ -28,7 +28,9 @@ dogfooding `beta.3` against a real card.
   `value:color,value:color,...` encoding — same information, no JSON.
   Re-verified against real card-mod end-to-end (Studio UI → generated CSS
   → real `<hui-card>` render → correct `getComputedStyle` color) rather
-  than trusting the fix from source reading alone.
+  than trusting the fix from source reading alone — and independently
+  against a real UIX install too, since UIX is a separate reimplementation
+  and passing against one engine doesn't guarantee the other.
 - **Typing a new value into a gradient point could scramble a different
   point's value mid-edit** — e.g. selecting "140" and typing "2" (partway
   through typing "200") could, the instant the partial value sorted before
