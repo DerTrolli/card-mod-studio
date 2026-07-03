@@ -58,6 +58,7 @@ To re-run just the measurement after HA is already up:
 cd tools/sandbox/harness
 node matrix.mjs          # 15 standalone-mountable card types
 node button_matrix.mjs   # adds the button row via a real dashboard
+node compat_check.mjs    # card_mod:/uix: cross-compat warning banner (real cms-panel)
 node scan.mjs            # which card types mount cleanly standalone
 ```
 
@@ -91,6 +92,13 @@ run.sh
 - **`harness/button_matrix.mjs`** — the button card can't mount standalone, so it
   is measured inside a real YAML dashboard (cards matched by a `name` marker
   because the masonry layout reorders the DOM).
+- **`harness/compat_check.mjs`** — mounts the real `cms-panel` editor (same
+  technique as `editor_audit.mjs`) against this card-mod-only instance and
+  verifies `src/utils/style-compat.ts`'s warning banner: a `uix:`-only card
+  shows a "copy to card_mod" fix (and the fix button really populates
+  `card_mod.style`), a `uix:` block using macros/billets shows an
+  incompatibility warning with no fix button instead, and an ordinary
+  `card_mod:`-only card shows no banner at all.
 
 ---
 

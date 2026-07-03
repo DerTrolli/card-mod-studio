@@ -41,7 +41,8 @@ echo "==> [6/6] install harness deps + run the matrix"
 ( cd "$HERE/harness" && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --silent )
 node "$HERE/harness/matrix.mjs"
 node "$HERE/harness/button_matrix.mjs"
+node "$HERE/harness/compat_check.mjs"
 
 echo
-echo "Done. Results: $HERE/harness/matrix.md  +  matrix.json"
+echo "Done. Results: $HERE/harness/matrix.md  +  matrix.json  +  compat-check.json"
 echo "Other tools: harness/scan.mjs (mount check)."

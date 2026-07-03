@@ -26,6 +26,8 @@ All changes are serialised to `card_mod` YAML and saved with the card config thr
 
 [UIX](https://uix.lf.technology/) is a card-mod-derived Home Assistant integration built by card-mod's own current maintainer. It reads a `uix:` key in preference to `card_mod:`, but fully supports `card_mod:` as a fallback — so **Card-Mod Studio writes `card_mod:` by default even when UIX is installed**, and it just works. The only time it writes `uix:` instead is when UIX is detected and card-mod is not (UIX's own installer refuses to run alongside a `card-mod.js` resource, so this is the common "UIX-only" case). Either way, the panel reads back whichever of `uix:`/`card_mod:` is actually present — including cards you styled by hand — and the "not detected" warning only shows when neither engine is found.
 
+If you switch back from UIX to card-mod-only, card-mod never reads `uix:` at all, so a card styled only under `uix:` would otherwise go silently unstyled. The panel warns about that specific card and offers a one-click "copy to `card_mod:`" fix for plain CSS. `uix:` blocks using UIX-only macros/billets get a clear incompatibility warning instead — card-mod can't run those under any key, so there's no fix to offer, just a heads-up.
+
 ---
 
 ## Style modules

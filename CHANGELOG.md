@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   switching to `uix:` only when UIX is installed and card-mod is not. The
   "card-mod not detected" warning now only shows when neither engine is found.
   Fixes #20.
+- **Reverse-compatibility warning** — if a card's styling lives only under
+  `uix:` (e.g. you've since uninstalled UIX and gone back to card-mod), the
+  panel now warns specifically about that card instead of showing nothing
+  wrong, with a one-click "copy to card_mod" fix for plain CSS. Cards whose
+  `uix:` block uses macros/billets get a clear incompatibility warning instead
+  — those features have no card-mod equivalent, so there's no valid fix to offer.
 
 ## [0.5.0] — 2026-06-25
 

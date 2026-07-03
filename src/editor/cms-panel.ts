@@ -19,6 +19,7 @@ import type {
   EntitiesRowStyles,
 } from '../types/index.js';
 import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
+import { isUixOnlyStyle, usesUixOnlyFeatures } from '../utils/style-compat.js';
 import { loadPresets, savePresets } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
 import { parseCardModConfig } from '../parser/yaml-parser.js';
@@ -256,6 +257,35 @@ export class CmsPanel extends LitElement {
     });
 
     return { ...(config as unknown as object), entities: updatedRows } as unknown as CardModCardConfig;
+  }
+
+  // ---------------------------------------------------------------------------
+  // card-mod / UIX compatibility
+  // ---------------------------------------------------------------------------
+
+  /**
+   * True when this card's styling lives only under uix: (nothing under
+   * card_mod: to fall back to) and UIX isn't currently installed to read it —
+   * i.e. this specific card is about to render unstyled, distinct from the
+   * generic "neither engine detected" case.
+   */
+  private get _uixOnlyAtRisk(): boolean {
+    return !this._uixPresent && !!this.config && isUixOnlyStyle(this.config);
+  }
+
+  private get _uixOnlyUsesMacros(): boolean {
+    return !!this.config && usesUixOnlyFeatures(this.config);
+  }
+
+  /**
+   * Re-saves the card with its current studio state so uix-only styling gets
+   * a card_mod: block too. Since _studioState was parsed from uix.style with
+   * the same precedence UIX itself uses, and pickOutputKey() already resolves
+   * to 'card_mod' whenever UIX isn't installed, this is just "save now"
+   * without waiting for the user to touch an unrelated control first.
+   */
+  private _copyUixStyleToCardMod() {
+    this._emitConfigChanged();
   }
 
   // ---------------------------------------------------------------------------
@@ -569,6 +599,20 @@ export class CmsPanel extends LitElement {
       margin-bottom: 10px;
     }
 
+    .btn-banner-action {
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      background: rgba(255, 152, 0, 0.15);
+      color: #ff9800;
+      border: 1px solid rgba(255, 152, 0, 0.4);
+      border-radius: 4px;
+      white-space: nowrap;
+      margin-left: auto;
+    }
+
+    .btn-banner-action:hover { background: rgba(255, 152, 0, 0.28); }
+
     .info-banner {
       display: flex;
       align-items: center;
@@ -669,11 +713,7 @@ export class CmsPanel extends LitElement {
 
       <div class="panel-body ${hasPreview ? '' : 'no-preview'} ${this._narrow ? 'narrow' : ''}">
         <div class="modules-col">
-          ${!this._cardModPresent && !this._uixPresent
-            ? html`<div class="warning-banner">
-                ⚠️ card-mod/UIX not detected — install one of them first or styles won't apply.
-              </div>`
-            : nothing}
+          ${this._renderCompatBanner()}
 
           ${this._studioState
             ? html`
@@ -708,6 +748,29 @@ export class CmsPanel extends LitElement {
       this._previewKey,
       html`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`,
     );
+  }
+
+  private _renderCompatBanner() {
+    if (this._uixOnlyAtRisk) {
+      if (this._uixOnlyUsesMacros) {
+        return html`<div class="warning-banner">
+          ⚠️ This card's styling uses UIX-only macros/billets and UIX isn't detected — it won't apply, and
+          card-mod cannot run these features under any key. Reinstall UIX, or restyle this card manually.
+        </div>`;
+      }
+      return html`<div class="warning-banner">
+        ⚠️ This card's styling is only under uix: and UIX isn't detected — it won't apply.
+        <button class="btn-banner-action" @click=${this._copyUixStyleToCardMod}>Copy to card_mod</button>
+      </div>`;
+    }
+
+    if (!this._cardModPresent && !this._uixPresent) {
+      return html`<div class="warning-banner">
+        ⚠️ card-mod/UIX not detected — install one of them first or styles won't apply.
+      </div>`;
+    }
+
+    return nothing;
   }
 
   private _renderPresetBar() {
