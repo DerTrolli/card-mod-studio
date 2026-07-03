@@ -5,6 +5,43 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0-beta.4] — 2026-07-03
+
+**Pre-release**, continuing the same 0.7.0 beta cycle — see the note under
+`[0.7.0-beta.1]` below for what that means. Two real bugs found while
+dogfooding `beta.3` against a real card.
+
+### Fixed
+- **Gradient (Fade) mode's colors never actually applied against real
+  card-mod** — reported as "the color isn't changing at all," and it
+  wasn't: real card-mod's own style-string parsing silently fails to apply
+  *any* declaration in a block the instant a `{`/`}` character appears in a
+  CSS custom property's value — even safely inside a quoted string, which
+  a spec-compliant CSS tokenizer would treat as inert text. The `beta.3`
+  gradient marker was JSON (`--cms-gradient-stops: '[{"v":0,...}]'`), which
+  hit exactly that. No error, no warning — the whole style block was just
+  silently dropped. Confirmed directly against a live card-mod instance by
+  isolating single-character-class variants (this took real live testing
+  to catch; it wasn't visible from the generated CSS just *looking*
+  syntactically valid, because it is — the bug is in card-mod's own
+  parsing, not CSS's). Fixed by switching the marker to a brace-free
+  `value:color,value:color,...` encoding — same information, no JSON.
+  Re-verified against real card-mod end-to-end (Studio UI → generated CSS
+  → real `<hui-card>` render → correct `getComputedStyle` color) rather
+  than trusting the fix from source reading alone.
+- **Typing a new value into a gradient point could scramble a different
+  point's value mid-edit** — e.g. selecting "140" and typing "2" (partway
+  through typing "200") could, the instant the partial value sorted before
+  another point, silently redirect the rest of your keystrokes into that
+  *other* point's now-relocated input field. Caused by two compounding
+  issues: the point list re-sorts by value on every keystroke (`input`
+  event), and the rows weren't keyed, so Lit's DOM diffing reused input
+  elements positionally rather than per-point. Fixed both ways: the value
+  field now commits on blur/Enter (`change` event) instead of every
+  keystroke, so no reorder happens mid-edit; and the row list now uses
+  Lit's keyed `repeat()` (by point id), so even a genuine reorder can't
+  cause a focused, in-progress edit to jump to a different point.
+
 ## [0.7.0-beta.3] — 2026-07-03
 
 **Pre-release**, continuing the same 0.7.0 beta cycle — see the note under
@@ -415,6 +452,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.7.0-beta.4]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0-beta.4
 [0.7.0-beta.3]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0-beta.3
 [0.7.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0-beta.2
 [0.7.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0-beta.1

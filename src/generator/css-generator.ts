@@ -389,21 +389,31 @@ export function gradientToRules(stops: ColorStop[]): { rules: ThresholdRule[]; d
   return { rules, defaultColor: normalizeHex(sorted[0].color) };
 }
 
-/** Compact JSON so the generated CSS custom property stays reasonably short. */
+/**
+ * Deliberately NOT JSON. Real card-mod's own style-string parsing (not
+ * this project's) breaks — silently, with no error, no style applied at
+ * all — the moment a `{`/`}` character appears inside a CSS custom
+ * property's value, even safely inside a quoted string a spec-compliant
+ * CSS tokenizer would treat as inert. Confirmed directly against a live
+ * card-mod instance: a JSON-braced marker produced zero applied style,
+ * an otherwise-identical brace-free one worked correctly every time. A
+ * simple `value:color,value:color` list needs no braces at all.
+ */
 export function encodeGradientStops(stops: ColorStop[]): string {
-  return JSON.stringify(stops.map((s) => ({ v: s.value, c: s.color })));
+  return stops.map((s) => `${s.value}:${s.color}`).join(',');
 }
 
 /** Inverse of encodeGradientStops — returns null on anything malformed. */
-export function decodeGradientStops(json: string): ColorStop[] | null {
-  try {
-    const raw = JSON.parse(json) as Array<{ v: number; c: string }>;
-    if (!Array.isArray(raw) || raw.length < 2) return null;
-    if (!raw.every((s) => typeof s.v === 'number' && typeof s.c === 'string')) return null;
-    return raw.map((s, i) => ({ id: `stop-${i}`, value: s.v, color: s.c }));
-  } catch {
-    return null;
+export function decodeGradientStops(encoded: string): ColorStop[] | null {
+  const parts = encoded.split(',').filter((p) => p.trim());
+  if (parts.length < 2) return null;
+  const stops: ColorStop[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const m = parts[i].trim().match(/^(-?\d+(?:\.\d+)?):(#[0-9a-fA-F]{3,8})$/);
+    if (!m) return null;
+    stops.push({ id: `stop-${i}`, value: parseFloat(m[1]), color: m[2] });
   }
+  return stops;
 }
 
 function thresholdPropertyBlock(
@@ -445,7 +455,7 @@ function thresholdBlock(s: ThresholdModuleState | undefined): string {
   if (s.valueMode === 'gradient') {
     if (s.colorStops.length < 2) return '';
     ({ rules, defaultColor } = gradientToRules(s.colorStops));
-    gradientMarker = `'${encodeGradientStops(s.colorStops).replace(/'/g, "\\'")}'`;
+    gradientMarker = `'${encodeGradientStops(s.colorStops)}'`;
   } else if (rules.length === 0) {
     return '';
   }

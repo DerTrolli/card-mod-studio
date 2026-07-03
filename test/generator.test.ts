@@ -630,9 +630,43 @@ describe('gradient color math', () => {
   });
 
   it('decodeGradientStops rejects malformed input instead of throwing', () => {
-    expect(decodeGradientStops('not json')).toBeNull();
-    expect(decodeGradientStops('[]')).toBeNull();
-    expect(decodeGradientStops('[{"v":0}]')).toBeNull();
+    expect(decodeGradientStops('not a real value')).toBeNull();
+    expect(decodeGradientStops('')).toBeNull();
+    expect(decodeGradientStops('0')).toBeNull(); // needs at least 2 stops
+    expect(decodeGradientStops('0:notahexcolor,10:#fff')).toBeNull();
+  });
+
+  it('encodeGradientStops never emits { or } — real card-mod silently fails to apply ANY style in the block if it does', () => {
+    // Confirmed directly against a live card-mod instance: a JSON-braced
+    // marker produced zero applied style (not even an error) on the exact
+    // same block; a brace-free encoding of the identical data worked. This
+    // is why encodeGradientStops isn't JSON — guard against it regressing.
+    const stops = [
+      { id: 'a', value: 0, color: '#9e9e9e' },
+      { id: 'b', value: 150, color: '#ff9800' },
+      { id: 'c', value: 220, color: '#ff5722' },
+    ];
+    const encoded = encodeGradientStops(stops);
+    expect(encoded).not.toContain('{');
+    expect(encoded).not.toContain('}');
+  });
+
+  it('the full generated gradient marker declaration contains no braces anywhere', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true, entityId: 'sensor.temp', properties: ['icon-color'],
+        valueMode: 'gradient', rules: [], defaultColor: '#888888',
+        colorStops: [
+          { id: 'a', value: 0, color: '#9e9e9e' },
+          { id: 'b', value: 150, color: '#ff9800' },
+          { id: 'c', value: 220, color: '#ff5722' },
+        ],
+      },
+    }));
+    const markerLine = css.split('\n').find((l) => l.includes('--cms-gradient-stops'));
+    expect(markerLine).toBeDefined();
+    expect(markerLine).not.toContain('{');
+    expect(markerLine).not.toContain('}');
   });
 });
 

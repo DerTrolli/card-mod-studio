@@ -332,3 +332,48 @@ always injects into HA's own dialog element, itself already a descendant of
 `document.querySelector('home-assistant')` instead of `document.body` for
 exactly this reason; any future check exercising an entity/device/area
 picker needs the same.
+
+### Real card-mod silently drops a whole style block if a `{`/`}` appears in *any* declaration's value — even a quoted string
+
+Gradient mode (`v0.7.0-beta.3`) needed to smuggle its real anchor points
+through the generated CSS so reopening the editor could recover them —
+see `encodeGradientStops` in `css-generator.ts`. The first attempt encoded
+them as JSON in a custom property: `--cms-gradient-stops: '[{"v":0,...}]';`.
+This is entirely valid CSS — the braces sit safely inside a single-quoted
+string, which a spec-compliant CSS tokenizer treats as opaque text, exactly
+like this project's own `css-parser.ts` already does (see its
+brace-depth-counting note in `splitIntoBlocks`).
+
+Real card-mod doesn't care that it's spec-valid. Its own style-string
+parsing (not the browser's CSS parser — this happens before the string
+ever reaches a `<style>` tag) silently failed to apply *any* declaration in
+the block the moment that property was present — not just the malformed
+one, the `color: {{ ... }}` declaration right next to it too. No console
+error, no warning, nothing — `card_mod`/`uix` info logs still show
+"detected", the config still validates, the dialog still shows a preview
+pane; the only symptom is the icon/background/whatever just never changes
+color, which reads exactly like a logic bug in the generated Jinja rather
+than a parsing failure two layers away.
+
+**This is invisible from source reading and even from this project's own
+unit tests** — `parseCss`/round-trip tests only exercise *this project's*
+parser, which correctly tolerates the braces (that's what made the bug
+look safe). It only shows up by mounting a real `<hui-card>` with the
+generated style and reading `getComputedStyle` — and even then, reliably
+seeing it requires `await customElements.whenDefined('hui-card')` before
+creating the element and *polling* for the computed color to settle
+(card-mod's Jinja render is an async server round-trip with real latency
+variance) rather than a fixed `setTimeout` — a fixed sleep produces
+inconsistent pass/fail noise that looks like flakiness and masks the real,
+fully-reproducible signal underneath it. Isolating the exact trigger took
+bisecting single-character-class variants (`'#fff'` alone vs `'a:b'` vs
+`'50:#fff,100:#000'` vs the full JSON) against a live instance —
+`tools/sandbox/harness/gradient_uix_compat_check.mjs` is the permanent
+regression check, and it verifies the full real pipeline (Studio UI →
+generated CSS → real `<hui-card>` render → `getComputedStyle`), not just
+that `parseCss` can read the marker back.
+
+Fixed by encoding the marker as a brace-free `value:color,value:color,...`
+string instead of JSON — same information, no braces anywhere. **Any
+future marker/metadata smuggled through generated CSS must avoid `{` and
+`}` in its encoding entirely**, regardless of how safely quoted it looks.

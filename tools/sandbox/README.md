@@ -64,6 +64,8 @@ node dialog_popover_check.mjs  # same popover, but inside HA's real (transformed
 node entity_binding_check.mjs  # cms-entity-picker + cross-entity binding (Icon Color/Background/Filter) + multi-property threshold
 node button_card_binding_check.mjs  # conditional mode available on cards with no on/off state (e.g. button) + Accent Color entity binding
 node gradient_mode_check.mjs  # Threshold "Fade" (gradient) mode — generation, marker round-trip, live preview
+node gradient_typing_check.mjs  # typing a value into a gradient point can't scramble a different point mid-edit
+node gradient_uix_compat_check.mjs  # gradient marker actually applies against REAL card-mod (getComputedStyle), not just this project's own parser
 node scan.mjs            # which card types mount cleanly standalone
 ```
 
@@ -160,6 +162,22 @@ run.sh
   reopening a saved gradient-mode card recovers the real anchor points, not
   the ~32 generated rules; and the ▲/▼ swap buttons exchange two points'
   colors while leaving their values untouched.
+- **`harness/gradient_typing_check.mjs`** — types a real per-keystroke
+  value into a gradient point that briefly sorts before its neighbors
+  mid-edit (via `page.keyboard.type`, not `.value=`, since the bug only
+  reproduces with genuine incremental keystrokes) and verifies the typed
+  value lands on the point you were actually editing, not a different one
+  the list reordered underneath your cursor.
+- **`harness/gradient_uix_compat_check.mjs`** — the gradient marker
+  actually applies against **real card-mod**, checked via
+  `getComputedStyle` on a genuine `<hui-card>`, not just that this
+  project's own parser can read it back. Exists because the `beta.3`
+  marker (JSON) was spec-valid CSS but silently broke real card-mod's own
+  parsing anyway — invisible from source reading or this project's unit
+  tests, only caught by mounting a real card and reading the rendered
+  color. See `docs/DEVELOPMENT.md`'s "Real card-mod silently drops a whole
+  style block" note for the full story and why a fixed `setTimeout` isn't
+  enough to reliably catch this class of bug (poll instead).
 
 ---
 

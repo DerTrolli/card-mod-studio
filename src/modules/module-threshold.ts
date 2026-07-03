@@ -1,4 +1,5 @@
 import { LitElement, html, css, nothing } from 'lit';
+import { repeat } from 'lit/directives/repeat.js';
 import { property, state } from 'lit/decorators.js';
 import type { ThresholdModuleState, ThresholdProperty, ThresholdRule, ColorStop, HomeAssistant } from '../types/index.js';
 import { DEFAULT_THRESHOLD } from '../parser/state-mapper.js';
@@ -369,7 +370,11 @@ export class ThresholdModule extends LitElement {
           Points — the color fades smoothly between them; values outside this range stay
           clamped to the nearest end:
         </span>
-        ${stops.map((stop, sortedIndex) => this._renderStop(stop, sortedIndex, stops.length))}
+        ${repeat(
+          stops,
+          (stop) => stop.id,
+          (stop, sortedIndex) => this._renderStop(stop, sortedIndex, stops.length),
+        )}
         <button class="add-btn" @click=${this._addStop}>+ Add Point</button>
       </div>
       ${this._renderGradientPreview(stops)}
@@ -489,7 +494,7 @@ export class ThresholdModule extends LitElement {
         <input
           type="number"
           .value=${String(stop.value)}
-          @input=${(e: Event) =>
+          @change=${(e: Event) =>
             this._onStopValueChange(index, (e.target as HTMLInputElement).value)}
         />
         <span class="rule-label">→</span>

@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-03 · **Current version:** v0.6.2 (stable) · v0.7.0-beta.3 (pre-release, HACS beta opt-in)
+**Last updated:** 2026-07-03 · **Current version:** v0.6.2 (stable) · v0.7.0-beta.4 (pre-release, HACS beta opt-in)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -27,6 +27,19 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | v0.9 | Depth | Property-level templating beyond color (border width, icon size, blur/opacity driven by entity state — natural extension of v0.7's entity binding). Plus dict-form/`$`-pierce round-trip safety (item #1 below), which unblocks nested-shadow-DOM targets (glance icon, Mushroom/Bubble). |
 | v1.0 | Structural completeness | Container child-card editing (item #7 — styling a card inside a grid/stack/sections view currently targets the wrong card; probably the single biggest remaining hole) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
 | Post-1.0 | Stretch | Official Mushroom/Bubble selectors, a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
+
+## Recently shipped (v0.7.0-beta.4)
+
+- **Fixed: Gradient mode's colors never actually applied against real
+  card-mod.** The `beta.3` marker property was JSON; real card-mod's own
+  parsing silently drops an entire style block the instant a `{`/`}`
+  character appears anywhere in a custom property's value, even inside a
+  quoted string. Switched to a brace-free encoding, verified end-to-end
+  against a live card-mod instance.
+- **Fixed: typing a new value into a gradient point could scramble a
+  different point's value mid-edit**, because the list re-sorted on every
+  keystroke with unkeyed rows. Value now commits on blur/Enter; rows are
+  keyed by point id.
 
 ## Recently shipped (v0.7.0-beta.3)
 
@@ -199,7 +212,7 @@ from the audit.
 
 | # | Item | Description | Effort |
 |---|---|---|---|
-| 11 ✅ | **Smooth/gradient thresholds** | **Done (v0.7.0-beta.3)** — "Fade" value mode, approximated as ~32 dense step rules with the real anchor points recovered on reopen via a marker property. | M |
+| 11 ✅ | **Smooth/gradient thresholds** | **Done (v0.7.0-beta.4)** — "Fade" value mode, approximated as ~32 dense step rules with the real anchor points recovered on reopen via a marker property. (Shipped in beta.3, but didn't actually apply against real card-mod until beta.4 — see CHANGELOG.) | M |
 | 12 | **Import / export styles** | Copy a card's full style config to clipboard / paste onto another card (complements presets). | S |
 | 13 | **Preset management UX** | Rename, reorder, duplicate, and export presets; today it's load/save/delete only. | S |
 | 14 ✅ | **Mobile-friendly panel** | **Done (v0.5.0)** — a ResizeObserver stacks the preview below the controls below ~600px instead of starving them. | M |
