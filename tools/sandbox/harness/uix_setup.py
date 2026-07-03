@@ -12,32 +12,19 @@ immediately creates the config entry with async_create_entry. So this is just:
 and, only if that ever returns a form (defensive — current UIX source never
 shows one), follow up with an empty POST to advance it.
 
-Requires a tokens file from onboard.py (TOKENS_IN) for auth. Stdlib only."""
-import json, os, sys, time, urllib.request, urllib.error
+Requires a tokens file from onboard.py (TOKENS_IN) for auth. Stdlib only.
 
-HA_URL = os.environ.get("HA_URL", "http://127.0.0.1:8123")
+Reuses onboard.py's req() helper (including its OSError handling for HA
+resetting the connection mid-boot) rather than re-implementing it — this
+script's own retry loop below exists precisely to ride out that same flaky
+boot window, so it needs the same resilience."""
+import json, os, sys, time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from onboard import req  # noqa: E402 — req() reads HA_URL from onboard's own env lookup
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 TOKENS_IN = os.environ.get("TOKENS_IN", os.path.join(HERE, "tokens.json"))
-
-
-def req(method, path, data=None, token=None):
-    url = HA_URL + path
-    headers, body = {}, None
-    if data is not None:
-        body = json.dumps(data).encode()
-        headers["Content-Type"] = "application/json"
-    if token:
-        headers["Authorization"] = "Bearer " + token
-    r = urllib.request.Request(url, data=body, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(r, timeout=30) as resp:
-            raw = resp.read().decode()
-            return resp.status, (json.loads(raw) if raw.strip().startswith(("{", "[")) else raw)
-    except urllib.error.HTTPError as e:
-        raw = e.read().decode()
-        return e.code, (json.loads(raw) if raw.strip().startswith(("{", "[")) else raw)
-    except urllib.error.URLError as e:
-        return None, str(e)
 
 
 def main():

@@ -15,17 +15,14 @@ import { chromium } from 'playwright';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { waitForHassReady, makeRecorder, finish } from './harness-utils.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HA = process.env.HA_URL || 'http://127.0.0.1:8123';
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const tokens = JSON.parse(readFileSync(resolve(HERE, 'tokens.json'), 'utf8'));
 
-const results = [];
-const record = (name, pass, detail) => {
-  results.push({ name, pass, detail: detail ?? null });
-  console.log(pass ? '✅' : '❌', name, detail ?? '');
-};
+const { results, record } = makeRecorder();
 
 const mountPanel = async (page, config) => page.evaluate(async (cfg) => {
   const hass = document.querySelector('home-assistant').hass;
@@ -61,11 +58,11 @@ const run = async () => {
   const page = await browser.newPage({ viewport: { width: 900, height: 900 } });
   await page.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
   await page.goto(`${HA}/lovelace/0`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => {
-    const ha = document.querySelector('home-assistant');
-    return !!(ha && ha.hass && ha.hass.states && Object.keys(ha.hass.states).length > 10);
-  }, { timeout: 60000 });
+  await waitForHassReady(page);
   await page.waitForFunction(() => !!customElements.get('cms-panel'), { timeout: 30000 });
+  // card-mod can register slightly after cms-panel does — wait for it too,
+  // or the control check below can flake on a slow/cold run.
+  await page.waitForFunction(() => !!customElements.get('card-mod'), { timeout: 30000 }).catch(() => {});
 
   // Sanity: this sandbox really is card-mod-only, or the checks below prove nothing.
   const env = await page.evaluate(() => ({
@@ -107,13 +104,7 @@ const run = async () => {
 
   await browser.close();
 
-  writeFileSync(resolve(HERE, 'compat-check.json'), JSON.stringify(results, null, 2));
-  const failed = results.filter((c) => !c.pass);
-  console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
-  if (failed.length) {
-    console.error('FAILED:', failed.map((c) => c.name));
-    process.exit(1);
-  }
+  finish(writeFileSync, resolve, HERE, 'compat-check.json', results);
 };
 
 run().catch((e) => { console.error('ERR', e); process.exit(1); });

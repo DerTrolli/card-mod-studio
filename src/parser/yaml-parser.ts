@@ -30,6 +30,7 @@ import type {
   CssTarget,
 } from '../types/index.js';
 import { parseCss } from './css-parser.js';
+import { resolveStyle } from '../utils/style-compat.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -46,7 +47,7 @@ import { parseCss } from './css-parser.js';
  * Never throws.
  */
 export function parseCardModConfig(config: CardModCardConfig): CardModStyleState {
-  const style = config.uix?.style ?? config.card_mod?.style;
+  const style = resolveStyle(config);
 
   if (!style) {
     return emptyState();

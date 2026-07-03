@@ -17,6 +17,7 @@ import { chromium } from 'playwright';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { waitForHassReady, makeRecorder, finish } from './harness-utils.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HA = process.env.HA_URL || 'http://127.0.0.1:8124';
@@ -24,21 +25,14 @@ const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-
 const TOKENS_IN = process.env.TOKENS_IN || resolve(HERE, 'tokens-uix.json');
 const tokens = JSON.parse(readFileSync(TOKENS_IN, 'utf8'));
 
-const results = [];
-const record = (name, pass, detail) => {
-  results.push({ name, pass, detail: detail ?? null });
-  console.log(pass ? '✅' : '❌', name, detail ?? '');
-};
+const { results, record } = makeRecorder();
 
 const run = async () => {
   const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
   const page = await browser.newPage({ viewport: { width: 900, height: 900 } });
   await page.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
   await page.goto(`${HA}/lovelace/0`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => {
-    const ha = document.querySelector('home-assistant');
-    return !!(ha && ha.hass && ha.hass.states && Object.keys(ha.hass.states).length > 10);
-  }, { timeout: 60000 });
+  await waitForHassReady(page);
 
   // ---------------------------------------------------------------------
   // 1. Detection probes, against the real install.
@@ -152,13 +146,7 @@ const run = async () => {
 
   await browser.close();
 
-  writeFileSync(resolve(HERE, 'uix-matrix.json'), JSON.stringify(results, null, 2));
-  const failed = results.filter((c) => !c.pass);
-  console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
-  if (failed.length) {
-    console.error('FAILED:', failed.map((c) => c.name));
-    process.exit(1);
-  }
+  finish(writeFileSync, resolve, HERE, 'uix-matrix.json', results);
 };
 
 run().catch((e) => { console.error('ERR', e); process.exit(1); });

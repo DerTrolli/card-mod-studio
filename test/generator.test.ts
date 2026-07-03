@@ -570,6 +570,60 @@ describe('applyCardModStyle', () => {
     expect(result.uix).toBeUndefined();
   });
 
+  it('clearing uix.style with outputKey uix preserves other uix fields (macros, debug)', () => {
+    const withUix: CardModCardConfig = {
+      ...base,
+      uix: { style: 'ha-card { color: blue; }', debug: true, macros: { a: 1 } },
+    };
+    const result = applyCardModStyle('', withUix, 'uix');
+    expect(result.uix?.style).toBeUndefined();
+    expect(result.uix?.debug).toBe(true);
+    expect(result.uix?.macros).toEqual({ a: 1 });
+  });
+
+  it('clearing with outputKey uix also clears a stale card_mod.style, since UIX would otherwise fall back to it', () => {
+    const both: CardModCardConfig = {
+      ...base,
+      card_mod: { style: 'ha-card { color: blue; }' },
+      uix: { style: 'ha-card { color: blue; }' },
+    };
+    const result = applyCardModStyle('', both, 'uix');
+    expect(result.card_mod).toBeUndefined();
+    expect(result.uix).toBeUndefined();
+  });
+
+  it('clearing with outputKey card_mod (default) also clears a stale card_mod.style left over from before, regardless of outputKey', () => {
+    // Regression: clearing must always remove style under BOTH keys, not just
+    // the one named by outputKey — otherwise the un-cleared key's stale value
+    // reactivates via whichever engine's fallback precedence applies.
+    const cardModOnly: CardModCardConfig = { ...base, card_mod: { style: 'ha-card { color: blue; }' } };
+    const result = applyCardModStyle('', cardModOnly, 'uix');
+    expect(result.card_mod).toBeUndefined();
+  });
+
+  it('does not overwrite a uix.style that uses macros when syncing a card_mod edit', () => {
+    const macroUix: CardModCardConfig = {
+      ...base,
+      card_mod: { style: 'ha-card { color: blue; }' },
+      uix: { style: 'ha-card { color: {{ macros.foo() }}; }', macros: { foo: { template: 'red' } } },
+    };
+    const result = applyCardModStyle('ha-card { color: red; }', macroUix);
+    expect(result.card_mod?.style).toBe('ha-card { color: red; }');
+    // uix.style is left exactly as it was — not silently overwritten/destroyed.
+    expect(result.uix?.style).toBe('ha-card { color: {{ macros.foo() }}; }');
+    expect(result.uix?.macros).toEqual({ foo: { template: 'red' } });
+  });
+
+  it('does not overwrite a uix.style that uses billets when syncing a card_mod edit', () => {
+    const billetUix: CardModCardConfig = {
+      ...base,
+      card_mod: { style: 'ha-card { color: blue; }' },
+      uix: { style: 'ha-card { color: red; }', billets: { accent: 'red' } },
+    };
+    const result = applyCardModStyle('ha-card { color: green; }', billetUix);
+    expect(result.uix?.style).toBe('ha-card { color: red; }');
+  });
+
   // ---------------------------------------------------------------------------
   // Stale uix.style sync when writing card_mod (the default outputKey).
   // UIX prioritizes uix.style over card_mod.style, so a pre-existing uix.style

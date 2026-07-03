@@ -281,6 +281,16 @@ describe('parseCardModConfig', () => {
     expect(result.rawCss).toBe('ha-card { color: blue; }');
   });
 
+  it('falls back to card_mod.style when uix.style is an explicit empty string', () => {
+    const config: CardModCardConfig = {
+      type: 'button',
+      uix: { style: '' },
+      card_mod: { style: 'ha-card { color: blue; }' },
+    };
+    const result = parseCardModConfig(config);
+    expect(result.rawCss).toBe('ha-card { color: blue; }');
+  });
+
   it('parses a dictionary style from uix', () => {
     const config: CardModCardConfig = {
       type: 'button',
