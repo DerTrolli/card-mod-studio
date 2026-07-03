@@ -340,6 +340,10 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.7.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0
+[0.6.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.2
+[0.6.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.1
+[0.6.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.0
 [0.5.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.5.0
 [0.4.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.4.1
 [0.4.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.4.0
