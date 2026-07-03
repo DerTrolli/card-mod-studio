@@ -262,3 +262,44 @@ itself is hosted in `hui-card-element-editor`'s shadow root (see `getPanelHost`)
 falling back to the dialog's own shadow root. If HA restructures the dialog,
 update these in `cms-injector.ts`. Always inspect the live shadow DOM first
 (see Debugging section).
+
+### `position: fixed` popovers inside the dialog
+
+Any UI that pops out of normal flow with `position: fixed` (like
+`cms-color-picker`'s compact-mode popover) has to account for two properties
+of HA's card-edit dialog that a component's own shadow DOM doesn't shield it
+from:
+
+1. **The native `<dialog>` (nested `ha-dialog` → `wa-dialog` → `<dialog>`,
+   two shadow roots deep) carries a CSS `transform`.** It's an identity
+   matrix with no visible effect, but per the CSS spec *any* transform
+   value other than `none` still establishes a new containing block for
+   `position: fixed` descendants — so `top`/`left` computed from
+   viewport-relative `getBoundingClientRect()` coordinates get applied
+   relative to the dialog's own top-left corner instead, and get clipped
+   by its `overflow: hidden`.
+2. **The dialog is shown via `showModal()`**, which promotes it to the
+   browser's "top layer" — nothing outside that layer can paint above it,
+   regardless of z-index. Escaping #1 by rendering into a portal on
+   `document.body` fixes the positioning but makes the popover invisible,
+   hidden behind the modal.
+
+`cms-color-picker.ts`'s `_ensurePortal`/`findModalDialogAncestor` is the
+reference implementation: find the nearest open modal `<dialog>` ancestor by
+walking the *flattened* tree (piercing shadow hosts and `<slot>`
+assignments — a plain `parentElement`/`closest()` walk misses both), append
+the popover portal as that dialog's direct child when found (keeping it in
+the top layer), and compute position relative to the dialog's own rect
+instead of the viewport's. Falls back to `document.body` +
+viewport-relative positioning when there's no dialog ancestor (e.g. a
+component mounted standalone, as in the sandbox's `palette_check.mjs`).
+
+**This is untestable with a standalone-mounted panel.** Any check that does
+`document.createElement('cms-panel')` straight onto `document.body` has no
+`<dialog>` ancestor at all, so it can't exercise either problem above —
+`tools/sandbox/harness/dialog_popover_check.mjs` opens the *real* HA dialog
+(overflow menu → Edit dashboard → a card's Edit link → Style tab) instead,
+and verifies the popover is genuinely clickable at its rendered position
+(piercing shadow roots via nested `elementFromPoint` calls), not just
+present in the DOM — a purely positional/`getBoundingClientRect()` check
+can't tell "on-screen" apart from "on-screen but painted behind the modal".

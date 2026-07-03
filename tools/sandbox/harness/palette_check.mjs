@@ -88,7 +88,14 @@ const run = async () => {
     // Lit renders asynchronously (microtask) — the popover isn't in the DOM
     // synchronously right after .click(), so wait for the update to flush.
     await defaultColorPicker.updateComplete;
-    const popover = defaultColorPicker.shadowRoot.querySelector('.popover');
+    // The popover renders into a portal <div> appended to document.body
+    // (this ad-hoc-mounted panel has no <dialog> ancestor to nest inside —
+    // see cms-color-picker.ts's _ensurePortal doc comment), not into
+    // defaultColorPicker's own shadow root.
+    const popover = [...document.body.children]
+      .filter((el) => el.shadowRoot)
+      .map((el) => el.shadowRoot.querySelector('.popover'))
+      .find(Boolean);
     const rect = popover?.getBoundingClientRect();
     return {
       opened: !!popover,
@@ -106,20 +113,25 @@ const run = async () => {
     const defaultRow = [...thresholdModule.shadowRoot.querySelectorAll('.control-row')]
       .find((row) => row.textContent.includes('Default color'));
     const defaultColorPicker = defaultRow.querySelector('cms-color-picker');
+    const findPopover = () => [...document.body.children]
+      .filter((el) => el.shadowRoot)
+      .map((el) => el.shadowRoot.querySelector('.popover'))
+      .find(Boolean);
     // Self-contained: (re)open the popover if a prior step left it closed,
     // rather than assuming it's still open from the previous evaluate().
-    if (!defaultColorPicker.shadowRoot.querySelector('.popover')) {
+    if (!findPopover()) {
       defaultColorPicker.shadowRoot.querySelector('.swatch-trigger').click();
       await defaultColorPicker.updateComplete;
     }
-    const orangePreset = [...defaultColorPicker.shadowRoot.querySelectorAll('.preset')].find((p) => p.title.startsWith('Orange'));
+    const popover = findPopover();
+    const orangePreset = [...popover.querySelectorAll('.preset')].find((p) => p.title.startsWith('Orange'));
     let emitted = null;
     panel.addEventListener('config-changed', (e) => { emitted = e.detail.config; });
     orangePreset.click();
     await defaultColorPicker.updateComplete;
     return {
       pickerValueAfter: defaultColorPicker.value,
-      popoverClosedAfterPick: !defaultColorPicker.shadowRoot.querySelector('.popover'),
+      popoverClosedAfterPick: !findPopover(),
       emittedStyleHasOrange: emitted?.card_mod?.style?.includes("'var(--orange-color)'") ?? false,
     };
   });
