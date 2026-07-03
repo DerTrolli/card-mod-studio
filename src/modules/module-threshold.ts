@@ -4,6 +4,8 @@ import type { ThresholdModuleState, ThresholdRule } from '../types/index.js';
 import { DEFAULT_THRESHOLD } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
 import { sortThresholdRules } from '../generator/css-generator.js';
+import { previewHexFor } from '../components/cms-color-picker.js';
+import '../components/cms-color-picker.js';
 
 export class ThresholdModule extends LitElement {
   @property({ attribute: false }) state: ThresholdModuleState = {
@@ -39,14 +41,6 @@ export class ThresholdModule extends LitElement {
       }
       .rule select {
         width: 60px;
-      }
-      .rule input[type='color'] {
-        width: 32px;
-        height: 24px;
-        padding: 0;
-        border: 1px solid var(--divider-color, #383838);
-        border-radius: 4px;
-        cursor: pointer;
       }
       .rule button {
         padding: 2px 8px;
@@ -257,12 +251,11 @@ export class ThresholdModule extends LitElement {
         <div class="control-row" style="margin-top: 12px;">
           <span class="control-label">Default color</span>
           <div class="control-right">
-            <input
-              type="color"
-              .value=${this._toHex(this.state.defaultColor)}
-              @input=${(e: Event) =>
-                this._emit({ defaultColor: (e.target as HTMLInputElement).value })}
-            />
+            <cms-color-picker
+              compact
+              .value=${this.state.defaultColor}
+              @color-changed=${(e: CustomEvent) => this._emit({ defaultColor: e.detail.value })}
+            ></cms-color-picker>
             <span class="color-label">${this.state.defaultColor}</span>
           </div>
         </div>
@@ -280,7 +273,7 @@ export class ThresholdModule extends LitElement {
     const sorted = sortThresholdRules(this.state.rules);
     const defaultSwatch = html`<span
       class="legend-sw"
-      style="background:${this._toHex(this.state.defaultColor)}"
+      style="background:${previewHexFor(this.state.defaultColor)}"
     ></span>`;
 
     if (sorted.length === 0) {
@@ -303,7 +296,7 @@ export class ThresholdModule extends LitElement {
               <span class="legend-cond">
                 ${i === 0 ? 'If' : 'else if'} value ${r.operator} ${r.value}
               </span>
-              <span class="legend-sw" style="background:${this._toHex(r.color)}"></span>
+              <span class="legend-sw" style="background:${previewHexFor(r.color)}"></span>
             </div>
           `,
         )}
@@ -337,12 +330,11 @@ export class ThresholdModule extends LitElement {
             this._onValueChange(index, (e.target as HTMLInputElement).value)}
         />
         <span class="rule-label">→</span>
-        <input
-          type="color"
-          .value=${this._toHex(rule.color)}
-          @input=${(e: Event) =>
-            this._onRuleColorChange(index, (e.target as HTMLInputElement).value)}
-        />
+        <cms-color-picker
+          compact
+          .value=${rule.color}
+          @color-changed=${(e: CustomEvent) => this._onRuleColorChange(index, e.detail.value)}
+        ></cms-color-picker>
         <button @click=${() => this._removeRule(index)}>×</button>
       </div>
     `;
@@ -383,26 +375,6 @@ export class ThresholdModule extends LitElement {
     const rules = [...this.state.rules];
     rules[index] = { ...rules[index], color };
     this._emit({ rules });
-  }
-
-  /** Resolves any CSS color to a 6-digit hex for <input type="color">. */
-  private _toHex(value: string): string {
-    if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
-    if (/^#[0-9a-fA-F]{3}$/.test(value)) {
-      return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`;
-    }
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1;
-      canvas.height = 1;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = value;
-      ctx.fillRect(0, 0, 1, 1);
-      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-    } catch {
-      return '#888888';
-    }
   }
 }
 

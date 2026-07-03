@@ -108,14 +108,6 @@ export class EntitiesRowsModule extends LitElement {
       }
       .rule input[type='number'] { width: 70px; }
       .rule select { width: 60px; }
-      .rule input[type='color'] {
-        width: 32px;
-        height: 24px;
-        padding: 0;
-        border: 1px solid var(--divider-color, #383838);
-        border-radius: 4px;
-        cursor: pointer;
-      }
       .rule button {
         padding: 2px 8px;
         cursor: pointer;
@@ -351,13 +343,11 @@ export class EntitiesRowsModule extends LitElement {
               })}
             />
             <span class="rule-label">→</span>
-            <input
-              type="color"
-              .value=${this._toHex(rule.color)}
-              @input=${(e: Event) => this._updateRule(entityId, prop, i, {
-                color: (e.target as HTMLInputElement).value,
-              })}
-            />
+            <cms-color-picker
+              compact
+              .value=${rule.color}
+              @color-changed=${(e: CustomEvent) => this._updateRule(entityId, prop, i, { color: e.detail.value })}
+            ></cms-color-picker>
             <button @click=${() => this._removeRule(entityId, prop, i)}>×</button>
           </div>
         `)}
@@ -365,14 +355,14 @@ export class EntitiesRowsModule extends LitElement {
         <div class="control-row" style="margin-top:4px">
           <span class="control-label">Default color</span>
           <div class="control-right">
-            <input
-              type="color"
-              .value=${this._toHex(defaultColor)}
-              @input=${(e: Event) => {
+            <cms-color-picker
+              compact
+              .value=${defaultColor}
+              @color-changed=${(e: CustomEvent) => {
                 const key = prop === 'icon' ? 'iconDefault' : 'textDefault';
-                this._updateRow(entityId, { [key]: (e.target as HTMLInputElement).value });
+                this._updateRow(entityId, { [key]: e.detail.value });
               }}
-            />
+            ></cms-color-picker>
             <span class="rule-label">${defaultColor}</span>
           </div>
         </div>
@@ -426,21 +416,6 @@ export class EntitiesRowsModule extends LitElement {
     const rules = [...(current[key] ?? [])];
     rules[index] = { ...rules[index], ...changes };
     this._updateRow(entityId, { [key]: rules });
-  }
-
-  private _toHex(value: string): string {
-    if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
-    if (/^#[0-9a-fA-F]{3}$/.test(value)) {
-      return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`;
-    }
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1; canvas.height = 1;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = value; ctx.fillRect(0, 0, 1, 1);
-      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-    } catch { return '#888888'; }
   }
 }
 

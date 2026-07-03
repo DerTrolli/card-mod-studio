@@ -65,23 +65,56 @@ function getPanelHost(dialog: HuiDialogEditCard): ShadowRoot | null {
 }
 
 /**
- * Attempts to expand the HA dialog to use more vertical space.
- * Sets --mdc-dialog-max-height on the ha-dialog element inside the shadow root.
+ * Attempts to expand the HA dialog to use more vertical space. A short-content
+ * card (e.g. tile with only a couple of native fields) otherwise produces a
+ * dialog too small for our 2-column panel, forcing constant internal scrolling.
+ *
+ * HA has (as of the "Web Awesome" dialog redesign) two different dialog
+ * implementations in the wild, so this targets both:
+ *
+ * - Legacy MDC-based `ha-dialog`: setting `--mdc-dialog-max-height` directly
+ *   on `ha-dialog` works.
+ * - Current `ha-dialog`, which wraps a `<wa-dialog>` custom element whose own
+ *   shadow root contains the actual native `<dialog part="dialog">` that
+ *   controls rendered size: `--mdc-dialog-max-height` on `ha-dialog` (or any
+ *   custom property on `wa-dialog` itself) is a no-op here — confirmed
+ *   empirically against a live HA instance (getComputedStyle inspection of
+ *   the nested shadow roots) — only a style set directly on that innermost
+ *   `<dialog>` element takes effect. We use `max-height` (not `height`) so a
+ *   card with genuinely little content still sizes to fit it rather than
+ *   always taking the full 92vh.
+ *
+ * Both branches are no-ops (silently, via optional chaining) if their target
+ * structure isn't found, so a future HA redesign degrades gracefully instead
+ * of throwing — same tradeoff as the rest of this file's selectors.
  */
 function tryExpandDialog(dialog: HuiDialogEditCard): void {
   const root = dialog.shadowRoot;
   if (!root) return;
 
-  // Expand the MDC dialog surface to use more viewport height
   const haDialog = root.querySelector('ha-dialog') as HTMLElement | null;
   if (haDialog) {
     haDialog.style.setProperty('--mdc-dialog-max-height', '92vh');
+
+    const nativeDialogEl = haDialog.shadowRoot
+      ?.querySelector('wa-dialog')
+      ?.shadowRoot?.querySelector('dialog') as HTMLElement | null;
+    nativeDialogEl?.style.setProperty('max-height', '92vh');
   }
 
   // Force hui-card-element-editor to be tall enough for our 2-column panel.
   // Without this, a simple card with few native options produces a tiny dialog.
   const cardEditor = root.querySelector('hui-card-element-editor') as HTMLElement | null;
   if (cardEditor) {
+    // hui-card-element-editor has no explicit `display` set on current HA, so
+    // it defaults to `inline` — and min-height (like height/max-height) is a
+    // no-op on inline elements per the CSS spec. Confirmed empirically: with
+    // display left as-is, min-height:72vh silently did nothing (stayed at its
+    // ~364px content height); forcing block unblocks it (grows to the full
+    // 720px), which is also what lets the wa-dialog max-height fix above
+    // actually matter — the outer dialog only grows because this inner
+    // content now genuinely needs the room.
+    cardEditor.style.display = 'block';
     cardEditor.style.minHeight = '72vh';
   }
 }

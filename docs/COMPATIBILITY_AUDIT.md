@@ -1,7 +1,7 @@
 # Card-Mod Studio — card-mod 4.x / HA 2026 Compatibility Audit
 
 **Audit date:** 2026-06-25 (card-mod/HA) · 2026-07-03 (UIX addendum, §9)
-**Audited version:** v0.4.0 (card-mod/HA) · v0.6.0 (UIX)
+**Audited version:** v0.4.0 (card-mod/HA) · v0.6.0 (UIX) · v0.6.1 (entities-row parser fix, §10 item 5a)
 **Reference targets:**
 - card-mod **v4.2.1** (latest; released 2026-02-08). Major breaking release was
   **v4.0.0** (2026-11-18, requires HA 2025.11+).
@@ -268,6 +268,14 @@ being duplicated).
    ROADMAP #19.
 5. **[Med] Dict-form entities-row styles** (§9) — same fix as #2, at the row
    level. ROADMAP #23.
+5a. ✅ **[Med] Entities-row threshold default color silently discarded on
+   parse** — **Fixed (v0.6.1)**. A distinct bug from #5 (string-form, not
+   dict-form): `_parseEntityRowCss`'s value regex (`[^;}\n]+`) truncated
+   right before a Jinja expression's closing `}}`, so `DEFAULT_RE` could
+   never match and the row's real default color silently fell back to
+   `#888888` on every panel re-open. Fixed by routing through the existing
+   Jinja-safe `parseCss` instead (now exported as `parseEntityRowCss` in
+   `state-mapper.ts`, with unit test coverage).
 6. **[Med] Duplicate-entity-ID rows cross-contaminate styling** (§9) — needs a
    positional row key instead of entity-keyed. ROADMAP #24.
 7. **[Low] Phase out `--paper-item-icon-active-color`** in the accent module.

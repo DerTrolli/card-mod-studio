@@ -27,7 +27,9 @@ import type {
   ThresholdRule,
   AdvancedModuleState,
   StudioState,
+  EntitiesRowStyle,
 } from '../types/index.js';
+import { parseCss } from './css-parser.js';
 
 // ---------------------------------------------------------------------------
 // Default states
@@ -562,9 +564,13 @@ export function parseThresholdJinja(value: string): {
 } | null {
   if (!value.includes('float(0)')) return null;
 
+  // Color token accepts hex, a bare CSS color name, or var(--xxx-color) —
+  // the last form is what the palette presets (see cms-color-picker.ts)
+  // write, so a rule picked from the palette round-trips back into a rule
+  // instead of falling through to Advanced CSS.
   const RULE_RE =
-    /'(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)'\s+if\s+states\('([^']+)'\)\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*([\d.]+(?:\.\d+)?)/g;
-  const DEFAULT_RE = /else\s+'(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)'\s*[)}\s]/;
+    /'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|[a-zA-Z]+)'\s+if\s+states\('([^']+)'\)\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*([\d.]+(?:\.\d+)?)/g;
+  const DEFAULT_RE = /else\s+'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|[a-zA-Z]+)'\s*[)}\s]/;
 
   const rules: ThresholdRule[] = [];
   let entityId = '';
@@ -588,6 +594,56 @@ export function parseThresholdJinja(value: string): {
   const defaultColor = defaultMatch ? defaultMatch[1] : DEFAULT_THRESHOLD.defaultColor;
 
   return { entityId, rules, defaultColor };
+}
+
+/**
+ * Recognises an entities-card row's card_mod/uix style text into row-level
+ * UI state. Our own generator always wraps row declarations in ":host { }"
+ * (see cms-panel.ts → _generateEntityRowCss); if a hand-authored value omits
+ * the selector, a synthetic one is used instead. Delegating to parseCss
+ * (rather than regexing the raw text directly) matters because a naive
+ * value capture like `[^;}\n]+` truncates at the first "}" — fatal for any
+ * {{ ... }} threshold expression, which always ends in "}}".
+ */
+export function parseEntityRowCss(css: string): EntitiesRowStyle {
+  const style: EntitiesRowStyle = { iconColor: '', textColor: '' };
+
+  let [target] = parseCss(css);
+  if (!target) [target] = parseCss(`:host{${css}}`);
+  const properties = target?.properties ?? [];
+  const valueOf = (...names: string[]): string => {
+    for (const name of names) {
+      const found = properties.find((p) => p.property === name);
+      if (found) return found.value.trim();
+    }
+    return '';
+  };
+
+  const iconVal = valueOf('--state-icon-color', '--paper-item-icon-color');
+  if (iconVal.includes('float(0)')) {
+    const parsed = parseThresholdJinja(iconVal);
+    if (parsed) {
+      style.iconMode = 'threshold';
+      style.iconRules = parsed.rules;
+      style.iconDefault = parsed.defaultColor;
+    }
+  } else {
+    style.iconColor = iconVal;
+  }
+
+  const textVal = valueOf('color');
+  if (textVal.includes('float(0)')) {
+    const parsed = parseThresholdJinja(textVal);
+    if (parsed) {
+      style.textMode = 'threshold';
+      style.textRules = parsed.rules;
+      style.textDefault = parsed.defaultColor;
+    }
+  } else {
+    style.textColor = textVal;
+  }
+
+  return style;
 }
 
 function mapThreshold(

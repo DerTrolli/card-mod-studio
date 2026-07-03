@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseCss } from '../src/parser/css-parser.js';
 import { parseCardModConfig } from '../src/parser/yaml-parser.js';
-import { mapToStudioState } from '../src/parser/state-mapper.js';
+import { mapToStudioState, parseEntityRowCss } from '../src/parser/state-mapper.js';
 import type { CardModCardConfig } from '../src/types/index.js';
 
 // =============================================================================
@@ -564,5 +564,88 @@ describe('mapToStudioState', () => {
     expect(state.iconColor.mode).toBe('plain');
     expect(state.iconColor.color).toBe('yellow');
     expect(state.advanced.rawCss).toBe('');
+  });
+});
+
+// =============================================================================
+// parseEntityRowCss (entities-card per-row style recognition)
+// =============================================================================
+
+describe('parseEntityRowCss', () => {
+  it('parses a static icon + text color with no :host wrapper (bare declarations)', () => {
+    const style = parseEntityRowCss('--state-icon-color: #ff0000;\ncolor: #00ff00;');
+    expect(style.iconColor).toBe('#ff0000');
+    expect(style.iconMode).toBeUndefined();
+    expect(style.textColor).toBe('#00ff00');
+    expect(style.textMode).toBeUndefined();
+  });
+
+  it('parses a static icon + text color wrapped in :host { } (our own generated form)', () => {
+    const style = parseEntityRowCss(':host {\n  --state-icon-color: #ff0000;\n  color: #00ff00;\n}');
+    expect(style.iconColor).toBe('#ff0000');
+    expect(style.textColor).toBe('#00ff00');
+  });
+
+  it('falls back to --paper-item-icon-color when --state-icon-color is absent', () => {
+    const style = parseEntityRowCss(':host { --paper-item-icon-color: #123456; }');
+    expect(style.iconColor).toBe('#123456');
+  });
+
+  it('prefers --state-icon-color over --paper-item-icon-color when both are present', () => {
+    const style = parseEntityRowCss(
+      ':host { --paper-item-icon-color: #111111; --state-icon-color: #222222; }',
+    );
+    expect(style.iconColor).toBe('#222222');
+  });
+
+  // Regression test: a naive `[^;}\n]+` value-capture regex truncates right
+  // before the Jinja block's closing "}}", which meant DEFAULT_RE could never
+  // match and the row's real default color was silently discarded in favour
+  // of the hardcoded #888888 fallback — on every single re-open of the panel.
+  it('does not truncate a single-rule threshold expression at the Jinja closing "}}" (default color regression)', () => {
+    const style = parseEntityRowCss(
+      ":host { --state-icon-color: {{ '#ff0000' if states('light.x') | float(0) >= 85 else '#888888' }}; }",
+    );
+    expect(style.iconMode).toBe('threshold');
+    expect(style.iconRules).toHaveLength(1);
+    expect(style.iconRules?.[0]).toMatchObject({ operator: '>=', value: 85, color: '#ff0000' });
+    expect(style.iconDefault).toBe('#888888');
+  });
+
+  it('round-trips a palette var(--x-color) threshold rule and default (no :host wrapper)', () => {
+    const style = parseEntityRowCss(
+      "--state-icon-color: {{ 'var(--red-color)' if states('light.ceiling_lights') | float(0) >= 85 else 'var(--grey-color)' }};",
+    );
+    expect(style.iconMode).toBe('threshold');
+    expect(style.iconRules).toHaveLength(1);
+    expect(style.iconRules?.[0]).toMatchObject({ operator: '>=', value: 85, color: 'var(--red-color)' });
+    // Before the fix this fell back to the hardcoded '#888888' default.
+    expect(style.iconDefault).toBe('var(--grey-color)');
+  });
+
+  it('parses a multi-rule text-color threshold independently of icon color', () => {
+    const style = parseEntityRowCss(
+      ":host {\n  color: {{ '#ff0000' if states('sensor.x') | float(0) >= 85 else ('#ffa500' if states('sensor.x') | float(0) >= 72 else '#4caf50') }};\n}",
+    );
+    expect(style.textMode).toBe('threshold');
+    expect(style.textRules).toHaveLength(2);
+    expect(style.textDefault).toBe('#4caf50');
+    expect(style.iconMode).toBeUndefined();
+    expect(style.iconColor).toBe('');
+  });
+
+  it('parses both icon and text thresholds together', () => {
+    const style = parseEntityRowCss(
+      ":host {\n  --state-icon-color: {{ 'var(--red-color)' if states('x') | float(0) >= 85 else 'var(--grey-color)' }};\n  color: {{ '#ff0000' if states('x') | float(0) >= 85 else '#4caf50' }};\n}",
+    );
+    expect(style.iconMode).toBe('threshold');
+    expect(style.iconDefault).toBe('var(--grey-color)');
+    expect(style.textMode).toBe('threshold');
+    expect(style.textDefault).toBe('#4caf50');
+  });
+
+  it('returns empty static colors for an empty style string', () => {
+    const style = parseEntityRowCss('');
+    expect(style).toEqual({ iconColor: '', textColor: '' });
   });
 });

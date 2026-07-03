@@ -23,9 +23,8 @@ import { isUixOnlyStyle, usesUixOnlyFeatures, hasUixOnlyRow, resolveStyle } from
 import { loadPresets, savePresets } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
 import { parseCardModConfig } from '../parser/yaml-parser.js';
-import { mapToStudioState } from '../parser/state-mapper.js';
+import { mapToStudioState, parseEntityRowCss } from '../parser/state-mapper.js';
 import { generateCss, buildThresholdJinja } from '../generator/css-generator.js';
-import { parseThresholdJinja } from '../parser/state-mapper.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
 
 import '../modules/module-filter.js';
@@ -174,43 +173,10 @@ export class CmsPanel extends LitElement {
       // card_mod.style.
       const modStyle = resolveStyle(row);
       if (typeof modStyle === 'string') {
-        styles[row.entity] = this._parseEntityRowCss(modStyle);
+        styles[row.entity] = parseEntityRowCss(modStyle);
       }
     }
     this._entityRowStyles = styles;
-  }
-
-  private _parseEntityRowCss(css: string): EntitiesRowStyle {
-    const style: EntitiesRowStyle = { iconColor: '', textColor: '' };
-
-    const stateIconMatch = css.match(/--state-icon-color\s*:\s*([^;}\n]+)/);
-    const paperIconMatch = css.match(/--paper-item-icon-color\s*:\s*([^;}\n]+)/);
-    const iconVal = (stateIconMatch?.[1] ?? paperIconMatch?.[1] ?? '').trim();
-    if (iconVal.includes('float(0)')) {
-      const parsed = parseThresholdJinja(iconVal);
-      if (parsed) {
-        style.iconMode = 'threshold';
-        style.iconRules = parsed.rules;
-        style.iconDefault = parsed.defaultColor;
-      }
-    } else {
-      style.iconColor = iconVal;
-    }
-
-    const textMatch = css.match(/(?<!--)(?:^|[;\s{])color\s*:\s*([^;}\n]+)/m);
-    const textVal = textMatch?.[1]?.trim() ?? '';
-    if (textVal.includes('float(0)')) {
-      const parsed = parseThresholdJinja(textVal);
-      if (parsed) {
-        style.textMode = 'threshold';
-        style.textRules = parsed.rules;
-        style.textDefault = parsed.defaultColor;
-      }
-    } else {
-      style.textColor = textVal;
-    }
-
-    return style;
   }
 
   private _generateEntityRowCss(style: EntitiesRowStyle, entityId: string): string {

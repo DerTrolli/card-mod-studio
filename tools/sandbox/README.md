@@ -59,6 +59,7 @@ cd tools/sandbox/harness
 node matrix.mjs          # 15 standalone-mountable card types
 node button_matrix.mjs   # adds the button row via a real dashboard
 node compat_check.mjs    # card_mod:/uix: cross-compat warning banner (real cms-panel)
+node palette_check.mjs   # threshold color-palette picker (card + entities-row level)
 node scan.mjs            # which card types mount cleanly standalone
 ```
 
@@ -99,6 +100,13 @@ run.sh
   `card_mod.style`), a `uix:` block using macros/billets shows an
   incompatibility warning with no fix button instead, and an ordinary
   `card_mod:`-only card shows no banner at all.
+- **`harness/palette_check.mjs`** — mounts the real `cms-panel` editor and
+  verifies the compact color-picker palette on Threshold Colors: a
+  `var(--x-color)` rule parses into recognised rules instead of falling to
+  Advanced CSS, the popover opens fully on-screen with all 10 presets,
+  picking a preset updates the value/closes the popover/reaches the emitted
+  `card_mod.style`, and the entities-card row-level threshold builder uses
+  the same picker.
 
 ---
 

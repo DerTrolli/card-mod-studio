@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-03 · **Current version:** v0.6.0
+**Last updated:** 2026-07-03 · **Current version:** v0.6.1
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -9,6 +9,27 @@ the scattered "Future" sections in `CARD_TYPE_PLAN.md` and `BUG_FIX_PLAN.md`.
 
 Priorities reflect both user value and the findings in
 [COMPATIBILITY_AUDIT.md](COMPATIBILITY_AUDIT.md).
+
+## Recently shipped (v0.6.1)
+
+- **Consistent color palette for Threshold Colors** — the compact swatch +
+  popover picker already used elsewhere now covers every threshold rule
+  color and default color, at both the card and entities-row level, instead
+  of hand-typed/copy-pasted hex values. `parseThresholdJinja` recognises
+  `var(--x-color)` palette tokens so a picked preset round-trips correctly.
+- **Resizable style dialog** — opening Style on a short-content card (e.g.
+  tile) no longer traps the module list in the card's original short dialog
+  height. Root-caused to HA's MDC → "Web Awesome" dialog migration (stale
+  `--mdc-dialog-max-height` targeting) plus `hui-card-element-editor`
+  defaulting to `display: inline` (on which `min-height` is a no-op) — fixed
+  both, verified live.
+- **Fixed silent data loss in entities-row threshold parsing** — the
+  default color of a per-row threshold rule was being discarded on every
+  panel re-open (regex truncation at the Jinja `{{ ... }}` boundary),
+  silently replaced with a hardcoded fallback. Found while building the
+  palette feature above; fixed by routing through the existing Jinja-safe
+  `parseCss` instead of an ad-hoc regex. Now unit tested
+  (`parseEntityRowCss` in `state-mapper.ts`).
 
 ## Recently shipped (v0.6.0)
 

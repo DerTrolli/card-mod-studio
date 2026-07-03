@@ -792,6 +792,28 @@ describe('round-trip', () => {
     expect(generated).toContain("else '#888888'");
   });
 
+  it('threshold with palette var(--x-color) rules round-trips with no rawCss', () => {
+    // The compact color picker's presets (cms-color-picker.ts) write
+    // var(--x-color) values — this is the same shape a palette-driven
+    // threshold rule would produce, and must not fall through to Advanced CSS.
+    const original =
+      "ha-state-icon {\n  color: {{ 'var(--red-color)' if states('sensor.temp') | float(0) >= 85 else ('var(--orange-color)' if states('sensor.temp') | float(0) >= 72 else 'var(--grey-color)') }} !important;\n}";
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+
+    expect(state.threshold.enabled).toBe(true);
+    expect(state.threshold.property).toBe('icon-color');
+    expect(state.threshold.rules).toHaveLength(2);
+    expect(state.threshold.rules.map((r) => r.color)).toEqual(['var(--red-color)', 'var(--orange-color)']);
+    expect(state.threshold.defaultColor).toBe('var(--grey-color)');
+    expect(state.advanced.rawCss).toBe('');
+
+    const generated = generateCss(state);
+    expect(generated).toContain("'var(--red-color)'");
+    expect(generated).toContain("'var(--orange-color)'");
+    expect(generated).toContain("else 'var(--grey-color)'");
+  });
+
   it('heading style round-trips with no rawCss', () => {
     const original =
       '.container {\n  justify-content: center;\n}\n\n.title p {\n  font-size: 28px;\n  color: #ff0000;\n  text-align: center;\n}\n\n.title ha-icon {\n  --mdc-icon-size: 32px;\n  color: #00ff00;\n}';
