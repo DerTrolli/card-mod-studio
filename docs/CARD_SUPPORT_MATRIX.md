@@ -14,8 +14,8 @@ actually change vs baseline. Reproduce with [`tools/sandbox`](../tools/sandbox/R
 > marked ✔︎ verified below. Single-property measurements can also mislead — see
 > the accent-color correction.
 
-This complements (not blindly supersedes) `CARD_TYPE_PLAN.md`; where they disagree
-and the cell was dashboard-verified, trust this doc.
+This is the current, empirically-measured source of truth for per-card-type
+support — earlier speculative planning docs it superseded have been retired.
 
 > **UIX note (v0.6.0):** this matrix was measured against card-mod, but the CSS
 > the Studio generates is identical either way — UIX applies the same

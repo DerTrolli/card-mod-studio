@@ -5,6 +5,46 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] — 2026-07-03
+
+Fixes a real bug in the v0.6.1 threshold color-palette popover, reported
+with a screenshot right after v0.6.1 shipped: the popover opened hundreds
+of pixels off to the side, half off-screen.
+
+### Fixed
+- **The threshold color-palette popover opened far off to the side (or was
+  invisible entirely) when used inside HA's real card-edit dialog.** Root
+  cause was two-fold, and only reproducible inside the *real* dialog —
+  `palette_check.mjs`'s standalone-mounted panel (no `<dialog>` ancestor)
+  never exercised either path:
+  1. HA's dialog nests a native `<dialog>` two shadow roots deep
+     (`ha-dialog` → `wa-dialog` → `<dialog>`), and that `<dialog>` carries
+     `transform: matrix(1,0,0,1,0,0)` — an identity matrix with no visible
+     effect, but per the CSS spec *any* transform value other than `none`
+     still establishes a new containing block for `position: fixed`
+     descendants. The popover's `top`/`left` (computed from viewport-relative
+     coordinates) were being applied relative to that dialog's own top-left
+     corner instead of the viewport, and clipped by its `overflow: hidden`.
+  2. The dialog is shown via `showModal()`, promoting it to the browser's
+     "top layer" — nothing outside it can paint above it regardless of
+     z-index, so naively fixing #1 by rendering the popover into a portal
+     on `document.body` made it correctly positioned but fully invisible,
+     hidden behind the modal.
+  Fixed by rendering the popover into a portal appended as a child of the
+  nearest open modal `<dialog>` ancestor when one exists (found by walking
+  the *flattened* DOM tree — piercing shadow hosts and `<slot>` assignments,
+  not just `parentElement`) — keeping it in the top layer — with position
+  computed relative to that dialog's own rect instead of the viewport's,
+  since the dialog is now deliberately its containing block. Falls back to
+  `document.body` with viewport-relative positioning when there's no dialog
+  ancestor (e.g. used standalone, as in `palette_check.mjs`). Verified
+  against a live HA instance across six viewport sizes (1920×1080 down to
+  800×600) and with a new permanent regression check that opens the real
+  dialog and confirms the popover isn't just present in the DOM but
+  genuinely clickable at its rendered position, piercing shadow roots via
+  nested `elementFromPoint` calls
+  (`tools/sandbox/harness/dialog_popover_check.mjs`).
+
 ## [0.6.1] — 2026-07-03
 
 UX polish on top of v0.6.0, plus real correctness fixes found while building

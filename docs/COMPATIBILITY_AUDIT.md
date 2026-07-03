@@ -1,7 +1,7 @@
 # Card-Mod Studio — card-mod 4.x / HA 2026 Compatibility Audit
 
 **Audit date:** 2026-06-25 (card-mod/HA) · 2026-07-03 (UIX addendum, §9)
-**Audited version:** v0.4.0 (card-mod/HA) · v0.6.0 (UIX) · v0.6.1 (entities-row parser fix §10 item 5a, card_mod:/uix: dedup-on-edit §10 item 5b, same-selector-twice parse bug §10 item 5c)
+**Audited version:** v0.4.0 (card-mod/HA) · v0.6.0 (UIX) · v0.6.1 (entities-row parser fix §10 item 5a, card_mod:/uix: dedup-on-edit §10 item 5b, same-selector-twice parse bug §10 item 5c) · v0.6.2 (dialog-transform popover positioning §10 item 5d)
 **Reference targets:**
 - card-mod **v4.2.1** (latest; released 2026-02-08). Major breaking release was
   **v4.0.0** (2026-11-18, requires HA 2025.11+).
@@ -128,12 +128,13 @@ verbatim and only append. Do **not** silently flatten. See ROADMAP.
 | `--gauge-color` | Accent color (gauge) | Current. | None. |
 | `--state-climate-*`, `--control-circular-slider-color` | Accent color (thermostat) | Current climate control vars. | None. |
 
-> `--paper-item-icon-color` is **not** emitted by the shipped generator. Note
-> that `docs/BUG_FIX_PLAN.md` describes a sensor-specific
-> `:host { --paper-item-icon-color }` path, but that path is **not present** in
-> the current `iconColorBlock()` — icon color is emitted as
-> `ha-state-icon { color }` for all card types (see §6). The bug-fix doc is a
-> historical session log and has drifted from the code here.
+> `--paper-item-icon-color` is **not** emitted by the shipped generator.
+> `iconColorBlock()` has never had card-type branching — icon color is
+> emitted as `ha-state-icon { color }` for all card types (see §6), and
+> `CARD_SUPPORT_MATRIX.md` confirms that selector already works for sensor
+> cards. An earlier historical planning doc describing a sensor-specific
+> `:host { --paper-item-icon-color }` path had drifted from the code and was
+> retired (§10 item 4).
 
 ---
 
@@ -304,10 +305,34 @@ being duplicated).
    same-selector blocks (and de-dupes repeated properties within one block)
    using real CSS cascade semantics — later declaration wins — before any
    recognizer runs.
+5d. ✅ **[High] Threshold color-palette popover mispositioned/invisible
+   inside HA's real card-edit dialog** — **Fixed (v0.6.2)**. Reported with
+   a screenshot showing the popover rendered hundreds of pixels off to the
+   side. HA's dialog nests a native `<dialog>` two shadow roots deep
+   (`ha-dialog` → `wa-dialog` → `<dialog>`) that carries a CSS `transform`
+   (an identity matrix with no visible effect, but per spec any non-`none`
+   transform still creates a new containing block for `position: fixed`
+   descendants — breaking the popover's viewport-relative positioning) and
+   is shown via `showModal()` (browser "top layer" — nothing outside it can
+   paint above it, so a naive document.body-portal fix positioned it
+   correctly but rendered it invisible). Fixed by rendering into a portal
+   appended as a child of the nearest open modal `<dialog>` ancestor
+   (found via a flattened-tree walk piercing shadow hosts and slot
+   assignments) when one exists — keeping it in the top layer — with
+   position computed relative to that dialog's rect instead of the
+   viewport's; falls back to `document.body`/viewport-relative otherwise.
+   `palette_check.mjs`'s standalone-mounted panel has no `<dialog>`
+   ancestor and could never have caught this; a new permanent check
+   (`tools/sandbox/harness/dialog_popover_check.mjs`) opens the real
+   dialog and verifies the popover is genuinely clickable at its rendered
+   position (piercing shadow roots via `elementFromPoint`), not just
+   present in the DOM.
 6. **[Med] Duplicate-entity-ID rows cross-contaminate styling** (§9) — needs a
    positional row key instead of entity-keyed. ROADMAP #24.
 7. **[Low] Phase out `--paper-item-icon-active-color`** in the accent module.
 8. **[Low] Pin/verify card-mod version** in docs (state "tested against card-mod
    4.2.x") and add it to the compatibility table in the README.
-9. **[Housekeeping] Reconcile `docs/BUG_FIX_PLAN.md`** with the shipped
-   `iconColorBlock()` (the sensor `--paper-item-icon-color` path is not in code).
+9. ✅ **[Housekeeping] Reconcile `docs/BUG_FIX_PLAN.md`** with the shipped
+   `iconColorBlock()` — **Done (v0.6.2 repo cleanup)**. Confirmed the sensor
+   `--paper-item-icon-color` path it described was never in the shipped
+   generator; retired the file (ROADMAP #4).

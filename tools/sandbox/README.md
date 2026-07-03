@@ -60,6 +60,7 @@ node matrix.mjs          # 15 standalone-mountable card types
 node button_matrix.mjs   # adds the button row via a real dashboard
 node compat_check.mjs    # card_mod:/uix: cross-compat warning banner (real cms-panel)
 node palette_check.mjs   # threshold color-palette picker (card + entities-row level)
+node dialog_popover_check.mjs  # same popover, but inside HA's real (transformed, modal) card-edit dialog
 node scan.mjs            # which card types mount cleanly standalone
 ```
 
@@ -100,13 +101,33 @@ run.sh
   `card_mod.style`), a `uix:` block using macros/billets shows an
   incompatibility warning with no fix button instead, and an ordinary
   `card_mod:`-only card shows no banner at all.
-- **`harness/palette_check.mjs`** — mounts the real `cms-panel` editor and
-  verifies the compact color-picker palette on Threshold Colors: a
+- **`harness/palette_check.mjs`** — mounts the real `cms-panel` editor
+  standalone (`document.createElement('cms-panel')`, no `<dialog>` involved)
+  and verifies the compact color-picker palette on Threshold Colors: a
   `var(--x-color)` rule parses into recognised rules instead of falling to
   Advanced CSS, the popover opens fully on-screen with all 10 presets,
   picking a preset updates the value/closes the popover/reaches the emitted
   `card_mod.style`, and the entities-card row-level threshold builder uses
   the same picker.
+- **`harness/dialog_popover_check.mjs`** — the same popover, but reached the
+  way a real user does: opens HA's *actual* card-edit dialog (overflow menu
+  → Edit dashboard → a card's Edit link → Style tab), not a standalone
+  mount. This matters because the standalone mount in `palette_check.mjs`
+  has no `<dialog>` ancestor at all, so it can't catch a real bug found this
+  way: HA's dialog nests a native `<dialog>` two shadow roots deep
+  (`ha-dialog` → `wa-dialog` → `<dialog>`) that (a) carries a CSS
+  `transform` (an identity matrix, but any non-`none` value still creates a
+  new containing block for `position: fixed` descendants) and (b) is shown
+  via `showModal()`, promoting it to the browser's "top layer" where no
+  z-index outside it can paint above it. Together these silently broke the
+  popover two different ways — positioned hundreds of pixels from its
+  trigger, and (once that was naively fixed by rendering into a
+  `document.body` portal) invisible behind the modal — that a same-shadow-
+  root or bare-`document.body` test would never surface. The check verifies
+  the popover opens near its trigger, stays on-screen, *and* is genuinely
+  clickable at its rendered position (piercing shadow roots via nested
+  `elementFromPoint` calls) rather than just present-but-occluded in the
+  DOM. See `cms-color-picker.ts`'s `_ensurePortal` doc comment for the fix.
 
 ---
 
