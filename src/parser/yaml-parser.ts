@@ -30,25 +30,24 @@ import type {
   CssTarget,
 } from '../types/index.js';
 import { parseCss } from './css-parser.js';
-import { resolveStyle } from '../utils/style-compat.js';
+import { resolveStyle, type StyleValue } from '../utils/style-compat.js';
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 /**
- * Parses the card_mod (or UIX) block of a card config into a CardModStyleState.
+ * Parses a single already-resolved style value (a card's card_mod.style,
+ * uix.style, or an entities-row's) into a CardModStyleState. Exposed
+ * separately from parseCardModConfig so a caller that needs to parse both
+ * card_mod.style and uix.style independently — e.g. to merge settings that
+ * only exist under one key, see mergeStudioStates in state-mapper.ts — can
+ * do so without resolveStyle's single-key precedence picking one for them.
  *
- * Returns an empty state (no targets, empty rawCss) when:
- *   - config has neither a card_mod nor a uix key
- *   - the resolved style is undefined or empty
- *   - CSS parsing fails for any reason
- *
- * Never throws.
+ * Returns an empty state (no targets, empty rawCss) when style is undefined,
+ * empty, or CSS parsing fails for any reason. Never throws.
  */
-export function parseCardModConfig(config: CardModCardConfig): CardModStyleState {
-  const style = resolveStyle(config);
-
+export function parseStyleValue(style: StyleValue): CardModStyleState {
   if (!style) {
     return emptyState();
   }
@@ -64,6 +63,16 @@ export function parseCardModConfig(config: CardModCardConfig): CardModStyleState
   }
 
   return emptyState();
+}
+
+/**
+ * Parses the card_mod (or UIX) block of a card config into a CardModStyleState,
+ * picking whichever key resolveStyle() says currently wins.
+ *
+ * Never throws.
+ */
+export function parseCardModConfig(config: CardModCardConfig): CardModStyleState {
+  return parseStyleValue(resolveStyle(config));
 }
 
 // ---------------------------------------------------------------------------

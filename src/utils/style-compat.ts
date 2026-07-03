@@ -16,11 +16,11 @@
 
 import type { CardModCardConfig, EntitiesCardRow, UixConfig } from '../types/index.js';
 
-type StyleValue = string | Record<string, string> | undefined;
+export type StyleValue = string | Record<string, string> | undefined;
 
 /** A style value counts as "real" content only if it has something in it — an
  * explicit empty string or empty dict is the same as not being set at all. */
-function hasStyleContent(style: StyleValue): boolean {
+export function hasStyleContent(style: StyleValue): boolean {
   if (typeof style === 'string') return style.trim().length > 0;
   if (style && typeof style === 'object') return Object.keys(style).length > 0;
   return false;

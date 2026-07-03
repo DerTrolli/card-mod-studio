@@ -550,8 +550,20 @@ describe('applyCardModStyle', () => {
   // outputKey: 'uix' — UIX (github.com/Lint-Free-Technology/uix)
   // ---------------------------------------------------------------------------
 
-  it('sets uix.style when outputKey is uix, and leaves card_mod untouched', () => {
+  it('sets uix.style when outputKey is uix, on a config with no pre-existing card_mod', () => {
     const result = applyCardModStyle('ha-card { color: red; }', base, 'uix');
+    expect(result.uix?.style).toBe('ha-card { color: red; }');
+    expect(result.card_mod).toBeUndefined();
+  });
+
+  // Regression: this is the exact bug reported against v0.6.1 — editing a
+  // card that already has real card_mod.style content (from before UIX was
+  // installed) while UIX is now the active engine used to leave that stale
+  // card_mod block sitting alongside the new uix.style instead of removing
+  // it, duplicating the styling across both keys.
+  it('clears a pre-existing card_mod.style when writing a uix edit, instead of leaving it stale', () => {
+    const cardModOnly: CardModCardConfig = { ...base, card_mod: { style: 'ha-card { color: blue; }' } };
+    const result = applyCardModStyle('ha-card { color: red; }', cardModOnly, 'uix');
     expect(result.uix?.style).toBe('ha-card { color: red; }');
     expect(result.card_mod).toBeUndefined();
   });
@@ -601,7 +613,7 @@ describe('applyCardModStyle', () => {
     expect(result.card_mod).toBeUndefined();
   });
 
-  it('does not overwrite a uix.style that uses macros when syncing a card_mod edit', () => {
+  it('does not clear a uix.style that uses macros when writing a card_mod edit', () => {
     const macroUix: CardModCardConfig = {
       ...base,
       card_mod: { style: 'ha-card { color: blue; }' },
@@ -614,7 +626,7 @@ describe('applyCardModStyle', () => {
     expect(result.uix?.macros).toEqual({ foo: { template: 'red' } });
   });
 
-  it('does not overwrite a uix.style that uses billets when syncing a card_mod edit', () => {
+  it('does not clear a uix.style that uses billets when writing a card_mod edit', () => {
     const billetUix: CardModCardConfig = {
       ...base,
       card_mod: { style: 'ha-card { color: blue; }' },
@@ -625,13 +637,17 @@ describe('applyCardModStyle', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Stale uix.style sync when writing card_mod (the default outputKey).
-  // UIX prioritizes uix.style over card_mod.style, so a pre-existing uix.style
-  // must be kept in sync — otherwise a studio edit would silently have no
-  // effect under UIX despite looking correct in the studio's own preview.
+  // Stale uix.style cleanup when writing card_mod (the default outputKey).
+  // The caller (cms-panel.ts's _buildMergedState) already folds any settings
+  // unique to uix.style into the generated css before this runs, so by the
+  // time we get here a pre-existing uix.style is fully redundant — clearing
+  // it (rather than leaving it stale, or syncing/mirroring it forever) is
+  // what turns "duplicated across both keys" back into a single source of
+  // truth. See the dedicated "clear the redundant key" tests further below
+  // for the general card_mod<->uix case.
   // ---------------------------------------------------------------------------
 
-  it('syncs a pre-existing uix.style to match a new card_mod edit', () => {
+  it('clears a pre-existing uix.style when writing a card_mod edit', () => {
     const both: CardModCardConfig = {
       ...base,
       card_mod: { style: 'ha-card { color: blue; }' },
@@ -639,17 +655,19 @@ describe('applyCardModStyle', () => {
     };
     const result = applyCardModStyle('ha-card { color: red; }', both);
     expect(result.card_mod?.style).toBe('ha-card { color: red; }');
-    expect(result.uix?.style).toBe('ha-card { color: red; }');
+    expect(result.uix?.style).toBeUndefined();
+    expect(result.uix).toBeUndefined();
   });
 
-  it('preserves non-style uix fields while syncing uix.style', () => {
+  it('preserves non-style uix fields (debug) while clearing uix.style', () => {
     const both: CardModCardConfig = {
       ...base,
       card_mod: { style: 'ha-card { color: blue; }' },
-      uix: { style: 'ha-card { color: blue; }', macros: { a: 1 } },
+      uix: { style: 'ha-card { color: blue; }', debug: true },
     };
     const result = applyCardModStyle('ha-card { color: red; }', both);
-    expect(result.uix?.macros).toEqual({ a: 1 });
+    expect(result.uix?.style).toBeUndefined();
+    expect(result.uix?.debug).toBe(true);
   });
 
   it('does not add a uix block when writing card_mod on a config with no existing uix', () => {
@@ -790,6 +808,54 @@ describe('round-trip', () => {
     expect(generated).toContain("states('sensor.temp') | float(0) >= 72");
     expect(generated).toContain('#2196F3');
     expect(generated).toContain("else '#888888'");
+  });
+
+  it('threshold with palette var(--x-color) rules round-trips with no rawCss', () => {
+    // The compact color picker's presets (cms-color-picker.ts) write
+    // var(--x-color) values — this is the same shape a palette-driven
+    // threshold rule would produce, and must not fall through to Advanced CSS.
+    const original =
+      "ha-state-icon {\n  color: {{ 'var(--red-color)' if states('sensor.temp') | float(0) >= 85 else ('var(--orange-color)' if states('sensor.temp') | float(0) >= 72 else 'var(--grey-color)') }} !important;\n}";
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+
+    expect(state.threshold.enabled).toBe(true);
+    expect(state.threshold.property).toBe('icon-color');
+    expect(state.threshold.rules).toHaveLength(2);
+    expect(state.threshold.rules.map((r) => r.color)).toEqual(['var(--red-color)', 'var(--orange-color)']);
+    expect(state.threshold.defaultColor).toBe('var(--grey-color)');
+    expect(state.advanced.rawCss).toBe('');
+
+    const generated = generateCss(state);
+    expect(generated).toContain("'var(--red-color)'");
+    expect(generated).toContain("'var(--orange-color)'");
+    expect(generated).toContain("else 'var(--grey-color)'");
+  });
+
+  it('a later ha-card block overriding an earlier static accent-color round-trips as the live threshold, not the dead static value', () => {
+    // Real-world pattern: a static accent color set up first, then a
+    // threshold rule added later targeting the same --accent-color variable
+    // in a second ha-card { } block. In actual CSS the second declaration
+    // wins — the first is dead. Before the coalescing fix in css-parser.ts,
+    // findTarget/findProp only ever saw the first block, so the second
+    // block's threshold collided on the same claimKey and vanished
+    // entirely — not recognised as a module, not preserved in Advanced CSS.
+    const original =
+      "ha-card {\n  --accent-color: var(--red-color);\n}\n\nha-card {\n  --accent-color: {{ '#f44336' if states('sensor.power') | float(0) > 0 else '#888888' }};\n}";
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+
+    expect(state.accentColor.enabled).toBe(false);
+    expect(state.threshold.enabled).toBe(true);
+    expect(state.threshold.property).toBe('accent-color');
+    expect(state.threshold.entityId).toBe('sensor.power');
+    expect(state.threshold.rules).toEqual([{ id: '0', operator: '>', value: 0, color: '#f44336' }]);
+    expect(state.threshold.defaultColor).toBe('#888888');
+    expect(state.advanced.rawCss).toBe('');
+
+    const generated = generateCss(state);
+    expect(generated).toContain("states('sensor.power') | float(0) > 0");
+    expect(generated).not.toContain('var(--red-color)');
   });
 
   it('heading style round-trips with no rawCss', () => {

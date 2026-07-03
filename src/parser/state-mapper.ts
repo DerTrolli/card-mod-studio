@@ -27,7 +27,9 @@ import type {
   ThresholdRule,
   AdvancedModuleState,
   StudioState,
+  EntitiesRowStyle,
 } from '../types/index.js';
+import { parseCss } from './css-parser.js';
 
 // ---------------------------------------------------------------------------
 // Default states
@@ -185,6 +187,37 @@ export function mapToStudioState(parsed: CardModStyleState): StudioState {
     headingStyle: mapHeadingStyle(titleP, titleIcon, container, claimed),
     threshold: mapThreshold(haCard, haStateIcon, claimed),
     advanced: mapAdvanced(parsed, claimed),
+  };
+}
+
+/**
+ * Merges two independently-parsed StudioStates — typically one from a
+ * card's card_mod.style and one from its uix.style, which can genuinely
+ * diverge (e.g. edited under card-mod, then separately edited again after
+ * switching to UIX) — into one, so no module's settings are lost just
+ * because they only live under the currently-inactive key.
+ *
+ * For each module, `primary` (the currently active engine's key — see
+ * pickOutputKey()) wins whenever it has that module enabled; a module only
+ * enabled in `secondary` fills the gap. This matches what a merge-and-clean
+ * edit should produce: primary's settings for anything it already defines,
+ * secondary's settings folded in for anything primary doesn't. rawCss is
+ * primary's, falling back to secondary's only when primary has none —
+ * unstructured CSS can't be safely merged declaration-by-declaration the
+ * way the recognised modules can, so this is a whole-or-nothing choice
+ * rather than a partial merge.
+ */
+export function mergeStudioStates(primary: StudioState, secondary: StudioState): StudioState {
+  return {
+    filter: primary.filter.enabled ? primary.filter : secondary.filter,
+    iconColor: primary.iconColor.enabled ? primary.iconColor : secondary.iconColor,
+    accentColor: primary.accentColor.enabled ? primary.accentColor : secondary.accentColor,
+    background: primary.background.enabled ? primary.background : secondary.background,
+    animation: primary.animation.enabled ? primary.animation : secondary.animation,
+    border: primary.border.enabled ? primary.border : secondary.border,
+    headingStyle: primary.headingStyle.enabled ? primary.headingStyle : secondary.headingStyle,
+    threshold: primary.threshold.enabled ? primary.threshold : secondary.threshold,
+    advanced: { rawCss: primary.advanced.rawCss || secondary.advanced.rawCss },
   };
 }
 
@@ -562,9 +595,13 @@ export function parseThresholdJinja(value: string): {
 } | null {
   if (!value.includes('float(0)')) return null;
 
+  // Color token accepts hex, a bare CSS color name, or var(--xxx-color) —
+  // the last form is what the palette presets (see cms-color-picker.ts)
+  // write, so a rule picked from the palette round-trips back into a rule
+  // instead of falling through to Advanced CSS.
   const RULE_RE =
-    /'(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)'\s+if\s+states\('([^']+)'\)\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*([\d.]+(?:\.\d+)?)/g;
-  const DEFAULT_RE = /else\s+'(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)'\s*[)}\s]/;
+    /'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|[a-zA-Z]+)'\s+if\s+states\('([^']+)'\)\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*([\d.]+(?:\.\d+)?)/g;
+  const DEFAULT_RE = /else\s+'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|[a-zA-Z]+)'\s*[)}\s]/;
 
   const rules: ThresholdRule[] = [];
   let entityId = '';
@@ -588,6 +625,79 @@ export function parseThresholdJinja(value: string): {
   const defaultColor = defaultMatch ? defaultMatch[1] : DEFAULT_THRESHOLD.defaultColor;
 
   return { entityId, rules, defaultColor };
+}
+
+/**
+ * Recognises an entities-card row's card_mod/uix style text into row-level
+ * UI state. Our own generator always wraps row declarations in ":host { }"
+ * (see cms-panel.ts → _generateEntityRowCss); if a hand-authored value omits
+ * the selector, a synthetic one is used instead. Delegating to parseCss
+ * (rather than regexing the raw text directly) matters because a naive
+ * value capture like `[^;}\n]+` truncates at the first "}" — fatal for any
+ * {{ ... }} threshold expression, which always ends in "}}".
+ */
+export function parseEntityRowCss(css: string): EntitiesRowStyle {
+  const style: EntitiesRowStyle = { iconColor: '', textColor: '' };
+
+  let [target] = parseCss(css);
+  if (!target) [target] = parseCss(`:host{${css}}`);
+  const properties = target?.properties ?? [];
+  const valueOf = (...names: string[]): string => {
+    for (const name of names) {
+      const found = properties.find((p) => p.property === name);
+      if (found) return found.value.trim();
+    }
+    return '';
+  };
+
+  const iconVal = valueOf('--state-icon-color', '--paper-item-icon-color');
+  if (iconVal.includes('float(0)')) {
+    const parsed = parseThresholdJinja(iconVal);
+    if (parsed) {
+      style.iconMode = 'threshold';
+      style.iconRules = parsed.rules;
+      style.iconDefault = parsed.defaultColor;
+    }
+  } else {
+    style.iconColor = iconVal;
+  }
+
+  const textVal = valueOf('color');
+  if (textVal.includes('float(0)')) {
+    const parsed = parseThresholdJinja(textVal);
+    if (parsed) {
+      style.textMode = 'threshold';
+      style.textRules = parsed.rules;
+      style.textDefault = parsed.defaultColor;
+    }
+  } else {
+    style.textColor = textVal;
+  }
+
+  return style;
+}
+
+/**
+ * Row-level counterpart to mergeStudioStates — merges two independently
+ * parsed EntitiesRowStyles (a row's card_mod.style and uix.style) so a
+ * setting that only lives under the currently-inactive key isn't lost.
+ * Icon and text are merged independently: primary wins whichever one it has
+ * set (static color or threshold rules), secondary fills in whichever one
+ * primary doesn't have.
+ */
+export function mergeEntityRowStyles(primary: EntitiesRowStyle, secondary: EntitiesRowStyle): EntitiesRowStyle {
+  const iconSet = !!(primary.iconColor || primary.iconMode === 'threshold');
+  const textSet = !!(primary.textColor || primary.textMode === 'threshold');
+  return {
+    iconColor: iconSet ? primary.iconColor : secondary.iconColor,
+    iconMode: iconSet ? primary.iconMode : secondary.iconMode,
+    iconRules: iconSet ? primary.iconRules : secondary.iconRules,
+    iconDefault: iconSet ? primary.iconDefault : secondary.iconDefault,
+    textColor: textSet ? primary.textColor : secondary.textColor,
+    textMode: textSet ? primary.textMode : secondary.textMode,
+    textRules: textSet ? primary.textRules : secondary.textRules,
+    textDefault: textSet ? primary.textDefault : secondary.textDefault,
+  };
 }
 
 function mapThreshold(

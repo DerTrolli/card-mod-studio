@@ -5,6 +5,100 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] — 2026-07-03
+
+UX polish on top of v0.6.0, plus real correctness fixes found while building
+it: a consistent color palette for Threshold Colors, a resizable style
+dialog, a silent data-loss bug in entities-row threshold parsing, and a
+card_mod:/uix: duplication bug reported after v0.6.1's own initial release —
+this changelog entry covers everything that shipped under the v0.6.1 tag.
+
+### Added
+- **Color palette for Threshold Colors** — `cms-color-picker` gained a
+  `compact` mode: a small swatch button that opens a popover with the same
+  10-color preset palette already used by Icon Color, plus a raw hex/`var()`
+  text field. Used for every threshold rule's color and the default color,
+  at both the card level (`cms-threshold-module`) and the entities-card
+  row level (`cms-entities-rows-module`), so a consistent palette is always
+  one click away instead of hunting down hex values to reuse. The popover is
+  `position: fixed` and clamps to the viewport so it can't render off-screen
+  or get clipped by an ancestor's `overflow: hidden`.
+- **Threshold parser accepts palette `var(--x-color)` values** —
+  `parseThresholdJinja`'s rule/default regexes now recognise
+  `var(--red-color)`-style tokens (not just hex), so a rule picked from the
+  palette round-trips back into a recognised rule instead of falling through
+  to Advanced CSS.
+
+### Fixed
+- **Style dialog no longer stays pinned to a short card's height when you
+  open Style.** Editing a card with few controls (e.g. a tile card) made
+  HA size the dialog to fit that short content; switching to the Style tab
+  didn't grow it, forcing constant scrolling through a long module list in a
+  cramped window. Root cause was two-fold: HA's dialog migrated from
+  MDC/MWC to a "Web Awesome" `wa-dialog` wrapping a native `<dialog>`, so the
+  legacy `--mdc-dialog-max-height` custom property no longer reaches the
+  element that actually controls sizing; and `hui-card-element-editor` is
+  `display: inline` by default, on which `min-height` is a CSS no-op. Fixed
+  by setting `max-height` directly on the native `<dialog>` (reached through
+  two nested shadow roots) and switching the card editor host to
+  `display: block` before applying `min-height`. Verified empirically
+  against a live HA instance — both fixes were necessary; neither alone
+  resolved it.
+- **Entities-row threshold default color was silently discarded on every
+  re-open of the panel.** `_parseEntityRowCss`'s value-extraction regex
+  (`[^;}\n]+`) excluded `}` from the captured value, which truncates *any*
+  Jinja `{{ ... }}` expression right before its closing `}}` — the rule
+  conditions still parsed correctly, but the trailing `else '<default>'`
+  was cut off, so the default color silently fell back to the hardcoded
+  `#888888` instead of the value the user actually configured (e.g. a
+  palette `var(--grey-color)`). If the user then touched anything else on
+  that row, the wrong default got written back into their YAML. Fixed by
+  replacing the ad-hoc regex with the existing Jinja-safe `parseCss` (the
+  same parser already used for card-level CSS), reused via a new exported
+  `parseEntityRowCss` in `state-mapper.ts` — which also makes this path unit
+  testable for the first time (9 new tests in `test/parser.test.ts`).
+- **Editing an already-styled card left a stale duplicate of the *other*
+  key's content sitting alongside the new one, instead of consolidating to
+  a single source of truth.** Reported: a card styled under `card_mod:`
+  from before UIX was installed, edited after switching to UIX, ended up
+  with *both* a new `uix:` block *and* the old, now-dead `card_mod:` block
+  still present. On open, the panel now merges settings from **both** keys
+  (not just whichever `resolveStyle()` would pick) when both carry real
+  content, so a setting that only lives under the currently-inactive key —
+  left over from switching engines, or from editing each key separately —
+  isn't invisible to the editor or silently dropped on the next save
+  (`mergeStudioStates` / `mergeEntityRowStyles` in `state-mapper.ts`, wired
+  in via `cms-panel.ts`'s `_buildMergedState`). On save, `applyCardModStyle`
+  now writes the merged result to the active key and **clears** the other
+  key's `.style` — rename instead of duplicate when only one side had
+  content, consolidate-and-clear when both did — rather than leaving it
+  stale or syncing it forever. A `uix:` block using macros/billets is still
+  never touched (can't be safely parsed into recognised state or determined
+  redundant), matching the existing untouchable-content rule. The distinct
+  "Copy to card_mod" fix button (for when neither engine can be confirmed
+  installed) now has its own implementation that copies `uix.style` into
+  `card_mod.style` **verbatim** and deliberately leaves `uix.style` alone —
+  it's a defensive fallback-add, not a settings edit, so the new
+  clear-the-other-key behavior doesn't apply to it.
+- **A style with the same selector declared twice — e.g. a static default
+  in one `ha-card { }` block, later overridden by a conditional value in a
+  second `ha-card { }` block, a common hand-edited pattern — silently lost
+  the second (actually live) declaration entirely, not even preserving it
+  in Advanced CSS.** `findTarget`/`findProp` only ever looked at the first
+  matching selector, and the "unclaimed → Advanced CSS" reconciliation keys
+  purely on `selector+property` strings, so the second block's property
+  collided with the first's claim key and was dropped without ever being
+  read into any module's state. `parseCss` now coalesces same-selector
+  blocks (and de-duplicates repeated properties within one block) using
+  real CSS cascade semantics — later declaration wins — before any
+  recognizer runs, matching what actually renders. Found via a real
+  user-reported card that used exactly this pattern for a threshold
+  override; both the coalescing itself and the merge fix above are needed
+  to correctly round-trip that card (5 new tests in `test/parser.test.ts` +
+  `test/generator.test.ts`, plus a dedicated `test/merge-dedup.test.ts` and
+  a new live sandbox check, `tools/sandbox/harness/merge_check.mjs`,
+  covering both fixes against a real UIX instance).
+
 ## [0.6.0] — 2026-07-03
 
 Adds first-class support for [UIX](https://uix.lf.technology/), the
