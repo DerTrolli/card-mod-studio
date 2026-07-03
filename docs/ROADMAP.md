@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-06-25 · **Current version:** v0.5.0
+**Last updated:** 2026-07-03 · **Current version:** v0.6.0
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -9,6 +9,24 @@ the scattered "Future" sections in `CARD_TYPE_PLAN.md` and `BUG_FIX_PLAN.md`.
 
 Priorities reflect both user value and the findings in
 [COMPATIBILITY_AUDIT.md](COMPATIBILITY_AUDIT.md).
+
+## Recently shipped (v0.6.0)
+
+- **UIX support** — detects [UIX](https://uix.lf.technology/) (a card-mod-derived
+  HA integration) alongside card-mod, reads `uix:` style blocks with UIX's own
+  `uix:` > `card_mod:` precedence, and switches generated output to `uix:` only
+  when UIX is installed and card-mod is not (`card_mod:` stays the default —
+  UIX fully supports it as a fallback). Verified against a real running UIX
+  integration in Docker, not just source-reading — see `tools/sandbox/run-uix.sh`.
+- **Reverse-compatibility warning** — a card (or an individual `entities`-card
+  **row** — checked independently, not just the top-level card) styled only
+  under `uix:` now gets a specific warning (with a one-click "copy to
+  card_mod" fix for plain CSS) if UIX isn't installed, instead of silently
+  rendering unstyled. `uix:` content using macros/billets gets an
+  incompatibility warning instead (worded differently depending on whether
+  card-mod or UIX is the active target — see `usesUixOnlyFeatures` call sites
+  in `cms-panel.ts`), since card-mod can't run those under any key and the
+  studio can't safely regenerate them either.
 
 ## Recently shipped (v0.5.0)
 
@@ -72,6 +90,12 @@ from the audit.
 | 14 ✅ | **Mobile-friendly panel** | **Done (v0.5.0)** — a ResizeObserver stacks the preview below the controls below ~600px instead of starving them. | M |
 | 15 | **Animation builder** | Visual keyframe editor beyond the 5 presets. | L |
 | 16 | **More threshold sources** | Allow thresholds on an entity **attribute** (e.g. `battery_level`) and on `state_attr(...)`, not just the state value. | M |
+| 19 ✅ | **Per-row entities uix-only warning** | **Done (v0.6.0)** — `isUixOnlyRowStyle`/`hasUixOnlyRow` (`style-compat.ts`) extend the reverse-compat warning to entities-card rows, not just the top-level card. | S |
+| 23 | **Dict-form entities-row styles aren't read back** | Pre-existing limitation, same class as item #1 but at the row level: `_initEntityRowStyles` only recognises string-form `card_mod`/`uix` style on a row, so a hand-authored dictionary/shadow-pierce-form row style isn't parsed into the editor — and, worse, the *next* unrelated edit on that card silently wipes it (the row looks unstyled to the studio, so `_applyEntityRowStyles` clears it). Depends on #1 landing first (shared root cause: dict-form round-trip). | M |
+| 24 | **Rows sharing an entity ID cross-contaminate styling** | `_entityRowStyles` is keyed by `row.entity`, so two rows referencing the same entity (valid `entities`-card YAML) silently collapse to one style slot — editing either row's color in the studio overwrites both. Needs a positional (index-based) key instead of entity-based, which touches the existing (pre-UIX) row-styling data model, not just the UIX addition. | M |
+| 20 | **UIX billets module** | A small key/value table editor for [UIX billets](https://uix.lf.technology/) (reusable named style constants) — bounded scope, unlike macros below. Nobody's asked for it yet; build when there's a real request. | S |
+| 21 | **UIX macros — raw editor only** | UIX macros are user-defined parameterized Jinja2 snippets; a *visual* composer doesn't generalize the way color-picker/slider modules do. The tractable version is a raw-text editor for `uix.macros`, same philosophy as the existing Advanced CSS escape hatch — today the Studio doesn't read or write `uix.macros` at all (it's preserved untouched if present, but can't be created). Low priority; scope for real if requested. | M |
+| 22 | **Bulk dashboard `card_mod:`/`uix:` key migration** | Explicitly requested and explicitly **parked** — since the Studio always keeps `card_mod:` working as a fallback, nothing *needs* migrating for correctness, only for YAML tidiness. Mechanically this is a key rename, not a content transform (both engines share CSS/Jinja2 syntax), but the Studio currently only ever sees one card at a time via the injected per-card editor. A real bulk tool means reading/rewriting the *whole* dashboard over HA's websocket API — meaningfully higher blast radius than anything else in this tool (a bug could touch every card at once). Needs its own dry-run/preview design before any code, not just a "next roadmap item." | L |
 
 ---
 
@@ -106,3 +130,9 @@ Carried over from `CARD_TYPE_PLAN.md` — not worth supporting:
 - Deep `energy-*` SVG styling — Advanced CSS only.
 - Arbitrary Jinja2 logic in the visual UI — the Advanced CSS editor is the
   intended escape hatch for anything beyond on/off and numeric thresholds.
+- **A UIX Forge equivalent.** [Forge](https://uix.lf.technology/) is UIX's own
+  first-party visual template builder. Rebuilding it inside Card-Mod Studio
+  would be a worse clone of a tool that already exists for exactly that job,
+  and pulls the project away from what makes it useful: working the same way
+  whether someone has card-mod or UIX. A UIX-only user who wants Forge-level
+  power should just use Forge.

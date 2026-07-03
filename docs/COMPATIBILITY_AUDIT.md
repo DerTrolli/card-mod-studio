@@ -1,11 +1,13 @@
 # Card-Mod Studio — card-mod 4.x / HA 2026 Compatibility Audit
 
-**Audit date:** 2026-06-25
-**Audited version:** v0.4.0
+**Audit date:** 2026-06-25 (card-mod/HA) · 2026-07-03 (UIX addendum, §9)
+**Audited version:** v0.4.0 (card-mod/HA) · v0.6.0 (UIX)
 **Reference targets:**
 - card-mod **v4.2.1** (latest; released 2026-02-08). Major breaking release was
   **v4.0.0** (2026-11-18, requires HA 2025.11+).
 - Home Assistant **2026.6** (latest stable, 2026-06-03).
+- UIX **v7.6.1** ([Lint-Free-Technology/uix](https://github.com/Lint-Free-Technology/uix),
+  latest as of the audit; see §9).
 
 This document records how the YAML/CSS that Card-Mod Studio **generates** holds
 up against current card-mod and Home Assistant, what is safe, and what needs
@@ -184,10 +186,77 @@ next to `ha-button[slot=secondaryAction]`; the panel is hosted in
 | Dict / `$`-pierce round-trip | ⚠️ Lossy on save |
 | Per-card icon selector coverage | ⚠️ Heuristic gap |
 | `--paper-item-icon-active-color` legacy | 🟡 Harmless, plan to drop |
+| UIX support (v7.6.1, see §9) | ✅ Compatible, verified live |
+| Reverse-compat warning: top-level card | ✅ Covered |
+| Reverse-compat warning: entities-row level | ✅ Covered (v0.6.0) |
+| Reverse-compat warning: dict-form / duplicate-entity-ID rows | ⚠️ Pre-existing gap, ROADMAP #23/#24 |
 
 ---
 
-## 9. Action items (feed into ROADMAP)
+## 9. UIX compatibility (addendum, 2026-07-03)
+
+[UIX](https://uix.lf.technology/) (`Lint-Free-Technology/uix`) is a card-mod-derived
+HA integration built by card-mod's own current maintainer (its `LICENSE.txt`
+still carries Thomas Lovén's original card-mod copyright). Unlike card-mod
+(a single Lovelace JS resource), UIX ships as a real HA **integration**
+(`custom_components/uix`, `config_flow: true`) that self-manages its own
+frontend resource.
+
+**What we verified, and how** — not just source-reading: a real UIX instance
+running in Docker (`tools/sandbox/run-uix.sh`), driven headlessly through its
+actual config flow, rendering real cards and reading real computed styles
+(`tools/sandbox/harness/uix_matrix.mjs`), plus the real `cms-panel` editor
+mounted against it (`tools/sandbox/harness/compat_check.mjs` covers the
+reverse direction, card-mod-only).
+
+| Finding | Verified |
+|---|---|
+| UIX registers `uix-node` as a custom element (never `card-mod`) | ✅ Live |
+| UIX reads `config.uix` in preference to `config.card_mod` (`uix:` wins when a card has both) | ✅ Live |
+| UIX fully applies `card_mod:` as a documented fallback — no `uix:` block required | ✅ Live |
+| The Studio's `cms-panel` editor correctly detects UIX-only and emits `uix:` (not `card_mod:`) | ✅ Live |
+| UIX's own config flow **aborts setup** (`old_frontend_script_resource`) if any Lovelace resource URL contains the substring `"card-mod.js"` | ✅ Live (reproduced in `config_flow.py`'s `async_step_user`) |
+| UIX's config flow otherwise takes no user input — a single authenticated `POST /api/config/config_entries/flow {"handler":"uix"}` completes setup | ✅ Live |
+
+**Practical implication of the abort check:** UIX and card-mod cannot
+realistically coexist via UIX's own guided install — its installer refuses to
+run alongside a `card-mod.js` resource. This is *why* `pickOutputKey()`
+(`src/generator/yaml-generator.ts`) only ever switches to `uix:` output when
+card-mod is absent: the "both installed" state isn't one UIX's own tooling
+lets a user reach organically, so defaulting to `card_mod:` whenever card-mod
+is present is the safe, conservative choice, not a guess.
+
+**Reverse-compatibility warning covers both card-level and per-row.** A card
+(or an individual `entities`-card row, checked independently via
+`isUixOnlyRowStyle`/`hasUixOnlyRow`) styled only under `uix:` gets a specific
+warning instead of silently rendering unstyled. Two distinct info banners
+(not warnings — nothing's broken, just worth knowing) cover the "macros/billets
+coexist with other styling" cases: `_uixMacrosCoexist` (card-mod is the active
+target; the `uix:` macro content is deliberately left untouched, not synced)
+and `_uixMacrosWillBeOverwritten` (UIX is the active target and *is* the only
+place to write, so an edit here does overwrite hand-authored macro styling —
+this one's a heads-up, not a "nothing happens" guarantee, since there's no
+fallback key to write to instead).
+
+**Known gaps, not yet covered — both pre-existing, not introduced by UIX
+support:** `_initEntityRowStyles` only recognises **string-form** row styles;
+a hand-authored dictionary/shadow-pierce-form row style isn't read back, and
+(more seriously) the next unrelated edit on that card silently clears it,
+same failure class as the card-level dict-form issue in §4 (ROADMAP #23).
+Separately, `_entityRowStyles` is keyed by entity ID, so two rows referencing
+the same entity collapse to one style slot (ROADMAP #24) — this predates UIX
+support entirely; it just happens to be the same data model the new row-level
+`uix:` checks build on.
+
+**Not verified / explicitly out of scope for this audit:** UIX-exclusive
+features with no card-mod equivalent (macros, billets, Forge, the `$$`/`&`
+selector extensions) — the Studio doesn't generate any of these; see ROADMAP
+for why (macros/billets are low-priority future work, Forge is explicitly not
+being duplicated).
+
+---
+
+## 10. Action items (feed into ROADMAP)
 
 1. **[High] Heading module — migrate off `--mdc-icon-size`** once HA publishes
    the Web Awesome icon-size replacement. Add a fallback chain in the interim.
@@ -195,8 +264,14 @@ next to `ha-button[slot=secondaryAction]`; the panel is hosted in
    (detect on open; preserve verbatim or go read-only).
 3. **[Med] Per-card icon-color selectors** — verify which card types expose
    `ha-state-icon`; emit the correct selector/variable per type.
-4. **[Low] Phase out `--paper-item-icon-active-color`** in the accent module.
-5. **[Low] Pin/verify card-mod version** in docs (state "tested against card-mod
+4. ✅ **[Med] Per-row entities uix-only warning** (§9) — **Done (v0.6.0)**.
+   ROADMAP #19.
+5. **[Med] Dict-form entities-row styles** (§9) — same fix as #2, at the row
+   level. ROADMAP #23.
+6. **[Med] Duplicate-entity-ID rows cross-contaminate styling** (§9) — needs a
+   positional row key instead of entity-keyed. ROADMAP #24.
+7. **[Low] Phase out `--paper-item-icon-active-color`** in the accent module.
+8. **[Low] Pin/verify card-mod version** in docs (state "tested against card-mod
    4.2.x") and add it to the compatibility table in the README.
-6. **[Housekeeping] Reconcile `docs/BUG_FIX_PLAN.md`** with the shipped
+9. **[Housekeeping] Reconcile `docs/BUG_FIX_PLAN.md`** with the shipped
    `iconColorBlock()` (the sensor `--paper-item-icon-color` path is not in code).
