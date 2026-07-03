@@ -61,6 +61,7 @@ node button_matrix.mjs   # adds the button row via a real dashboard
 node compat_check.mjs    # card_mod:/uix: cross-compat warning banner (real cms-panel)
 node palette_check.mjs   # threshold color-palette picker (card + entities-row level)
 node dialog_popover_check.mjs  # same popover, but inside HA's real (transformed, modal) card-edit dialog
+node entity_binding_check.mjs  # cms-entity-picker + cross-entity binding (Icon Color/Background/Filter) + multi-property threshold
 node scan.mjs            # which card types mount cleanly standalone
 ```
 
@@ -128,6 +129,16 @@ run.sh
   clickable at its rendered position (piercing shadow roots via nested
   `elementFromPoint` calls) rather than just present-but-occluded in the
   DOM. See `cms-color-picker.ts`'s `_ensurePortal` doc comment for the fix.
+- **`harness/entity_binding_check.mjs`** — the v0.7.0 entity-binding UX:
+  `cms-entity-picker` renders HA's real `<ha-entity-picker>` (not its
+  text-input fallback), Icon Color/Background/Filter round-trip a
+  "controlled by a different entity" block instead of always assuming
+  `config.entity`, and Threshold's multi-property checkboxes correctly
+  drive more than one CSS property from one shared rule set. Mounts its
+  host under `<home-assistant>` rather than `document.body` — see
+  `docs/DEVELOPMENT.md`'s "`<ha-entity-picker>` needs a real ancestor" note
+  for why every other check script's `document.body` convention doesn't
+  work for this one.
 
 ---
 

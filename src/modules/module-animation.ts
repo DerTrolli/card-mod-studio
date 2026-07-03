@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import type { AnimationModuleState } from '../types/index.js';
+import type { AnimationModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ANIMATION } from '../parser/state-mapper.js';
 import { moduleStyles, renderWhen } from './module-base.js';
 
@@ -22,6 +22,8 @@ export class AnimationModule extends LitElement {
 
   /** False when the card has no binary entity state (e.g. sensor cards). */
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
+
+  @property({ attribute: false }) hass?: HomeAssistant;
 
   @state() private _open = false;
   @state() private _speedS = DEFAULT_ANIMATION.speedS;
@@ -120,6 +122,7 @@ export class AnimationModule extends LitElement {
           allowCustom: true,
           noun: 'animation',
           customEntity: this.state.customEntity,
+          hass: this.hass,
           onChange: (v) => this._emit({ trigger: v as AnimationTrigger }),
           onCustomEntity: (id) => this._emit({ customEntity: id }),
         })}

@@ -385,7 +385,7 @@ describe('generateCss — threshold', () => {
       threshold: {
         enabled: true,
         entityId: 'sensor.score',
-        property: 'background',
+        properties: ['background'],
         rules: [
           { id: '0', operator: '>', value: 0, color: '#000000' },
           { id: '1', operator: '>', value: 50, color: '#ff0000' },
@@ -407,7 +407,7 @@ describe('generateCss — threshold', () => {
       threshold: {
         enabled: true,
         entityId: 'sensor.score',
-        property: 'background',
+        properties: ['background'],
         rules: [
           { id: '0', operator: '<', value: 80, color: '#00ff00' },
           { id: '1', operator: '<', value: 50, color: '#ff0000' },
@@ -428,7 +428,7 @@ describe('generateCss — threshold', () => {
       threshold: {
         enabled: true,
         entityId: 'sensor.temp',
-        property: 'icon-color',
+        properties: ['icon-color'],
         rules: [{ id: '0', operator: '>=', value: 30, color: '#ff0000' }],
         defaultColor: '#888888',
       },
@@ -445,7 +445,7 @@ describe('generateCss — threshold', () => {
       threshold: {
         enabled: true,
         entityId: 'sensor.x',
-        property: 'icon-color',
+        properties: ['icon-color'],
         rules: [
           { id: 'a', operator: '>', value: 10, color: '#00ff00' },
           { id: 'b', operator: '>', value: 20, color: '#ff0000' },
@@ -456,6 +456,143 @@ describe('generateCss — threshold', () => {
     expect(css.indexOf('> 20')).toBeLessThan(css.indexOf('> 10')); // 20 checked first
     expect(css.indexOf('#ff0000')).toBeLessThan(css.indexOf('#00ff00'));
     expect(css).toContain("else '#0000ff'"); // blue default last
+  });
+
+  it('drives icon color AND accent color together from one rule set', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true,
+        entityId: 'sensor.temp',
+        properties: ['icon-color', 'accent-color'],
+        rules: [{ id: '0', operator: '>=', value: 30, color: '#ff0000' }],
+        defaultColor: '#888888',
+      },
+    }));
+    expect(css).toMatch(/ha-state-icon\s*\{\s*color: \{\{/);
+    expect(css).toMatch(/ha-card\s*\{\s*--accent-color: \{\{/);
+    // Both blocks share the identical Jinja2 expression.
+    const iconMatch = css.match(/ha-state-icon\s*\{\s*color: (\{\{[^\n]*\}\})\s*!important;/);
+    const accentMatch = css.match(/ha-card\s*\{\s*--accent-color: (\{\{[^\n]*\}\});/);
+    expect(iconMatch?.[1]).toBe(accentMatch?.[1]);
+  });
+
+  it('round-trips a multi-property threshold (icon + accent) back into one module state', () => {
+    const original =
+      "ha-state-icon {\n  color: {{ '#ff0000' if states('sensor.temp') | float(0) >= 30 else '#888888' }} !important;\n}\n\n" +
+      "ha-card {\n  --accent-color: {{ '#ff0000' if states('sensor.temp') | float(0) >= 30 else '#888888' }};\n}";
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+
+    expect(state.threshold.enabled).toBe(true);
+    expect(state.threshold.properties.sort()).toEqual(['accent-color', 'icon-color']);
+    expect(state.accentColor.enabled).toBe(false); // claimed by threshold, not the static module
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('does not merge two genuinely different threshold configs into one module', () => {
+    // icon-color driven by sensor.temp, accent-color driven by a different
+    // rule set entirely — a real conflict, not the same setting duplicated.
+    // Only one of the two can be represented by the single Threshold module
+    // (its rules/entity are shared across every property it drives) — which
+    // one "wins" the module is an implementation detail, but the loser must
+    // never be silently dropped: it has to survive in Advanced CSS.
+    const original =
+      "ha-state-icon {\n  color: {{ '#ff0000' if states('sensor.temp') | float(0) >= 30 else '#888888' }} !important;\n}\n\n" +
+      "ha-card {\n  --accent-color: {{ '#00ff00' if states('sensor.other') | float(0) >= 5 else '#000000' }};\n}";
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+
+    expect(state.threshold.enabled).toBe(true);
+    expect(state.threshold.properties).toHaveLength(1);
+    const loser = state.threshold.properties[0] === 'icon-color' ? '--accent-color' : 'color: {{';
+    expect(state.advanced.rawCss).toContain(loser);
+  });
+});
+
+describe('generateCss — entity binding (controlled by a different entity)', () => {
+  it('icon color conditional mode targets a custom entity, not config.entity', () => {
+    const css = generateCss(makeState({
+      iconColor: {
+        enabled: true,
+        mode: 'conditional',
+        color: '#fff',
+        colorOn: '#00ff00',
+        colorOff: '#888888',
+        entityId: 'binary_sensor.preheat_active',
+      },
+    }));
+    expect(css).toContain("is_state('binary_sensor.preheat_active', 'on')");
+    expect(css).not.toContain('config.entity');
+  });
+
+  it('icon color conditional mode falls back to config.entity when entityId is unset', () => {
+    const css = generateCss(makeState({
+      iconColor: {
+        enabled: true,
+        mode: 'conditional',
+        color: '#fff',
+        colorOn: '#00ff00',
+        colorOff: '#888888',
+      },
+    }));
+    expect(css).toContain("is_state(config.entity, 'on')");
+  });
+
+  it('round-trips icon color conditional mode with a custom entity', () => {
+    const original =
+      "ha-state-icon {\n  color: {{ '#00ff00' if is_state('binary_sensor.preheat_active', 'on') else '#888888' }} !important;\n}";
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+    expect(state.iconColor.enabled).toBe(true);
+    expect(state.iconColor.mode).toBe('conditional');
+    expect(state.iconColor.entityId).toBe('binary_sensor.preheat_active');
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('background "custom" applyWhen targets a different entity', () => {
+    const css = generateCss(makeState({
+      background: {
+        enabled: true,
+        type: 'solid',
+        color1: '#03a9f4',
+        color2: '#ff8c00',
+        angle: 135,
+        applyWhen: 'custom',
+        customEntity: 'binary_sensor.preheat_active',
+      },
+    }));
+    expect(css).toContain("is_state('binary_sensor.preheat_active', 'on')");
+  });
+
+  it('round-trips background "custom" applyWhen with a custom entity', () => {
+    const original =
+      "ha-card {\n  background: {{ '#03a9f4' if is_state('binary_sensor.preheat_active', 'on') else 'none' }};\n}";
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+    expect(state.background.enabled).toBe(true);
+    expect(state.background.applyWhen).toBe('custom');
+    expect(state.background.customEntity).toBe('binary_sensor.preheat_active');
+  });
+
+  it('filter grayscale "custom" trigger targets a different entity and round-trips', () => {
+    const css = generateCss(makeState({
+      filter: {
+        enabled: true,
+        grayscale: true,
+        grayscaleWhen: 'custom',
+        customEntity: 'binary_sensor.preheat_active',
+        brightness: 100,
+        blur: 0,
+        transitionMs: 300,
+      },
+    }));
+    expect(css).toContain("is_state('binary_sensor.preheat_active', 'on')");
+
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.filter.grayscale).toBe(true);
+    expect(state.filter.grayscaleWhen).toBe('custom');
+    expect(state.filter.customEntity).toBe('binary_sensor.preheat_active');
   });
 });
 
@@ -798,7 +935,7 @@ describe('round-trip', () => {
 
     expect(state.threshold.enabled).toBe(true);
     expect(state.threshold.entityId).toBe('sensor.temp');
-    expect(state.threshold.property).toBe('background');
+    expect(state.threshold.properties).toEqual(['background']);
     expect(state.threshold.rules).toHaveLength(2);
     expect(state.threshold.defaultColor).toBe('#888888');
     expect(state.advanced.rawCss).toBe('');
@@ -820,7 +957,7 @@ describe('round-trip', () => {
     const state = mapToStudioState(parsed);
 
     expect(state.threshold.enabled).toBe(true);
-    expect(state.threshold.property).toBe('icon-color');
+    expect(state.threshold.properties).toEqual(['icon-color']);
     expect(state.threshold.rules).toHaveLength(2);
     expect(state.threshold.rules.map((r) => r.color)).toEqual(['var(--red-color)', 'var(--orange-color)']);
     expect(state.threshold.defaultColor).toBe('var(--grey-color)');
@@ -847,7 +984,7 @@ describe('round-trip', () => {
 
     expect(state.accentColor.enabled).toBe(false);
     expect(state.threshold.enabled).toBe(true);
-    expect(state.threshold.property).toBe('accent-color');
+    expect(state.threshold.properties).toEqual(['accent-color']);
     expect(state.threshold.entityId).toBe('sensor.power');
     expect(state.threshold.rules).toEqual([{ id: '0', operator: '>', value: 0, color: '#f44336' }]);
     expect(state.threshold.defaultColor).toBe('#888888');

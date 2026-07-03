@@ -25,6 +25,7 @@ import type {
   AnimationModuleState,
   ThresholdModuleState,
   ThresholdRule,
+  ThresholdProperty,
   AdvancedModuleState,
   StudioState,
   EntitiesRowStyle,
@@ -93,7 +94,7 @@ export const DEFAULT_HEADING_STYLE: HeadingStyleModuleState = {
 export const DEFAULT_THRESHOLD: ThresholdModuleState = {
   enabled: false,
   entityId: '',
-  property: 'icon-color',
+  properties: ['icon-color'],
   rules: [],
   defaultColor: '#888888',
 };
@@ -253,18 +254,32 @@ function mapFilter(haCard: CssTarget | null, claimed: Set<string>): FilterModule
       // Conditional grayscale — detect which state triggers grayscale
       const offHasGrayscale = filterProp.offValue?.trim().startsWith('grayscale(');
       const onHasGrayscale = filterProp.onValue?.trim().startsWith('grayscale(');
+      // A custom (non-card-entity) entity in the condition means this was
+      // generated from the "controlled by a different entity" option —
+      // see entityRef() in css-generator.ts.
+      const customEntity = filterProp.entityId;
 
       if (offHasGrayscale && filterProp.onValue?.trim() === 'none') {
         // grayscale when off, none when on
         state.enabled = true;
         state.grayscale = true;
-        state.grayscaleWhen = 'off';
+        if (customEntity) {
+          state.grayscaleWhen = 'custom';
+          state.customEntity = customEntity;
+        } else {
+          state.grayscaleWhen = 'off';
+        }
         filterClaimed = true;
       } else if (onHasGrayscale && filterProp.offValue?.trim() === 'none') {
         // grayscale when on, none when off
         state.enabled = true;
         state.grayscale = true;
-        state.grayscaleWhen = 'on';
+        if (customEntity) {
+          state.grayscaleWhen = 'custom';
+          state.customEntity = customEntity;
+        } else {
+          state.grayscaleWhen = 'on';
+        }
         filterClaimed = true;
       }
 
@@ -329,34 +344,48 @@ function mapIconColor(
   const colorProp = findProp(haStateIcon, 'color');
   if (!colorProp) return { ...DEFAULT_ICON_COLOR };
 
-  claimed.add(claimKey(haStateIcon.selector, 'color'));
+  // Claiming happens per-branch below, not unconditionally here — a value
+  // this function doesn't recognize (e.g. a threshold's multi-branch
+  // ternary, which has hasCondition:true but no onValue/offValue) must stay
+  // unclaimed so mapThreshold or mapAdvanced still get a chance to read it.
+  // Claiming it here regardless, then falling through to DEFAULT_ICON_COLOR,
+  // used to silently erase that content on the next save.
 
-  // Light mode — contains rgb_color attribute access
+  // Light mode — contains rgb_color attribute access. This shape (uses `~`
+  // string concatenation and `and`) doesn't match ENTITY_STATE_PATTERN, so
+  // any custom entity has to be pulled out of the raw text directly instead
+  // of via CssProperty.entityId.
   if (colorProp.hasCondition && colorProp.value.includes('rgb_color')) {
+    claimed.add(claimKey(haStateIcon.selector, 'color'));
     const fallbackMatch = colorProp.value.match(/else\s+'([^']+)'/);
     const colorOff = fallbackMatch ? fallbackMatch[1] : DEFAULT_ICON_COLOR.colorOff;
+    const entityMatch = colorProp.value.match(/is_state\(\s*'([^']+)'\s*,/);
     return {
       enabled: true,
       mode: 'light',
       color: colorOff,
       colorOn: colorOff,
       colorOff,
+      ...(entityMatch ? { entityId: entityMatch[1] } : {}),
     };
   }
 
   if (colorProp.hasCondition && colorProp.onValue && colorProp.offValue) {
     // Jinja2 on/off conditional — map to conditional mode
+    claimed.add(claimKey(haStateIcon.selector, 'color'));
     return {
       enabled: true,
       mode: 'conditional',
       color: colorProp.onValue,
       colorOn: colorProp.onValue,
       colorOff: colorProp.offValue,
+      ...(colorProp.entityId ? { entityId: colorProp.entityId } : {}),
     };
   }
 
   // Plain static color (e.g. "color: yellow !important" — !important stripped by parser)
   if (!colorProp.hasCondition && colorProp.value.trim()) {
+    claimed.add(claimKey(haStateIcon.selector, 'color'));
     return {
       enabled: true,
       mode: 'plain',
@@ -406,17 +435,18 @@ function mapBackground(
   if (bgProp.hasCondition && bgProp.onValue !== undefined && bgProp.offValue !== undefined) {
     const onVal = bgProp.onValue.trim();
     const offVal = bgProp.offValue.trim();
-    let applyWhen: 'on' | 'off' | null = null;
+    let applyWhen: 'on' | 'off' | 'custom' | null = null;
     let colorVal = '';
     if (offVal === 'none' && onVal && onVal !== 'none') {
-      applyWhen = 'on';
+      applyWhen = bgProp.entityId ? 'custom' : 'on';
       colorVal = onVal;
     } else if (onVal === 'none' && offVal && offVal !== 'none') {
-      applyWhen = 'off';
+      applyWhen = bgProp.entityId ? 'custom' : 'off';
       colorVal = offVal;
     }
     if (applyWhen && colorVal) {
       claimed.add(claimKey(haCard.selector, 'background'));
+      const customEntity = applyWhen === 'custom' ? { customEntity: bgProp.entityId } : {};
       const gradientMatch = colorVal.match(
         /^linear-gradient\(\s*(\d+)deg\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)$/i,
       );
@@ -424,10 +454,10 @@ function mapBackground(
         return {
           enabled: true, type: 'gradient',
           color1: gradientMatch[2].trim(), color2: gradientMatch[3].trim(),
-          angle: parseInt(gradientMatch[1], 10), applyWhen,
+          angle: parseInt(gradientMatch[1], 10), applyWhen, ...customEntity,
         };
       }
-      return { ...DEFAULT_BACKGROUND, enabled: true, type: 'solid', color1: colorVal, applyWhen };
+      return { ...DEFAULT_BACKGROUND, enabled: true, type: 'solid', color1: colorVal, applyWhen, ...customEntity };
     }
     return { ...DEFAULT_BACKGROUND };
   }
@@ -700,6 +730,18 @@ export function mergeEntityRowStyles(primary: EntitiesRowStyle, secondary: Entit
   };
 }
 
+/** True when two parsed threshold blocks are the same rule set (ignoring rule `id`s, which are re-minted per parse). */
+function sameThreshold(
+  a: { entityId: string; rules: ThresholdRule[]; defaultColor: string },
+  b: { entityId: string; rules: ThresholdRule[]; defaultColor: string },
+): boolean {
+  if (a.entityId !== b.entityId || a.defaultColor !== b.defaultColor) return false;
+  if (a.rules.length !== b.rules.length) return false;
+  return a.rules.every(
+    (r, i) => r.operator === b.rules[i].operator && r.value === b.rules[i].value && r.color === b.rules[i].color,
+  );
+}
+
 function mapThreshold(
   haCard: CssTarget | null,
   haStateIcon: CssTarget | null,
@@ -708,7 +750,7 @@ function mapThreshold(
   type Candidate = {
     target: CssTarget;
     cssProperty: string;
-    thresholdProperty: ThresholdModuleState['property'];
+    thresholdProperty: ThresholdProperty;
   };
 
   const candidates: Candidate[] = [];
@@ -742,29 +784,43 @@ function mapThreshold(
       candidates.push({ target: haStateIcon, cssProperty: 'color', thresholdProperty: 'icon-color' });
   }
 
+  // Collect every candidate whose parsed rules match the *first* matching
+  // candidate's rules — e.g. icon-color and accent-color both driven by the
+  // same threshold rules become one ThresholdModuleState with two entries in
+  // `properties`. A candidate with genuinely different rules (a real
+  // conflict, not the same setting duplicated) is left unclaimed and falls
+  // through to Advanced CSS rather than being silently merged or dropped.
+  let base: { entityId: string; rules: ThresholdRule[]; defaultColor: string } | null = null;
+  const properties: ThresholdProperty[] = [];
+  let borderWidth: number | undefined;
+
   for (const { target, cssProperty, thresholdProperty } of candidates) {
     const prop = findProp(target, cssProperty)!;
     const parsed = parseThresholdJinja(prop.value);
-    if (parsed) {
-      claimed.add(claimKey(target.selector, cssProperty));
-      // For "border: 2px solid {{ ... }}" extract the width from the leading non-Jinja part
-      let borderWidth: number | undefined;
-      if (cssProperty === 'border') {
-        const bwMatch = prop.value.match(/^(\d+)px/);
-        borderWidth = bwMatch ? parseInt(bwMatch[1], 10) : 2;
-      }
-      return {
-        enabled: true,
-        entityId: parsed.entityId,
-        property: thresholdProperty,
-        rules: parsed.rules,
-        defaultColor: parsed.defaultColor,
-        ...(borderWidth !== undefined ? { borderWidth } : {}),
-      };
+    if (!parsed) continue;
+    if (base && !sameThreshold(base, parsed)) continue;
+
+    base ??= parsed;
+    claimed.add(claimKey(target.selector, cssProperty));
+    if (!properties.includes(thresholdProperty)) properties.push(thresholdProperty);
+
+    // For "border: 2px solid {{ ... }}" extract the width from the leading non-Jinja part
+    if (cssProperty === 'border') {
+      const bwMatch = prop.value.match(/^(\d+)px/);
+      borderWidth = bwMatch ? parseInt(bwMatch[1], 10) : 2;
     }
   }
 
-  return { ...DEFAULT_THRESHOLD };
+  if (!base || properties.length === 0) return { ...DEFAULT_THRESHOLD };
+
+  return {
+    enabled: true,
+    entityId: base.entityId,
+    properties,
+    rules: base.rules,
+    defaultColor: base.defaultColor,
+    ...(borderWidth !== undefined ? { borderWidth } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------

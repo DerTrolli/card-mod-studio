@@ -1,9 +1,10 @@
 import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import type { IconColorModuleState } from '../types/index.js';
+import type { IconColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
 import '../components/cms-color-picker.js';
+import '../components/cms-entity-picker.js';
 
 export class IconColorModule extends LitElement {
   @property({ attribute: false }) state: IconColorModuleState = {
@@ -14,6 +15,10 @@ export class IconColorModule extends LitElement {
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
   /** When true a third "Light color" mode is offered that reads rgb_color attribute. */
   @property({ type: Boolean, attribute: 'is-light-card' }) isLightCard = false;
+  /** The card's own entity — used as the picker's placeholder and as the implicit default when entityId is unset. */
+  @property({ type: String }) cardEntity = '';
+
+  @property({ attribute: false }) hass?: HomeAssistant;
 
   @state() private _open = false;
 
@@ -107,6 +112,28 @@ export class IconColorModule extends LitElement {
                   : effectiveMode === 'light'
                   ? "Uses the light's real color while on; your chosen color while off."
                   : 'One color while the entity is on, another while off.'}
+              </div>
+            `
+          : nothing}
+        ${effectiveMode !== 'plain'
+          ? html`
+              <div class="control-row">
+                <span class="control-label">Controlled by</span>
+                <div class="control-right">
+                  <cms-entity-picker
+                    .hass=${this.hass}
+                    .value=${this.state.entityId ?? ''}
+                    .placeholder=${this.cardEntity}
+                    label="Entity (default: this card's entity)"
+                    @value-changed=${(e: CustomEvent<{ value: string }>) =>
+                      this._emit({ entityId: e.detail.value.trim() })}
+                  ></cms-entity-picker>
+                </div>
+              </div>
+              <div class="when-hint">
+                ${this.state.entityId
+                  ? `Uses ${this.state.entityId}'s on/off state, not this card's own entity.`
+                  : "Leave empty to use this card's own entity."}
               </div>
             `
           : nothing}

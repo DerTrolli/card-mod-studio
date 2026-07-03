@@ -914,6 +914,7 @@ export class CmsPanel extends LitElement {
       <cms-filter-module
         .state=${s.filter}
         .stateAware=${stateAware}
+        .hass=${this.hass}
         @state-changed=${this._onFilterChanged}
       ></cms-filter-module>
 
@@ -929,6 +930,8 @@ export class CmsPanel extends LitElement {
             .state=${s.iconColor}
             .stateAware=${stateAware}
             .isLightCard=${this._isLightCard}
+            .cardEntity=${this.config?.entity ?? ''}
+            .hass=${this.hass}
             @state-changed=${this._onIconColorChanged}
           ></cms-icon-color-module>`
         : nothing}
@@ -937,6 +940,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-threshold-module
               .state=${s.threshold}
               .cardEntity=${this.config?.entity ?? ''}
+              .hass=${this.hass}
               @state-changed=${this._onThresholdChanged}
             ></cms-threshold-module>`
         : nothing}
@@ -945,6 +949,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-background-module
             .state=${s.background}
             .stateAware=${stateAware}
+            .hass=${this.hass}
             @state-changed=${this._onBackgroundChanged}
           ></cms-background-module>`
         : nothing}
@@ -953,6 +958,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-animation-module
             .state=${s.animation}
             .stateAware=${stateAware}
+            .hass=${this.hass}
             @state-changed=${this._onAnimationChanged}
           ></cms-animation-module>`
         : nothing}

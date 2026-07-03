@@ -303,3 +303,32 @@ and verifies the popover is genuinely clickable at its rendered position
 (piercing shadow roots via nested `elementFromPoint` calls), not just
 present in the DOM — a purely positional/`getBoundingClientRect()` check
 can't tell "on-screen" apart from "on-screen but painted behind the modal".
+
+### `<ha-entity-picker>` needs a real ancestor, not just `.hass`
+
+Every entity field in the panel (`cms-entity-picker.ts`) wraps HA's own
+`<ha-entity-picker>`. As of HA 2026.6/2026.7, that component no longer reads
+`hass`/registries/i18n off a plain `.hass` property internally — it consumes
+them via `@lit/context` (`@consume({ context: statesContext, subscribe: true })`
+and similar for registries/i18n/config). Context-request events bubble up
+the DOM looking for a provider; HA's provider lives on `<home-assistant>`
+itself. Setting `.hass` is still required (it's a real, separate property
+the component also reads directly), but it's no longer sufficient on its
+own — the element also has to be a genuine DOM descendant of
+`<home-assistant>` for those `consume()` calls to resolve at all.
+
+Mount a bare `<ha-entity-picker>` (or anything containing one) directly on
+`document.body` — the pattern every check script in this directory used
+before v0.7.0 — and its own `render()` throws (`_i18n`/`_registries` stay
+`undefined`) on the very first paint; Lit doesn't clear old content on a
+failed render, and there is no old content yet, so it renders as an empty
+shadow root: present in the DOM, completely invisible, no error surfaced
+anywhere except the browser console. Confirmed by mounting the same bare
+element both ways in a throwaway script — identical `.hass`, only the
+ancestor differed. This doesn't affect the real product (`cms-injector.ts`
+always injects into HA's own dialog element, itself already a descendant of
+`<home-assistant>`) — it's purely a test-mounting concern.
+`tools/sandbox/harness/entity_binding_check.mjs` appends its mount host to
+`document.querySelector('home-assistant')` instead of `document.body` for
+exactly this reason; any future check exercising an entity/device/area
+picker needs the same.

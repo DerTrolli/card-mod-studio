@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-03 · **Current version:** v0.6.2
+**Last updated:** 2026-07-03 · **Current version:** v0.7.0
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -11,6 +11,42 @@ content is either shipped or captured here.
 
 Priorities reflect both user value and the findings in
 [COMPATIBILITY_AUDIT.md](COMPATIBILITY_AUDIT.md).
+
+## Path to v1.0
+
+The goal for v1.0 isn't "every card-mod/UIX feature" — it's that Card-Mod
+Studio is a confident, professional default for styling HA's built-in cards
+without touching CSS or Jinja2 by hand: state-driven styling off *any*
+entity/attribute, a real color system, and correct editing inside nested
+dashboard layouts. Rough shape (effort, not calendar time):
+
+| Version | Theme | Contents |
+|---|---|---|
+| v0.7 ✅ | Entity binding foundation | **Shipped** — see below. Searchable entity picker everywhere; Icon Color/Background/Filter can target a different entity than the card's own; Threshold rules can drive multiple properties at once. |
+| v0.8 | Color system | A Color Palette Manager — add/rename/delete custom presets, override built-in defaults (e.g. what "off" defaults to) — stored via the existing cross-device preset storage. Plus attribute-based thresholds (item #16 below: `battery_level`, `state_attr(...)`, not just raw state). |
+| v0.9 | Depth | Property-level templating beyond color (border width, icon size, blur/opacity driven by entity state — natural extension of v0.7's entity binding). Plus dict-form/`$`-pierce round-trip safety (item #1 below), which unblocks nested-shadow-DOM targets (glance icon, Mushroom/Bubble). |
+| v1.0 | Structural completeness | Container child-card editing (item #7 — styling a card inside a grid/stack/sections view currently targets the wrong card; probably the single biggest remaining hole) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
+| Post-1.0 | Stretch | Official Mushroom/Bubble selectors, a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
+
+## Recently shipped (v0.7.0)
+
+- **Searchable entity picker everywhere** — every entity field (Threshold's
+  entity, Animation's custom trigger, and the new "controlled by" fields
+  below) now uses HA's own `<ha-entity-picker>` via a shared
+  `cms-entity-picker` component, instead of a bare text input.
+- **Cross-entity control for Icon Color, Background, and Filter** — these
+  three modules can now be driven by a different entity than the card's
+  own, matching what Threshold and Animation already supported. Directly
+  answers the most-requested pattern: styling one card's appearance off a
+  *different* entity's state (e.g. a button card's icon reflecting a
+  separate status sensor).
+- **Multi-property threshold rules** — one shared rule set can now drive
+  several CSS properties at once (e.g. icon color *and* accent color
+  together), instead of needing the same rules duplicated per property.
+- **Fixed a latent silent-data-loss bug** in the Icon Color recognizer
+  (claimed `ha-state-icon.color` even when it didn't understand the value,
+  permanently blocking Threshold/Advanced CSS from ever reading it) — found
+  while testing the multi-property threshold work.
 
 ## Recently shipped (v0.6.1)
 

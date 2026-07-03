@@ -1,17 +1,28 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import type { ThresholdModuleState, ThresholdRule } from '../types/index.js';
+import type { ThresholdModuleState, ThresholdProperty, ThresholdRule, HomeAssistant } from '../types/index.js';
 import { DEFAULT_THRESHOLD } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
 import { sortThresholdRules } from '../generator/css-generator.js';
 import { previewHexFor } from '../components/cms-color-picker.js';
 import '../components/cms-color-picker.js';
+import '../components/cms-entity-picker.js';
+
+const PROPERTY_OPTIONS: Array<{ value: ThresholdProperty; label: string }> = [
+  { value: 'icon-color', label: 'Icon Color' },
+  { value: 'accent-color', label: 'Accent Color' },
+  { value: 'background', label: 'Background' },
+  { value: 'text-color', label: 'Text Color' },
+  { value: 'border-color', label: 'Border Color' },
+];
 
 export class ThresholdModule extends LitElement {
   @property({ attribute: false }) state: ThresholdModuleState = {
     ...DEFAULT_THRESHOLD,
   };
   @property({ type: String }) cardEntity = '';
+
+  @property({ attribute: false }) hass?: HomeAssistant;
 
   @state() private _open = false;
 
@@ -73,15 +84,20 @@ export class ThresholdModule extends LitElement {
       .add-btn:hover {
         background: rgba(33, 150, 243, 0.25);
       }
-      .entity-input {
-        width: 100%;
-        padding: 6px 8px;
+      .property-checks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .property-check {
+        display: flex;
+        align-items: center;
+        gap: 4px;
         font-size: 12px;
-        background: var(--card-background-color, #1c1c1c);
-        color: var(--primary-text-color, #e1e1e1);
-        border: 1px solid var(--divider-color, #383838);
-        border-radius: 4px;
-        font-family: monospace;
+        cursor: pointer;
+      }
+      .property-check input {
+        cursor: pointer;
       }
       .rules-container {
         margin-top: 12px;
@@ -175,52 +191,51 @@ export class ThresholdModule extends LitElement {
     `;
   }
 
+  private _toggleProperty(value: ThresholdProperty, checked: boolean) {
+    const properties = checked
+      ? [...this.state.properties, value]
+      : this.state.properties.filter((p) => p !== value);
+    this._emit({ properties });
+  }
+
   private _renderBody() {
     return html`
       <div class="module-body">
         <div class="control-row">
-          <span class="control-label">Entity ID</span>
+          <span class="control-label">Entity</span>
         </div>
-        <input
-          class="entity-input"
-          type="text"
-          .value=${this.state.entityId || this.cardEntity}
-          @input=${(e: Event) =>
-            this._emit({ entityId: (e.target as HTMLInputElement).value })}
-          placeholder=${this.cardEntity || 'sensor.temperature'}
-        />
+        <cms-entity-picker
+          .hass=${this.hass}
+          .value=${this.state.entityId}
+          .placeholder=${this.cardEntity || 'sensor.temperature'}
+          label="Entity these rules read from"
+          @value-changed=${(e: CustomEvent<{ value: string }>) =>
+            this._emit({ entityId: e.detail.value.trim() })}
+        ></cms-entity-picker>
 
         <div class="control-row">
           <span class="control-label">Apply to</span>
-          <div class="control-right">
-            <select
-              .value=${this.state.property}
-              @change=${(e: Event) =>
-                this._emit({
-                  property: (e.target as HTMLSelectElement)
-                    .value as ThresholdModuleState['property'],
-                })}
-            >
-              <option value="icon-color" ?selected=${this.state.property === 'icon-color'}>
-                Icon Color
-              </option>
-              <option value="accent-color" ?selected=${this.state.property === 'accent-color'}>
-                Accent Color
-              </option>
-              <option value="background" ?selected=${this.state.property === 'background'}>
-                Background
-              </option>
-              <option value="text-color" ?selected=${this.state.property === 'text-color'}>
-                Text Color
-              </option>
-              <option value="border-color" ?selected=${this.state.property === 'border-color'}>
-                Border Color
-              </option>
-            </select>
-          </div>
         </div>
+        <div class="property-checks">
+          ${PROPERTY_OPTIONS.map(
+            (opt) => html`
+              <label class="property-check">
+                <input
+                  type="checkbox"
+                  .checked=${this.state.properties.includes(opt.value)}
+                  @change=${(e: Event) =>
+                    this._toggleProperty(opt.value, (e.target as HTMLInputElement).checked)}
+                />
+                ${opt.label}
+              </label>
+            `,
+          )}
+        </div>
+        ${this.state.properties.length === 0
+          ? html`<div class="when-hint">Select at least one property above to apply these rules.</div>`
+          : nothing}
 
-        ${this.state.property === 'border-color'
+        ${this.state.properties.includes('border-color')
           ? html`
               <div class="control-row">
                 <span class="control-label">Border width</span>

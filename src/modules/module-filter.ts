@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import type { FilterModuleState } from '../types/index.js';
+import type { FilterModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_FILTER } from '../parser/state-mapper.js';
 import { moduleStyles, renderWhen } from './module-base.js';
 
@@ -9,6 +9,8 @@ export class FilterModule extends LitElement {
 
   /** False when the card has no binary entity state (e.g. sensor cards). */
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
+
+  @property({ attribute: false }) hass?: HomeAssistant;
 
   @state() private _open = false;
   @state() private _brightness = DEFAULT_FILTER.brightness;
@@ -81,8 +83,12 @@ export class FilterModule extends LitElement {
               value: this.state.grayscaleWhen,
               stateAware: this.stateAware,
               noun: 'grayscale',
+              allowCustom: true,
+              customEntity: this.state.customEntity,
+              hass: this.hass,
               onChange: (v) =>
-                this._emit({ grayscaleWhen: v as 'always' | 'on' | 'off' }),
+                this._emit({ grayscaleWhen: v as FilterModuleState['grayscaleWhen'] }),
+              onCustomEntity: (id) => this._emit({ customEntity: id }),
             })
           : nothing}
 

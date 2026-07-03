@@ -15,7 +15,20 @@ import type {
   HeadingStyleModuleState,
   ThresholdModuleState,
   ThresholdRule,
+  ThresholdProperty,
 } from '../types/index.js';
+
+/**
+ * Renders the entity reference used inside an `is_state(...)`/`state_attr(...)`
+ * Jinja2 call: the card's own entity (`config.entity`, unquoted — a template
+ * variable card-mod provides) when no override is set, or a quoted entity_id
+ * literal when a module is bound to a different entity. Shared by every
+ * module below so a "controlled by [entity]" binding round-trips the same
+ * way everywhere (see ENTITY_STATE_PATTERN in css-parser.ts).
+ */
+function entityRef(entityId?: string): string {
+  return entityId ? `'${entityId}'` : 'config.entity';
+}
 
 // ---------------------------------------------------------------------------
 // Animation @keyframes presets
@@ -73,6 +86,10 @@ function filterDecls(s: FilterModuleState): string[] {
     } else if (s.grayscaleWhen === 'off') {
       decls.push(
         `filter: {{ '${grayVal}' if is_state(config.entity, 'off') else '${otherVal}' }};`,
+      );
+    } else if (s.grayscaleWhen === 'custom' && s.customEntity) {
+      decls.push(
+        `filter: {{ '${grayVal}' if is_state(${entityRef(s.customEntity)}, 'on') else '${otherVal}' }};`,
       );
     } else {
       decls.push(
@@ -136,17 +153,28 @@ function backgroundDecls(s: BackgroundModuleState): string[] {
       : s.color1;
 
   if (s.applyWhen === 'always') return [`background: ${bgValue};`];
+  if (s.applyWhen === 'custom' && s.customEntity) {
+    return [
+      `background: {{ '${bgValue}' if is_state(${entityRef(s.customEntity)}, 'on') else 'none' }};`,
+    ];
+  }
   const when = s.applyWhen === 'on' ? 'on' : 'off';
   return [
     `background: {{ '${bgValue}' if is_state(config.entity, '${when}') else 'none' }};`,
   ];
 }
 
-function borderDecls(s: BorderModuleState): string[] {
+/**
+ * @param skipColor  Omit the `border: Npx solid COLOR` declaration — used
+ *   when the Threshold module already owns border-color for this card, so
+ *   the two modules don't emit conflicting `border` declarations in the
+ *   same `ha-card` block (border-radius still applies either way).
+ */
+function borderDecls(s: BorderModuleState, skipColor = false): string[] {
   if (!s.enabled) return [];
   const decls: string[] = [];
   if (s.radiusPx > 0) decls.push(`border-radius: ${s.radiusPx}px;`);
-  if (s.borderWidth > 0) decls.push(`border: ${s.borderWidth}px solid ${s.borderColor};`);
+  if (!skipColor && s.borderWidth > 0) decls.push(`border: ${s.borderWidth}px solid ${s.borderColor};`);
   return decls;
 }
 
@@ -220,10 +248,12 @@ function iconColorBlock(s: IconColorModuleState): string {
     return `ha-state-icon {\n  color: ${s.color} !important;\n}`;
   }
 
+  const ref = entityRef(s.entityId);
+
   if (s.mode === 'light') {
     const jinja =
-      `{{ 'rgb(' ~ (state_attr(config.entity, 'rgb_color') | join(', ')) ~ ')' ` +
-      `if is_state(config.entity, 'on') and state_attr(config.entity, 'rgb_color') ` +
+      `{{ 'rgb(' ~ (state_attr(${ref}, 'rgb_color') | join(', ')) ~ ')' ` +
+      `if is_state(${ref}, 'on') and state_attr(${ref}, 'rgb_color') ` +
       `else '${s.colorOff}' }}`;
     return `ha-state-icon {\n  color: ${jinja} !important;\n}`;
   }
@@ -231,7 +261,7 @@ function iconColorBlock(s: IconColorModuleState): string {
   // Conditional mode
   return (
     `ha-state-icon {\n` +
-    `  color: {{ '${s.colorOn}' if is_state(config.entity, 'on') else '${s.colorOff}' }} !important;\n` +
+    `  color: {{ '${s.colorOn}' if is_state(${ref}, 'on') else '${s.colorOff}' }} !important;\n` +
     `}`
   );
 }
@@ -276,13 +306,8 @@ export function buildThresholdJinja(
   return jinja;
 }
 
-function thresholdBlock(s: ThresholdModuleState | undefined): string {
-  if (!s || !s.enabled || !s.entityId || s.rules.length === 0) return '';
-
-  const jinja = buildThresholdJinja(s.rules, s.defaultColor, s.entityId);
-
-  // Generate CSS based on property type
-  switch (s.property) {
+function thresholdPropertyBlock(property: ThresholdProperty, jinja: string, borderWidth: number): string {
+  switch (property) {
     case 'icon-color':
       return `ha-state-icon {\n  color: ${jinja} !important;\n}`;
     case 'background':
@@ -292,10 +317,25 @@ function thresholdBlock(s: ThresholdModuleState | undefined): string {
     case 'accent-color':
       return `ha-card {\n  --accent-color: ${jinja};\n}`;
     case 'border-color':
-      return `ha-card {\n  border: ${s.borderWidth ?? 2}px solid ${jinja};\n}`;
+      return `ha-card {\n  border: ${borderWidth}px solid ${jinja};\n}`;
     default:
       return '';
   }
+}
+
+/**
+ * Threshold rules can drive more than one CSS property at once (e.g. icon
+ * color AND accent color changing together off the same rule set) — one
+ * block is emitted per selected property, all sharing the same computed
+ * Jinja2 expression.
+ */
+function thresholdBlock(s: ThresholdModuleState | undefined): string {
+  if (!s || !s.enabled || !s.entityId || s.rules.length === 0 || s.properties.length === 0) return '';
+
+  const jinja = buildThresholdJinja(s.rules, s.defaultColor, s.entityId);
+  return s.properties
+    .map((property) => thresholdPropertyBlock(property, jinja, s.borderWidth ?? 2))
+    .join('\n\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -308,12 +348,19 @@ export function generateCss(state: StudioState, cardType?: string): string {
   const kf = animationKeyframes(state.animation);
   if (kf) parts.push(kf);
 
+  // A property the Threshold module already drives is skipped in the
+  // corresponding static module's output — both would otherwise write the
+  // same declaration into the same ha-card block, and only the one that
+  // happens to render later would actually take effect (silently ignoring
+  // the static module's own control).
+  const thresholdProps = new Set(state.threshold.enabled ? state.threshold.properties : []);
+
   // ha-card block
   const haCardDecls = [
-    ...accentColorDecls(state.accentColor, cardType),
+    ...(thresholdProps.has('accent-color') ? [] : accentColorDecls(state.accentColor, cardType)),
     ...filterDecls(state.filter),
-    ...backgroundDecls(state.background),
-    ...borderDecls(state.border),
+    ...(thresholdProps.has('background') ? [] : backgroundDecls(state.background)),
+    ...borderDecls(state.border, thresholdProps.has('border-color')),
     ...animationDecls(state.animation),
   ];
   if (haCardDecls.length > 0) {
@@ -323,9 +370,7 @@ export function generateCss(state: StudioState, cardType?: string): string {
 
   // Skip icon-color module when threshold is already driving icon color — both
   // emit ha-state-icon { color } and the second block would silently win.
-  const thresholdOwnsIconColor =
-    state.threshold.enabled && state.threshold.property === 'icon-color';
-  const iconColor = thresholdOwnsIconColor ? '' : iconColorBlock(state.iconColor);
+  const iconColor = thresholdProps.has('icon-color') ? '' : iconColorBlock(state.iconColor);
   if (iconColor) parts.push(iconColor);
 
   const threshold = thresholdBlock(state.threshold);

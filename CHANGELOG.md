@@ -5,6 +5,52 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — 2026-07-03
+
+The first step of a broader push toward v1.0: making cross-entity styling a
+first-class, discoverable feature instead of something only possible by
+hand-typing an entity_id, and letting one set of threshold rules drive more
+than one visual property at once.
+
+### Added
+- **Searchable entity picker everywhere.** Every entity field in the panel —
+  Threshold's entity, Animation's custom trigger entity, and the new
+  "controlled by" fields below — now uses HA's own `<ha-entity-picker>`
+  (search by name, domain icons, autocomplete) via a new shared
+  `cms-entity-picker` component, instead of a bare text input you had to get
+  the entity_id exactly right in.
+- **Icon Color, Background, and Filter can now be controlled by a different
+  entity than the card's own** — the same capability Threshold and
+  Animation already had, generalized to every conditional module. This is
+  the direct fix for "style this card's icon/background off a *different*
+  entity's on/off state" (e.g. a toggle card whose icon color reflects a
+  separate status sensor, not the toggle entity itself): Icon Color gained a
+  "Controlled by" entity field in conditional/light mode; Background and
+  Filter gained a "While another entity is ON…" option alongside their
+  existing Always/On/Off choices, matching the option Animation already had.
+- **Threshold rules can now drive multiple properties at once** — e.g. icon
+  color *and* accent color changing together off one shared rule set,
+  instead of needing to duplicate the same rules once per property. "Apply
+  to" is now a set of checkboxes instead of a single dropdown. Generated CSS
+  emits one block per selected property, all sharing the same computed
+  Jinja2 expression; round-trip parsing recognises matching threshold blocks
+  across properties and merges them back into one module state (a genuine
+  mismatch — two different properties driven by different rules/entities —
+  is left alone rather than silently merged, and the second one is
+  preserved in Advanced CSS instead of being merged incorrectly or dropped).
+
+### Fixed
+- **`ha-state-icon`'s `color` property could be silently claimed by the Icon
+  Color recognizer even when it didn't understand the value**, permanently
+  blocking Threshold (and Advanced CSS) from ever reading it on save. This
+  was latent before this release too — reachable whenever a card had a
+  threshold-driven icon color alongside a *different*, unrelated
+  threshold-driven property (e.g. accent color with its own separate rule
+  set) — but was only found while building the multi-property threshold
+  support above and testing that exact "two different threshold configs on
+  one card" case. Icon Color now only claims the property in the branches
+  where it actually recognises and uses the value.
+
 ## [0.6.2] — 2026-07-03
 
 Fixes a real bug in the v0.6.1 threshold color-palette popover, reported
