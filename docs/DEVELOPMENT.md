@@ -384,3 +384,24 @@ Fixed by encoding the marker as a brace-free `value:color,value:color,...`
 string instead of JSON — same information, no braces anywhere. **Any
 future marker/metadata smuggled through generated CSS must avoid `{` and
 `}` in its encoding entirely**, regardless of how safely quoted it looks.
+
+### A raw `<hui-card>` test only applies style under the key the *installed engine* actually reads — get it wrong and everything "silently fails"
+
+`run.sh`'s sandbox has card-mod installed, not UIX. `run-uix.sh`'s has UIX,
+not card-mod (they can't coexist — UIX's own config flow aborts setup if it
+detects a `card-mod.js` resource). A raw `card.config = { ..., uix: { style
+} }` on `run.sh`'s rig is never read by anything — card-mod only looks at
+`card_mod:`. This produces exactly the same *symptom* as the JSON-braces
+bug above (icon never changes color, no error anywhere) for a completely
+unrelated reason, and it's easy to fall into while iterating quickly on a
+debug script, since `cms-panel` itself parses *either* key regardless of
+which engine is installed (that's it correctly supporting both card-mod
+and UIX users) — so state built through the Studio's own UI still looks
+completely correct, and only the final real-render check silently no-ops.
+**A trivial `color: red !important` under the wrong key fails to render
+too** — if even that doesn't show up, suspect the config key before
+suspecting the generated CSS. `preset_stale_state_check.mjs` was itself
+written with this exact mistake mid-investigation and briefly "confirmed" a
+product bug that didn't exist — caught by noticing a completely inert
+sanity-check style also failed, which a *real* bug in gradient generation
+specifically could never cause.

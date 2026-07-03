@@ -66,6 +66,7 @@ node button_card_binding_check.mjs  # conditional mode available on cards with n
 node gradient_mode_check.mjs  # Threshold "Fade" (gradient) mode — generation, marker round-trip, live preview
 node gradient_typing_check.mjs  # typing a value into a gradient point can't scramble a different point mid-edit
 node gradient_uix_compat_check.mjs  # gradient marker actually applies against REAL card-mod (getComputedStyle), not just this project's own parser
+node preset_stale_state_check.mjs  # reused-panel + preset-load edge case that was suspected (wrongly) to lose gradient state on a duplicated card
 node scan.mjs            # which card types mount cleanly standalone
 ```
 
@@ -305,3 +306,16 @@ card-mod's own parsing handles a declaration's value, not something
 cd tools/sandbox/harness
 HA_URL=http://127.0.0.1:8124 node gradient_uix_only_compat_check.mjs
 ```
+
+### `preset_stale_state_check.mjs` — reused-panel preset load
+
+Investigated a real report ("save a gradient as a preset, apply it to a
+duplicate of the card, it doesn't render — but rebuilding it from scratch
+on the same card works") that turned out not to be a bug: reproduces the
+one architecturally-real mechanism that could explain it — `cms-injector.ts`
+reuses the same `<cms-panel>` instance across successive "edit a different
+card" actions within one dialog session, and `_initState()`'s dedup guard
+persists across `.config` updates on that reused instance, which a
+byte-identical duplicate card would trigger. Forces exactly that reuse and
+confirms state still rebuilds correctly and the result still renders the
+right color. Kept as a permanent regression check for this mechanism.
