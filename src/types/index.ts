@@ -188,6 +188,13 @@ export type ThresholdProperty =
   | 'accent-color'
   | 'border-color';
 
+/** One value→color anchor point for gradient (fade) mode. Color is always hex — interpolation needs concrete RGB. */
+export interface ColorStop {
+  id: string;
+  value: number;
+  color: string;
+}
+
 export interface ThresholdModuleState {
   enabled: boolean;
   entityId: string;
@@ -197,8 +204,18 @@ export interface ThresholdModuleState {
    * threshold. Each selected property gets its own generated CSS block.
    */
   properties: ThresholdProperty[];
+  /**
+   * switch = discrete step rules (original behavior): first matching rule
+   * wins, everything else falls to defaultColor.
+   * gradient = smoothly fades between colorStops, clamped at the ends.
+   * Both modes share entityId/properties above.
+   */
+  valueMode: 'switch' | 'gradient';
+  // switch mode
   rules: ThresholdRule[];
   defaultColor: string;
+  // gradient mode — at least 2 stops, sorted by value ascending
+  colorStops: ColorStop[];
   /** Border width in px — only used when properties includes 'border-color'. Defaults to 2. */
   borderWidth?: number;
 }

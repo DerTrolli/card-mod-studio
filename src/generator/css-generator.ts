@@ -16,6 +16,7 @@ import type {
   ThresholdModuleState,
   ThresholdRule,
   ThresholdProperty,
+  ColorStop,
 } from '../types/index.js';
 
 /**
@@ -311,18 +312,118 @@ export function buildThresholdJinja(
   return jinja;
 }
 
-function thresholdPropertyBlock(property: ThresholdProperty, jinja: string, borderWidth: number): string {
+// ---------------------------------------------------------------------------
+// Gradient (fade) mode — approximates a continuous fade between colorStops
+// as a chain of closely-spaced discrete threshold rules, reusing the exact
+// same generation/parsing/entity-binding/multi-property machinery switch
+// mode already has. True continuous color math isn't reasonably expressible
+// in HA's sandboxed Jinja2 (no hex-formatting filter to build a color string
+// from computed numbers) — a dense discrete approximation is invisible in
+// practice at normal HA update rates, and far more robust.
+// ---------------------------------------------------------------------------
+
+const GRADIENT_STEPS = 32;
+/** Custom property carrying the real anchor points, so re-opening the editor
+ *  recovers your actual stops instead of GRADIENT_STEPS generated rules. */
+export const GRADIENT_MARKER_PROPERTY = '--cms-gradient-stops';
+
+function normalizeHex(value: string): string {
+  if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
+  const m = value.match(/^#([0-9a-fA-F]{3})$/);
+  if (m) return `#${[...m[1]].map((c) => c + c).join('')}`;
+  return '#888888';
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = normalizeHex(hex).slice(1);
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+  return `#${[r, g, b].map((c) => clamp(c).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** Linearly interpolates between two hex colors; t=0 -> c1, t=1 -> c2. */
+export function lerpColor(c1: string, c2: string, t: number): string {
+  const [r1, g1, b1] = hexToRgb(c1);
+  const [r2, g2, b2] = hexToRgb(c2);
+  return rgbToHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
+}
+
+/** The color a gradient with these stops would show at a given value — clamped at the ends. */
+export function colorAtValue(stops: ColorStop[], value: number): string {
+  const sorted = [...stops].sort((a, b) => a.value - b.value);
+  if (sorted.length === 0) return '#888888';
+  if (sorted.length === 1) return normalizeHex(sorted[0].color);
+  if (value <= sorted[0].value) return normalizeHex(sorted[0].color);
+  const last = sorted[sorted.length - 1];
+  if (value >= last.value) return normalizeHex(last.color);
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i];
+    const b = sorted[i + 1];
+    if (value >= a.value && value <= b.value) {
+      const t = b.value === a.value ? 0 : (value - a.value) / (b.value - a.value);
+      return lerpColor(a.color, b.color, t);
+    }
+  }
+  return normalizeHex(last.color);
+}
+
+/**
+ * Approximates colorStops as GRADIENT_STEPS discrete '>=' rules plus a
+ * default (the clamp-below-minimum color) — the exact shape thresholdBlock
+ * already knows how to turn into Jinja2 via buildThresholdJinja.
+ */
+export function gradientToRules(stops: ColorStop[]): { rules: ThresholdRule[]; defaultColor: string } {
+  const sorted = [...stops].sort((a, b) => a.value - b.value);
+  if (sorted.length < 2) return { rules: [], defaultColor: normalizeHex(sorted[0]?.color ?? '#888888') };
+
+  const min = sorted[0].value;
+  const max = sorted[sorted.length - 1].value;
+  const rules: ThresholdRule[] = [];
+  for (let i = 1; i <= GRADIENT_STEPS; i++) {
+    const value = Math.round((min + ((max - min) * i) / GRADIENT_STEPS) * 100) / 100;
+    rules.push({ id: `grad-${i}`, operator: '>=', value, color: colorAtValue(sorted, value) });
+  }
+  return { rules, defaultColor: normalizeHex(sorted[0].color) };
+}
+
+/** Compact JSON so the generated CSS custom property stays reasonably short. */
+export function encodeGradientStops(stops: ColorStop[]): string {
+  return JSON.stringify(stops.map((s) => ({ v: s.value, c: s.color })));
+}
+
+/** Inverse of encodeGradientStops — returns null on anything malformed. */
+export function decodeGradientStops(json: string): ColorStop[] | null {
+  try {
+    const raw = JSON.parse(json) as Array<{ v: number; c: string }>;
+    if (!Array.isArray(raw) || raw.length < 2) return null;
+    if (!raw.every((s) => typeof s.v === 'number' && typeof s.c === 'string')) return null;
+    return raw.map((s, i) => ({ id: `stop-${i}`, value: s.v, color: s.c }));
+  } catch {
+    return null;
+  }
+}
+
+function thresholdPropertyBlock(
+  property: ThresholdProperty,
+  jinja: string,
+  borderWidth: number,
+  gradientMarker: string | null,
+): string {
+  const marker = gradientMarker ? `  ${GRADIENT_MARKER_PROPERTY}: ${gradientMarker};\n` : '';
   switch (property) {
     case 'icon-color':
-      return `ha-state-icon {\n  color: ${jinja} !important;\n}`;
+      return `ha-state-icon {\n${marker}  color: ${jinja} !important;\n}`;
     case 'background':
-      return `ha-card {\n  background: ${jinja};\n}`;
+      return `ha-card {\n${marker}  background: ${jinja};\n}`;
     case 'text-color':
-      return `ha-card {\n  color: ${jinja};\n}`;
+      return `ha-card {\n${marker}  color: ${jinja};\n}`;
     case 'accent-color':
-      return `ha-card {\n  --accent-color: ${jinja};\n}`;
+      return `ha-card {\n${marker}  --accent-color: ${jinja};\n}`;
     case 'border-color':
-      return `ha-card {\n  border: ${borderWidth}px solid ${jinja};\n}`;
+      return `ha-card {\n${marker}  border: ${borderWidth}px solid ${jinja};\n}`;
     default:
       return '';
   }
@@ -335,11 +436,23 @@ function thresholdPropertyBlock(property: ThresholdProperty, jinja: string, bord
  * Jinja2 expression.
  */
 function thresholdBlock(s: ThresholdModuleState | undefined): string {
-  if (!s || !s.enabled || !s.entityId || s.rules.length === 0 || s.properties.length === 0) return '';
+  if (!s || !s.enabled || !s.entityId || s.properties.length === 0) return '';
 
-  const jinja = buildThresholdJinja(s.rules, s.defaultColor, s.entityId);
+  let rules = s.rules;
+  let defaultColor = s.defaultColor;
+  let gradientMarker: string | null = null;
+
+  if (s.valueMode === 'gradient') {
+    if (s.colorStops.length < 2) return '';
+    ({ rules, defaultColor } = gradientToRules(s.colorStops));
+    gradientMarker = `'${encodeGradientStops(s.colorStops).replace(/'/g, "\\'")}'`;
+  } else if (rules.length === 0) {
+    return '';
+  }
+
+  const jinja = buildThresholdJinja(rules, defaultColor, s.entityId);
   return s.properties
-    .map((property) => thresholdPropertyBlock(property, jinja, s.borderWidth ?? 2))
+    .map((property) => thresholdPropertyBlock(property, jinja, s.borderWidth ?? 2, gradientMarker))
     .join('\n\n');
 }
 

@@ -26,11 +26,13 @@ import type {
   ThresholdModuleState,
   ThresholdRule,
   ThresholdProperty,
+  ColorStop,
   AdvancedModuleState,
   StudioState,
   EntitiesRowStyle,
 } from '../types/index.js';
 import { parseCss } from './css-parser.js';
+import { GRADIENT_MARKER_PROPERTY, decodeGradientStops } from '../generator/css-generator.js';
 
 // ---------------------------------------------------------------------------
 // Default states
@@ -98,8 +100,13 @@ export const DEFAULT_THRESHOLD: ThresholdModuleState = {
   enabled: false,
   entityId: '',
   properties: ['icon-color'],
+  valueMode: 'switch',
   rules: [],
   defaultColor: '#888888',
+  colorStops: [
+    { id: 'stop-0', value: 0, color: '#9e9e9e' },
+    { id: 'stop-1', value: 100, color: '#f44336' },
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -814,6 +821,7 @@ function mapThreshold(
   let base: { entityId: string; rules: ThresholdRule[]; defaultColor: string } | null = null;
   const properties: ThresholdProperty[] = [];
   let borderWidth: number | undefined;
+  let gradientStops: ColorStop[] | null = null;
 
   for (const { target, cssProperty, thresholdProperty } of candidates) {
     const prop = findProp(target, cssProperty)!;
@@ -830,6 +838,22 @@ function mapThreshold(
       const bwMatch = prop.value.match(/^(\d+)px/);
       borderWidth = bwMatch ? parseInt(bwMatch[1], 10) : 2;
     }
+
+    // Gradient mode leaves its real anchor points in a sibling custom
+    // property on the same target — see encodeGradientStops/GRADIENT_MARKER_PROPERTY
+    // in css-generator.ts. Without this, gradient-driven cards would round-trip
+    // back as ~32 confusing switch-mode rules instead of the actual stops.
+    if (!gradientStops) {
+      const markerProp = findProp(target, GRADIENT_MARKER_PROPERTY);
+      if (markerProp) {
+        const unquoted = markerProp.value.trim().replace(/^'|'$/g, '');
+        const decoded = decodeGradientStops(unquoted);
+        if (decoded) {
+          gradientStops = decoded;
+          claimed.add(claimKey(target.selector, GRADIENT_MARKER_PROPERTY));
+        }
+      }
+    }
   }
 
   if (!base || properties.length === 0) return { ...DEFAULT_THRESHOLD };
@@ -838,8 +862,10 @@ function mapThreshold(
     enabled: true,
     entityId: base.entityId,
     properties,
-    rules: base.rules,
-    defaultColor: base.defaultColor,
+    valueMode: gradientStops ? 'gradient' : 'switch',
+    rules: gradientStops ? [] : base.rules,
+    defaultColor: gradientStops ? DEFAULT_THRESHOLD.defaultColor : base.defaultColor,
+    colorStops: gradientStops ?? DEFAULT_THRESHOLD.colorStops,
     ...(borderWidth !== undefined ? { borderWidth } : {}),
   };
 }

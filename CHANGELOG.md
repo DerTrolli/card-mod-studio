@@ -5,6 +5,40 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0-beta.3] — 2026-07-03
+
+**Pre-release**, continuing the same 0.7.0 beta cycle — see the note under
+`[0.7.0-beta.1]` below for what that means.
+
+### Added
+- **Threshold Colors can now fade smoothly instead of switching at fixed
+  points.** A new "Value mode" choice — **Step** (the original behavior:
+  color switches abruptly at each rule) or **Fade** (new: define value→color
+  points, e.g. 0→gray, 150→orange, 220→red, and the color blends smoothly
+  between them, clamped to the nearest end outside that range) — with a
+  live gradient-bar preview in the editor. This replaces the old
+  rules-with-a-"default"-catch-all model for anyone who wants a genuine
+  gradient rather than discrete steps, and sidesteps a real point of
+  confusion the old model had: a "default" color is really "below the
+  lowest rule," not "the extreme/alarm case," which is easy to set up
+  backwards (found from a real report — a sensor showing red at both a
+  clearly-safe low reading and the intended high-alarm reading, because
+  the default color had been set to the alarm color without realizing
+  default fires below the lowest threshold, not above the highest one).
+  Under the hood, Fade mode is approximated as ~32 closely-spaced Step
+  rules (HA's sandboxed Jinja2 has no way to build a color string from
+  interpolated numbers, so true continuous color math isn't reasonably
+  expressible there) — invisible at normal sensor update rates, and reuses
+  all the same entity-binding/multi-property machinery Step mode already
+  has. Your actual points (not the ~32 generated ones) are recovered
+  correctly when reopening the editor, via a small marker alongside the
+  real rules in the generated CSS.
+- **Fade-mode points can be reordered with ▲/▼ swap buttons** — swaps the
+  colors between two adjacent points while keeping their values fixed
+  (editing a point's value directly already re-sorts it to the right
+  position automatically; these buttons are for "these two colors are
+  backwards" without recomputing any values by hand).
+
 ## [0.7.0-beta.2] — 2026-07-03
 
 **Pre-release**, continuing the same 0.7.0 beta cycle — see the note under
@@ -381,6 +415,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.7.0-beta.3]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0-beta.3
 [0.7.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0-beta.2
 [0.7.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0-beta.1
 [0.6.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.2

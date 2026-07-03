@@ -63,6 +63,7 @@ node palette_check.mjs   # threshold color-palette picker (card + entities-row l
 node dialog_popover_check.mjs  # same popover, but inside HA's real (transformed, modal) card-edit dialog
 node entity_binding_check.mjs  # cms-entity-picker + cross-entity binding (Icon Color/Background/Filter) + multi-property threshold
 node button_card_binding_check.mjs  # conditional mode available on cards with no on/off state (e.g. button) + Accent Color entity binding
+node gradient_mode_check.mjs  # Threshold "Fade" (gradient) mode — generation, marker round-trip, live preview
 node scan.mjs            # which card types mount cleanly standalone
 ```
 
@@ -151,6 +152,14 @@ run.sh
   bug report: the old plain-text entity input "goes off the edge"). Uses
   the real card-edit dialog, not a synthetic mount, for the same
   `<ha-entity-picker>` context reason as `entity_binding_check.mjs`.
+- **`harness/gradient_mode_check.mjs`** — Threshold's "Fade" (gradient)
+  value mode: switching to it shows a colorStops editor and a live
+  CSS-gradient preview bar instead of the rule list; the generated CSS is
+  a ~32-rule discrete approximation (verified: not "many" in name only —
+  the actual rule count) carrying a `--cms-gradient-stops` marker property;
+  reopening a saved gradient-mode card recovers the real anchor points, not
+  the ~32 generated rules; and the ▲/▼ swap buttons exchange two points'
+  colors while leaving their values untouched.
 
 ---
 

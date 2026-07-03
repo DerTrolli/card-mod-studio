@@ -4,7 +4,15 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { generateCss, sortThresholdRules } from '../src/generator/css-generator.js';
+import {
+  generateCss,
+  sortThresholdRules,
+  lerpColor,
+  colorAtValue,
+  gradientToRules,
+  encodeGradientStops,
+  decodeGradientStops,
+} from '../src/generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../src/generator/yaml-generator.js';
 import {
   DEFAULT_FILTER,
@@ -551,6 +559,144 @@ describe('generateCss — threshold', () => {
     expect(state.threshold.properties).toHaveLength(1);
     const loser = state.threshold.properties[0] === 'icon-color' ? '--accent-color' : 'color: {{';
     expect(state.advanced.rawCss).toContain(loser);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Threshold — gradient (fade) mode
+// ---------------------------------------------------------------------------
+
+describe('gradient color math', () => {
+  it('lerpColor interpolates linearly between two hex colors', () => {
+    expect(lerpColor('#000000', '#ffffff', 0)).toBe('#000000');
+    expect(lerpColor('#000000', '#ffffff', 1)).toBe('#ffffff');
+    expect(lerpColor('#000000', '#ffffff', 0.5)).toBe('#808080');
+  });
+
+  it('colorAtValue clamps below the lowest stop and above the highest', () => {
+    const stops = [
+      { id: 'a', value: 0, color: '#9e9e9e' },
+      { id: 'b', value: 100, color: '#f44336' },
+    ];
+    expect(colorAtValue(stops, -50)).toBe('#9e9e9e');
+    expect(colorAtValue(stops, 500)).toBe('#f44336');
+    expect(colorAtValue(stops, 0)).toBe('#9e9e9e');
+    expect(colorAtValue(stops, 100)).toBe('#f44336');
+  });
+
+  it('colorAtValue interpolates within the middle of a segment', () => {
+    const stops = [
+      { id: 'a', value: 0, color: '#000000' },
+      { id: 'b', value: 100, color: '#ffffff' },
+    ];
+    expect(colorAtValue(stops, 50)).toBe('#808080');
+  });
+
+  it('colorAtValue picks the right segment across 3+ stops', () => {
+    const stops = [
+      { id: 'a', value: 0, color: '#9e9e9e' },
+      { id: 'b', value: 150, color: '#ff9800' },
+      { id: 'c', value: 220, color: '#ff5722' },
+    ];
+    // Between b and c, not a and b.
+    const mid = colorAtValue(stops, 185);
+    expect(mid).not.toBe('#9e9e9e');
+    expect(mid).not.toBe('#ff9800');
+    expect(mid).not.toBe('#ff5722');
+  });
+
+  it('gradientToRules produces a discrete >= chain whose default is the lowest stop\'s color', () => {
+    const stops = [
+      { id: 'a', value: 0, color: '#9e9e9e' },
+      { id: 'b', value: 240, color: '#f44336' },
+    ];
+    const { rules, defaultColor } = gradientToRules(stops);
+    expect(defaultColor).toBe('#9e9e9e');
+    expect(rules.length).toBeGreaterThan(1);
+    expect(rules.every((r) => r.operator === '>=')).toBe(true);
+    // The highest-value rule should land on (or very near) the top stop's color.
+    const top = rules.reduce((a, b) => (a.value > b.value ? a : b));
+    expect(top.color).toBe('#f44336');
+  });
+
+  it('encodeGradientStops/decodeGradientStops round-trip', () => {
+    const stops = [
+      { id: 'a', value: 0, color: '#9e9e9e' },
+      { id: 'b', value: 150, color: '#ff9800' },
+      { id: 'c', value: 220, color: '#ff5722' },
+    ];
+    const decoded = decodeGradientStops(encodeGradientStops(stops));
+    expect(decoded).toEqual(stops.map((s) => ({ id: expect.any(String), value: s.value, color: s.color })));
+  });
+
+  it('decodeGradientStops rejects malformed input instead of throwing', () => {
+    expect(decodeGradientStops('not json')).toBeNull();
+    expect(decodeGradientStops('[]')).toBeNull();
+    expect(decodeGradientStops('[{"v":0}]')).toBeNull();
+  });
+});
+
+describe('generateCss — threshold gradient mode', () => {
+  const stops = [
+    { id: 'a', value: 0, color: '#9e9e9e' },
+    { id: 'b', value: 150, color: '#ff9800' },
+    { id: 'c', value: 220, color: '#ff5722' },
+  ];
+
+  it('emits a discrete-approximation ternary plus the recoverable gradient marker', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true, entityId: 'sensor.temp', properties: ['icon-color'],
+        valueMode: 'gradient', rules: [], defaultColor: '#888888', colorStops: stops,
+      },
+    }));
+    expect(css).toContain('ha-state-icon');
+    expect(css).toContain('--cms-gradient-stops:');
+    expect(css).toContain("states('sensor.temp')");
+  });
+
+  it('round-trips gradient mode back into colorStops, not ~32 switch-mode rules', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true, entityId: 'sensor.temp', properties: ['icon-color'],
+        valueMode: 'gradient', rules: [], defaultColor: '#888888', colorStops: stops,
+      },
+    }));
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+
+    expect(state.threshold.enabled).toBe(true);
+    expect(state.threshold.valueMode).toBe('gradient');
+    expect(state.threshold.colorStops.map((s) => ({ value: s.value, color: s.color })))
+      .toEqual(stops.map((s) => ({ value: s.value, color: s.color })));
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('gradient mode can drive multiple properties from one set of stops', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true, entityId: 'sensor.temp', properties: ['icon-color', 'accent-color'],
+        valueMode: 'gradient', rules: [], defaultColor: '#888888', colorStops: stops,
+      },
+    }));
+    expect(css).toMatch(/ha-state-icon\s*\{/);
+    expect(css).toMatch(/ha-card\s*\{[\s\S]*?--accent-color:/);
+
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.threshold.valueMode).toBe('gradient');
+    expect(state.threshold.properties.sort()).toEqual(['accent-color', 'icon-color']);
+  });
+
+  it('does nothing when fewer than 2 stops are configured', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true, entityId: 'sensor.temp', properties: ['icon-color'],
+        valueMode: 'gradient', rules: [], defaultColor: '#888888',
+        colorStops: [{ id: 'a', value: 0, color: '#9e9e9e' }],
+      },
+    }));
+    expect(css).toBe('');
   });
 });
 
