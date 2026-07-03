@@ -3,9 +3,9 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-blue.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/v/release/dertrolli/card-mod-studio)](https://github.com/dertrolli/card-mod-studio/releases)
 
-A visual GUI editor for [card-mod](https://github.com/thomasloven/lovelace-card-mod) CSS styles in Home Assistant.
+A visual GUI editor for [card-mod](https://github.com/thomasloven/lovelace-card-mod) CSS styles in Home Assistant. Also works with [UIX](https://uix.lf.technology/), card-mod's integration-based successor.
 
-Instead of hand-writing YAML + CSS + Jinja2 templates, Card-Mod Studio gives you color pickers, sliders, and animation presets — and generates the correct `card_mod` YAML automatically.
+Instead of hand-writing YAML + CSS + Jinja2 templates, Card-Mod Studio gives you color pickers, sliders, and animation presets — and generates the correct `card_mod`/`uix` YAML automatically.
 
 ![Style button in the card editor](images/01%20Style%20button.png)
 
@@ -20,7 +20,11 @@ Card-Mod Studio adds a **🎨 Style button** to the Home Assistant card editor. 
 
 ![Card-Mod Studio panel](images/02%20Card-Mod%20Studio.png)
 
-All changes are serialised to `card_mod` YAML and saved with the card config through HA's normal save flow. If you open a card that already has hand-written `card_mod` CSS, the panel reads it back and pre-fills the controls.
+All changes are serialised to `card_mod` YAML and saved with the card config through HA's normal save flow. If you open a card that already has hand-written `card_mod` (or `uix`) CSS, the panel reads it back and pre-fills the controls.
+
+### UIX support
+
+[UIX](https://uix.lf.technology/) is a card-mod-derived Home Assistant integration built by card-mod's own current maintainer. It reads a `uix:` key in preference to `card_mod:`, but fully supports `card_mod:` as a fallback — so **Card-Mod Studio writes `card_mod:` by default even when UIX is installed**, and it just works. The only time it writes `uix:` instead is when UIX is detected and card-mod is not (UIX's own installer refuses to run alongside a `card-mod.js` resource, so this is the common "UIX-only" case). Either way, the panel reads back whichever of `uix:`/`card_mod:` is actually present — including cards you styled by hand — and the "not detected" warning only shows when neither engine is found.
 
 ---
 
@@ -134,10 +138,10 @@ The panel adapts to the card type so you never see irrelevant controls:
 ## Requirements
 
 - Home Assistant 2024.4.0 or newer
-- [card-mod](https://github.com/thomasloven/lovelace-card-mod) must be installed and working
+- [card-mod](https://github.com/thomasloven/lovelace-card-mod) or [UIX](https://uix.lf.technology/) must be installed and working
 - HACS (for installation)
 
-Card-Mod Studio **generates** the card-mod YAML. card-mod **applies** it. Both are required.
+Card-Mod Studio **generates** the YAML. card-mod/UIX **applies** it. One of the two is required.
 
 ---
 
@@ -192,7 +196,7 @@ Card-mod compatibility follows card-mod's own compatibility table. See [card-mod
 
 ## Limitations
 
-- **card-mod required** — this plugin generates YAML for card-mod; it does not apply CSS itself
+- **card-mod or UIX required** — this plugin generates YAML; it does not apply CSS itself
 - **Common card types prioritised** — standard HA cards are fully supported; custom cards (Mushroom, Bubble) have varying shadow DOM paths and may need the Advanced CSS editor
 - **Entity-state conditionals only** — the UI supports on/off entity state conditions and numeric threshold rules; complex Jinja2 logic goes in the Advanced CSS editor
 

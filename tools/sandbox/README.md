@@ -33,7 +33,8 @@ is developed in:
   (`/opt/pw-browsers/...`). The harness points `executablePath` straight at the
   binary, so the `playwright` npm version doesn't need to match the browser build.
   Override with `CHROME_BIN=/path/to/chrome` if your build differs.
-- **Outbound HTTPS** to pull the HA image and `card-mod.js`.
+- **Outbound HTTPS** to pull the HA image and `card-mod.js` (`run.sh`), or the
+  HA image and a `git clone` of the UIX repo (`run-uix.sh` — see below).
 - Node 18+ and Python 3.8+.
 
 > Everything the rig generates at runtime (the HA image, `.storage`, the built
@@ -119,3 +120,68 @@ Add a card type or entity to the `CARDS` map and/or a setting to `SETTINGS` in
 target element to find, and the computed property to compare. To test exactly what
 the tool produces end-to-end, import and call the real `css-generator` output
 instead of the hand-written CSS strings.
+
+---
+
+## UIX sandbox (`run-uix.sh`)
+
+A second, **separate** rig that runs real Home Assistant + real
+[UIX](https://uix.lf.technology/) (github.com/Lint-Free-Technology/uix, the
+card-mod-derived HA integration the studio also supports) instead of card-mod,
+and verifies the same way: real render, real computed style.
+
+```bash
+tools/sandbox/run-uix.sh
+```
+
+Results land in `harness/uix-matrix.json`. Override `UIX_TAG` (default `v7.6.1`)
+and `HOST_PORT` (default `8124`) as needed.
+
+### Why a separate instance, not just another resource on run.sh's rig
+
+UIX's own config flow (`custom_components/uix/config_flow.py`) **refuses to set
+up if it detects any Lovelace resource URL containing the substring
+`"card-mod.js"`** (`old_frontend_script_resource` abort) — confirmed by reading
+`checks.py`/`const.py` and reproduced live. So `config-uix/configuration.yaml`
+intentionally has no card-mod resource, and this runs as its own container
+(`ha-sandbox-uix`, host port `8124` by default) against `config-uix/`, entirely
+independent of `run.sh`'s `ha-sandbox` container and `config/`.
+
+### How it's installed (headlessly)
+
+UIX ships as a real HA **integration** (`custom_components/uix`, `config_flow:
+true`), not a droppable JS resource, so setup is a different shape than
+card-mod's:
+
+1. `git clone --depth 1 --branch $UIX_TAG` the upstream repo and copy
+   `custom_components/uix` into `config-uix/custom_components/uix` before the
+   container starts, so HA picks it up on boot. (Not a tarball download —
+   `codeload.github.com`, GitHub's archive/zip endpoint, is blocked by some
+   outbound network policies even when `github.com` itself is reachable; plain
+   `git clone` over the smart-HTTP protocol works.)
+2. `harness/uix_setup.py` completes the integration's config flow headlessly:
+   `POST /api/config/config_entries/flow {"handler": "uix"}`. Reading
+   `config_flow.py`'s `async_step_user`, it takes no user input — it either
+   aborts (single-instance guard, or the check above) or immediately returns
+   `async_create_entry`. So one authenticated POST is enough; no UI, no form.
+3. `harness/onboard.py` (shared with `run.sh`) handles the initial HA user
+   onboarding exactly as before — `TOKENS_OUT`/`TOKENS_IN` env vars point both
+   scripts at `tokens-uix.json` instead of the default `tokens.json` so the two
+   rigs' credentials never collide if both exist on disk at once.
+
+### What `uix_matrix.mjs` verifies
+
+Against the real running integration (not just source-reading or unit tests):
+
+1. `isUixInstalled()`'s `customElements.get('uix-node')` probe is accurate, and
+   `isCardModInstalled()` correctly stays `false` in a UIX-only install.
+2. UIX actually applies a `uix:` style block to a real card.
+3. UIX actually applies a `card_mod:` style block (its documented fallback).
+4. UIX prioritizes `uix:` over `card_mod:` when a card has both — the exact
+   precedence `src/parser/yaml-parser.ts` and `src/generator/yaml-generator.ts`
+   assume.
+5. The real `cms-panel` editor, mounted standalone as in `editor_audit.mjs`:
+   the "not detected" warning banner is absent, and editing a setting (driven
+   by dispatching the same `state-changed` event the Background module's own
+   template binding listens for) emits `uix:` — not `card_mod:` — proving
+   `pickOutputKey()` picks correctly against a live UIX install.

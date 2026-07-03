@@ -245,6 +245,55 @@ describe('parseCardModConfig', () => {
     };
     expect(parseCardModConfig(config).rawCss).toBe(css);
   });
+
+  // ---------------------------------------------------------------------------
+  // UIX (github.com/Lint-Free-Technology/uix) — reads `uix` in preference to
+  // `card_mod`, mirroring UIX's own `config.uix ?? config.card_mod` precedence.
+  // ---------------------------------------------------------------------------
+
+  it('parses a string style from uix when card_mod is absent', () => {
+    const config: CardModCardConfig = {
+      type: 'button',
+      uix: { style: 'ha-card { border-radius: 8px; }' },
+    };
+    const result = parseCardModConfig(config);
+    expect(result.targets).toHaveLength(1);
+    expect(result.targets[0].selector).toBe('ha-card');
+  });
+
+  it('prefers uix.style over card_mod.style when both are present', () => {
+    const config: CardModCardConfig = {
+      type: 'button',
+      uix: { style: 'ha-card { color: red; }' },
+      card_mod: { style: 'ha-card { color: blue; }' },
+    };
+    const result = parseCardModConfig(config);
+    expect(result.rawCss).toBe('ha-card { color: red; }');
+  });
+
+  it('falls back to card_mod.style when uix has no style', () => {
+    const config: CardModCardConfig = {
+      type: 'button',
+      uix: { debug: true },
+      card_mod: { style: 'ha-card { color: blue; }' },
+    };
+    const result = parseCardModConfig(config);
+    expect(result.rawCss).toBe('ha-card { color: blue; }');
+  });
+
+  it('parses a dictionary style from uix', () => {
+    const config: CardModCardConfig = {
+      type: 'button',
+      uix: {
+        style: {
+          'ha-card': 'border-radius: 12px;',
+          'ha-state-icon': 'color: red;',
+        },
+      },
+    };
+    const result = parseCardModConfig(config);
+    expect(result.targets).toHaveLength(2);
+  });
 });
 
 // =============================================================================

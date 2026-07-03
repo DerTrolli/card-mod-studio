@@ -1,0 +1,35 @@
+homeassistant:
+  name: Sandbox
+  latitude: 0
+  longitude: 0
+  elevation: 0
+  unit_system: metric
+  time_zone: UTC
+  country: US
+  currency: USD
+
+# The demo integration auto-creates a broad set of entities (lights with rgb,
+# sensors, climate, covers, media players, fans, etc.) — our test fixtures.
+demo:
+
+frontend: {}
+
+http:
+  server_host: 0.0.0.0
+  server_port: 8123
+
+# YAML-mode dashboard so we never touch the storage/editor onboarding. HA
+# re-reads ui-lovelace.yaml on every page load, which the harness relies on.
+#
+# No card-mod.js resource here (unlike ../config/configuration.yaml): UIX's
+# own config flow (custom_components/uix/config_flow.py, checked via
+# check_card_mod_frontend_script_resource) aborts setup with
+# "old_frontend_script_resource" if it finds a Lovelace resource URL
+# containing the substring "card-mod.js" — so this sandbox is UIX-only by
+# necessity, run as a separate HA instance from ../config. See
+# tools/sandbox/README.md.
+lovelace:
+  mode: yaml
+  resources:
+    - url: /local/card-mod-studio.js
+      type: module

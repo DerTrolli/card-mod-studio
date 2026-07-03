@@ -3,9 +3,9 @@
  *   generateCss + applyCardModStyle
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { generateCss, sortThresholdRules } from '../src/generator/css-generator.js';
-import { applyCardModStyle } from '../src/generator/yaml-generator.js';
+import { applyCardModStyle, pickOutputKey } from '../src/generator/yaml-generator.js';
 import {
   DEFAULT_FILTER,
   DEFAULT_ICON_COLOR,
@@ -544,6 +544,133 @@ describe('applyCardModStyle', () => {
   it('does not mutate the original config', () => {
     const frozen = Object.freeze({ ...base });
     expect(() => applyCardModStyle('ha-card { color: red; }', frozen)).not.toThrow();
+  });
+
+  // ---------------------------------------------------------------------------
+  // outputKey: 'uix' — UIX (github.com/Lint-Free-Technology/uix)
+  // ---------------------------------------------------------------------------
+
+  it('sets uix.style when outputKey is uix, and leaves card_mod untouched', () => {
+    const result = applyCardModStyle('ha-card { color: red; }', base, 'uix');
+    expect(result.uix?.style).toBe('ha-card { color: red; }');
+    expect(result.card_mod).toBeUndefined();
+  });
+
+  it('preserves other uix fields (macros, debug) when updating uix.style', () => {
+    const withUix: CardModCardConfig = { ...base, uix: { style: 'x', debug: true, macros: { a: 1 } } };
+    const result = applyCardModStyle('ha-card { color: red; }', withUix, 'uix');
+    expect(result.uix?.style).toBe('ha-card { color: red; }');
+    expect(result.uix?.debug).toBe(true);
+    expect(result.uix?.macros).toEqual({ a: 1 });
+  });
+
+  it('removes uix when css is empty and outputKey is uix', () => {
+    const withUix: CardModCardConfig = { ...base, uix: { style: 'ha-card { color: blue; }' } };
+    const result = applyCardModStyle('', withUix, 'uix');
+    expect(result.uix).toBeUndefined();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Stale uix.style sync when writing card_mod (the default outputKey).
+  // UIX prioritizes uix.style over card_mod.style, so a pre-existing uix.style
+  // must be kept in sync — otherwise a studio edit would silently have no
+  // effect under UIX despite looking correct in the studio's own preview.
+  // ---------------------------------------------------------------------------
+
+  it('syncs a pre-existing uix.style to match a new card_mod edit', () => {
+    const both: CardModCardConfig = {
+      ...base,
+      card_mod: { style: 'ha-card { color: blue; }' },
+      uix: { style: 'ha-card { color: blue; }' },
+    };
+    const result = applyCardModStyle('ha-card { color: red; }', both);
+    expect(result.card_mod?.style).toBe('ha-card { color: red; }');
+    expect(result.uix?.style).toBe('ha-card { color: red; }');
+  });
+
+  it('preserves non-style uix fields while syncing uix.style', () => {
+    const both: CardModCardConfig = {
+      ...base,
+      card_mod: { style: 'ha-card { color: blue; }' },
+      uix: { style: 'ha-card { color: blue; }', macros: { a: 1 } },
+    };
+    const result = applyCardModStyle('ha-card { color: red; }', both);
+    expect(result.uix?.macros).toEqual({ a: 1 });
+  });
+
+  it('does not add a uix block when writing card_mod on a config with no existing uix', () => {
+    const result = applyCardModStyle('ha-card { color: red; }', base);
+    expect(result.uix).toBeUndefined();
+  });
+
+  it('clears a synced uix.style when css is cleared, preserving other uix fields', () => {
+    const both: CardModCardConfig = {
+      ...base,
+      card_mod: { style: 'ha-card { color: blue; }' },
+      uix: { style: 'ha-card { color: blue; }', debug: true },
+    };
+    const result = applyCardModStyle('', both);
+    expect(result.card_mod).toBeUndefined();
+    expect(result.uix?.style).toBeUndefined();
+    expect(result.uix?.debug).toBe(true);
+  });
+
+  it('drops the uix block entirely when clearing leaves it with no other fields', () => {
+    const both: CardModCardConfig = {
+      ...base,
+      card_mod: { style: 'ha-card { color: blue; }' },
+      uix: { style: 'ha-card { color: blue; }' },
+    };
+    const result = applyCardModStyle('', both);
+    expect(result.uix).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pickOutputKey
+// ---------------------------------------------------------------------------
+
+class FakeCustomElementRegistry {
+  private registry = new Map<string, CustomElementConstructor>();
+  define(name: string, ctor: CustomElementConstructor) {
+    this.registry.set(name, ctor);
+  }
+  get(name: string) {
+    return this.registry.get(name);
+  }
+}
+const FAKE_ELEMENT = class {} as unknown as CustomElementConstructor;
+
+describe('pickOutputKey', () => {
+  const originalRegistry = globalThis.customElements;
+
+  beforeEach(() => {
+    (globalThis as { customElements: CustomElementRegistry }).customElements =
+      new FakeCustomElementRegistry() as unknown as CustomElementRegistry;
+  });
+
+  afterEach(() => {
+    (globalThis as { customElements: CustomElementRegistry }).customElements = originalRegistry;
+  });
+
+  it('defaults to card_mod when neither card-mod nor UIX is detected', () => {
+    expect(pickOutputKey()).toBe('card_mod');
+  });
+
+  it('defaults to card_mod when only card-mod is detected', () => {
+    customElements.define('card-mod', FAKE_ELEMENT);
+    expect(pickOutputKey()).toBe('card_mod');
+  });
+
+  it('defaults to card_mod when both card-mod and UIX are detected', () => {
+    customElements.define('card-mod', FAKE_ELEMENT);
+    customElements.define('uix-node', FAKE_ELEMENT);
+    expect(pickOutputKey()).toBe('card_mod');
+  });
+
+  it('switches to uix when only UIX is detected', () => {
+    customElements.define('uix-node', FAKE_ELEMENT);
+    expect(pickOutputKey()).toBe('uix');
   });
 });
 

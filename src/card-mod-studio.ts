@@ -17,7 +17,7 @@ import './editor/cms-panel.js';
 import './editor/cms-tab.js';
 import './components/cms-color-picker.js';
 import { startInjector } from './editor/cms-injector.js';
-import { isCardModInstalled } from './utils/dom-helpers.js';
+import { isCardModInstalled, isUixInstalled } from './utils/dom-helpers.js';
 import type { CardModStudioMeta } from './types/index.js';
 
 declare const __APP_VERSION__: string;
@@ -37,14 +37,18 @@ if (window.cardModStudio) {
   const meta: CardModStudioMeta = { version: VERSION, injected: false };
   window.cardModStudio = meta;
 
-  // Check for card-mod at load time and warn immediately so the user sees it
-  // in the browser console even before they open any card editor.
-  if (!isCardModInstalled()) {
+  // Check for card-mod/UIX at load time and warn immediately so the user sees
+  // it in the browser console even before they open any card editor.
+  const cardModPresent = isCardModInstalled();
+  const uixPresent = isUixInstalled();
+  if (!cardModPresent && !uixPresent) {
     console.warn(
-      '[Card-Mod Studio] card-mod is not detected. ' +
-        'Install card-mod via HACS first. ' +
-        'The style editor UI will still open, but generated YAML will not apply until card-mod is present.',
+      '[Card-Mod Studio] Neither card-mod nor UIX is detected. ' +
+        'Install one of them via HACS first. ' +
+        'The style editor UI will still open, but generated YAML will not apply until one is present.',
     );
+  } else if (uixPresent && !cardModPresent) {
+    console.info('[Card-Mod Studio] UIX detected ✓');
   } else {
     console.info('[Card-Mod Studio] card-mod detected ✓');
   }

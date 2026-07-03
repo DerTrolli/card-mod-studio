@@ -10,7 +10,7 @@ import json, os, sys, time, urllib.request, urllib.error, urllib.parse
 HA_URL = os.environ.get("HA_URL", "http://127.0.0.1:8123")
 CLIENT_ID = HA_URL + "/"
 USER = {"name": "Dev", "username": "dev", "password": "dev"}
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tokens.json")
+OUT = os.environ.get("TOKENS_OUT", os.path.join(os.path.dirname(os.path.abspath(__file__)), "tokens.json"))
 
 
 def req(method, path, data=None, token=None, form=False):
@@ -33,6 +33,13 @@ def req(method, path, data=None, token=None, form=False):
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode()
     except urllib.error.URLError as e:
+        return None, str(e)
+    except OSError as e:
+        # Mid-boot HA can accept the TCP connection then reset it before
+        # responding (ConnectionResetError etc.) — urllib doesn't wrap these
+        # into URLError since they happen while reading the response, not
+        # while connecting. Treat like any other transient failure so the
+        # wait_ready() retry loop keeps polling instead of crashing.
         return None, str(e)
 
 

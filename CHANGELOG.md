@@ -5,6 +5,17 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **UIX support** — Card-Mod Studio now detects [UIX](https://uix.lf.technology/)
+  (a card-mod-derived HA integration) alongside card-mod, and reads `uix:` style
+  blocks with the same precedence UIX itself uses (`uix:` over `card_mod:`).
+  Generated output stays `card_mod:` by default (UIX supports it as a fallback),
+  switching to `uix:` only when UIX is installed and card-mod is not. The
+  "card-mod not detected" warning now only shows when neither engine is found.
+  Fixes #20.
+
 ## [0.5.0] — 2026-06-25
 
 A UX-focused release that overhauls the confusing conditional ("if state")

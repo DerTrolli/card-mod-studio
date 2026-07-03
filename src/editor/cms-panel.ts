@@ -18,14 +18,14 @@ import type {
   EntitiesRowStyle,
   EntitiesRowStyles,
 } from '../types/index.js';
-import { isCardModInstalled } from '../utils/dom-helpers.js';
+import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
 import { loadPresets, savePresets } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
 import { parseCardModConfig } from '../parser/yaml-parser.js';
 import { mapToStudioState } from '../parser/state-mapper.js';
 import { generateCss, buildThresholdJinja } from '../generator/css-generator.js';
 import { parseThresholdJinja } from '../parser/state-mapper.js';
-import { applyCardModStyle } from '../generator/yaml-generator.js';
+import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
 
 import '../modules/module-filter.js';
 import '../modules/module-icon-color.js';
@@ -95,6 +95,7 @@ export class CmsPanel extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
 
   @state() private _cardModPresent = false;
+  @state() private _uixPresent = false;
   @state() private _studioState: StudioState | null = null;
   @state() private _previewConfig: CardModCardConfig | undefined = undefined;
   @state() private _previewKey = 0;
@@ -110,6 +111,7 @@ export class CmsPanel extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
     this._cardModPresent = isCardModInstalled();
+    this._uixPresent = isUixInstalled();
     // Load from localStorage immediately (sync); HA sync happens when hass arrives
     void loadPresets(undefined).then((p) => { this._presets = p; });
     // Width-responsive: the side preview is a fixed 280px, so below ~600px the
@@ -165,9 +167,12 @@ export class CmsPanel extends LitElement {
     const styles: EntitiesRowStyles = {};
     for (const row of rows) {
       if (!row.entity) continue;
-      const cardModStyle = (row.card_mod as { style?: string } | undefined)?.style;
-      if (typeof cardModStyle === 'string') {
-        styles[row.entity] = this._parseEntityRowCss(cardModStyle);
+      // UIX prioritizes uix.style over card_mod.style — mirror that so a row
+      // hand-authored (or previously saved) under uix: reads back correctly.
+      const modStyle = (row.uix as { style?: string } | undefined)?.style
+        ?? (row.card_mod as { style?: string } | undefined)?.style;
+      if (typeof modStyle === 'string') {
+        styles[row.entity] = this._parseEntityRowCss(modStyle);
       }
     }
     this._entityRowStyles = styles;
@@ -229,6 +234,7 @@ export class CmsPanel extends LitElement {
     const rows = (config as unknown as { entities?: EntitiesCardRow[] }).entities;
     if (!rows?.length) return config;
 
+    const outputKey = pickOutputKey();
     const updatedRows = rows.map((row) => {
       if (!row.entity) return row;
       const rowStyle = this._entityRowStyles[row.entity];
@@ -246,12 +252,7 @@ export class CmsPanel extends LitElement {
       const rowCss = hasIcon || hasText
         ? this._generateEntityRowCss(rowStyle!, row.entity)
         : '';
-      if (!rowCss) {
-        // Drop card_mod from this row if present
-        const { card_mod: _cm, ...rest } = row;
-        return rest as EntitiesCardRow;
-      }
-      return { ...row, card_mod: { style: rowCss } };
+      return applyCardModStyle(rowCss, row as unknown as CardModCardConfig, outputKey) as unknown as EntitiesCardRow;
     });
 
     return { ...(config as unknown as object), entities: updatedRows } as unknown as CardModCardConfig;
@@ -372,7 +373,7 @@ export class CmsPanel extends LitElement {
   private _emitConfigChanged() {
     if (!this.config || !this._studioState) return;
     const css = generateCss(this._studioState, this.config?.type);
-    let newConfig = applyCardModStyle(css, this.config);
+    let newConfig = applyCardModStyle(css, this.config, pickOutputKey());
     if (this.config.type === 'entities') {
       newConfig = this._applyEntityRowStyles(newConfig);
     }
@@ -668,9 +669,9 @@ export class CmsPanel extends LitElement {
 
       <div class="panel-body ${hasPreview ? '' : 'no-preview'} ${this._narrow ? 'narrow' : ''}">
         <div class="modules-col">
-          ${!this._cardModPresent
+          ${!this._cardModPresent && !this._uixPresent
             ? html`<div class="warning-banner">
-                ⚠️ card-mod not detected — install card-mod first or styles won't apply.
+                ⚠️ card-mod/UIX not detected — install one of them first or styles won't apply.
               </div>`
             : nothing}
 
