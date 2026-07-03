@@ -43,9 +43,22 @@ export interface CardModConfig {
   style?: string | Record<string, string>;
 }
 
-/** A card config that may include a card_mod block. */
+/**
+ * The top-level config that UIX (github.com/Lint-Free-Technology/uix) reads
+ * from a card's YAML. UIX reads `uix` in preference to `card_mod` when both
+ * are present, falling back to `card_mod` otherwise — see yaml-parser.ts.
+ */
+export interface UixConfig {
+  style?: string | Record<string, string>;
+  debug?: boolean;
+  macros?: unknown;
+  billets?: unknown;
+}
+
+/** A card config that may include a card_mod and/or uix block. */
 export interface CardModCardConfig extends LovelaceCardConfig {
   card_mod?: CardModConfig;
+  uix?: UixConfig;
 }
 
 /**
@@ -182,6 +195,7 @@ export interface EntitiesCardRow {
   name?: string;
   icon?: string;
   card_mod?: { style: string };
+  uix?: { style: string };
   [key: string]: unknown;
 }
 

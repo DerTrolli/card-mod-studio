@@ -17,6 +17,13 @@ actually change vs baseline. Reproduce with [`tools/sandbox`](../tools/sandbox/R
 This complements (not blindly supersedes) `CARD_TYPE_PLAN.md`; where they disagree
 and the cell was dashboard-verified, trust this doc.
 
+> **UIX note (v0.6.0):** this matrix was measured against card-mod, but the CSS
+> the Studio generates is identical either way — UIX applies the same
+> `ha-card`/`ha-state-icon` targets the same way card-mod does. These results
+> hold for UIX installs too. See [COMPATIBILITY_AUDIT.md §9](COMPATIBILITY_AUDIT.md)
+> and `tools/sandbox/run-uix.sh` for UIX-specific verification (detection,
+> precedence, fallback).
+
 ---
 
 ## Matrix

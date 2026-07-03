@@ -18,14 +18,15 @@ import type {
   EntitiesRowStyle,
   EntitiesRowStyles,
 } from '../types/index.js';
-import { isCardModInstalled } from '../utils/dom-helpers.js';
+import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
+import { isUixOnlyStyle, usesUixOnlyFeatures, hasUixOnlyRow, resolveStyle } from '../utils/style-compat.js';
 import { loadPresets, savePresets } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
 import { parseCardModConfig } from '../parser/yaml-parser.js';
 import { mapToStudioState } from '../parser/state-mapper.js';
 import { generateCss, buildThresholdJinja } from '../generator/css-generator.js';
 import { parseThresholdJinja } from '../parser/state-mapper.js';
-import { applyCardModStyle } from '../generator/yaml-generator.js';
+import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
 
 import '../modules/module-filter.js';
 import '../modules/module-icon-color.js';
@@ -95,6 +96,7 @@ export class CmsPanel extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
 
   @state() private _cardModPresent = false;
+  @state() private _uixPresent = false;
   @state() private _studioState: StudioState | null = null;
   @state() private _previewConfig: CardModCardConfig | undefined = undefined;
   @state() private _previewKey = 0;
@@ -110,6 +112,7 @@ export class CmsPanel extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
     this._cardModPresent = isCardModInstalled();
+    this._uixPresent = isUixInstalled();
     // Load from localStorage immediately (sync); HA sync happens when hass arrives
     void loadPresets(undefined).then((p) => { this._presets = p; });
     // Width-responsive: the side preview is a fixed 280px, so below ~600px the
@@ -165,9 +168,13 @@ export class CmsPanel extends LitElement {
     const styles: EntitiesRowStyles = {};
     for (const row of rows) {
       if (!row.entity) continue;
-      const cardModStyle = (row.card_mod as { style?: string } | undefined)?.style;
-      if (typeof cardModStyle === 'string') {
-        styles[row.entity] = this._parseEntityRowCss(cardModStyle);
+      // Same uix:/card_mod: precedence UIX itself uses (see style-compat.ts),
+      // so a row hand-authored (or previously saved) under uix: reads back
+      // correctly, and an explicit-but-empty uix.style doesn't mask a real
+      // card_mod.style.
+      const modStyle = resolveStyle(row);
+      if (typeof modStyle === 'string') {
+        styles[row.entity] = this._parseEntityRowCss(modStyle);
       }
     }
     this._entityRowStyles = styles;
@@ -229,6 +236,7 @@ export class CmsPanel extends LitElement {
     const rows = (config as unknown as { entities?: EntitiesCardRow[] }).entities;
     if (!rows?.length) return config;
 
+    const outputKey = pickOutputKey();
     const updatedRows = rows.map((row) => {
       if (!row.entity) return row;
       const rowStyle = this._entityRowStyles[row.entity];
@@ -246,15 +254,75 @@ export class CmsPanel extends LitElement {
       const rowCss = hasIcon || hasText
         ? this._generateEntityRowCss(rowStyle!, row.entity)
         : '';
-      if (!rowCss) {
-        // Drop card_mod from this row if present
-        const { card_mod: _cm, ...rest } = row;
-        return rest as EntitiesCardRow;
-      }
-      return { ...row, card_mod: { style: rowCss } };
+      return applyCardModStyle(rowCss, row as unknown as CardModCardConfig, outputKey) as unknown as EntitiesCardRow;
     });
 
     return { ...(config as unknown as object), entities: updatedRows } as unknown as CardModCardConfig;
+  }
+
+  // ---------------------------------------------------------------------------
+  // card-mod / UIX compatibility
+  // ---------------------------------------------------------------------------
+
+  /**
+   * True when this card's own top-level styling lives only under uix:
+   * (nothing under card_mod: to fall back to) and UIX isn't currently
+   * installed to read it — i.e. this specific card is about to render
+   * unstyled, distinct from the generic "neither engine detected" case.
+   */
+  private get _uixOnlyAtRisk(): boolean {
+    return !this._uixPresent && !!this.config && isUixOnlyStyle(this.config);
+  }
+
+  /** Same risk, but for an entities card's individual rows — rows carry their own independent card_mod/uix blocks. */
+  private get _uixOnlyRowsAtRisk(): boolean {
+    return !this._uixPresent && !!this.config && hasUixOnlyRow(this.config);
+  }
+
+  private get _uixOnlyUsesMacros(): boolean {
+    return !!this.config && usesUixOnlyFeatures(this.config);
+  }
+
+  /**
+   * True when card-mod is the active write target (pickOutputKey() would
+   * resolve to 'card_mod') and a uix: block using macros/billets sits
+   * alongside it. Studio edits keep updating card_mod:, but — since that
+   * uix: content can't be safely regenerated (see applyCardModStyle's doc
+   * comment) — it's deliberately left untouched, and UIX (if actually
+   * installed) keeps rendering it unchanged rather than the studio's edits.
+   * Purely informational: there's nothing to "fix," just something worth
+   * knowing. Mirrors pickOutputKey()'s own condition rather than checking
+   * this.config.card_mod directly, since the sync-skip applies the moment
+   * card-mod is the target, even on a card with no card_mod block yet.
+   */
+  private get _uixMacrosCoexist(): boolean {
+    return !!this.config && this._cardModPresent && usesUixOnlyFeatures(this.config);
+  }
+
+  /**
+   * True when UIX is the active write target (pickOutputKey() would resolve
+   * to 'uix' — UIX installed, card-mod not) and the card's existing uix:
+   * block already uses macros/billets. Unlike the card_mod-primary case
+   * above, there's no fallback key to write to instead, so studio edits here
+   * DO overwrite uix.style directly — this is a heads-up that doing so will
+   * replace the hand-authored macro/billet-driven styling, not a "safe, no
+   * data lost" guarantee.
+   */
+  private get _uixMacrosWillBeOverwritten(): boolean {
+    return !!this.config && this._uixPresent && !this._cardModPresent && usesUixOnlyFeatures(this.config);
+  }
+
+  /**
+   * Re-saves the card with its current studio state so uix-only styling (card
+   * level and/or per-row) gets a card_mod: block too. Since _studioState and
+   * _entityRowStyles were parsed from uix.style with the same precedence UIX
+   * itself uses, and pickOutputKey() already resolves to 'card_mod' whenever
+   * UIX isn't installed, this is just "save now" without waiting for the user
+   * to touch an unrelated control first — _emitConfigChanged() already
+   * reapplies every row for entities cards, so this fixes rows too.
+   */
+  private _copyUixStyleToCardMod() {
+    this._emitConfigChanged();
   }
 
   // ---------------------------------------------------------------------------
@@ -372,7 +440,7 @@ export class CmsPanel extends LitElement {
   private _emitConfigChanged() {
     if (!this.config || !this._studioState) return;
     const css = generateCss(this._studioState, this.config?.type);
-    let newConfig = applyCardModStyle(css, this.config);
+    let newConfig = applyCardModStyle(css, this.config, pickOutputKey());
     if (this.config.type === 'entities') {
       newConfig = this._applyEntityRowStyles(newConfig);
     }
@@ -568,6 +636,20 @@ export class CmsPanel extends LitElement {
       margin-bottom: 10px;
     }
 
+    .btn-banner-action {
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      background: rgba(255, 152, 0, 0.15);
+      color: #ff9800;
+      border: 1px solid rgba(255, 152, 0, 0.4);
+      border-radius: 4px;
+      white-space: nowrap;
+      margin-left: auto;
+    }
+
+    .btn-banner-action:hover { background: rgba(255, 152, 0, 0.28); }
+
     .info-banner {
       display: flex;
       align-items: center;
@@ -668,11 +750,7 @@ export class CmsPanel extends LitElement {
 
       <div class="panel-body ${hasPreview ? '' : 'no-preview'} ${this._narrow ? 'narrow' : ''}">
         <div class="modules-col">
-          ${!this._cardModPresent
-            ? html`<div class="warning-banner">
-                ⚠️ card-mod not detected — install card-mod first or styles won't apply.
-              </div>`
-            : nothing}
+          ${this._renderCompatBanner()}
 
           ${this._studioState
             ? html`
@@ -707,6 +785,53 @@ export class CmsPanel extends LitElement {
       this._previewKey,
       html`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`,
     );
+  }
+
+  private _renderCompatBanner() {
+    // Checked first: if neither engine is installed, that's the root cause —
+    // showing the more specific uix-only banner instead would offer a "copy
+    // to card_mod" fix that can't actually work (card-mod isn't there to
+    // read it either), and hide the fact that nothing renders regardless.
+    if (!this._cardModPresent && !this._uixPresent) {
+      return html`<div class="warning-banner">
+        ⚠️ card-mod/UIX not detected — install one of them first or styles won't apply.
+      </div>`;
+    }
+
+    const atRisk = this._uixOnlyAtRisk || this._uixOnlyRowsAtRisk;
+    if (atRisk) {
+      if (this._uixOnlyUsesMacros) {
+        return html`<div class="warning-banner">
+          ⚠️ This card's styling uses UIX-only macros/billets and UIX isn't detected — it won't apply, and
+          card-mod cannot run these features under any key. Reinstall UIX, or restyle this card manually.
+        </div>`;
+      }
+      const what = this._uixOnlyAtRisk && this._uixOnlyRowsAtRisk
+        ? "This card's styling, and one or more entity rows,"
+        : this._uixOnlyRowsAtRisk
+          ? 'One or more entity rows on this card'
+          : "This card's styling";
+      return html`<div class="warning-banner">
+        ⚠️ ${what} is only under uix: and UIX isn't detected — it won't apply.
+        <button class="btn-banner-action" @click=${this._copyUixStyleToCardMod}>Copy to card_mod</button>
+      </div>`;
+    }
+
+    if (this._uixMacrosCoexist) {
+      return html`<div class="info-banner">
+        ℹ️ This card also has uix: macros/billets — studio edits update card_mod:, but UIX will keep
+        rendering your uix: styling unchanged (macros/billets can't be auto-synced).
+      </div>`;
+    }
+
+    if (this._uixMacrosWillBeOverwritten) {
+      return html`<div class="info-banner">
+        ℹ️ This card's uix: styling uses macros/billets — editing it here will replace that with
+        plain generated CSS (macros/billets can't be regenerated from the visual controls).
+      </div>`;
+    }
+
+    return nothing;
   }
 
   private _renderPresetBar() {

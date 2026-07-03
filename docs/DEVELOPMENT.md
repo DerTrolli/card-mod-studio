@@ -11,7 +11,7 @@ This document explains how to set up a local development environment and test Ca
 | Node.js | 18 | 20 LTS recommended |
 | npm | 9 | Comes with Node |
 | Home Assistant | 2024.4.0 | Any install method works |
-| card-mod | 4.x | Must be installed in HA |
+| card-mod **or** UIX | card-mod 4.x / [UIX](https://uix.lf.technology/) 7.x | One of the two must be installed in HA — see [README's UIX section](../README.md#uix-support) |
 
 ---
 
@@ -148,13 +148,20 @@ This tells you what selectors to update in `injectButton()` inside `cms-injector
 
 ## Testing
 
-Unit tests (Phase 3+) live in `test/`. Run with:
+Unit tests live in `test/`. Run with:
 
 ```bash
 npm test
 ```
 
-Tests use Vitest and are for the CSS/YAML generator and parser logic only. UI injection is tested manually against a live HA instance.
+Tests use Vitest and cover the pure logic layer: the CSS/YAML generator, the
+parser, the card-mod/UIX detection probes, and the card_mod:/uix:
+cross-compatibility checks. UI injection and real-DOM rendering are **not**
+covered by Vitest (no jsdom/happy-dom in this project) — they're verified
+against a real Home Assistant + real card-mod/UIX instance in Docker instead.
+See [`tools/sandbox/README.md`](../tools/sandbox/README.md) — `run.sh` for
+card-mod, `run-uix.sh` for UIX. Both produce real computed-style measurements
+and screenshots, not simulated ones.
 
 ---
 
@@ -185,19 +192,30 @@ The card config is read from the dialog's `_cardConfig` property and the
 `hass` object from the dialog; changes are emitted back via a `config-changed`
 CustomEvent that HA's normal save flow picks up.
 
-### Data flow (planned, Phases 2–4)
+### Data flow
 
 ```
 User adjusts UI control in cms-panel
-  → module emits style-changed event
+  → module emits state-changed event
   → cms-panel collects all module states
   → css-generator.ts builds CSS string
-  → yaml-generator.ts wraps in card_mod block
+  → dom-helpers.ts: isCardModInstalled() / isUixInstalled() probe the environment
+  → yaml-generator.ts: pickOutputKey() picks card_mod (default) or uix
+      (only when UIX is installed and card-mod is not)
+  → yaml-generator.ts: applyCardModStyle() wraps the CSS in that key,
+      syncing a pre-existing uix.style too if writing card_mod (UIX
+      prioritizes uix: over card_mod:, so a stale uix.style would
+      otherwise silently win over a fresh edit)
   → cms-panel fires config-changed CustomEvent
   → HA's editor picks this up → marks card as modified
   → User clicks Save → HA saves the config
-  → card-mod reads card_mod.style → applies CSS
+  → card-mod/UIX reads card_mod.style or uix.style → applies CSS
 ```
+
+Reading works the same way in reverse: `yaml-parser.ts`'s `parseCardModConfig()`
+reads `config.uix?.style ?? config.card_mod?.style` — the same precedence UIX
+itself uses — so the panel always pre-fills from whichever key is actually
+live, including cards styled by hand outside the Studio.
 
 ---
 

@@ -1,12 +1,17 @@
 /**
  * yaml-parser.ts
  *
- * Extracts and normalises the card_mod style block from a Lovelace card
- * config object and converts it into a CardModStyleState.
+ * Extracts and normalises the card_mod (or UIX) style block from a Lovelace
+ * card config object and converts it into a CardModStyleState.
+ *
+ * UIX (github.com/Lint-Free-Technology/uix, a card-mod-derived HA
+ * integration) reads `config.uix` in preference to `config.card_mod` when a
+ * card has both — we mirror that precedence here so the studio always reads
+ * back whichever block UIX/card-mod would actually apply.
  *
  * By the time we receive the card config from HA, the outer YAML has already
- * been parsed — so `config.card_mod` is a JavaScript object, not raw YAML
- * text. What we receive from card_mod.style is one of:
+ * been parsed — so `config.card_mod`/`config.uix` are JavaScript objects, not
+ * raw YAML text. What we receive from style is one of:
  *
  *   string  — plain CSS (most common)
  *             e.g. "ha-card { filter: grayscale(100%); }"
@@ -25,23 +30,24 @@ import type {
   CssTarget,
 } from '../types/index.js';
 import { parseCss } from './css-parser.js';
+import { resolveStyle } from '../utils/style-compat.js';
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 /**
- * Parses the card_mod block of a card config into a CardModStyleState.
+ * Parses the card_mod (or UIX) block of a card config into a CardModStyleState.
  *
  * Returns an empty state (no targets, empty rawCss) when:
- *   - config has no card_mod key
- *   - card_mod.style is undefined or empty
+ *   - config has neither a card_mod nor a uix key
+ *   - the resolved style is undefined or empty
  *   - CSS parsing fails for any reason
  *
  * Never throws.
  */
 export function parseCardModConfig(config: CardModCardConfig): CardModStyleState {
-  const style = config.card_mod?.style;
+  const style = resolveStyle(config);
 
   if (!style) {
     return emptyState();

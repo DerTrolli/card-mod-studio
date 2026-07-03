@@ -1,7 +1,7 @@
 {
   "name": "card-mod-studio",
-  "version": "0.5.0",
-  "description": "Visual GUI editor for card-mod CSS styles in Home Assistant",
+  "version": "0.6.0",
+  "description": "Visual GUI editor for card-mod/UIX CSS styles in Home Assistant",
   "author": "Trolli / Troll-IT",
   "license": "MIT",
   "main": "dist/card-mod-studio.js",
