@@ -129,9 +129,17 @@ function accentValue(s: AccentColorModuleState): string {
  * here is re-claimed on parse instead of leaking into Advanced CSS.
  */
 function accentAuxDecls(value: string, cardType?: string): string[] {
-  // Tile card: icon background/state color is driven by --tile-color
+  // Tile card: icon background/state color is driven by --tile-color.
+  // hui-tile-card writes its state-computed color as an *inline style* on
+  // ha-card itself (styleMap in its render), so — same as the gauge — a
+  // plain declaration silently loses whenever the tile computes a color.
+  // !important is required for the value to actually win, and it also
+  // cascades into tile features: hui-card-features derives
+  // `--feature-color: var(--tile-color)`, so the bar-gauge/toggle feature
+  // rows follow the accent color too (live user report: bar gauge never
+  // changed color).
   if (cardType === 'tile') {
-    return [`--tile-color: ${value};`, `--state-icon-color: ${value};`];
+    return [`--tile-color: ${value} !important;`, `--state-icon-color: ${value};`];
   }
 
   // Thermostat cards use climate state color variables
@@ -160,21 +168,42 @@ function accentColorDecls(s: AccentColorModuleState, cardType?: string): string[
 }
 
 /**
+ * Options threaded from the card's full config into generation — cardType
+ * alone doesn't carry everything that changes what CSS is meaningful.
+ */
+export interface GenerateCssOptions {
+  /** The gauge card's `needle: true` — switches which ha-gauge variable the
+   *  accent value drives (see gaugeColorBlock). */
+  gaugeNeedle?: boolean;
+}
+
+/**
  * Gauge cards ignore an inherited --gauge-color: hui-gauge-card writes the
  * severity-computed color as an *inline style* on <ha-gauge> on every render
  * (styleMap in hui-gauge-card.ts), and inline wins over anything inherited
  * from ha-card. An author-stylesheet `!important` on the element itself is
  * the one thing that beats a non-important inline style, so the gauge needs
  * its own block targeting ha-gauge directly — verified live against a real
- * gauge card (tools/sandbox/harness/gauge_color_check.mjs). In needle mode
- * the value arc doesn't exist and --gauge-color is unused — the dial shows
- * the configured segment colors instead; nothing any CSS can recolor
- * without piercing ha-gauge's shadow root.
+ * gauge card (tools/sandbox/harness/gauge_color_check.mjs).
+ *
+ * In needle mode the value arc doesn't exist and --gauge-color is unused —
+ * the needle itself is the value indicator, and its fill is
+ * `var(--primary-text-color)` (ha-gauge's own shadow styles), which
+ * inherits from the ha-gauge host. Setting that instead recolors the
+ * needle (and, sharing the same variable, the value text under it — they
+ * match, which reads as intentional). Both variables are emitted so the
+ * style keeps working if `needle:` is toggled later without re-editing.
  */
-function gaugeColorBlock(value: string, cardType: string | undefined, marker: string | null): string {
+function gaugeColorBlock(
+  value: string,
+  cardType: string | undefined,
+  marker: string | null,
+  opts?: GenerateCssOptions,
+): string {
   if (cardType !== 'gauge') return '';
   const markerLine = marker ? `  ${GRADIENT_MARKER_PROPERTY}: ${marker};\n` : '';
-  return `ha-gauge {\n${markerLine}  --gauge-color: ${value} !important;\n}`;
+  const needleLine = opts?.gaugeNeedle ? `  --primary-text-color: ${value} !important;\n` : '';
+  return `ha-gauge {\n${markerLine}  --gauge-color: ${value} !important;\n${needleLine}}`;
 }
 
 function backgroundDecls(s: BackgroundModuleState): string[] {
@@ -456,6 +485,7 @@ function thresholdPropertyBlock(
   borderWidth: number,
   gradientMarker: string | null,
   cardType?: string,
+  opts?: GenerateCssOptions,
 ): string {
   const marker = gradientMarker ? `  ${GRADIENT_MARKER_PROPERTY}: ${gradientMarker};\n` : '';
   switch (property) {
@@ -472,7 +502,7 @@ function thresholdPropertyBlock(
         .map((d) => `  ${d}`)
         .join('\n');
       const haCardBlock = `ha-card {\n${marker}${decls}\n}`;
-      const gauge = gaugeColorBlock(jinja, cardType, null);
+      const gauge = gaugeColorBlock(jinja, cardType, null, opts);
       return gauge ? `${haCardBlock}\n\n${gauge}` : haCardBlock;
     }
     case 'border-color':
@@ -488,7 +518,7 @@ function thresholdPropertyBlock(
  * block is emitted per selected property, all sharing the same computed
  * Jinja2 expression.
  */
-function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string): string {
+function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string, opts?: GenerateCssOptions): string {
   if (!s || !s.enabled || !s.entityId || s.properties.length === 0) return '';
 
   let rules = s.rules;
@@ -505,7 +535,7 @@ function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string):
 
   const jinja = buildThresholdJinja(rules, defaultColor, s.entityId);
   return s.properties
-    .map((property) => thresholdPropertyBlock(property, jinja, s.borderWidth ?? 2, gradientMarker, cardType))
+    .map((property) => thresholdPropertyBlock(property, jinja, s.borderWidth ?? 2, gradientMarker, cardType, opts))
     .join('\n\n');
 }
 
@@ -513,7 +543,7 @@ function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string):
 // Public API
 // ---------------------------------------------------------------------------
 
-export function generateCss(state: StudioState, cardType?: string): string {
+export function generateCss(state: StudioState, cardType?: string, opts?: GenerateCssOptions): string {
   const parts: string[] = [];
 
   const kf = animationKeyframes(state.animation);
@@ -541,7 +571,7 @@ export function generateCss(state: StudioState, cardType?: string): string {
 
   // Gauge dial color needs its own ha-gauge block (see gaugeColorBlock).
   if (!thresholdProps.has('accent-color') && state.accentColor.enabled) {
-    const gauge = gaugeColorBlock(accentValue(state.accentColor), cardType, null);
+    const gauge = gaugeColorBlock(accentValue(state.accentColor), cardType, null, opts);
     if (gauge) parts.push(gauge);
   }
 
@@ -550,7 +580,7 @@ export function generateCss(state: StudioState, cardType?: string): string {
   const iconColor = thresholdProps.has('icon-color') ? '' : iconColorBlock(state.iconColor);
   if (iconColor) parts.push(iconColor);
 
-  const threshold = thresholdBlock(state.threshold, cardType);
+  const threshold = thresholdBlock(state.threshold, cardType, opts);
   if (threshold) parts.push(threshold);
 
   const headingStyle = headingStyleBlocks(state.headingStyle);

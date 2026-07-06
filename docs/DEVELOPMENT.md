@@ -431,7 +431,23 @@ Custom properties inherit into shadow roots, so setting it on the
 arc without any shadow piercing. Verified live in
 `tools/sandbox/harness/gauge_color_check.mjs`, which also pins the broken
 form as *expected-to-fail* so an HA-side change to gauge internals shows up
-as a check failure. Watch for this pattern on any card that styleMaps a
-variable per render (`hui-gauge-card` is the only built-in one found so
-far); needle-mode gauges have no value arc at all, so there's nothing to
-recolor there.
+as a check failure.
+
+This is a *pattern*, not a one-off. Two built-in cards are known to styleMap
+a variable per render:
+
+- `hui-gauge-card` → `--gauge-color` inline on `<ha-gauge>` (above). In
+  needle mode there's no value arc; the needle's fill is
+  `var(--primary-text-color)`, which the same `!important`-on-`ha-gauge`
+  trick drives instead (shared with the value text — they match).
+- `hui-tile-card` → `--tile-color` inline on `<ha-card>` itself, whenever
+  the tile computes a state color (active/state-colored entities — i.e.
+  exactly the interesting cases). Same fix: `--tile-color: X !important` in
+  the injected `ha-card` block. Bonus: tile *features* derive
+  `--feature-color: var(--tile-color)` in the tile's shadow styles, so
+  winning `--tile-color` on ha-card recolors the bar-gauge/toggle feature
+  rows too. Verified live in `tools/sandbox/harness/beta2_fixes_check.mjs`
+  against an active light tile (inline `--tile-color` present and beaten).
+
+When any card's color "mysteriously doesn't apply," check the element's
+`style` attribute for the variable before suspecting the generated CSS.

@@ -5,7 +5,45 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.1] — 2026-07-06
+## [0.7.1-beta.2] — 2026-07-06
+
+**Pre-release**, continuing the 0.7.1 beta cycle. Fixes from live beta.1
+testing on a real dashboard.
+
+### Fixed
+- **Needle gauges (`needle: true`) now color the needle and value text.**
+  In needle mode there's no value arc for `--gauge-color` to drive, so
+  beta.1's fix visibly did nothing there. The needle's fill is
+  `var(--primary-text-color)` inside `ha-gauge`, which the accent value now
+  also drives (with the same inline-style-beating `!important`) whenever the
+  card has `needle: true` — needle and value text follow your color, while
+  the dial keeps showing the configured segments. The gauge hint in the
+  panel now says exactly that.
+- **Tile cards: the accent color now actually wins — including tile
+  features like the bar gauge.** Same root cause as beta.1's gauge fix, one
+  card over: `hui-tile-card` writes its state-computed color as an *inline
+  style* on `ha-card` (`--tile-color`), so the Studio's plain declaration
+  silently lost whenever the tile computed a color (active/state-colored
+  entities — exactly the interesting cases). Now emitted with `!important`,
+  which also cascades into `hui-card-features` (`--feature-color` derives
+  from `--tile-color`), so bar-gauge/toggle feature rows follow the accent
+  color too. Applies to both the Accent Color module and threshold-driven
+  accent color.
+- **On/off entity pickers are now filtered to entities that actually have
+  an on/off state** (switches, lights, binary sensors, input booleans, fans,
+  humidifiers, sirens, remotes) — a temperature sensor in a "controlled by"
+  list was never going to match `is_state(..., 'on')`. The Icon Color
+  "match the light's color" mode filters to lights only. Typing an entity
+  outside the filter is still allowed, and value-based pickers (Threshold)
+  stay unfiltered.
+- **The layout-card message no longer sends you in a circle.** It claimed
+  you could open a child card and press Style there — but Home Assistant
+  edits stack children *inside the same dialog*, so the button kept binding
+  to the container and showing the same message. The banner is now honest
+  about the limitation and describes the YAML workaround; real in-place
+  child styling is a planned roadmap item.
+
+## [0.7.1-beta.1] — 2026-07-06
 
 A pure correctness release, from a full audit of the codebase (every module
 round-trip re-derived from first principles, plus live verification against
@@ -489,7 +527,8 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
-[0.7.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.1
+[0.7.1-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.1-beta.2
+[0.7.1-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.1-beta.1
 [0.7.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0
 [0.6.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.2
 [0.6.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.1

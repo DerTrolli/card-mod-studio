@@ -198,8 +198,13 @@ function claimAccentAux(
     }
   }
   if (haGauge) {
-    const prop = findProp(haGauge, '--gauge-color');
-    if (prop && prop.value.trim() === value) claimed.add(claimKey(haGauge.selector, '--gauge-color'));
+    // --gauge-color drives the non-needle value arc; --primary-text-color is
+    // emitted alongside it for needle-mode gauges (needle + value text share
+    // that variable inside ha-gauge's shadow styles).
+    for (const aux of ['--gauge-color', '--primary-text-color']) {
+      const prop = findProp(haGauge, aux);
+      if (prop && prop.value.trim() === value) claimed.add(claimKey(haGauge.selector, aux));
+    }
   }
 }
 

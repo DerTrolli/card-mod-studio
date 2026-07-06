@@ -16,6 +16,25 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { HomeAssistant } from '../types/index.js';
 
+/**
+ * Domains whose entities genuinely carry an on/off state that
+ * `is_state(x, 'on')` can test — the filter every "controlled by" picker in
+ * an on/off-conditional module uses, so the list doesn't offer entities
+ * (temperature sensors, weather, ...) that would silently never match.
+ * Intentionally NOT applied to value-based pickers (Threshold reads
+ * numbers, not on/off).
+ */
+export const TOGGLE_DOMAINS = [
+  'binary_sensor',
+  'switch',
+  'light',
+  'input_boolean',
+  'fan',
+  'humidifier',
+  'siren',
+  'remote',
+];
+
 @customElement('cms-entity-picker')
 export class CmsEntityPicker extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
@@ -23,6 +42,11 @@ export class CmsEntityPicker extends LitElement {
   @property() label = 'Entity';
   /** Shown as the fallback input's placeholder, and as ha-entity-picker's default-entity hint. */
   @property() placeholder = '';
+  /** Restricts ha-entity-picker's list to these domains (e.g. TOGGLE_DOMAINS
+   *  for on/off bindings). Undefined = unfiltered. Typing a custom entity_id
+   *  outside the filter is still allowed (allowCustomEntity), so an unusual
+   *  but working setup isn't blocked — the filter shapes the list, not the value. */
+  @property({ attribute: false }) includeDomains?: string[];
 
   static override styles = css`
     :host {
@@ -59,6 +83,7 @@ export class CmsEntityPicker extends LitElement {
           .hass=${this.hass}
           .value=${this.value}
           .label=${this.label}
+          .includeDomains=${this.includeDomains}
           .allowCustomEntity=${true}
           @value-changed=${(e: CustomEvent<{ value?: string }>) => {
             e.stopPropagation();

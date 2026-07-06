@@ -6,6 +6,7 @@ import { css, html, nothing } from 'lit';
 import type { TemplateResult } from 'lit';
 import type { HomeAssistant } from '../types/index.js';
 import '../components/cms-entity-picker.js';
+import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
 
 export const moduleStyles = css`
   :host {
@@ -227,6 +228,7 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
               <cms-entity-picker
                 .hass=${o.hass}
                 .value=${o.customEntity ?? ''}
+                .includeDomains=${TOGGLE_DOMAINS}
                 label="Controlling entity"
                 placeholder="input_boolean.my_entity"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>

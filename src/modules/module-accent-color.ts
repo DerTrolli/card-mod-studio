@@ -5,6 +5,7 @@ import { DEFAULT_ACCENT_COLOR } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
+import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
 
 export class AccentColorModule extends LitElement {
   @property({ attribute: false }) state: AccentColorModuleState = {
@@ -95,8 +96,8 @@ export class AccentColorModule extends LitElement {
         </div>
         ${this.cardType === 'gauge'
           ? html`<div class="when-hint">
-              Colors the gauge dial. With <code>needle: true</code> the dial shows your
-              configured segment colors instead, so this has no effect there.
+              Colors the gauge dial — or, with <code>needle: true</code>, the needle and
+              value text (the dial itself shows your configured segment colors there).
             </div>`
           : nothing}
 
@@ -108,6 +109,7 @@ export class AccentColorModule extends LitElement {
                   <cms-entity-picker
                     .hass=${this.hass}
                     .value=${this.state.entityId ?? ''}
+                    .includeDomains=${TOGGLE_DOMAINS}
                     .placeholder=${this.stateAware ? this.cardEntity : 'binary_sensor.example'}
                     label="Entity (default: this card's entity)"
                     @value-changed=${(e: CustomEvent<{ value: string }>) =>

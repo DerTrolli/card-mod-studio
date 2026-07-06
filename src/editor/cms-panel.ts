@@ -484,7 +484,9 @@ export class CmsPanel extends LitElement {
 
   private _emitConfigChanged() {
     if (!this.config || !this._studioState) return;
-    const css = generateCss(this._studioState, this.config?.type);
+    const css = generateCss(this._studioState, this.config?.type, {
+      gaugeNeedle: (this.config as { needle?: boolean }).needle === true,
+    });
     let newConfig = applyCardModStyle(css, this.config, pickOutputKey(this.hass));
     if (this.config.type === 'entities') {
       newConfig = this._applyEntityRowStyles(newConfig);
@@ -1017,10 +1019,14 @@ export class CmsPanel extends LitElement {
     const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
     return html`
       <div class="container-banner">
-        <strong>🗂️ Layout card — style the child cards</strong>
-        "${cardType}" is a container. Card-mod styles applied here have no
-        visual effect. Open each child card individually and click the Style
-        button there.
+        <strong>🗂️ Layout card — child styling isn't supported here yet</strong>
+        "${cardType}" is a container: card-mod styles applied at this level
+        have no visual effect, and Home Assistant edits the child cards
+        inside this same dialog — so there's no separate child editor for the
+        Style button to attach to yet. To style a child card today, add its
+        <code>card_mod:</code> in the child's YAML by hand (or move it out of
+        the container, style it, and move it back). Proper in-place child
+        styling is planned — see the roadmap.
       </div>
 
       ${hasUnrecognisedCss

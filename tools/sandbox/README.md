@@ -68,6 +68,7 @@ node gradient_typing_check.mjs  # typing a value into a gradient point can't scr
 node gradient_uix_compat_check.mjs  # gradient marker actually applies against REAL card-mod (getComputedStyle), not just this project's own parser
 node preset_stale_state_check.mjs  # reused-panel + preset-load edge case that was suspected (wrongly) to lose gradient state on a duplicated card
 node gauge_color_check.mjs  # gauge dial color: ha-gauge !important block applies (accent + threshold-gradient), old ha-card form documented broken
+node beta2_fixes_check.mjs  # v0.7.1-beta.2: needle-gauge needle color, tile inline --tile-color beaten by !important (+ feature rows), picker domain filters, layout banner copy
 node scan.mjs            # which card types mount cleanly standalone
 ```
 

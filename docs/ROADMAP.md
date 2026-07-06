@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-06 · **Current version:** v0.7.1
+**Last updated:** 2026-07-06 · **Current version:** v0.7.0 (stable) · v0.7.1-beta.2 (pre-release, HACS beta opt-in)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -28,7 +28,18 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | v1.0 | Structural completeness | Container child-card editing (item #7 — styling a card inside a grid/stack/sections view currently targets the wrong card; probably the single biggest remaining hole) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
 | Post-1.0 | Stretch | Official Mushroom/Bubble selectors, a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
 
-## Recently shipped (v0.7.1)
+## Recently shipped (v0.7.1-beta.2)
+
+Fixes from live beta.1 testing: needle gauges now color the needle + value
+text (`--primary-text-color` on `ha-gauge`, `!important`); tile cards'
+accent color actually wins against the tile's own inline `--tile-color`
+(same inline-style bug class as the gauge — this also fixes tile *features*
+like the bar gauge, whose `--feature-color` derives from `--tile-color`);
+on/off "controlled by" pickers filter to genuinely toggleable domains; the
+layout-card banner no longer promises a per-child Style button that doesn't
+exist (see item #7 — now with a concrete implementation sketch).
+
+## Recently shipped (v0.7.1-beta.1)
 
 A pure correctness release from a full-codebase audit (agent-assisted code
 review of every parser/generator round-trip + primary-source re-verification
@@ -220,7 +231,7 @@ from the audit.
 
 | # | Item | Description | Effort |
 |---|---|---|---|
-| 7 | **Container child-card editing** | The long-standing gap: when editing a child inside a grid/stack/sections card, HA's dialog only exposes the top-level `_cardConfig`, so styles target the wrong card. Investigate: (a) DOM-hierarchy detection of the parent container, (b) searching `hass.lovelace.config` for the card's path, (c) attaching when HA opens a nested child editor. Start with the detection + an accurate "editing child of `<type>`" banner. | L |
+| 7 | **Container child-card editing** | The long-standing gap, now actively hit by users (v0.7.1-beta feedback): when editing a stack, HA's dialog exposes only the top-level `_cardConfig`, and children are edited via an *embedded* editor inside the same dialog — so the Style button binds to the container and there is nowhere else to click (the banner used to claim otherwise; fixed in v0.7.1-beta.2 to be honest about it). Concrete implementation sketch from the beta.2 investigation: the stack editor (`hui-stack-card-editor`, inside the outer `hui-card-element-editor`'s shadow root) embeds its own inner `hui-card-element-editor` for the selected tab's child — the panel needs to (a) detect that inner editor and bind to *its* config instead, (b) dispatch its config-changed within the inner editor's context so the stack editor folds the child config back into the stack, (c) re-bind when the user switches child tabs, and (d) handle GUI/YAML sub-editor modes, `conditional` cards' equivalent embedded editor, and nested stacks. Genuinely doable, but a real feature with real edge cases — its own release, not a beta-cycle drive-by. | L |
 | 8 | **Modern card coverage: `sections` / `heading` / `area`** | **Verified (v0.5.0):** heading module selectors (`.title p`, `.title ha-icon`, `.container`) still match current HA, and `sections` views work in production. **Remaining:** the `area` card and styling hooks for section **heading badges**. | M |
 | 9 | **Tile card feature styling** | The tile card gained features (trend graph, bar gauge, media/fan/valve controls, inline vs bottom position, `state_content`). Sandbox confirms features render in `hui-card-features` — **recommended next build**: targeted controls/selectors for feature rows rather than Advanced CSS. | M |
 | 10 | **Custom-card support: Mushroom & Bubble** | Most-requested. Detect the custom card type and offer the correct shadow-DOM selectors (these need `$`-pierce, so depends on #1 landing first). | L |

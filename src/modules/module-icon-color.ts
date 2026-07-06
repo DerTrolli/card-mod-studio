@@ -5,6 +5,7 @@ import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
+import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
 
 export class IconColorModule extends LitElement {
   @property({ attribute: false }) state: IconColorModuleState = {
@@ -116,6 +117,7 @@ export class IconColorModule extends LitElement {
                   <cms-entity-picker
                     .hass=${this.hass}
                     .value=${this.state.entityId ?? ''}
+                    .includeDomains=${mode === 'light' ? ['light'] : TOGGLE_DOMAINS}
                     .placeholder=${this.stateAware ? this.cardEntity : 'binary_sensor.example'}
                     label="Entity (default: this card's entity)"
                     @value-changed=${(e: CustomEvent<{ value: string }>) =>

@@ -197,7 +197,9 @@ describe('generateCss — accent color', () => {
       }),
       'tile',
     );
-    const tileMatch = css.match(/--tile-color: (\{\{[^\n]*\}\});/);
+    // --tile-color needs !important: hui-tile-card writes its state color as
+    // an inline style on ha-card, which otherwise always wins.
+    const tileMatch = css.match(/--tile-color: (\{\{[^\n]*\}\}) !important;/);
     const accentMatch = css.match(/--accent-color: (\{\{[^\n]*\}\});/);
     expect(tileMatch?.[1]).toBe(accentMatch?.[1]);
   });
@@ -238,6 +240,37 @@ describe('generateCss — accent color', () => {
     const gaugeMatch = css.match(/--gauge-color: (\{\{[^\n]*\}\}) !important;/);
     const accentMatch = css.match(/--accent-color: (\{\{[^\n]*\}\});/);
     expect(gaugeMatch?.[1]).toBe(accentMatch?.[1]);
+  });
+
+  it('needle gauge: also drives --primary-text-color (needle + value text) and round-trips cleanly', () => {
+    const state = makeState({ accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, color: '#ff0000' } });
+    const css = generateCss(state, 'gauge', { gaugeNeedle: true });
+    expect(css).toContain('--gauge-color: #ff0000 !important;');
+    expect(css).toContain('--primary-text-color: #ff0000 !important;');
+
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'gauge', card_mod: { style: css } }));
+    expect(reparsed.accentColor.enabled).toBe(true);
+    expect(reparsed.advanced.rawCss).toBe('');
+    // Byte-stable when regenerated with the same needle flag.
+    expect(generateCss(reparsed, 'gauge', { gaugeNeedle: true })).toBe(css);
+  });
+
+  it('non-needle gauge does NOT touch --primary-text-color (value text keeps its theme color)', () => {
+    const css = generateCss(
+      makeState({ accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, color: '#ff0000' } }),
+      'gauge',
+    );
+    expect(css).not.toContain('--primary-text-color');
+  });
+
+  it('tile round-trip stays clean with the !important companion (regression guard for the new form)', () => {
+    const state = makeState({ accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, color: '#ff0000' } });
+    const css = generateCss(state, 'tile');
+    expect(css).toContain('--tile-color: #ff0000 !important;');
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'tile', card_mod: { style: css } }));
+    expect(reparsed.accentColor.enabled).toBe(true);
+    expect(reparsed.advanced.rawCss).toBe('');
+    expect(generateCss(reparsed, 'tile')).toBe(css);
   });
 
   it('accent aux variables round-trip without leaking into Advanced CSS (tile/gauge/thermostat/button)', () => {
@@ -585,7 +618,7 @@ describe('generateCss — threshold', () => {
         defaultColor: '#888888',
       },
     }), 'tile');
-    const tileMatch = css.match(/--tile-color: (\{\{[^\n]*\}\});/);
+    const tileMatch = css.match(/--tile-color: (\{\{[^\n]*\}\}) !important;/);
     const accentMatch = css.match(/--accent-color: (\{\{[^\n]*\}\});/);
     expect(tileMatch?.[1]).toBe(accentMatch?.[1]);
   });
