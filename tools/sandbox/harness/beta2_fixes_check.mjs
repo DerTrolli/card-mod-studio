@@ -219,6 +219,10 @@ const run = async () => {
   );
 
   // --- 5. Layout-card banner copy ---
+  // (v0.8.0 superseded the beta.2 "not supported" copy: stacks now show
+  // per-child styling sections. The invariant this check guards is the
+  // original bug — the banner must never send the user to a per-child
+  // Style button that doesn't exist.)
   const banner = await page.evaluate(async () => {
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:900px;background:#111;z-index:2147483647;';
@@ -230,14 +234,16 @@ const run = async () => {
     await panel.updateComplete;
     await new Promise((r) => setTimeout(r, 300));
     const text = panel.shadowRoot.querySelector('.container-banner')?.textContent ?? '';
+    const sections = panel.shadowRoot.querySelectorAll('cms-child-card-section').length;
     host.remove();
-    return text.replace(/\s+/g, ' ').trim();
+    return { text: text.replace(/\s+/g, ' ').trim(), sections };
   });
 
   record(
-    'layout banner: no longer claims a per-child Style button exists; explains the YAML workaround',
-    banner.includes("isn't supported here yet") && banner.includes('card_mod:') && !banner.includes('click the Style button there'),
-    banner.slice(0, 160),
+    'layout banner: never sends the user to a nonexistent per-child Style button (v0.8.0: child sections render instead)',
+    !banner.text.includes('click the Style button there') &&
+      (banner.sections > 0 || banner.text.includes("isn't supported")),
+    JSON.stringify(banner).slice(0, 200),
   );
 
   await page.screenshot({ path: resolve(SHOTS, 'beta2-fixes-01.png') });

@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-06 · **Current version:** v0.7.1
+**Last updated:** 2026-07-06 · **Current version:** v0.7.1 (stable) · v0.8.0-beta.1 (pre-release, HACS beta opt-in)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -23,10 +23,24 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | Version | Theme | Contents |
 |---|---|---|
 | v0.7 ✅ | Entity binding foundation | **Shipped** — see below. Searchable entity picker everywhere; Icon Color/Background/Filter can target a different entity than the card's own; Threshold rules can drive multiple properties at once. |
-| v0.8 | Color system | A Color Palette Manager — add/rename/delete custom presets, override built-in defaults (e.g. what "off" defaults to) — stored via the existing cross-device preset storage. Plus attribute-based thresholds (item #16 below: `battery_level`, `state_attr(...)`, not just raw state). |
+| v0.8 | Structure + color system | **Stack child styling shipped in 0.8.0-beta.1** — per-child styling sections (full module set) for vertical-stack/horizontal-stack/grid, written into each child's own config (user-proposed approach: treat `cards:[]` like `entities:[]` rows — no embedded-editor hooking needed). Still planned this cycle: the Color Palette Manager — add/rename/delete custom presets, override built-in defaults (e.g. what "off" defaults to) — stored via the existing cross-device preset storage. Plus attribute-based thresholds (item #16 below). |
 | v0.9 | Depth | Property-level templating beyond color (border width, icon size, blur/opacity driven by entity state — natural extension of v0.7's entity binding). Plus dict-form/`$`-pierce round-trip safety (item #1 below), which unblocks nested-shadow-DOM targets (glance icon, Mushroom/Bubble). |
-| v1.0 | Structural completeness | Container child-card editing (item #7 — styling a card inside a grid/stack/sections view currently targets the wrong card; probably the single biggest remaining hole) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
+| v1.0 | Structural completeness | The remaining container gaps (item #7 — `conditional` cards, containers nested in containers, per-row styling of nested entities cards) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
 | Post-1.0 | Stretch | Official Mushroom/Bubble selectors, a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
+
+## Recently shipped (v0.8.0-beta.1)
+
+- **Stack child styling** — vertical-stack/horizontal-stack/grid cards show
+  one styling section per child, each with the full module set for that
+  child's card type, written into the child's own `card_mod:`/`uix:` block.
+  Went from "planned for v1.0 via embedded-editor hooking" to shipped in a
+  day once the simpler framing landed (proposed by the project owner):
+  a container's `cards:[]` is the same shape as an entities card's
+  `entities:[]` rows, and both engines natively apply a child's own style
+  block — so no editor hooking is needed at all. The open/save pipeline was
+  extracted to `src/editor/studio-state.ts` and is now literally shared
+  between top-level cards and stack children (the merge-dedup test suite
+  exercises the real exported functions instead of a mirror).
 
 ## Recently shipped (v0.7.1)
 
@@ -225,7 +239,7 @@ from the audit.
 
 | # | Item | Description | Effort |
 |---|---|---|---|
-| 7 | **Container child-card editing** | The long-standing gap, now actively hit by users (v0.7.1-beta feedback): when editing a stack, HA's dialog exposes only the top-level `_cardConfig`, and children are edited via an *embedded* editor inside the same dialog — so the Style button binds to the container and there is nowhere else to click (the banner used to claim otherwise; fixed in v0.7.1-beta.2 to be honest about it). Concrete implementation sketch from the beta.2 investigation: the stack editor (`hui-stack-card-editor`, inside the outer `hui-card-element-editor`'s shadow root) embeds its own inner `hui-card-element-editor` for the selected tab's child — the panel needs to (a) detect that inner editor and bind to *its* config instead, (b) dispatch its config-changed within the inner editor's context so the stack editor folds the child config back into the stack, (c) re-bind when the user switches child tabs, and (d) handle GUI/YAML sub-editor modes, `conditional` cards' equivalent embedded editor, and nested stacks. Genuinely doable, but a real feature with real edge cases — its own release, not a beta-cycle drive-by. | L |
+| 7 ✅* | **Container child-card editing** | **Mostly done (v0.8.0-beta.1)** for vertical-stack/horizontal-stack/grid: per-child styling sections write into `cards[i]`'s own `card_mod:`/`uix:` — no embedded-editor hooking needed (a container's `cards:[]` is the same shape as entities rows; approach proposed by the project owner). Remaining: `conditional` cards (single `card:` key), containers nested inside containers (no recursion yet), per-row styling of a nested entities card. The originally-sketched embedded-editor binding is now unnecessary and retired. | M |
 | 8 | **Modern card coverage: `sections` / `heading` / `area`** | **Verified (v0.5.0):** heading module selectors (`.title p`, `.title ha-icon`, `.container`) still match current HA, and `sections` views work in production. **Remaining:** the `area` card and styling hooks for section **heading badges**. | M |
 | 9 | **Tile card feature styling** | The tile card gained features (trend graph, bar gauge, media/fan/valve controls, inline vs bottom position, `state_content`). Sandbox confirms features render in `hui-card-features` — **recommended next build**: targeted controls/selectors for feature rows rather than Advanced CSS. | M |
 | 10 | **Custom-card support: Mushroom & Bubble** | Most-requested. Detect the custom card type and offer the correct shadow-DOM selectors (these need `$`-pierce, so depends on #1 landing first). | L |

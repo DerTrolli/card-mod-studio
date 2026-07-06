@@ -20,10 +20,20 @@ import type {
 } from '../types/index.js';
 import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
 import { isUixOnlyStyle, usesUixOnlyFeatures, hasUixOnlyRow, hasStyleContent, resolveStyle } from '../utils/style-compat.js';
+import {
+  CONTAINER_CARD_TYPES,
+  STYLABLE_CHILDREN_CARD_TYPES,
+  NO_ANIMATION_TYPES,
+  NO_BACKGROUND_TYPES,
+  NO_BORDER_TYPES,
+  NO_ICON_COLOR_TYPES,
+  isStateAware,
+} from '../utils/card-caps.js';
+import { buildMergedStudioState } from './studio-state.js';
+import './cms-child-card-section.js';
 import { loadPresets, savePresets } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
-import { parseStyleValue } from '../parser/yaml-parser.js';
-import { mapToStudioState, mergeStudioStates, parseEntityRowCss, mergeEntityRowStyles } from '../parser/state-mapper.js';
+import { parseEntityRowCss, mergeEntityRowStyles } from '../parser/state-mapper.js';
 import { generateCss, buildThresholdJinja } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
 
@@ -41,54 +51,9 @@ import '../modules/module-entities-rows.js';
 declare const __APP_VERSION__: string;
 const VERSION = __APP_VERSION__;
 
-const NON_STATE_CARD_TYPES = new Set([
-  'sensor', 'gauge', 'history-graph', 'statistics-graph', 'statistic',
-  'energy-distribution', 'energy-usage-graph', 'calendar', 'todo-list',
-  'weather-forecast', 'sun', 'map', 'media-control',
-]);
-
-const CONTAINER_CARD_TYPES = new Set([
-  'grid', 'vertical-stack', 'horizontal-stack', 'sections', 'conditional',
-]);
-
-const NO_ANIMATION_TYPES = new Set([
-  'gauge', 'history-graph', 'statistics-graph', 'statistic',
-  'energy-distribution', 'energy-usage-graph',
-  'thermostat', 'humidifier', 'light', 'alarm-panel',
-  'media-control', 'weather-forecast', 'calendar', 'logbook', 'activity',
-  'map', 'iframe', 'webpage', 'shopping-list', 'todo-list',
-  'heading', 'picture', 'picture-entity', 'picture-glance', 'picture-elements',
-]);
-
-const NO_BACKGROUND_TYPES = new Set([
-  'picture', 'picture-entity', 'picture-glance', 'picture-elements',
-  'iframe', 'webpage', 'map',
-  // heading cards have no painted ha-card box — background has no visual effect
-  // (verified empirically). See docs/CARD_SUPPORT_MATRIX.md.
-  'heading',
-]);
-
-// Border (width/colour + radius) has no visual effect on heading cards (no
-// painted box). Radius/filter aside, the whole module is moot there.
-const NO_BORDER_TYPES = new Set([
-  'heading',
-]);
-
-const NO_ICON_COLOR_TYPES = new Set([
-  'gauge', 'history-graph', 'statistics-graph', 'statistic',
-  'energy-distribution', 'energy-usage-graph',
-  'thermostat', 'humidifier',
-  'weather-forecast', 'calendar', 'logbook', 'activity',
-  'markdown', 'map', 'iframe', 'webpage', 'shopping-list', 'todo-list',
-  'picture', 'picture-entity',
-  'heading',
-  // glance renders its icon inside a nested <state-badge> shadow root that a
-  // card-mod rule can't pierce, and the colour is applied inline from state —
-  // no selector recolours it (verified empirically), so don't offer a dead
-  // control. alarm-panel and media-control DO honour icon colour (plain mode)
-  // and are intentionally NOT listed here.
-  'glance',
-]);
+// Per-card-type capability tables live in ../utils/card-caps.ts, shared with
+// cms-child-card-section so a stack child gets the exact same module gating
+// as a top-level card of that type.
 
 export class CmsPanel extends LitElement {
   @property({ attribute: false }) config?: CardModCardConfig;
@@ -159,34 +124,10 @@ export class CmsPanel extends LitElement {
     this._initEntityRowStyles();
   }
 
-  /**
-   * Builds studio state from a card_mod/uix-bearing object, merging settings
-   * from BOTH keys when both carry real (string-form) content — not just
-   * whichever resolveStyle() would pick — so a setting that only lives under
-   * the currently-inactive key (e.g. left over from before switching card-mod
-   * <-> UIX, or from a divergent hand-edit under each) isn't invisible to the
-   * editor, and isn't silently dropped the next time this card is saved. The
-   * active key (per pickOutputKey()) wins on conflicts; see
-   * mergeStudioStates in state-mapper.ts for the per-module merge rule.
-   *
-   * Skips the secondary key when it's a uix: block using macros/billets —
-   * that's hand-authored, UIX-exclusive content this parser can't safely
-   * represent as recognised module state, so it's left out of the merge
-   * entirely (and, per applyCardModStyle's matching guard, never cleared
-   * either).
-   */
+  /** See buildMergedStudioState in studio-state.ts — extracted so
+   *  cms-child-card-section runs the identical merge for stack children. */
   private _buildMergedState(config: CardModCardConfig): StudioState {
-    const outputKey = pickOutputKey(this.hass);
-    const primaryStyle = outputKey === 'uix' ? config.uix?.style : config.card_mod?.style;
-    const secondaryStyle = outputKey === 'uix' ? config.card_mod?.style : config.uix?.style;
-
-    const primaryState = mapToStudioState(parseStyleValue(primaryStyle));
-
-    const secondaryUsable = outputKey === 'uix' || !usesUixOnlyFeatures(config);
-    if (!hasStyleContent(secondaryStyle) || !secondaryUsable) return primaryState;
-
-    const secondaryState = mapToStudioState(parseStyleValue(secondaryStyle));
-    return mergeStudioStates(primaryState, secondaryState);
+    return buildMergedStudioState(config, this.hass);
   }
 
   private _initEntityRowStyles() {
@@ -408,20 +349,7 @@ export class CmsPanel extends LitElement {
   }
 
   private get _isStateAware(): boolean {
-    const entityId = this.config?.entity as string | undefined;
-    if (!entityId || !this.hass) {
-      return !NON_STATE_CARD_TYPES.has(this.config?.type ?? '');
-    }
-    const entity = this.hass.states[entityId];
-    if (!entity) return !NON_STATE_CARD_TYPES.has(this.config?.type ?? '');
-
-    const domain = entityId.split('.')[0];
-    const binaryDomains = [
-      'switch', 'light', 'binary_sensor', 'input_boolean', 'lock',
-      'fan', 'cover', 'climate', 'alarm_control_panel', 'person',
-      'automation', 'script', 'timer', 'group', 'input_button',
-    ];
-    return binaryDomains.includes(domain) || ['on', 'off'].includes(entity.state);
+    return isStateAware(this.config?.type, this.config?.entity as string | undefined, this.hass);
   }
 
   // ---------------------------------------------------------------------------
@@ -1014,31 +942,69 @@ export class CmsPanel extends LitElement {
     `;
   }
 
+  private _onChildConfigChanged(e: CustomEvent<{ index: number; config: CardModCardConfig }>) {
+    e.stopPropagation();
+    if (!this.config) return;
+    const cards = (this.config as unknown as { cards?: CardModCardConfig[] }).cards;
+    if (!Array.isArray(cards) || !cards[e.detail.index]) return;
+    const updatedCards = cards.map((c, i) => (i === e.detail.index ? e.detail.config : c));
+    const newConfig = { ...(this.config as unknown as object), cards: updatedCards } as unknown as CardModCardConfig;
+
+    this._previewConfig = newConfig;
+    this._previewKey++;
+    this._lastEmittedConfigJson = JSON.stringify(newConfig);
+    this.dispatchEvent(
+      new CustomEvent('config-changed', {
+        bubbles: true,
+        composed: true,
+        detail: { config: newConfig },
+      }),
+    );
+  }
+
   private _renderContainerCard(s: StudioState) {
     const cardType = this.config?.type ?? 'layout';
     const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
+    const childCards = STYLABLE_CHILDREN_CARD_TYPES.has(cardType)
+      ? ((this.config as unknown as { cards?: CardModCardConfig[] }).cards ?? [])
+      : null;
+
     return html`
-      <div class="container-banner">
-        <strong>🗂️ Layout card — child styling isn't supported here yet</strong>
-        "${cardType}" is a container: card-mod styles applied at this level
-        have no visual effect, and Home Assistant edits the child cards
-        inside this same dialog — so there's no separate child editor for the
-        Style button to attach to yet. To style a child card today, add its
-        <code>card_mod:</code> in the child's YAML by hand (or move it out of
-        the container, style it, and move it back). Proper in-place child
-        styling is planned — see the roadmap.
-      </div>
+      ${childCards
+        ? html`
+            <div class="container-banner">
+              <strong>🗂️ Layout card — style each child card below</strong>
+              "${cardType}" is a container: styles at this level have no
+              visual effect, so every card inside it gets its own styling
+              section here. Changes are saved into that child's own
+              configuration — exactly what you'd get styling it as a
+              standalone card.
+            </div>
+            ${childCards.map(
+              (child, i) => html`<cms-child-card-section
+                .childConfig=${child}
+                .index=${i}
+                .hass=${this.hass}
+                @child-config-changed=${this._onChildConfigChanged}
+              ></cms-child-card-section>`,
+            )}
+          `
+        : html`
+            <div class="container-banner">
+              <strong>🗂️ Layout card — child styling isn't supported here yet</strong>
+              "${cardType}" is a container: card-mod styles applied at this
+              level have no visual effect, and this container type doesn't
+              carry an editable <code>cards:</code> list the Studio can offer
+              per-child sections for yet. To style a card inside it today,
+              add the child's <code>card_mod:</code> in YAML by hand.
+            </div>
+          `}
 
       ${hasUnrecognisedCss
         ? html`<div class="info-banner">
             ℹ️ Some existing styles weren't recognised — preserved in Advanced CSS.
           </div>`
         : nothing}
-
-      <cms-border-module
-        .state=${s.border}
-        @state-changed=${this._onBorderChanged}
-      ></cms-border-module>
 
       <cms-advanced-module
         .state=${s.advanced}

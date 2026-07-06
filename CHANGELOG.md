@@ -5,6 +5,33 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0-beta.1] — 2026-07-06
+
+**Pre-release** — the start of the v0.8 cycle.
+
+### Added
+- **Style the cards inside a stack — directly from the stack's editor.**
+  Vertical-stack, horizontal-stack, and grid cards now show one styling
+  section per child card instead of a dead-end banner. Each section carries
+  the full module set for that child's card type — a gauge child gets the
+  gauge treatment (dial/needle/Fade), a tile child the tile treatment,
+  thresholds, animations, everything — because each child runs through
+  exactly the same parse → modules → generate pipeline as a top-level card
+  (now shared code, not a copy: `src/editor/studio-state.ts`). Changes are
+  written into that child's own `card_mod:`/`uix:` block inside the stack
+  config — the same YAML you'd get styling it standalone, applied natively
+  by both engines — and the live preview shows the whole stack update as
+  you edit. A dot marks children that carry styling; reopening the editor
+  restores each child's settings.
+  Not covered yet (noted inline in the UI): containers nested inside
+  containers, per-row styling of a nested entities card, and `conditional`
+  cards (single `card:` instead of `cards:`).
+
+### Changed
+- The container-level Border module (which had no visual effect — stacks
+  paint no `ha-card` box of their own) is no longer offered; container
+  Advanced CSS remains available.
+
 ## [0.7.1] — 2026-07-06
 
 A pure correctness release, from a full audit of the codebase (every module
@@ -513,6 +540,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.8.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0-beta.1
 [0.7.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.1
 [0.7.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0
 [0.6.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.2

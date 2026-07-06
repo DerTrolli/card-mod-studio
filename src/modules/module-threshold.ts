@@ -6,6 +6,7 @@ import { DEFAULT_THRESHOLD } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
 import { sortThresholdRules } from '../generator/css-generator.js';
 import { previewHexFor } from '../components/cms-color-picker.js';
+import { NO_ICON_COLOR_TYPES } from '../utils/card-caps.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
 
@@ -17,18 +18,10 @@ const PROPERTY_OPTIONS: Array<{ value: ThresholdProperty; label: string }> = [
   { value: 'border-color', label: 'Border Color' },
 ];
 
-/** Card types with no reachable ha-state-icon (mirrors cms-panel's
- *  NO_ICON_COLOR_TYPES rationale) — offering the Icon Color threshold
- *  property there is a dead control that generates CSS matching nothing. */
-const NO_ICON_PROPERTY_TYPES = new Set([
-  'gauge', 'history-graph', 'statistics-graph', 'statistic',
-  'energy-distribution', 'energy-usage-graph',
-  'thermostat', 'humidifier',
-  'weather-forecast', 'calendar', 'logbook', 'activity',
-  'markdown', 'map', 'iframe', 'webpage', 'shopping-list', 'todo-list',
-  'picture', 'picture-entity',
-  'heading', 'glance',
-]);
+/** Card types with no reachable ha-state-icon — offering the Icon Color
+ *  threshold property there is a dead control generating CSS that matches
+ *  nothing. Shared with the panel's module gating via card-caps.ts. */
+const NO_ICON_PROPERTY_TYPES = NO_ICON_COLOR_TYPES;
 
 export class ThresholdModule extends LitElement {
   @property({ attribute: false }) state: ThresholdModuleState = {

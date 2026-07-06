@@ -1,10 +1,10 @@
 /**
  * Integration tests for the card_mod:/uix: merge-and-cleanup-on-edit
- * feature: mirrors exactly what cms-panel.ts does internally —
- *   _buildMergedState (parseStyleValue + mapToStudioState + mergeStudioStates)
- *   on open, then generateCss + applyCardModStyle on save — using the same
- *   exported primitives, since _buildMergedState itself is a private method
- *   on a LitElement and isn't independently callable here.
+ * feature, exercising the REAL open/save pipeline cms-panel and
+ * cms-child-card-section share: buildMergedStudioState on open, then
+ * applyStudioState (generateCss + applyCardModStyle) on save — both
+ * exported from src/editor/studio-state.ts since v0.8.0, so these tests no
+ * longer mirror a private method that could drift.
  *
  * Bug this covers: editing an already-styled card used to leave a stale
  * duplicate of the *other* key's content sitting alongside the new one
@@ -13,11 +13,9 @@
  * state-mapper.ts's mergeStudioStates for the design.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { parseStyleValue } from '../src/parser/yaml-parser.js';
-import { mapToStudioState, mergeStudioStates, parseEntityRowCss, mergeEntityRowStyles } from '../src/parser/state-mapper.js';
-import { hasStyleContent } from '../src/utils/style-compat.js';
-import { generateCss } from '../src/generator/css-generator.js';
+import { parseEntityRowCss, mergeEntityRowStyles } from '../src/parser/state-mapper.js';
 import { applyCardModStyle, pickOutputKey } from '../src/generator/yaml-generator.js';
+import { buildMergedStudioState, applyStudioState } from '../src/editor/studio-state.js';
 import type { CardModCardConfig, EntitiesCardRow } from '../src/types/index.js';
 
 class FakeCustomElementRegistry {
@@ -45,23 +43,10 @@ function installCardMod() {
     registry as unknown as CustomElementRegistry;
 }
 
-/** Mirrors cms-panel.ts's private _buildMergedState. */
-function buildMergedState(config: CardModCardConfig) {
-  const outputKey = pickOutputKey();
-  const primaryStyle = outputKey === 'uix' ? config.uix?.style : config.card_mod?.style;
-  const secondaryStyle = outputKey === 'uix' ? config.card_mod?.style : config.uix?.style;
-  const primaryState = mapToStudioState(parseStyleValue(primaryStyle));
-  const secondaryUsable = outputKey === 'uix' || !(config.uix?.macros || config.uix?.billets);
-  if (!hasStyleContent(secondaryStyle) || !secondaryUsable) return primaryState;
-  const secondaryState = mapToStudioState(parseStyleValue(secondaryStyle));
-  return mergeStudioStates(primaryState, secondaryState);
-}
-
-/** Mirrors cms-panel.ts's _emitConfigChanged: re-derive+resave from whatever state is currently open. */
+/** The real open→save pipeline: re-derive + resave from whatever state is currently open. */
 function editAndSave(config: CardModCardConfig): CardModCardConfig {
-  const state = buildMergedState(config);
-  const css = generateCss(state, config.type);
-  return applyCardModStyle(css, config, pickOutputKey());
+  const state = buildMergedStudioState(config);
+  return applyStudioState(state, config);
 }
 
 describe('merge-and-clean on edit: card-level', () => {
