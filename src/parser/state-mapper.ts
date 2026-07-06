@@ -31,7 +31,7 @@ import type {
   StudioState,
   EntitiesRowStyle,
 } from '../types/index.js';
-import { parseCss } from './css-parser.js';
+import { parseCss, parseCssDetailed } from './css-parser.js';
 import { GRADIENT_MARKER_PROPERTY, decodeGradientStops } from '../generator/css-generator.js';
 
 // ---------------------------------------------------------------------------
@@ -109,12 +109,98 @@ export const DEFAULT_THRESHOLD: ThresholdModuleState = {
   ],
 };
 
+/**
+ * Normalises a StudioState of ANY historical schema (e.g. a preset saved by
+ * v0.6.x, before multi-property/gradient threshold and conditional accent
+ * existed) to the current shape. Without this, loading an old preset crashes
+ * the panel: generateCss reads `threshold.properties.length`, the threshold
+ * module calls `properties.includes`, and the accent module's mode checks
+ * all assume current fields. Every module is default-merged, and renamed
+ * fields are translated (v0.6.x `threshold.property` → `properties: [...]`).
+ * Safe on current-schema input (idempotent).
+ */
+export function migrateStudioState(raw: unknown): StudioState {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, Record<string, unknown> | undefined>;
+
+  const threshold = { ...DEFAULT_THRESHOLD, ...(r.threshold ?? {}) } as ThresholdModuleState &
+    Record<string, unknown>;
+  // v0.6.x had a single `property` field instead of `properties[]`.
+  if (!Array.isArray(threshold.properties) || threshold.properties.length === 0) {
+    const legacy = threshold['property'];
+    threshold.properties = typeof legacy === 'string'
+      ? [legacy as ThresholdProperty]
+      : [...DEFAULT_THRESHOLD.properties];
+  }
+  delete threshold['property'];
+  if (threshold.valueMode !== 'gradient') threshold.valueMode = 'switch';
+  if (!Array.isArray(threshold.rules)) threshold.rules = [];
+  if (!Array.isArray(threshold.colorStops) || threshold.colorStops.length === 0) {
+    threshold.colorStops = DEFAULT_THRESHOLD.colorStops.map((s) => ({ ...s }));
+  }
+
+  const accentColor = { ...DEFAULT_ACCENT_COLOR, ...(r.accentColor ?? {}) } as AccentColorModuleState;
+  if (accentColor.mode !== 'conditional') accentColor.mode = 'plain';
+
+  return {
+    filter: { ...DEFAULT_FILTER, ...(r.filter ?? {}) } as FilterModuleState,
+    iconColor: { ...DEFAULT_ICON_COLOR, ...(r.iconColor ?? {}) } as IconColorModuleState,
+    accentColor,
+    background: { ...DEFAULT_BACKGROUND, ...(r.background ?? {}) } as BackgroundModuleState,
+    animation: { ...DEFAULT_ANIMATION, ...(r.animation ?? {}) } as AnimationModuleState,
+    border: { ...DEFAULT_BORDER, ...(r.border ?? {}) } as BorderModuleState,
+    headingStyle: { ...DEFAULT_HEADING_STYLE, ...(r.headingStyle ?? {}) } as HeadingStyleModuleState,
+    threshold,
+    advanced: { rawCss: typeof r.advanced?.rawCss === 'string' ? (r.advanced.rawCss as string) : '' },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Claimed-property tracking
 // ---------------------------------------------------------------------------
 
 function claimKey(selector: string, property: string): string {
   return `${selector.trim().toLowerCase()}::${property.trim().toLowerCase()}`;
+}
+
+/**
+ * The card-type companion variables the generator emits alongside
+ * --accent-color (see accentAuxDecls/gaugeColorBlock in css-generator.ts).
+ * When an accent value is recognised, any of these carrying the *same*
+ * value are generated companions and must be claimed with it — otherwise
+ * every reopen dumps them into Advanced CSS, where the stale copies then
+ * override the accent color the user picks next (Advanced CSS is emitted
+ * last, so its duplicates win the cascade). A companion with a *different*
+ * value is treated as deliberate hand-written CSS and left alone.
+ */
+const ACCENT_AUX_VARS = [
+  '--tile-color',
+  '--state-icon-color',
+  '--paper-item-icon-active-color',
+  '--state-climate-heat-color',
+  '--state-climate-cool-color',
+  '--state-climate-auto-color',
+  '--state-climate-idle-color',
+  '--control-circular-slider-color',
+];
+
+/** Claims accent companion variables matching `value` — on ha-card the
+ *  ACCENT_AUX_VARS set, on ha-gauge the --gauge-color block. */
+function claimAccentAux(
+  haCard: CssTarget | null,
+  haGauge: CssTarget | null,
+  value: string,
+  claimed: Set<string>,
+): void {
+  if (haCard) {
+    for (const aux of ACCENT_AUX_VARS) {
+      const prop = findProp(haCard, aux);
+      if (prop && prop.value.trim() === value) claimed.add(claimKey(haCard.selector, aux));
+    }
+  }
+  if (haGauge) {
+    const prop = findProp(haGauge, '--gauge-color');
+    if (prop && prop.value.trim() === value) claimed.add(claimKey(haGauge.selector, '--gauge-color'));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -133,11 +219,22 @@ function mapAnimation(
   // Pattern: cms-{preset} {speed}s ease-in-out infinite
   const ANIM_PATTERN = /^cms-(pulse|breathe|gradient-shift|blink|bounce)\s+([\d.]+)s\s+ease-in-out\s+infinite$/;
 
+  // gradient-shift needs `background-size: 200% auto;` alongside the
+  // animation (see animationDecls) — claim it with the animation, or it
+  // leaks into Advanced CSS and outlives switching to a different preset.
+  const claimCompanions = () => {
+    claimed.add(claimKey(haCard.selector, 'animation'));
+    const bgSize = findProp(haCard, 'background-size');
+    if (bgSize && bgSize.value.trim() === '200% auto') {
+      claimed.add(claimKey(haCard.selector, 'background-size'));
+    }
+  };
+
   // Parse unconditional animation (trigger=always)
   if (!animProp.hasCondition) {
     const match = animProp.value.match(ANIM_PATTERN);
     if (match) {
-      claimed.add(claimKey(haCard.selector, 'animation'));
+      claimCompanions();
       return {
         enabled: true,
         preset: match[1] as 'pulse' | 'breathe' | 'gradient-shift' | 'blink' | 'bounce',
@@ -146,7 +243,7 @@ function mapAnimation(
       };
     }
   } else {
-    // Parse conditional animation (trigger=on/off)
+    // Parse conditional animation (trigger=on/off/custom entity)
     const onValue = animProp.onValue?.trim() || '';
     const offValue = animProp.offValue?.trim() || '';
 
@@ -157,17 +254,24 @@ function mapAnimation(
     if (animValue) {
       const match = animValue.match(ANIM_PATTERN);
       if (match) {
-        claimed.add(claimKey(haCard.selector, 'animation'));
+        claimCompanions();
 
-        // Determine trigger: if animation is in onValue, trigger is 'on'
-        const trigger = onValue.match(ANIM_PATTERN) ? 'on' : 'off';
-
-        return {
+        const base = {
           enabled: true,
           preset: match[1] as 'pulse' | 'breathe' | 'gradient-shift' | 'blink' | 'bounce',
           speedS: parseFloat(match[2]),
-          trigger: trigger as 'on' | 'off',
         };
+
+        // A quoted entity in the is_state(...) condition means "animate
+        // while a DIFFERENT entity is on" — losing it here silently rebound
+        // the animation to the card's own entity on the next save.
+        if (animProp.entityId && onValue.match(ANIM_PATTERN)) {
+          return { ...base, trigger: 'custom', customEntity: animProp.entityId };
+        }
+
+        // Determine trigger: if animation is in onValue, trigger is 'on'
+        const trigger = onValue.match(ANIM_PATTERN) ? 'on' : 'off';
+        return { ...base, trigger: trigger as 'on' | 'off' };
       }
     }
   }
@@ -182,6 +286,7 @@ function mapAnimation(
 export function mapToStudioState(parsed: CardModStyleState): StudioState {
   const haCard = findTarget(parsed.targets, 'ha-card');
   const haStateIcon = findTarget(parsed.targets, 'ha-state-icon');
+  const haGauge = findTarget(parsed.targets, 'ha-gauge');
   const titleP = findTarget(parsed.targets, '.title p');
   const titleIcon = findTarget(parsed.targets, '.title ha-icon');
   const container = findTarget(parsed.targets, '.container');
@@ -191,12 +296,12 @@ export function mapToStudioState(parsed: CardModStyleState): StudioState {
   return {
     filter: mapFilter(haCard, claimed),
     iconColor: mapIconColor(haStateIcon, claimed),
-    accentColor: mapAccentColor(haCard, claimed),
+    accentColor: mapAccentColor(haCard, haGauge, claimed),
     background: mapBackground(haCard, claimed),
     animation: mapAnimation(haCard, claimed),
     border: mapBorder(haCard, claimed),
     headingStyle: mapHeadingStyle(titleP, titleIcon, container, claimed),
-    threshold: mapThreshold(haCard, haStateIcon, claimed),
+    threshold: mapThreshold(haCard, haStateIcon, haGauge, claimed),
     advanced: mapAdvanced(parsed, claimed),
   };
 }
@@ -228,8 +333,27 @@ export function mergeStudioStates(primary: StudioState, secondary: StudioState):
     border: primary.border.enabled ? primary.border : secondary.border,
     headingStyle: primary.headingStyle.enabled ? primary.headingStyle : secondary.headingStyle,
     threshold: primary.threshold.enabled ? primary.threshold : secondary.threshold,
-    advanced: { rawCss: primary.advanced.rawCss || secondary.advanced.rawCss },
+    advanced: { rawCss: mergeRawCss(primary.advanced.rawCss, secondary.advanced.rawCss) },
   };
+}
+
+/**
+ * Unstructured CSS can't be merged declaration-by-declaration the way the
+ * recognised modules can — but the old whole-or-nothing pick (primary ||
+ * secondary) silently DESTROYED the secondary key's unrecognised CSS
+ * whenever the primary had any of its own: the next save clears the
+ * secondary key on the premise everything was merged. When both sides have
+ * different leftovers, concatenate them (primary last, so at equal
+ * specificity its declarations win — matching which key the active engine
+ * actually reads). Identical content is kept once, so the common
+ * mirrored-key case doesn't duplicate.
+ */
+function mergeRawCss(primary: string, secondary: string): string {
+  const p = primary.trim();
+  const s = secondary.trim();
+  if (!p) return s;
+  if (!s || s === p) return p;
+  return `${s}\n\n${p}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -269,7 +393,19 @@ function mapFilter(haCard: CssTarget | null, claimed: Set<string>): FilterModule
       // see entityRef() in css-generator.ts.
       const customEntity = filterProp.entityId;
 
-      if (offHasGrayscale && filterProp.onValue?.trim() === 'none') {
+      // The non-grayscale branch is 'none' when grayscale is the only
+      // filter, but with brightness/blur set it's the same filter list
+      // minus grayscale() (see filterDecls: grayVal vs otherVal). Only
+      // matching the literal 'none' silently dropped grayscale from any
+      // combined filter on reopen.
+      const matchesOther = (grayBranch: string | undefined, other: string | undefined): boolean => {
+        if (other?.trim() === 'none') return true;
+        if (!grayBranch || !other) return false;
+        const remainder = grayBranch.replace(/grayscale\([^)]*\)\s*/, '').trim();
+        return remainder.length > 0 && other.trim() === remainder;
+      };
+
+      if (offHasGrayscale && matchesOther(filterProp.offValue, filterProp.onValue)) {
         // grayscale when off, none when on
         state.enabled = true;
         state.grayscale = true;
@@ -280,7 +416,7 @@ function mapFilter(haCard: CssTarget | null, claimed: Set<string>): FilterModule
           state.grayscaleWhen = 'off';
         }
         filterClaimed = true;
-      } else if (onHasGrayscale && filterProp.offValue?.trim() === 'none') {
+      } else if (onHasGrayscale && matchesOther(filterProp.onValue, filterProp.offValue)) {
         // grayscale when on, none when off
         state.enabled = true;
         state.grayscale = true;
@@ -324,7 +460,12 @@ function mapFilter(haCard: CssTarget | null, claimed: Set<string>): FilterModule
     if (filterClaimed) claimed.add(claimKey(haCard.selector, 'filter'));
   }
 
-  if (transitionProp) {
+  // Only claim a transition when the filter module itself was recognised —
+  // the generator only re-emits `transition:` alongside filter declarations
+  // (see filterDecls), so claiming a hand-authored standalone transition
+  // here would delete it on the next save: claimed (not in Advanced CSS)
+  // but never regenerated.
+  if (transitionProp && state.enabled) {
     if (transitionProp.value.includes('filter') || transitionProp.value.includes('all')) {
       const msMatch = transitionProp.value.match(/(\d+)ms/);
       const sMatch = transitionProp.value.match(/(\d*\.?\d+)s(?:\s|$|,)/);
@@ -414,6 +555,7 @@ function mapIconColor(
 
 function mapAccentColor(
   haCard: CssTarget | null,
+  haGauge: CssTarget | null,
   claimed: Set<string>,
 ): AccentColorModuleState {
   if (!haCard) return { ...DEFAULT_ACCENT_COLOR };
@@ -425,6 +567,7 @@ function mapAccentColor(
     // Jinja2 on/off conditional — map to conditional mode (mirrors mapIconColor).
     if (prop.onValue && prop.offValue) {
       claimed.add(claimKey(haCard.selector, '--accent-color'));
+      claimAccentAux(haCard, haGauge, prop.value.trim(), claimed);
       return {
         ...DEFAULT_ACCENT_COLOR,
         enabled: true,
@@ -443,6 +586,7 @@ function mapAccentColor(
   if (!value) return { ...DEFAULT_ACCENT_COLOR };
 
   claimed.add(claimKey(haCard.selector, '--accent-color'));
+  claimAccentAux(haCard, haGauge, value, claimed);
   return { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'plain', color: value };
 }
 
@@ -547,6 +691,10 @@ function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModule
       state.borderWidth = parseInt(match[1], 10);
       state.borderColor = match[3];
       claimed.add(claimKey(haCard.selector, 'border'));
+      // A hand-authored `border:` with no `border-radius:` must not gain
+      // the module's default 12px radius on the next save — only emit a
+      // radius the CSS actually had.
+      if (!radiusProp) state.radiusPx = 0;
     }
   }
 
@@ -616,6 +764,13 @@ function mapHeadingStyle(
         state.enabled = true;
         state.iconSize = parseFloat(m[1]);
         claimed.add(claimKey(titleIcon.selector, '--mdc-icon-size'));
+        // The generator emits --ha-icon-size as a forward-compatible twin of
+        // --mdc-icon-size (see headingStyleBlocks) — claim it too when it
+        // matches, or it leaks into Advanced CSS as a stale size override.
+        const haIconSize = findProp(titleIcon, '--ha-icon-size');
+        if (haIconSize && haIconSize.value.trim() === iconSizeProp.value.trim()) {
+          claimed.add(claimKey(titleIcon.selector, '--ha-icon-size'));
+        }
       }
     }
 
@@ -657,8 +812,11 @@ export function parseThresholdJinja(value: string): {
   // the last form is what the palette presets (see cms-color-picker.ts)
   // write, so a rule picked from the palette round-trips back into a rule
   // instead of falling through to Advanced CSS.
+  // Threshold value accepts an optional leading minus — freezer/outdoor
+  // temperatures are routinely negative, and without `-?` those rules were
+  // silently deleted on reopen (matched-and-claimed but never re-parsed).
   const RULE_RE =
-    /'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|[a-zA-Z]+)'\s+if\s+states\('([^']+)'\)\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*([\d.]+(?:\.\d+)?)/g;
+    /'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|[a-zA-Z]+)'\s+if\s+states\('([^']+)'\)\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+(?:\.\d+)?)/g;
   const DEFAULT_RE = /else\s+'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|[a-zA-Z]+)'\s*[)}\s]/;
 
   const rules: ThresholdRule[] = [];
@@ -697,13 +855,19 @@ export function parseThresholdJinja(value: string): {
 export function parseEntityRowCss(css: string): EntitiesRowStyle {
   const style: EntitiesRowStyle = { iconColor: '', textColor: '' };
 
-  let [target] = parseCss(css);
-  if (!target) [target] = parseCss(`:host{${css}}`);
+  const detailed = parseCssDetailed(css);
+  let targets = detailed.targets;
+  if (targets.length === 0) targets = parseCss(`:host{${css}}`);
+  const [target, ...otherTargets] = targets;
   const properties = target?.properties ?? [];
+  const consumed = new Set<string>();
   const valueOf = (...names: string[]): string => {
     for (const name of names) {
       const found = properties.find((p) => p.property === name);
-      if (found) return found.value.trim();
+      if (found) {
+        consumed.add(name);
+        return found.value.trim();
+      }
     }
     return '';
   };
@@ -715,6 +879,11 @@ export function parseEntityRowCss(css: string): EntitiesRowStyle {
       style.iconMode = 'threshold';
       style.iconRules = parsed.rules;
       style.iconDefault = parsed.defaultColor;
+    } else {
+      // Recognised the shape but not the content — leave it in extraCss
+      // rather than silently dropping it on the next save.
+      consumed.delete('--state-icon-color');
+      consumed.delete('--paper-item-icon-color');
     }
   } else {
     style.iconColor = iconVal;
@@ -727,10 +896,35 @@ export function parseEntityRowCss(css: string): EntitiesRowStyle {
       style.textMode = 'threshold';
       style.textRules = parsed.rules;
       style.textDefault = parsed.defaultColor;
+    } else {
+      consumed.delete('color');
     }
   } else {
     style.textColor = textVal;
   }
+
+  // Everything the recogniser didn't consume — extra declarations on the
+  // first selector, whole extra selectors, @-blocks — is preserved verbatim,
+  // the row-level counterpart of the card's Advanced CSS passthrough.
+  // Without this, any unrelated panel edit rewrites the row and deletes it.
+  const extraParts: string[] = [];
+  if (detailed.passthroughCss) extraParts.push(detailed.passthroughCss);
+  if (target) {
+    const leftover = properties.filter((p) => !consumed.has(p.property));
+    if (leftover.length > 0) {
+      const decls = leftover
+        .map((p) => `  ${p.property}: ${p.value}${p.important ? ' !important' : ''};`)
+        .join('\n');
+      extraParts.push(`${target.selector} {\n${decls}\n}`);
+    }
+  }
+  for (const t of otherTargets) {
+    const decls = t.properties
+      .map((p) => `  ${p.property}: ${p.value}${p.important ? ' !important' : ''};`)
+      .join('\n');
+    extraParts.push(`${t.selector} {\n${decls}\n}`);
+  }
+  if (extraParts.length > 0) style.extraCss = extraParts.join('\n\n');
 
   return style;
 }
@@ -755,6 +949,11 @@ export function mergeEntityRowStyles(primary: EntitiesRowStyle, secondary: Entit
     textMode: textSet ? primary.textMode : secondary.textMode,
     textRules: textSet ? primary.textRules : secondary.textRules,
     textDefault: textSet ? primary.textDefault : secondary.textDefault,
+    // Same whole-or-nothing choice as mergeStudioStates' rawCss: unstructured
+    // CSS can't be merged declaration-by-declaration safely.
+    ...(primary.extraCss || secondary.extraCss
+      ? { extraCss: primary.extraCss || secondary.extraCss }
+      : {}),
   };
 }
 
@@ -773,6 +972,7 @@ function sameThreshold(
 function mapThreshold(
   haCard: CssTarget | null,
   haStateIcon: CssTarget | null,
+  haGauge: CssTarget | null,
   claimed: Set<string>,
 ): ThresholdModuleState {
   type Candidate = {
@@ -833,6 +1033,12 @@ function mapThreshold(
     claimed.add(claimKey(target.selector, cssProperty));
     if (!properties.includes(thresholdProperty)) properties.push(thresholdProperty);
 
+    // accent-color emits card-type companion variables carrying the same
+    // Jinja expression (accentAuxDecls/gaugeColorBlock) — claim them with it.
+    if (thresholdProperty === 'accent-color') {
+      claimAccentAux(haCard, haGauge, prop.value.trim(), claimed);
+    }
+
     // For "border: 2px solid {{ ... }}" extract the width from the leading non-Jinja part
     if (cssProperty === 'border') {
       const bwMatch = prop.value.match(/^(\d+)px/);
@@ -880,12 +1086,18 @@ function mapAdvanced(
 ): AdvancedModuleState {
   const parts: string[] = [];
 
+  // Blocks the structured parser can't model (@keyframes, @media, ...) —
+  // preserved verbatim so a hand-authored @keyframes isn't deleted on save.
+  if (parsed.passthroughCss) parts.push(parsed.passthroughCss);
+
   for (const target of parsed.targets) {
     const unclaimed = target.properties.filter(
       (p) => !claimed.has(claimKey(target.selector, p.property)),
     );
     if (unclaimed.length > 0) {
-      const decls = unclaimed.map((p) => `  ${p.property}: ${p.value};`).join('\n');
+      const decls = unclaimed
+        .map((p) => `  ${p.property}: ${p.value}${p.important ? ' !important' : ''};`)
+        .join('\n');
       parts.push(`${target.selector} {\n${decls}\n}`);
     }
   }

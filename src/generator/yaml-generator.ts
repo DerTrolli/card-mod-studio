@@ -22,9 +22,14 @@ export type StyleOutputKey = 'card_mod' | 'uix';
  * card-mod is not: UIX reads `uix` in preference to `card_mod` but fully
  * supports `card_mod` as a fallback, so there's no reason to emit bare `uix`
  * unless card-mod genuinely isn't present to read it.
+ *
+ * Pass hass when available — it closes isUixInstalled()'s transient
+ * false-negative window right after page load (see dom-helpers.ts). Even a
+ * miss is safe here (card_mod is UIX-readable), but there's no reason to
+ * flap between keys across editor opens.
  */
-export function pickOutputKey(): StyleOutputKey {
-  return isUixInstalled() && !isCardModInstalled() ? 'uix' : 'card_mod';
+export function pickOutputKey(hass?: { config?: { components?: string[] } }): StyleOutputKey {
+  return isUixInstalled(hass) && !isCardModInstalled() ? 'uix' : 'card_mod';
 }
 
 function withoutStyle(uix: UixConfig): UixConfig | undefined {

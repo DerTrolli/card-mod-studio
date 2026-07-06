@@ -165,6 +165,45 @@ describe('merge-and-clean on edit: card-level', () => {
   });
 });
 
+describe('merge-and-clean on edit: differing unrecognised CSS under both keys', () => {
+  const originalRegistry = globalThis.customElements;
+  afterEach(() => {
+    (globalThis as { customElements: CustomElementRegistry }).customElements = originalRegistry;
+  });
+
+  it('keeps BOTH keys\' unrecognised CSS through an edit (regression: secondary\'s was destroyed)', () => {
+    installUix();
+    const original: CardModCardConfig = {
+      type: 'button',
+      entity: 'light.x',
+      card_mod: { style: 'ha-card { padding: 8px; }' }, // secondary once UIX is active
+      uix: { style: 'ha-card { margin: 4px; }' },       // primary
+    };
+    const result = editAndSave(original);
+    // Both leftovers survive under the active key; primary's declaration
+    // comes last so it wins any same-property conflict.
+    expect(result.uix?.style).toContain('padding: 8px');
+    expect(result.uix?.style).toContain('margin: 4px');
+    expect((result.uix!.style as string).indexOf('padding')).toBeLessThan(
+      (result.uix!.style as string).indexOf('margin'),
+    );
+    expect(result.card_mod).toBeUndefined();
+  });
+
+  it('does not duplicate identical unrecognised CSS mirrored under both keys', () => {
+    installUix();
+    const original: CardModCardConfig = {
+      type: 'button',
+      entity: 'light.x',
+      card_mod: { style: 'ha-card { padding: 8px; }' },
+      uix: { style: 'ha-card { padding: 8px; }' },
+    };
+    const result = editAndSave(original);
+    const matches = (result.uix!.style as string).match(/padding: 8px/g) ?? [];
+    expect(matches).toHaveLength(1);
+  });
+});
+
 describe('merge-and-clean on edit: entities-row level', () => {
   const originalRegistry = globalThis.customElements;
   afterEach(() => {

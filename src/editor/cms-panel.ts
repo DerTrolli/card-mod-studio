@@ -19,7 +19,7 @@ import type {
   EntitiesRowStyles,
 } from '../types/index.js';
 import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
-import { isUixOnlyStyle, usesUixOnlyFeatures, hasUixOnlyRow, hasStyleContent } from '../utils/style-compat.js';
+import { isUixOnlyStyle, usesUixOnlyFeatures, hasUixOnlyRow, hasStyleContent, resolveStyle } from '../utils/style-compat.js';
 import { loadPresets, savePresets } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
 import { parseStyleValue } from '../parser/yaml-parser.js';
@@ -136,8 +136,12 @@ export class CmsPanel extends LitElement {
       this._previewConfig = undefined;
     }
     // When hass first becomes available, reload presets from HA (cross-device sync)
+    // and re-evaluate UIX presence with the backend component list — the
+    // registry-only probe in connectedCallback has a transient false-negative
+    // window right after page load (see isUixInstalled).
     if (changed.has('hass') && this.hass && !changed.get('hass')) {
       void loadPresets(this.hass).then((p) => { this._presets = p; });
+      this._uixPresent = isUixInstalled(this.hass);
     }
   }
 
@@ -172,7 +176,7 @@ export class CmsPanel extends LitElement {
    * either).
    */
   private _buildMergedState(config: CardModCardConfig): StudioState {
-    const outputKey = pickOutputKey();
+    const outputKey = pickOutputKey(this.hass);
     const primaryStyle = outputKey === 'uix' ? config.uix?.style : config.card_mod?.style;
     const secondaryStyle = outputKey === 'uix' ? config.card_mod?.style : config.uix?.style;
 
@@ -193,7 +197,7 @@ export class CmsPanel extends LitElement {
     const rows = (this.config as unknown as { entities?: EntitiesCardRow[] }).entities;
     if (!rows?.length) { this._entityRowStyles = {}; return; }
 
-    const outputKey = pickOutputKey();
+    const outputKey = pickOutputKey(this.hass);
     const styles: EntitiesRowStyles = {};
     for (const row of rows) {
       if (!row.entity) continue;
@@ -229,21 +233,29 @@ export class CmsPanel extends LitElement {
       decls.push(`  color: ${style.textColor};`);
     }
 
-    if (!decls.length) return '';
-    return `:host {\n${decls.join('\n')}\n}`;
+    const hostBlock = decls.length ? `:host {\n${decls.join('\n')}\n}` : '';
+    // Row-level Advanced-CSS passthrough: whatever the recogniser didn't
+    // consume rides along verbatim (see parseEntityRowCss).
+    return [hostBlock, style.extraCss ?? ''].filter(Boolean).join('\n\n');
   }
 
   private _applyEntityRowStyles(config: CardModCardConfig): CardModCardConfig {
     const rows = (config as unknown as { entities?: EntitiesCardRow[] }).entities;
     if (!rows?.length) return config;
 
-    const outputKey = pickOutputKey();
+    const outputKey = pickOutputKey(this.hass);
     const updatedRows = rows.map((row) => {
       if (!row.entity) return row;
+      // A dictionary-form row style can't be parsed into row state yet
+      // (ROADMAP #23) — rewriting the row would replace it with nothing.
+      // Leave such rows completely untouched instead of destroying them.
+      const currentStyle = resolveStyle(row as unknown as CardModCardConfig);
+      if (currentStyle !== undefined && typeof currentStyle !== 'string') return row;
       const rowStyle = this._entityRowStyles[row.entity];
       // A row is "styled" if it has a static color OR a threshold mode with at
-      // least one rule. Checking only static colors would silently discard
-      // threshold-mode rows (whose static colors are empty by design).
+      // least one rule OR preserved unrecognised CSS. Checking only static
+      // colors would silently discard the others (whose static colors are
+      // empty by design).
       const hasIcon = !!(
         rowStyle?.iconColor ||
         (rowStyle?.iconMode === 'threshold' && rowStyle?.iconRules?.length)
@@ -252,7 +264,7 @@ export class CmsPanel extends LitElement {
         rowStyle?.textColor ||
         (rowStyle?.textMode === 'threshold' && rowStyle?.textRules?.length)
       );
-      const rowCss = hasIcon || hasText
+      const rowCss = hasIcon || hasText || rowStyle?.extraCss
         ? this._generateEntityRowCss(rowStyle!, row.entity)
         : '';
       return applyCardModStyle(rowCss, row as unknown as CardModCardConfig, outputKey) as unknown as EntitiesCardRow;
@@ -473,7 +485,7 @@ export class CmsPanel extends LitElement {
   private _emitConfigChanged() {
     if (!this.config || !this._studioState) return;
     const css = generateCss(this._studioState, this.config?.type);
-    let newConfig = applyCardModStyle(css, this.config, pickOutputKey());
+    let newConfig = applyCardModStyle(css, this.config, pickOutputKey(this.hass));
     if (this.config.type === 'entities') {
       newConfig = this._applyEntityRowStyles(newConfig);
     }
@@ -518,7 +530,16 @@ export class CmsPanel extends LitElement {
     if (!name) return;
     const preset = this._presets.find((p) => p.name === name);
     if (!preset) return;
-    this._studioState = { ...preset.state };
+    // Keep THIS card's preserved Advanced CSS unless the preset itself
+    // carries some — the parser went to lengths to preserve unrecognised
+    // hand-authored CSS, and a preset from a different card shouldn't be
+    // the thing that wipes it.
+    const currentAdvanced = this._studioState?.advanced;
+    const presetHasAdvanced = !!preset.state.advanced?.rawCss?.trim();
+    this._studioState = {
+      ...preset.state,
+      ...(presetHasAdvanced || !currentAdvanced ? {} : { advanced: currentAdvanced }),
+    };
     this._emitConfigChanged();
   }
 
@@ -923,6 +944,7 @@ export class CmsPanel extends LitElement {
             .state=${s.accentColor}
             .stateAware=${stateAware}
             .cardEntity=${this.config?.entity ?? ''}
+            .cardType=${this.config?.type ?? ''}
             .hass=${this.hass}
             @state-changed=${this._onAccentColorChanged}
           ></cms-accent-color-module>`
@@ -943,6 +965,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-threshold-module
               .state=${s.threshold}
               .cardEntity=${this.config?.entity ?? ''}
+              .cardType=${this.config?.type ?? ''}
               .hass=${this.hass}
               @state-changed=${this._onThresholdChanged}
             ></cms-threshold-module>`

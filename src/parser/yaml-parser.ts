@@ -29,7 +29,7 @@ import type {
   CardModStyleState,
   CssTarget,
 } from '../types/index.js';
-import { parseCss } from './css-parser.js';
+import { parseCss, parseCssDetailed } from './css-parser.js';
 import { resolveStyle, type StyleValue } from '../utils/style-compat.js';
 
 // ---------------------------------------------------------------------------
@@ -84,8 +84,8 @@ function parseStyleString(css: string): CardModStyleState {
   if (!trimmed) return emptyState();
 
   try {
-    const targets = parseCss(trimmed);
-    return { targets, rawCss: trimmed };
+    const { targets, passthroughCss } = parseCssDetailed(trimmed);
+    return { targets, rawCss: trimmed, passthroughCss };
   } catch {
     // Parsing failed — preserve the raw CSS so it appears in the Advanced tab.
     return { targets: [], rawCss: trimmed };

@@ -23,6 +23,8 @@ export interface HomeAssistant {
   locale: { language: string };
   themes: unknown;
   user: { name: string; is_admin: boolean };
+  /** Backend config — components lists every loaded integration ('uix', ...). */
+  config?: { components?: string[] };
   callService(domain: string, service: string, data?: Record<string, unknown>): Promise<void>;
   connection: {
     sendMessagePromise(msg: Record<string, unknown>): Promise<unknown>;
@@ -53,6 +55,12 @@ export interface UixConfig {
   debug?: boolean;
   macros?: unknown;
   billets?: unknown;
+  /** UIX-only per-card theme override — no card_mod equivalent exists
+   *  (card-mod has `class:` but nothing that swaps the theme). */
+  theme?: string;
+  /** Adds a CSS class to the card; card-mod's `card_mod: class:` is the
+   *  equivalent spelling, so this one IS portable across engines. */
+  class?: string;
 }
 
 /** A card config that may include a card_mod and/or uix block. */
@@ -79,6 +87,11 @@ export interface CssProperty {
    * means "the card's own entity" — see entityRef() in css-generator.ts.
    */
   entityId?: string;
+  /** True when the declaration carried `!important`. The flag (not the
+   *  suffix) is stored so recognisers can match values without stripping
+   *  it themselves; mapAdvanced re-appends it for unclaimed declarations
+   *  so preserved CSS doesn't silently lose specificity on save. */
+  important?: boolean;
 }
 
 /** CSS target block — one selector with its properties. */
@@ -95,6 +108,9 @@ export interface CardModStyleState {
   targets: CssTarget[];
   /** Raw CSS that could not be parsed into structured targets. */
   rawCss: string;
+  /** Valid-but-unmodelable blocks (@keyframes, @media, ...) preserved
+   *  verbatim — mapAdvanced re-emits them so they survive a save. */
+  passthroughCss?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -233,6 +249,11 @@ export interface EntitiesRowStyle {
   textMode?: 'static' | 'threshold';
   textRules?: ThresholdRule[];
   textDefault?: string;
+  /** Row CSS the recogniser didn't consume (extra declarations, extra
+   *  selectors, @-blocks) — the row-level Advanced-CSS passthrough. There's
+   *  no UI for it; it rides along invisibly so an unrelated panel edit
+   *  can't delete hand-authored row styling. */
+  extraCss?: string;
 }
 
 export type EntitiesRowStyles = Record<string, EntitiesRowStyle>;

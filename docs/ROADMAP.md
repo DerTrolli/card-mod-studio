@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-03 · **Current version:** v0.7.0
+**Last updated:** 2026-07-06 · **Current version:** v0.7.1
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -27,6 +27,35 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | v0.9 | Depth | Property-level templating beyond color (border width, icon size, blur/opacity driven by entity state — natural extension of v0.7's entity binding). Plus dict-form/`$`-pierce round-trip safety (item #1 below), which unblocks nested-shadow-DOM targets (glance icon, Mushroom/Bubble). |
 | v1.0 | Structural completeness | Container child-card editing (item #7 — styling a card inside a grid/stack/sections view currently targets the wrong card; probably the single biggest remaining hole) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
 | Post-1.0 | Stretch | Official Mushroom/Bubble selectors, a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
+
+## Recently shipped (v0.7.1)
+
+A pure correctness release from a full-codebase audit (agent-assisted code
+review of every parser/generator round-trip + primary-source re-verification
+of the card-mod/UIX compatibility assumptions + live checks against both
+engines). Highlights — see `CHANGELOG.md` for the complete list:
+
+- **Gauge dial color finally works** — Accent Color (and Threshold's
+  accent-color property, including Fade mode) now actually recolors a gauge
+  card's arc. HA's gauge writes its severity color as an inline style on
+  `<ha-gauge>`, so the previous inherited-variable approach silently never
+  applied; the fix targets `ha-gauge` directly with `!important`
+  (needle-mode gauges show their configured segments instead — inherent,
+  now hinted in the panel).
+- **"The color won't change" stale-override class fixed** — Accent Color's
+  per-card-type companion variables leaked into Advanced CSS on every
+  reopen and, being emitted last, overrode every newly-picked color.
+- **Several silent data-loss paths closed**: entities-row hand-authored CSS
+  wiped by any unrelated edit (rows now have their own invisible
+  Advanced-CSS passthrough); hand-authored `@keyframes`/`@media` deleted on
+  first save; standalone `transition:` eaten; `!important` stripped from
+  preserved CSS; differing `card_mod:`/`uix:` leftovers destroying one side
+  on merge.
+- **Pre-0.7.0 presets no longer crash the panel** — stored presets are
+  schema-migrated on load.
+- Round-trip fidelity: negative threshold values, grayscale+brightness
+  combinations, custom-entity animation triggers, hand-authored borders
+  (no more invented 12px radius), 8-digit hex in Fade points.
 
 ## Recently shipped (v0.7.0)
 
@@ -209,8 +238,10 @@ from the audit.
 | 15 | **Animation builder** | Visual keyframe editor beyond the 5 presets. | L |
 | 16 | **More threshold sources** | Allow thresholds on an entity **attribute** (e.g. `battery_level`) and on `state_attr(...)`, not just the state value. | M |
 | 19 ✅ | **Per-row entities uix-only warning** | **Done (v0.6.0)** — `isUixOnlyRowStyle`/`hasUixOnlyRow` (`style-compat.ts`) extend the reverse-compat warning to entities-card rows, not just the top-level card. | S |
-| 23 | **Dict-form entities-row styles aren't read back** | Pre-existing limitation, same class as item #1 but at the row level: `_initEntityRowStyles` only recognises string-form `card_mod`/`uix` style on a row, so a hand-authored dictionary/shadow-pierce-form row style isn't parsed into the editor — and, worse, the *next* unrelated edit on that card silently wipes it (the row looks unstyled to the studio, so `_applyEntityRowStyles` clears it). Depends on #1 landing first (shared root cause: dict-form round-trip). | M |
+| 23 | **Dict-form entities-row styles aren't read back** | Pre-existing limitation, same class as item #1 but at the row level: `_initEntityRowStyles` only recognises string-form `card_mod`/`uix` style on a row, so a hand-authored dictionary/shadow-pierce-form row style isn't parsed into the editor. ~~Worse, the next unrelated edit silently wipes it~~ — **the wipe half was fixed in v0.7.1** (dict-form rows are now left completely untouched on save); what remains is that they're invisible to the editor. Depends on #1 landing first (shared root cause: dict-form round-trip). | M |
 | 24 | **Rows sharing an entity ID cross-contaminate styling** | `_entityRowStyles` is keyed by `row.entity`, so two rows referencing the same entity (valid `entities`-card YAML) silently collapse to one style slot — editing either row's color in the studio overwrites both. Needs a positional (index-based) key instead of entity-based, which touches the existing (pre-UIX) row-styling data model, not just the UIX addition. | M |
+| 25 | **Partially hand-authored styles gain module defaults on save** | Found in the v0.7.1 audit, the border case fixed there (`border:` no longer gains a 12px radius); the same class remains for Heading (a bare `.title p { font-size }` gains icon color/size + alignment defaults on save, because the module always emits its full control set) and Filter (a bare `filter: brightness()` gains a `transition:`). Fixing properly means modules tracking which fields were actually present vs. defaulted — a data-model change, not a one-liner. | M |
+| 26 | **`rgb()`/`rgba()` colors in threshold rules aren't re-parsed** | A rule colored via a comma-containing color function generates fine but `parseThresholdJinja`'s rule regex can't read it back — the whole block falls to Advanced CSS on reopen (preserved verbatim, just no longer editable as rules). The color picker only emits hex/`var()` tokens today, so this needs hand-typed values to hit. | S |
 | 20 | **UIX billets module** | A small key/value table editor for [UIX billets](https://uix.lf.technology/) (reusable named style constants) — bounded scope, unlike macros below. Nobody's asked for it yet; build when there's a real request. | S |
 | 21 | **UIX macros — raw editor only** | UIX macros are user-defined parameterized Jinja2 snippets; a *visual* composer doesn't generalize the way color-picker/slider modules do. The tractable version is a raw-text editor for `uix.macros`, same philosophy as the existing Advanced CSS escape hatch — today the Studio doesn't read or write `uix.macros` at all (it's preserved untouched if present, but can't be created). Low priority; scope for real if requested. | M |
 | 22 | **Bulk dashboard `card_mod:`/`uix:` key migration** | Explicitly requested and explicitly **parked** — since the Studio always keeps `card_mod:` working as a fallback, nothing *needs* migrating for correctness, only for YAML tidiness. Mechanically this is a key rename, not a content transform (both engines share CSS/Jinja2 syntax), but the Studio currently only ever sees one card at a time via the injected per-card editor. A real bulk tool means reading/rewriting the *whole* dashboard over HA's websocket API — meaningfully higher blast radius than anything else in this tool (a bug could touch every card at once). Needs its own dry-run/preview design before any code, not just a "next roadmap item." | L |

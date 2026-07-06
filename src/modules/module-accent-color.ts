@@ -15,6 +15,8 @@ export class AccentColorModule extends LitElement {
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
   /** The card's own entity — used as the picker's placeholder and as the implicit default when entityId is unset. */
   @property({ type: String }) cardEntity = '';
+  /** The card's type — gauge gets an extra needle-mode hint (see _renderBody). */
+  @property({ type: String }) cardType = '';
 
   @property({ attribute: false }) hass?: HomeAssistant;
 
@@ -91,6 +93,12 @@ export class AccentColorModule extends LitElement {
             ? 'One color, shown all the time.'
             : 'One color while the controlling entity is on, another while off.'}
         </div>
+        ${this.cardType === 'gauge'
+          ? html`<div class="when-hint">
+              Colors the gauge dial. With <code>needle: true</code> the dial shows your
+              configured segment colors instead, so this has no effect there.
+            </div>`
+          : nothing}
 
         ${mode === 'conditional'
           ? html`

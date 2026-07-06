@@ -418,18 +418,30 @@ describe('mapToStudioState', () => {
     expect(state.filter.blur).toBe(5);
   });
 
-  it('detects transition duration in milliseconds', () => {
-    const css = 'ha-card { transition: filter 500ms ease; }';
+  it('detects transition duration in milliseconds (alongside a recognised filter)', () => {
+    const css = 'ha-card { filter: brightness(70%); transition: filter 500ms ease; }';
     const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
     const state = mapToStudioState(parsed);
     expect(state.filter.transitionMs).toBe(500);
+    expect(state.advanced.rawCss).toBe('');
   });
 
-  it('detects transition duration in seconds', () => {
-    const css = 'ha-card { transition: filter 0.3s ease; }';
+  it('detects transition duration in seconds (alongside a recognised filter)', () => {
+    const css = 'ha-card { filter: brightness(70%); transition: filter 0.3s ease; }';
     const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
     const state = mapToStudioState(parsed);
     expect(state.filter.transitionMs).toBe(300);
+  });
+
+  it('preserves a standalone hand-authored transition (no filter) in Advanced CSS instead of eating it', () => {
+    // Regression: this used to be claimed by the filter module but never
+    // re-emitted (the generator only writes transition alongside filter
+    // declarations) — so a save deleted it.
+    const css = 'ha-card { transition: all 0.3s ease; }';
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.filter.enabled).toBe(false);
+    expect(state.advanced.rawCss).toContain('transition: all 0.3s ease');
   });
 
   // ---------------------------------------------------------------------------
@@ -563,6 +575,103 @@ describe('mapToStudioState', () => {
     expect(state.advanced.rawCss).toBe('');
   });
 
+  it('preserves a hand-authored @keyframes block in rawCss (regression: deleted on first save)', () => {
+    const css =
+      '@keyframes myspin {\n  from { transform: rotate(0deg); }\n  to { transform: rotate(360deg); }\n}\n\n' +
+      'ha-card {\n  animation: myspin 2s linear infinite;\n}';
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.advanced.rawCss).toContain('@keyframes myspin');
+    expect(state.advanced.rawCss).toContain('rotate(360deg)');
+    // The unrecognised animation declaration must survive too.
+    expect(state.advanced.rawCss).toContain('animation: myspin 2s linear infinite');
+  });
+
+  it('preserves a hand-authored @media block in rawCss', () => {
+    const css = '@media (max-width: 600px) {\n  ha-card { padding: 4px; }\n}';
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.advanced.rawCss).toContain('@media (max-width: 600px)');
+    expect(state.advanced.rawCss).toContain('padding: 4px');
+  });
+
+  it('does NOT pass through the studio\'s own @keyframes cms-* blocks (animation module regenerates them)', () => {
+    const css =
+      '@keyframes cms-pulse {\n  0%, 100% { transform: scale(1); }\n  50% { transform: scale(1.05); }\n}\n\n' +
+      "ha-card {\n  animation: {{ 'cms-pulse 2s ease-in-out infinite' if is_state(config.entity, 'on') else 'none' }};\n}";
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(true);
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('keeps !important on preserved unclaimed declarations (regression: silently stripped)', () => {
+    const css = 'ha-card { opacity: 0.5 !important; }';
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.advanced.rawCss).toContain('opacity: 0.5 !important;');
+  });
+
+  it('parses negative threshold rule values (regression: freezer/outdoor temps were deleted on reopen)', () => {
+    const css =
+      "ha-state-icon {\n  color: {{ '#ff0000' if states('sensor.freezer') | float(0) >= -5 else ('#2196f3' if states('sensor.freezer') | float(0) >= -25 else '#888888') }} !important;\n}";
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.threshold.enabled).toBe(true);
+    expect(state.threshold.rules.map((r) => r.value).sort((a, b) => a - b)).toEqual([-25, -5]);
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('keeps grayscale through a round-trip when brightness is also set (regression: dropped)', () => {
+    // Exactly what filterDecls emits for {grayscale, when=off, brightness:70}.
+    const css =
+      "ha-card {\n  filter: {{ 'grayscale(100%) brightness(70%)' if is_state(config.entity, 'off') else 'brightness(70%)' }};\n  transition: filter 300ms ease;\n}";
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.filter.enabled).toBe(true);
+    expect(state.filter.grayscale).toBe(true);
+    expect(state.filter.grayscaleWhen).toBe('off');
+    expect(state.filter.brightness).toBe(70);
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('keeps a custom-entity animation trigger through a round-trip (regression: rebound to the card entity)', () => {
+    const css =
+      "ha-card {\n  animation: {{ 'cms-pulse 2s ease-in-out infinite' if is_state('binary_sensor.doorbell', 'on') else 'none' }};\n}";
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(true);
+    expect(state.animation.trigger).toBe('custom');
+    expect(state.animation.customEntity).toBe('binary_sensor.doorbell');
+  });
+
+  it('does not invent a border-radius for a hand-authored border with none (regression: gained 12px on save)', () => {
+    const css = 'ha-card { border: 2px solid red; }';
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.border.enabled).toBe(true);
+    expect(state.border.borderWidth).toBe(2);
+    expect(state.border.radiusPx).toBe(0);
+  });
+
+  it('claims the --ha-icon-size twin the heading generator emits (regression: leaked to Advanced as stale override)', () => {
+    const css = `.container {\n  justify-content: center !important;\n}\n\n.title p {\n  font-size: 24px;\n  color: #fff !important;\n}\n\n.title ha-icon {\n  --mdc-icon-size: 32px;\n  --ha-icon-size: 32px;\n  color: #fff !important;\n}`;
+    const parsed = parseCardModConfig({ type: 'heading', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.headingStyle.enabled).toBe(true);
+    expect(state.headingStyle.iconSize).toBe(32);
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('claims gradient-shift\'s background-size companion (regression: leaked and outlived the preset)', () => {
+    const css = "ha-card {\n  background-size: 200% auto;\n  animation: cms-gradient-shift 2s ease-in-out infinite;\n}";
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(true);
+    expect(state.animation.preset).toBe('gradient-shift');
+    expect(state.advanced.rawCss).toBe('');
+  });
+
   // ---------------------------------------------------------------------------
   // No card_mod
   // ---------------------------------------------------------------------------
@@ -642,6 +751,35 @@ describe('parseEntityRowCss', () => {
   it('falls back to --paper-item-icon-color when --state-icon-color is absent', () => {
     const style = parseEntityRowCss(':host { --paper-item-icon-color: #123456; }');
     expect(style.iconColor).toBe('#123456');
+  });
+
+  it('preserves unrecognised row declarations in extraCss instead of losing them', () => {
+    // Regression: any unrelated panel edit rewrote every row from recognised
+    // state only, deleting hand-authored declarations like this one.
+    const style = parseEntityRowCss(':host {\n  --state-icon-color: #ff0000;\n  font-weight: bold;\n}');
+    expect(style.iconColor).toBe('#ff0000');
+    expect(style.extraCss).toContain('font-weight: bold');
+  });
+
+  it('preserves a fully-unrecognised row style in extraCss', () => {
+    const style = parseEntityRowCss(':host { font-weight: bold !important; }');
+    expect(style.iconColor).toBe('');
+    expect(style.textColor).toBe('');
+    expect(style.extraCss).toContain('font-weight: bold !important');
+  });
+
+  it('preserves extra selectors beyond the first in extraCss', () => {
+    const style = parseEntityRowCss(
+      ':host { color: #00ff00; }\nha-icon { transform: scale(1.2); }',
+    );
+    expect(style.textColor).toBe('#00ff00');
+    expect(style.extraCss).toContain('ha-icon');
+    expect(style.extraCss).toContain('transform: scale(1.2)');
+  });
+
+  it('sets no extraCss for a fully-recognised row style', () => {
+    const style = parseEntityRowCss(':host {\n  --state-icon-color: #ff0000;\n  color: #00ff00;\n}');
+    expect(style.extraCss).toBeUndefined();
   });
 
   it('prefers --state-icon-color over --paper-item-icon-color when both are present', () => {

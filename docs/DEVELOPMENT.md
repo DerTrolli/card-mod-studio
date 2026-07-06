@@ -405,3 +405,33 @@ written with this exact mistake mid-investigation and briefly "confirmed" a
 product bug that didn't exist — caught by noticing a completely inert
 sanity-check style also failed, which a *real* bug in gradient generation
 specifically could never cause.
+
+### A card that sets its variable as an *inline style* beats anything you inherit — target the element itself with `!important`
+
+HA's `hui-gauge-card` computes its severity color per render and writes it
+as an inline style directly on `<ha-gauge>` (a `styleMap` in the card's own
+template): `<ha-gauge style="--gauge-color: var(--info-color)">`. An
+inherited `--gauge-color` set on `ha-card` — however high its specificity —
+can never win against that: inline styles beat author rules for the same
+property on the same element. The Studio's pre-0.7.1 gauge output was
+exactly that dead pattern, which is why "Accent Color does nothing on my
+gauge" was true from day one despite the CSS looking perfectly reasonable.
+
+The one thing in the cascade that DOES beat a non-important inline style is
+an author declaration with `!important` on the element itself:
+
+```css
+ha-gauge {
+  --gauge-color: #ff0000 !important;
+}
+```
+
+Custom properties inherit into shadow roots, so setting it on the
+`ha-gauge` *host* reaches the internal `.value { stroke: var(--gauge-color) }`
+arc without any shadow piercing. Verified live in
+`tools/sandbox/harness/gauge_color_check.mjs`, which also pins the broken
+form as *expected-to-fail* so an HA-side change to gauge internals shows up
+as a check failure. Watch for this pattern on any card that styleMaps a
+variable per render (`hui-gauge-card` is the only built-in one found so
+far); needle-mode gauges have no value arc at all, so there's nothing to
+recolor there.

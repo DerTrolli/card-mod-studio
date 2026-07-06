@@ -67,6 +67,7 @@ node gradient_mode_check.mjs  # Threshold "Fade" (gradient) mode — generation,
 node gradient_typing_check.mjs  # typing a value into a gradient point can't scramble a different point mid-edit
 node gradient_uix_compat_check.mjs  # gradient marker actually applies against REAL card-mod (getComputedStyle), not just this project's own parser
 node preset_stale_state_check.mjs  # reused-panel + preset-load edge case that was suspected (wrongly) to lose gradient state on a duplicated card
+node gauge_color_check.mjs  # gauge dial color: ha-gauge !important block applies (accent + threshold-gradient), old ha-card form documented broken
 node scan.mjs            # which card types mount cleanly standalone
 ```
 
@@ -306,6 +307,30 @@ card-mod's own parsing handles a declaration's value, not something
 cd tools/sandbox/harness
 HA_URL=http://127.0.0.1:8124 node gradient_uix_only_compat_check.mjs
 ```
+
+### `gauge_color_check.mjs` — gauge dial color really applies
+
+HA's `hui-gauge-card` writes its severity-computed color as an *inline
+style* on `<ha-gauge>` on every render (a `styleMap` in the card's own
+template), so an inherited `--gauge-color` set on `ha-card` — the Studio's
+pre-0.7.1 output — silently never applied. The fix targets `ha-gauge`
+directly with `!important`, the one thing in the cascade that beats a
+non-important inline style. This check keeps both halves honest against a
+real gauge card: the OLD form must still *fail* to recolor the arc (if it
+ever starts working, HA changed gauge internals and the `!important` form
+should be re-evaluated) and the new form — from the real `cms-panel`, both
+Accent Color and a Fade-mode Threshold — must produce the exact expected
+`getComputedStyle` stroke on the arc, plus a clean round-trip with zero
+Advanced-CSS leftovers. Also runs against the UIX rig:
+
+```bash
+cd tools/sandbox/harness
+TOKENS_FILE=tokens-uix.json STYLE_KEY=uix HA_URL=http://127.0.0.1:8124 node gauge_color_check.mjs
+```
+
+Needle-mode gauges (`needle: true`) have no value arc at all — the dial
+shows the configured segment colors, and no CSS can recolor it without
+piercing `ha-gauge`'s shadow root. Inherent limitation, hinted in the panel.
 
 ### `preset_stale_state_check.mjs` — reused-panel preset load
 

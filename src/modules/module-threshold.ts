@@ -17,11 +17,27 @@ const PROPERTY_OPTIONS: Array<{ value: ThresholdProperty; label: string }> = [
   { value: 'border-color', label: 'Border Color' },
 ];
 
+/** Card types with no reachable ha-state-icon (mirrors cms-panel's
+ *  NO_ICON_COLOR_TYPES rationale) — offering the Icon Color threshold
+ *  property there is a dead control that generates CSS matching nothing. */
+const NO_ICON_PROPERTY_TYPES = new Set([
+  'gauge', 'history-graph', 'statistics-graph', 'statistic',
+  'energy-distribution', 'energy-usage-graph',
+  'thermostat', 'humidifier',
+  'weather-forecast', 'calendar', 'logbook', 'activity',
+  'markdown', 'map', 'iframe', 'webpage', 'shopping-list', 'todo-list',
+  'picture', 'picture-entity',
+  'heading', 'glance',
+]);
+
 export class ThresholdModule extends LitElement {
   @property({ attribute: false }) state: ThresholdModuleState = {
     ...DEFAULT_THRESHOLD,
   };
   @property({ type: String }) cardEntity = '';
+  /** The card's type — hides properties whose selectors don't exist there
+   *  (e.g. Icon Color on a gauge) and labels Accent Color as the gauge dial. */
+  @property({ type: String }) cardType = '';
 
   @property({ attribute: false }) hass?: HomeAssistant;
 
@@ -222,6 +238,19 @@ export class ThresholdModule extends LitElement {
     if (changes.enabled && !newState.entityId && this.cardEntity) {
       newState.entityId = this.cardEntity;
     }
+    // Enabling fresh on a card with no reachable icon: the default
+    // 'icon-color' property would generate CSS matching nothing there —
+    // start from the property that's actually visible instead (the dial
+    // color on a gauge, the card background elsewhere).
+    if (
+      changes.enabled &&
+      NO_ICON_PROPERTY_TYPES.has(this.cardType) &&
+      newState.rules.length === 0 &&
+      newState.properties.length === 1 &&
+      newState.properties[0] === 'icon-color'
+    ) {
+      newState.properties = [this.cardType === 'gauge' ? 'accent-color' : 'background'];
+    }
     this.dispatchEvent(
       new CustomEvent<ThresholdModuleState>('state-changed', {
         detail: newState,
@@ -254,6 +283,22 @@ export class ThresholdModule extends LitElement {
     this._emit({ properties });
   }
 
+  /** PROPERTY_OPTIONS filtered/relabelled for this card type. A property
+   *  already selected (e.g. parsed from existing YAML) is always shown so
+   *  it stays visible and un-checkable rather than invisibly stuck on. */
+  private _propertyOptions(): Array<{ value: ThresholdProperty; label: string }> {
+    return PROPERTY_OPTIONS.filter(
+      (opt) =>
+        opt.value !== 'icon-color' ||
+        !NO_ICON_PROPERTY_TYPES.has(this.cardType) ||
+        this.state.properties.includes('icon-color'),
+    ).map((opt) =>
+      opt.value === 'accent-color' && this.cardType === 'gauge'
+        ? { ...opt, label: 'Gauge / Accent Color' }
+        : opt,
+    );
+  }
+
   private _renderBody() {
     return html`
       <div class="module-body">
@@ -273,7 +318,7 @@ export class ThresholdModule extends LitElement {
           <span class="control-label">Apply to</span>
         </div>
         <div class="property-checks">
-          ${PROPERTY_OPTIONS.map(
+          ${this._propertyOptions().map(
             (opt) => html`
               <label class="property-check">
                 <input
@@ -302,7 +347,7 @@ export class ThresholdModule extends LitElement {
                     max="16"
                     style="width:60px"
                     .value=${String(this.state.borderWidth ?? 2)}
-                    @input=${(e: Event) =>
+                    @change=${(e: Event) =>
                       this._emit({
                         borderWidth: Math.max(1, parseFloat((e.target as HTMLInputElement).value) || 2),
                       })}
@@ -458,7 +503,7 @@ export class ThresholdModule extends LitElement {
         <input
           type="number"
           .value=${String(rule.value)}
-          @input=${(e: Event) =>
+          @change=${(e: Event) =>
             this._onValueChange(index, (e.target as HTMLInputElement).value)}
         />
         <span class="rule-label">→</span>

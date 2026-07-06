@@ -214,6 +214,52 @@ describe('generateCss — accent color', () => {
     expect(state.accentColor.colorOff).toBe('#888888');
     expect(state.advanced.rawCss).toBe('');
   });
+
+  it('gauge: emits a separate ha-gauge block with !important (inline styleMap on <ha-gauge> beats an inherited variable)', () => {
+    const css = generateCss(
+      makeState({ accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, color: '#ff0000' } }),
+      'gauge',
+    );
+    expect(css).toContain('ha-gauge {');
+    expect(css).toContain('--gauge-color: #ff0000 !important;');
+    // The old dead declaration must be gone: --gauge-color inherited from
+    // ha-card is always overridden by the card's own inline severity color.
+    const haCardBlock = css.match(/ha-card \{[^}]*\}/)?.[0] ?? '';
+    expect(haCardBlock).not.toContain('--gauge-color');
+  });
+
+  it('gauge: conditional accent substitutes the same ternary into the ha-gauge block', () => {
+    const css = generateCss(
+      makeState({
+        accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'conditional', colorOn: '#00ff00', colorOff: '#888888' },
+      }),
+      'gauge',
+    );
+    const gaugeMatch = css.match(/--gauge-color: (\{\{[^\n]*\}\}) !important;/);
+    const accentMatch = css.match(/--accent-color: (\{\{[^\n]*\}\});/);
+    expect(gaugeMatch?.[1]).toBe(accentMatch?.[1]);
+  });
+
+  it('accent aux variables round-trip without leaking into Advanced CSS (tile/gauge/thermostat/button)', () => {
+    for (const cardType of ['tile', 'gauge', 'thermostat', 'button']) {
+      const state = makeState({ accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, color: '#ff0000' } });
+      const css = generateCss(state, cardType);
+      const reparsed = mapToStudioState(parseCardModConfig({ type: cardType, card_mod: { style: css } }));
+      expect(reparsed.accentColor.enabled, cardType).toBe(true);
+      expect(reparsed.accentColor.color, cardType).toBe('#ff0000');
+      // Regression: these companions used to leak into Advanced CSS, where the
+      // stale copies then overrode any newly-picked accent color (Advanced CSS
+      // is emitted last, so its duplicates won the cascade).
+      expect(reparsed.advanced.rawCss, cardType).toBe('');
+    }
+  });
+
+  it('a hand-written companion variable with a DIFFERENT value is preserved in Advanced CSS, not claimed', () => {
+    const css = 'ha-card {\n  --accent-color: #ff0000;\n  --tile-color: #123456;\n}';
+    const state = mapToStudioState(parseCardModConfig({ type: 'tile', card_mod: { style: css } }));
+    expect(state.accentColor.enabled).toBe(true);
+    expect(state.advanced.rawCss).toContain('--tile-color: #123456');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -529,6 +575,67 @@ describe('generateCss — threshold', () => {
     expect(iconMatch?.[1]).toBe(accentMatch?.[1]);
   });
 
+  it('threshold accent-color on a tile emits the tile companion variables with the same Jinja', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true,
+        entityId: 'sensor.temp',
+        properties: ['accent-color'],
+        rules: [{ id: '0', operator: '>=', value: 30, color: '#ff0000' }],
+        defaultColor: '#888888',
+      },
+    }), 'tile');
+    const tileMatch = css.match(/--tile-color: (\{\{[^\n]*\}\});/);
+    const accentMatch = css.match(/--accent-color: (\{\{[^\n]*\}\});/);
+    expect(tileMatch?.[1]).toBe(accentMatch?.[1]);
+  });
+
+  it('threshold accent-color on a gauge emits the ha-gauge !important block and round-trips cleanly', () => {
+    const state = makeState({
+      threshold: {
+        enabled: true,
+        entityId: 'sensor.temp',
+        properties: ['accent-color'],
+        rules: [{ id: '0', operator: '>=', value: 30, color: '#ff0000' }],
+        defaultColor: '#888888',
+      },
+    });
+    const css = generateCss(state, 'gauge');
+    expect(css).toMatch(/ha-gauge\s*\{\s*--gauge-color: \{\{[^\n]*\}\} !important;/);
+
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'gauge', card_mod: { style: css } }));
+    expect(reparsed.threshold.enabled).toBe(true);
+    expect(reparsed.threshold.properties).toEqual(['accent-color']);
+    expect(reparsed.advanced.rawCss).toBe('');
+    // Regenerating must be byte-stable — no drift across editor reopens.
+    expect(generateCss(reparsed, 'gauge')).toBe(css);
+  });
+
+  it('gradient-mode threshold accent-color on a gauge round-trips back to the original stops', () => {
+    const state = makeState({
+      threshold: {
+        enabled: true,
+        entityId: 'sensor.temp',
+        properties: ['accent-color'],
+        valueMode: 'gradient',
+        rules: [],
+        defaultColor: '#888888',
+        colorStops: [
+          { id: 'a', value: 0, color: '#00ff00' },
+          { id: 'b', value: 100, color: '#ff0000' },
+        ],
+      },
+    });
+    const css = generateCss(state, 'gauge');
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'gauge', card_mod: { style: css } }));
+    expect(reparsed.threshold.valueMode).toBe('gradient');
+    expect(reparsed.threshold.colorStops.map((s) => [s.value, s.color])).toEqual([
+      [0, '#00ff00'],
+      [100, '#ff0000'],
+    ]);
+    expect(reparsed.advanced.rawCss).toBe('');
+  });
+
   it('round-trips a multi-property threshold (icon + accent) back into one module state', () => {
     const original =
       "ha-state-icon {\n  color: {{ '#ff0000' if states('sensor.temp') | float(0) >= 30 else '#888888' }} !important;\n}\n\n" +
@@ -571,6 +678,11 @@ describe('gradient color math', () => {
     expect(lerpColor('#000000', '#ffffff', 0)).toBe('#000000');
     expect(lerpColor('#000000', '#ffffff', 1)).toBe('#ffffff');
     expect(lerpColor('#000000', '#ffffff', 0.5)).toBe('#808080');
+  });
+
+  it('8-digit hex (alpha) drops the alpha instead of turning gray (regression)', () => {
+    expect(lerpColor('#ff0000ff', '#ff0000ff', 0.5)).toBe('#ff0000');
+    expect(lerpColor('#f00f', '#f00f', 0.5)).toBe('#ff0000');
   });
 
   it('colorAtValue clamps below the lowest stop and above the highest', () => {
