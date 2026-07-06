@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-06 · **Current version:** v0.7.0 (stable) · v0.7.1-beta.2 (pre-release, HACS beta opt-in)
+**Last updated:** 2026-07-06 · **Current version:** v0.7.1
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -28,34 +28,28 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | v1.0 | Structural completeness | Container child-card editing (item #7 — styling a card inside a grid/stack/sections view currently targets the wrong card; probably the single biggest remaining hole) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
 | Post-1.0 | Stretch | Official Mushroom/Bubble selectors, a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
 
-## Recently shipped (v0.7.1-beta.2)
-
-Fixes from live beta.1 testing: needle gauges now color the needle + value
-text (`--primary-text-color` on `ha-gauge`, `!important`); tile cards'
-accent color actually wins against the tile's own inline `--tile-color`
-(same inline-style bug class as the gauge — this also fixes tile *features*
-like the bar gauge, whose `--feature-color` derives from `--tile-color`);
-on/off "controlled by" pickers filter to genuinely toggleable domains; the
-layout-card banner no longer promises a per-child Style button that doesn't
-exist (see item #7 — now with a concrete implementation sketch).
-
-## Recently shipped (v0.7.1-beta.1)
+## Recently shipped (v0.7.1)
 
 A pure correctness release from a full-codebase audit (agent-assisted code
 review of every parser/generator round-trip + primary-source re-verification
 of the card-mod/UIX compatibility assumptions + live checks against both
 engines). Highlights — see `CHANGELOG.md` for the complete list:
 
-- **Gauge dial color finally works** — Accent Color (and Threshold's
+- **Gauge and tile colors finally work** — Accent Color (and Threshold's
   accent-color property, including Fade mode) now actually recolors a gauge
-  card's arc. HA's gauge writes its severity color as an inline style on
-  `<ha-gauge>`, so the previous inherited-variable approach silently never
-  applied; the fix targets `ha-gauge` directly with `!important`
-  (needle-mode gauges show their configured segments instead — inherent,
-  now hinted in the panel).
+  card's arc, a needle gauge's needle + value text, a tile card's icon on
+  active/state-colored entities, and tile feature rows (bar gauge/toggle).
+  Root cause across all of them: HA writes these colors as *inline styles*
+  per render (`--gauge-color` on `<ha-gauge>`, `--tile-color` on the tile's
+  `ha-card`), which silently beat the Studio's inherited variables; the fix
+  is `!important` on the right target (see `docs/DEVELOPMENT.md`'s
+  inline-styleMap pattern note).
 - **"The color won't change" stale-override class fixed** — Accent Color's
   per-card-type companion variables leaked into Advanced CSS on every
   reopen and, being emitted last, overrode every newly-picked color.
+- **On/off "controlled by" entity pickers filter to genuinely toggleable
+  domains**; the layout-card banner no longer promises a per-child Style
+  button that doesn't exist (see item #7).
 - **Several silent data-loss paths closed**: entities-row hand-authored CSS
   wiped by any unrelated edit (rows now have their own invisible
   Advanced-CSS passthrough); hand-authored `@keyframes`/`@media` deleted on
