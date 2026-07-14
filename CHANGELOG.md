@@ -5,6 +5,23 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0-beta.4] — 2026-07-14
+
+**Pre-release, docs only** — no code changes; nothing to re-test.
+
+### Docs
+- **README overhauled for the v0.8 cycle**: all screenshots regenerated
+  from the current version (the old set dated back to v0.3.16, before the
+  two-column layout even existed), plus three new ones (Threshold Fade
+  mode, stack per-child styling, Font module + Color Palette Manager).
+  New/updated sections for the Font module (with its two documented
+  per-card size limits), the Color Palette Manager, stack child styling,
+  per-row fonts and string-shorthand rows, cross-entity "Controlled by",
+  and attribute-based thresholds. The stale "container cards show a
+  redirect banner" claim is gone. Screenshots are reproducible:
+  `tools/sandbox/harness/readme_shots.mjs` captures them from a real HA
+  edit dialog.
+
 ## [0.8.0-beta.3] — 2026-07-14
 
 **Pre-release** — a UX/consistency pass across the whole panel: the same
@@ -678,6 +695,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.8.0-beta.4]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0-beta.4
 [0.8.0-beta.3]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0-beta.3
 [0.8.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0-beta.2
 [0.8.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0-beta.1

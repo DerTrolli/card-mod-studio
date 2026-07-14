@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-14 · **Current version:** v0.7.1 (stable) · v0.8.0-beta.2 (pre-release, HACS beta opt-in) — v0.8.0-beta.3 (a UX/consistency pass) is code-complete on this branch but not yet published as a release
+**Last updated:** 2026-07-14 · **Current version:** v0.7.1 (stable) · v0.8.0-beta.3 (pre-release, HACS beta opt-in) — v0.8.0-beta.4 (docs-only: README overhaul + regenerated screenshots) is on this branch and needs no release of its own; it can ride along with whatever ships next
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
