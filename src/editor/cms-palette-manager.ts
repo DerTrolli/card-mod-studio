@@ -34,15 +34,8 @@ export class CmsPaletteManager extends LitElement {
         gap: 8px;
         margin-bottom: 6px;
       }
-      .color-row input[type='color'] {
-        width: 32px;
-        height: 26px;
-        padding: 0;
-        border: 1px solid var(--divider-color, #383838);
-        border-radius: 4px;
-        cursor: pointer;
-        background: none;
-      }
+      /* input[type='color'] deliberately NOT restyled here — it inherits the
+       * shared round swatch look from moduleStyles, same as everywhere else. */
       .color-row input[type='text'] {
         flex: 1;
         min-width: 0;
@@ -104,6 +97,17 @@ export class CmsPaletteManager extends LitElement {
         color: var(--secondary-text-color, #9e9e9e);
         margin-top: 8px;
       }
+      .header-summary {
+        font-size: 11px;
+        color: var(--secondary-text-color, #9e9e9e);
+      }
+      .default-label {
+        flex: 1;
+        font-size: 12px;
+      }
+      .default-builtin {
+        color: var(--secondary-text-color, #9e9e9e);
+      }
     `,
   ];
 
@@ -161,9 +165,9 @@ export class CmsPaletteManager extends LitElement {
       <div class="module">
         <div class="module-header" @click=${() => (this._open = !this._open)}>
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">🎨 My Color Palette</span>
+          <span class="module-title">🖌️ My Color Palette</span>
           ${hasContent && !this._open
-            ? html`<span style="font-size: 11px; color: var(--secondary-text-color, #9e9e9e);">
+            ? html`<span class="header-summary">
                 ${palette.colors.length ? `${palette.colors.length} color${palette.colors.length === 1 ? '' : 's'}` : 'defaults set'}
               </span>`
             : nothing}
@@ -195,7 +199,7 @@ export class CmsPaletteManager extends LitElement {
             </div>
           `,
         )}
-        <button class="add-btn" @click=${this._addColor}>+ Add color</button>
+        <button class="add-btn" @click=${this._addColor}>+ Add Color</button>
 
         <span class="section-label">
           Default ON / OFF colors — what Icon Color and Accent Color start with when you enable them:
@@ -222,7 +226,7 @@ export class CmsPaletteManager extends LitElement {
           .value=${value ?? builtin}
           @input=${(e: Event) => this._setDefault(key, (e.target as HTMLInputElement).value)}
         />
-        <span style="flex: 1; font-size: 12px;">${label}${value ? '' : html` <span style="color: var(--secondary-text-color, #9e9e9e);">(built-in ${builtin})</span>`}</span>
+        <span class="default-label">${label}${value ? '' : html` <span class="default-builtin">(built-in ${builtin})</span>`}</span>
         ${value
           ? html`<button class="reset-btn" @click=${() => this._setDefault(key, undefined)}>Reset</button>`
           : nothing}

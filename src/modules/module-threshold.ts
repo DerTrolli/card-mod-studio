@@ -7,6 +7,7 @@ import { moduleStyles } from './module-base.js';
 import { sortThresholdRules } from '../generator/css-generator.js';
 import { previewHexFor } from '../components/cms-color-picker.js';
 import { NO_ICON_COLOR_TYPES } from '../utils/card-caps.js';
+import { getCachedPalette } from '../utils/palette-storage.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
 
@@ -336,18 +337,17 @@ export class ThresholdModule extends LitElement {
               <div class="control-row">
                 <span class="control-label">Border width</span>
                 <div class="control-right">
-                  <input
-                    type="number"
+                  <ha-slider
                     min="1"
                     max="16"
-                    style="width:60px"
+                    step="1"
                     .value=${String(this.state.borderWidth ?? 2)}
                     @change=${(e: Event) =>
                       this._emit({
                         borderWidth: Math.max(1, parseFloat((e.target as HTMLInputElement).value) || 2),
                       })}
-                  />
-                  <span class="rule-label">px</span>
+                  ></ha-slider>
+                  <span class="value-label">${this.state.borderWidth ?? 2}px</span>
                 </div>
               </div>
             `
@@ -402,7 +402,6 @@ export class ThresholdModule extends LitElement {
         <span class="control-label">Value read from</span>
         <div class="control-right">
           <select
-            style="width: auto; max-width: 180px;"
             .value=${this.state.attribute ?? ''}
             @change=${(e: Event) => this._emit({ attribute: (e.target as HTMLSelectElement).value })}
           >
@@ -597,7 +596,9 @@ export class ThresholdModule extends LitElement {
       id: `rule-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       operator: '<',
       value: 0,
-      color: '#2196F3',
+      // Same "what a fresh control starts with" convention as the row-level
+      // builder and the Icon/Accent modules: palette ON-default when set.
+      color: getCachedPalette().defaults.onColor ?? '#2196F3',
     };
     this._emit({ rules: [...this.state.rules, newRule] });
   }
@@ -635,7 +636,9 @@ export class ThresholdModule extends LitElement {
     const newStop: ColorStop = {
       id: `stop-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       value: nextValue,
-      color: '#2196F3',
+      // Stops need concrete hex (interpolation) — previewHexFor resolves a
+      // palette var() ON-default the same way stop color picks resolve.
+      color: previewHexFor(getCachedPalette().defaults.onColor ?? '#2196F3'),
     };
     this._emit({ colorStops: [...this.state.colorStops, newStop] });
   }

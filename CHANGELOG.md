@@ -5,6 +5,47 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0-beta.3] — 2026-07-14
+
+**Pre-release** — a UX/consistency pass across the whole panel: the same
+kind of control now looks and behaves the same everywhere. No generator or
+parser changes — your saved YAML is untouched.
+
+### Changed — consistency
+
+- **Heading Style now mirrors the Font module**: same control order
+  (Text size → Weight → Font family → Text color), same label wording, and
+  it gained the same "Custom…" font-family option with a free-text field —
+  a hand-authored family like `'Comic Sans MS'` now round-trips into the
+  visible control instead of being unrepresentable there.
+- **Per-row font controls match the card-level Font module**: the bare
+  number box became the same slider + px readout, with size and weight on
+  separate labeled rows ("Text size" / "Weight").
+- **Row-level threshold builder matches the card-level one**: the "Rules
+  (top to bottom)" label was actually wrong — row rules are auto-sorted by
+  the same generator as card rules — and now uses the same "order doesn't
+  matter" wording, the same "If value" rule label, and the same monospace
+  default-color readout.
+- **Threshold's border width is now a slider** (like the Border module)
+  instead of a bare number box; the new "Value read from" attribute select
+  is styled like every other select.
+- **Palette defaults now reach every "fresh control" the same way**:
+  enabling a row's icon color, switching a row to threshold mode, and
+  adding a threshold rule/fade point all start from your Palette Manager
+  ON-default (previously only card-level Icon/Accent Color did).
+- **One "this is styled" indicator**: the dot on stack-child sections and
+  on entity rows is now the same size and same accent color (they differed
+  in both).
+- **Advanced CSS opens like every other module** — clickable header with
+  the standard chevron, instead of its own separate Show/Hide button.
+- Smaller alignments: the Entities section is titled "Entity Rows";
+  Animation's gradient-shift warning and Icon Color's light-mode note use
+  the standard hint style; the Palette Manager's color wells use the same
+  round swatch style as the rest of the panel, its 🎨 icon no longer
+  collides with Icon Color's, and "+ Add Color" matches "+ Add Rule"
+  capitalization; a row with only hand-authored (Advanced-style) CSS now
+  shows the styled dot too.
+
 ## [0.8.0-beta.2] — 2026-07-14
 
 **Pre-release** — fixes everything reported in the beta.1 font-module test
@@ -637,6 +678,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.8.0-beta.3]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0-beta.3
 [0.8.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0-beta.2
 [0.8.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0-beta.1
 [0.7.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.1

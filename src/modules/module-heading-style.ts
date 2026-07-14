@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { HeadingStyleModuleState } from '../types/index.js';
 import { DEFAULT_HEADING_STYLE } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
+import { FONT_FAMILY_PRESETS } from './module-font.js';
 import '../components/cms-color-picker.js';
 
 export class HeadingStyleModule extends LitElement {
@@ -59,11 +60,18 @@ export class HeadingStyleModule extends LitElement {
     `;
   }
 
+  private get _isCustomFamily(): boolean {
+    return !FONT_FAMILY_PRESETS.some((p) => p.value === (this.state.fontFamily ?? ''));
+  }
+
   private _renderBody() {
+    const family = this.state.fontFamily ?? '';
+    const isCustom = this._isCustomFamily;
+
     return html`
       <div class="module-body">
         <div class="control-row">
-          <span class="control-label">Font size</span>
+          <span class="control-label">Text size</span>
           <div class="control-right">
             <ha-slider
               min="12"
@@ -79,17 +87,6 @@ export class HeadingStyleModule extends LitElement {
                 })}
             ></ha-slider>
             <span class="value-label">${this._fontSize}px</span>
-          </div>
-        </div>
-
-        <div class="control-row">
-          <span class="control-label">Text color</span>
-          <div class="control-right">
-            <cms-color-picker
-              .value=${this.state.textColor}
-              @color-changed=${(e: CustomEvent) =>
-                this._emit({ textColor: e.detail.value })}
-            ></cms-color-picker>
           </div>
         </div>
 
@@ -114,15 +111,47 @@ export class HeadingStyleModule extends LitElement {
           <span class="control-label">Font family</span>
           <div class="control-right">
             <select
-              .value=${this.state.fontFamily ?? ''}
-              @change=${(e: Event) =>
-                this._emit({ fontFamily: (e.target as HTMLSelectElement).value })}
+              .value=${isCustom ? 'custom' : family}
+              @change=${(e: Event) => {
+                const v = (e.target as HTMLSelectElement).value;
+                if (v !== 'custom') this._emit({ fontFamily: v });
+              }}
             >
-              <option value="" ?selected=${!(this.state.fontFamily ?? '')}>Theme default</option>
-              <option value="sans-serif" ?selected=${this.state.fontFamily === 'sans-serif'}>Sans-serif</option>
-              <option value="serif" ?selected=${this.state.fontFamily === 'serif'}>Serif</option>
-              <option value="monospace" ?selected=${this.state.fontFamily === 'monospace'}>Monospace</option>
+              ${FONT_FAMILY_PRESETS.map(
+                (p) => html`<option value=${p.value} ?selected=${!isCustom && family === p.value}>
+                  ${p.label}
+                </option>`,
+              )}
+              <option value="custom" ?selected=${isCustom}>Custom…</option>
             </select>
+          </div>
+        </div>
+        ${isCustom
+          ? html`
+              <div class="control-row">
+                <span class="control-label">Custom family</span>
+                <div class="control-right">
+                  <input
+                    type="text"
+                    style="width:100%;box-sizing:border-box;"
+                    .value=${family}
+                    placeholder="'My Font', sans-serif"
+                    @change=${(e: Event) =>
+                      this._emit({ fontFamily: (e.target as HTMLInputElement).value.trim() })}
+                  />
+                </div>
+              </div>
+            `
+          : nothing}
+
+        <div class="control-row">
+          <span class="control-label">Text color</span>
+          <div class="control-right">
+            <cms-color-picker
+              .value=${this.state.textColor}
+              @color-changed=${(e: CustomEvent) =>
+                this._emit({ textColor: e.detail.value })}
+            ></cms-color-picker>
           </div>
         </div>
 

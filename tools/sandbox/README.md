@@ -72,6 +72,7 @@ node beta2_fixes_check.mjs  # v0.7.1-beta.2: needle-gauge needle color, tile inl
 node stack_child_check.mjs  # v0.8.0: per-child styling sections on a vertical-stack — emit into cards[i], sibling untouched, real stack render, reopen restores
 node font_module_check.mjs  # v0.8.0: Font module — plain-inheritance on entities-card rows, ha-tile-info's own --ha-tile-info-* vars on tile cards (bare ha-card form negative-controlled to genuinely fail), module gating, reopen round-trip; beta.2 added per-card companion renders (light/sensor/gauge/entities title), per-row fonts, and the hui-form-editor shim (through the REAL edit dialog — the element is lazily defined with the dialog bundle, so whenDefined() on it outside a dialog hangs forever)
 node attr_palette_check.mjs  # v0.8.0-beta.2: attribute-based thresholds (state_attr Jinja renders + panel round-trip) and Color Palette Manager (custom colors + OFF-default override reaching fresh module state)
+node ux_audit_shots.mjs  # screenshot-only: renders the consistency-pass UI states (heading module, entity rows + palette manager, threshold) into shots/ for visual review — no assertions
 node scan.mjs            # which card types mount cleanly standalone
 ```
 

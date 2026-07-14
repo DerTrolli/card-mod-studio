@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-14 · **Current version:** v0.7.1 (stable) · v0.8.0-beta.1 (pre-release, HACS beta opt-in) — v0.8.0-beta.2 is code-complete on this branch but not yet published as a release
+**Last updated:** 2026-07-14 · **Current version:** v0.7.1 (stable) · v0.8.0-beta.2 (pre-release, HACS beta opt-in) — v0.8.0-beta.3 (a UX/consistency pass) is code-complete on this branch but not yet published as a release
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -27,6 +27,19 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | v0.9 | Depth | Property-level templating beyond color (border width, icon size, blur/opacity driven by entity state — natural extension of v0.7's entity binding). Plus dict-form/`$`-pierce round-trip safety (item #1 below), which unblocks nested-shadow-DOM targets (glance icon, Mushroom/Bubble). |
 | v1.0 | Structural completeness | The remaining container gaps (item #7 — `conditional` cards, containers nested in containers, per-row styling of nested entities cards) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
 | Post-1.0 | Stretch | Official Mushroom/Bubble selectors, a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
+
+## Recently shipped (v0.8.0-beta.3)
+
+A pure UX/consistency pass (no generator/parser changes): Heading Style
+mirrors the Font module (order, labels, and the Custom… font-family
+free-text option); per-row font uses the same slider controls; the row
+threshold builder uses the card builder's wording (its "top to bottom"
+label was simply wrong — rows auto-sort too); threshold border width is a
+slider like the Border module; Palette-Manager ON-defaults now seed every
+freshly-enabled control (row icon color, threshold rules, fade points) —
+not just the card-level modules; the "styled" indicator dot is one size and
+color everywhere; Advanced CSS opens via the standard chevron header. See
+`CHANGELOG.md` for the itemized list.
 
 ## Recently shipped (v0.8.0-beta.2)
 

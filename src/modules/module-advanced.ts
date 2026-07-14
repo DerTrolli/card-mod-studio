@@ -11,17 +11,6 @@ export class AdvancedModule extends LitElement {
   static override styles = [
     moduleStyles,
     css`
-      .toggle-btn {
-        background: none;
-        border: none;
-        color: var(--secondary-text-color, #9e9e9e);
-        font-size: 11px;
-        cursor: pointer;
-        padding: 0;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-      }
       .editor-wrap {
         padding: 0 14px 12px;
         border-top: 1px solid var(--divider-color, #383838);
@@ -49,16 +38,14 @@ export class AdvancedModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div class="module-header">
+        <div
+          class="module-header"
+          @click=${() => {
+            this.open = !this.open;
+          }}
+        >
+          <span class="module-chevron">${this.open ? '▼' : '▶'}</span>
           <span class="module-title">⌨️ Advanced CSS</span>
-          <button
-            class="toggle-btn"
-            @click=${() => {
-              this.open = !this.open;
-            }}
-          >
-            ${this.open ? '▲ Hide' : '▼ Show'}
-          </button>
         </div>
         ${this.open
           ? html`

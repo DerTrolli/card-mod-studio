@@ -111,11 +111,13 @@ export class CmsChildCardSection extends LitElement {
         flex: 1;
         min-width: 0;
       }
+      /* Same "this item carries styling" indicator as the entities rows
+       * module's .style-dot — one concept, one look. */
       .styled-dot {
         width: 8px;
         height: 8px;
         border-radius: 50%;
-        background: var(--warning-color, #ffa600);
+        background: var(--accent-color, #2196f3);
         flex-shrink: 0;
       }
       .child-body {
