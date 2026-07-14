@@ -5,7 +5,8 @@ import { moduleStyles } from './module-base.js';
 import '../components/cms-color-picker.js';
 
 export class EntitiesRowsModule extends LitElement {
-  @property({ attribute: false }) rows: EntitiesCardRow[] = [];
+  /** May contain bare-string rows ('sensor.x') — the YAML shorthand form. */
+  @property({ attribute: false }) rows: Array<EntitiesCardRow | string> = [];
   @property({ attribute: false }) styles: EntitiesRowStyles = {};
 
   @state() private _openRows = new Set<string>();
@@ -175,9 +176,12 @@ export class EntitiesRowsModule extends LitElement {
   // ---------------------------------------------------------------------------
 
   override render() {
-    const entityRows = this.rows.filter(
-      (r): r is EntitiesCardRow & { entity: string } => !!r.entity,
-    );
+    // Rows arrive in whatever form the YAML uses — the bare-string
+    // shorthand ('sensor.x') is normalized to object form here so it's
+    // just as styleable (see EntitiesRowLike in studio-state.ts).
+    const entityRows = this.rows
+      .map((r) => (typeof r === 'string' ? ({ entity: r } as EntitiesCardRow) : r))
+      .filter((r): r is EntitiesCardRow & { entity: string } => !!r.entity);
     if (!entityRows.length) return nothing;
 
     return html`
@@ -201,7 +205,9 @@ export class EntitiesRowsModule extends LitElement {
       rowStyle.iconColor ||
       rowStyle.iconMode === 'threshold' ||
       rowStyle.textColor ||
-      rowStyle.textMode === 'threshold'
+      rowStyle.textMode === 'threshold' ||
+      rowStyle.fontSizePx ||
+      rowStyle.fontWeight
     );
 
     return html`
@@ -300,6 +306,56 @@ export class EntitiesRowsModule extends LitElement {
           : nothing}
         ${textEnabled && textIsThreshold
           ? this._renderRuleBuilder(entityId, 'text', rowStyle.textRules ?? [], rowStyle.textDefault ?? '#888888')
+          : nothing}
+
+        <hr class="divider" />
+
+        <!-- Per-row font (size + weight; inherits the card-level Font when off) -->
+        <div class="control-row">
+          <span class="control-label">Font (this row)</span>
+          <div class="control-right">
+            <ha-switch
+              .checked=${!!(rowStyle.fontSizePx || rowStyle.fontWeight)}
+              @change=${(e: Event) => {
+                const on = (e.target as HTMLInputElement).checked;
+                this._updateRow(entityId, on
+                  ? { fontSizePx: 16, fontWeight: 'normal' }
+                  : { fontSizePx: undefined, fontWeight: undefined });
+              }}
+            ></ha-switch>
+          </div>
+        </div>
+        ${rowStyle.fontSizePx || rowStyle.fontWeight
+          ? html`
+              <div class="control-row">
+                <span class="control-label">Size</span>
+                <div class="control-right">
+                  <input
+                    type="number"
+                    min="8"
+                    max="48"
+                    style="width:60px"
+                    .value=${String(rowStyle.fontSizePx ?? 16)}
+                    @change=${(e: Event) =>
+                      this._updateRow(entityId, {
+                        fontSizePx: Math.max(8, parseFloat((e.target as HTMLInputElement).value) || 16),
+                      })}
+                  />
+                  <span class="rule-label">px</span>
+                  <select
+                    .value=${rowStyle.fontWeight ?? 'normal'}
+                    @change=${(e: Event) =>
+                      this._updateRow(entityId, {
+                        fontWeight: (e.target as HTMLSelectElement).value as EntitiesRowStyle['fontWeight'],
+                      })}
+                  >
+                    <option value="normal" ?selected=${(rowStyle.fontWeight ?? 'normal') === 'normal'}>Normal</option>
+                    <option value="medium" ?selected=${rowStyle.fontWeight === 'medium'}>Medium</option>
+                    <option value="bold" ?selected=${rowStyle.fontWeight === 'bold'}>Bold</option>
+                  </select>
+                </div>
+              </div>
+            `
           : nothing}
 
       </div>

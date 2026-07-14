@@ -36,8 +36,10 @@ import type {
   AdvancedModuleState,
   HeadingStyleModuleState,
   FontModuleState,
+  EntitiesCardRow,
+  EntitiesRowStyles,
 } from '../types/index.js';
-import { buildMergedStudioState, applyStudioState } from './studio-state.js';
+import { buildMergedStudioState, applyStudioState, initEntityRowStyles, applyEntityRowStyles } from './studio-state.js';
 import {
   CONTAINER_CARD_TYPES,
   NO_ANIMATION_TYPES,
@@ -59,6 +61,7 @@ import '../modules/module-threshold.js';
 import '../modules/module-advanced.js';
 import '../modules/module-heading-style.js';
 import '../modules/module-font.js';
+import '../modules/module-entities-rows.js';
 
 export class CmsChildCardSection extends LitElement {
   @property({ attribute: false }) childConfig?: CardModCardConfig;
@@ -66,6 +69,7 @@ export class CmsChildCardSection extends LitElement {
   @property({ type: Number }) index = 0;
 
   @state() private _studioState: StudioState | null = null;
+  @state() private _entityRowStyles: EntitiesRowStyles = {};
   @state() private _open = false;
 
   /** Mirror of cms-panel's _lastEmittedConfigJson dedup guard: when the
@@ -130,12 +134,14 @@ export class CmsChildCardSection extends LitElement {
     if (changed.has('childConfig')) {
       if (!this.childConfig) {
         this._studioState = null;
+        this._entityRowStyles = {};
         this._lastEmittedChildJson = null;
         return;
       }
       const json = JSON.stringify(this.childConfig);
       if (json !== this._lastEmittedChildJson) {
         this._studioState = buildMergedStudioState(this.childConfig, this.hass);
+        this._entityRowStyles = initEntityRowStyles(this.childConfig, this.hass);
       }
     }
   }
@@ -143,7 +149,20 @@ export class CmsChildCardSection extends LitElement {
   private _emitChanged(changes: Partial<StudioState>) {
     if (!this.childConfig || !this._studioState) return;
     this._studioState = { ...this._studioState, ...changes };
-    const newChild = applyStudioState(this._studioState, this.childConfig, this.hass);
+    this._emitChildConfig();
+  }
+
+  private _onRowStylesChanged(e: CustomEvent<EntitiesRowStyles>) {
+    this._entityRowStyles = e.detail;
+    this._emitChildConfig();
+  }
+
+  private _emitChildConfig() {
+    if (!this.childConfig || !this._studioState) return;
+    let newChild = applyStudioState(this._studioState, this.childConfig, this.hass);
+    if (this.childConfig.type === 'entities') {
+      newChild = applyEntityRowStyles(newChild, this._entityRowStyles, this.hass);
+    }
     this._lastEmittedChildJson = JSON.stringify(newChild);
     this.dispatchEvent(
       new CustomEvent<{ index: number; config: CardModCardConfig }>('child-config-changed', {
@@ -290,10 +309,11 @@ export class CmsChildCardSection extends LitElement {
         ></cms-advanced-module>
 
         ${isEntities
-          ? html`<div class="child-note">
-              Per-row icon/text styling for a nested entities card isn't
-              available here yet — the card-level modules above all work.
-            </div>`
+          ? html`<cms-entities-rows-module
+              .rows=${(c as unknown as { entities?: EntitiesCardRow[] }).entities ?? []}
+              .styles=${this._entityRowStyles}
+              @styles-changed=${this._onRowStylesChanged}
+            ></cms-entities-rows-module>`
           : nothing}
       </div>
     `;

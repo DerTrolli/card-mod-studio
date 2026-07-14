@@ -94,6 +94,39 @@ export class HeadingStyleModule extends LitElement {
         </div>
 
         <div class="control-row">
+          <span class="control-label">Weight</span>
+          <div class="control-right">
+            <select
+              .value=${this.state.fontWeight ?? 'normal'}
+              @change=${(e: Event) =>
+                this._emit({
+                  fontWeight: (e.target as HTMLSelectElement).value as HeadingStyleModuleState['fontWeight'],
+                })}
+            >
+              <option value="normal" ?selected=${(this.state.fontWeight ?? 'normal') === 'normal'}>Normal</option>
+              <option value="medium" ?selected=${this.state.fontWeight === 'medium'}>Medium</option>
+              <option value="bold" ?selected=${this.state.fontWeight === 'bold'}>Bold</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <span class="control-label">Font family</span>
+          <div class="control-right">
+            <select
+              .value=${this.state.fontFamily ?? ''}
+              @change=${(e: Event) =>
+                this._emit({ fontFamily: (e.target as HTMLSelectElement).value })}
+            >
+              <option value="" ?selected=${!(this.state.fontFamily ?? '')}>Theme default</option>
+              <option value="sans-serif" ?selected=${this.state.fontFamily === 'sans-serif'}>Sans-serif</option>
+              <option value="serif" ?selected=${this.state.fontFamily === 'serif'}>Serif</option>
+              <option value="monospace" ?selected=${this.state.fontFamily === 'monospace'}>Monospace</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="control-row">
           <span class="control-label">Icon size</span>
           <div class="control-right">
             <ha-slider

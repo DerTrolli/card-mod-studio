@@ -16,11 +16,10 @@ import type {
   HeadingStyleModuleState,
   FontModuleState,
   EntitiesCardRow,
-  EntitiesRowStyle,
   EntitiesRowStyles,
 } from '../types/index.js';
 import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
-import { isUixOnlyStyle, usesUixOnlyFeatures, hasUixOnlyRow, hasStyleContent, resolveStyle } from '../utils/style-compat.js';
+import { isUixOnlyStyle, usesUixOnlyFeatures, hasUixOnlyRow, hasStyleContent } from '../utils/style-compat.js';
 import {
   CONTAINER_CARD_TYPES,
   STYLABLE_CHILDREN_CARD_TYPES,
@@ -31,12 +30,13 @@ import {
   NO_FONT_TYPES,
   isStateAware,
 } from '../utils/card-caps.js';
-import { buildMergedStudioState } from './studio-state.js';
+import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles } from './studio-state.js';
 import './cms-child-card-section.js';
 import { loadPresets, savePresets } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
-import { parseEntityRowCss, mergeEntityRowStyles } from '../parser/state-mapper.js';
-import { generateCss, buildThresholdJinja } from '../generator/css-generator.js';
+import { initPaletteCache } from '../utils/palette-storage.js';
+import './cms-palette-manager.js';
+import { generateCss } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
 
 import '../modules/module-filter.js';
@@ -82,6 +82,7 @@ export class CmsPanel extends LitElement {
     this._uixPresent = isUixInstalled();
     // Load from localStorage immediately (sync); HA sync happens when hass arrives
     void loadPresets(undefined).then((p) => { this._presets = p; });
+    void initPaletteCache(this.hass);
     // Width-responsive: the side preview is a fixed 280px, so below ~600px the
     // controls get crushed. Observe our own width and stack the preview instead.
     this._resizeObserver = new ResizeObserver((entries) => {
@@ -109,6 +110,7 @@ export class CmsPanel extends LitElement {
     // window right after page load (see isUixInstalled).
     if (changed.has('hass') && this.hass && !changed.get('hass')) {
       void loadPresets(this.hass).then((p) => { this._presets = p; });
+      void initPaletteCache(this.hass);
       this._uixPresent = isUixInstalled(this.hass);
     }
   }
@@ -134,87 +136,14 @@ export class CmsPanel extends LitElement {
   }
 
   private _initEntityRowStyles() {
-    if (this.config?.type !== 'entities') {
-      this._entityRowStyles = {};
-      return;
-    }
-    const rows = (this.config as unknown as { entities?: EntitiesCardRow[] }).entities;
-    if (!rows?.length) { this._entityRowStyles = {}; return; }
-
-    const outputKey = pickOutputKey(this.hass);
-    const styles: EntitiesRowStyles = {};
-    for (const row of rows) {
-      if (!row.entity) continue;
-      styles[row.entity] = this._buildMergedRowStyle(row, outputKey);
-    }
-    this._entityRowStyles = styles;
+    this._entityRowStyles = this.config ? initEntityRowStyles(this.config, this.hass) : {};
   }
 
-  /** Row-level counterpart to _buildMergedState — see its doc comment. Rows have no macros/billets concept, so there's no secondary-key guard to check here. */
-  private _buildMergedRowStyle(row: EntitiesCardRow, outputKey: ReturnType<typeof pickOutputKey>): EntitiesRowStyle {
-    const primaryStyle = outputKey === 'uix' ? row.uix?.style : row.card_mod?.style;
-    const secondaryStyle = outputKey === 'uix' ? row.card_mod?.style : row.uix?.style;
-
-    const primaryRowStyle = parseEntityRowCss(typeof primaryStyle === 'string' ? primaryStyle : '');
-    if (!hasStyleContent(secondaryStyle)) return primaryRowStyle;
-
-    const secondaryRowStyle = parseEntityRowCss(typeof secondaryStyle === 'string' ? secondaryStyle : '');
-    return mergeEntityRowStyles(primaryRowStyle, secondaryRowStyle);
-  }
-
-  private _generateEntityRowCss(style: EntitiesRowStyle, entityId: string): string {
-    const decls: string[] = [];
-
-    if (style.iconMode === 'threshold' && style.iconRules?.length && style.iconDefault) {
-      decls.push(`  --state-icon-color: ${buildThresholdJinja(style.iconRules, style.iconDefault, entityId)};`);
-    } else if (style.iconColor) {
-      decls.push(`  --state-icon-color: ${style.iconColor};`);
-    }
-
-    if (style.textMode === 'threshold' && style.textRules?.length && style.textDefault) {
-      decls.push(`  color: ${buildThresholdJinja(style.textRules, style.textDefault, entityId)};`);
-    } else if (style.textColor) {
-      decls.push(`  color: ${style.textColor};`);
-    }
-
-    const hostBlock = decls.length ? `:host {\n${decls.join('\n')}\n}` : '';
-    // Row-level Advanced-CSS passthrough: whatever the recogniser didn't
-    // consume rides along verbatim (see parseEntityRowCss).
-    return [hostBlock, style.extraCss ?? ''].filter(Boolean).join('\n\n');
-  }
-
+  /** See applyEntityRowStyles in studio-state.ts — extracted so
+   *  cms-child-card-section runs the identical pipeline for an entities
+   *  card nested inside a stack. */
   private _applyEntityRowStyles(config: CardModCardConfig): CardModCardConfig {
-    const rows = (config as unknown as { entities?: EntitiesCardRow[] }).entities;
-    if (!rows?.length) return config;
-
-    const outputKey = pickOutputKey(this.hass);
-    const updatedRows = rows.map((row) => {
-      if (!row.entity) return row;
-      // A dictionary-form row style can't be parsed into row state yet
-      // (ROADMAP #23) — rewriting the row would replace it with nothing.
-      // Leave such rows completely untouched instead of destroying them.
-      const currentStyle = resolveStyle(row as unknown as CardModCardConfig);
-      if (currentStyle !== undefined && typeof currentStyle !== 'string') return row;
-      const rowStyle = this._entityRowStyles[row.entity];
-      // A row is "styled" if it has a static color OR a threshold mode with at
-      // least one rule OR preserved unrecognised CSS. Checking only static
-      // colors would silently discard the others (whose static colors are
-      // empty by design).
-      const hasIcon = !!(
-        rowStyle?.iconColor ||
-        (rowStyle?.iconMode === 'threshold' && rowStyle?.iconRules?.length)
-      );
-      const hasText = !!(
-        rowStyle?.textColor ||
-        (rowStyle?.textMode === 'threshold' && rowStyle?.textRules?.length)
-      );
-      const rowCss = hasIcon || hasText || rowStyle?.extraCss
-        ? this._generateEntityRowCss(rowStyle!, row.entity)
-        : '';
-      return applyCardModStyle(rowCss, row as unknown as CardModCardConfig, outputKey) as unknown as EntitiesCardRow;
-    });
-
-    return { ...(config as unknown as object), entities: updatedRows } as unknown as CardModCardConfig;
+    return applyEntityRowStyles(config, this._entityRowStyles, this.hass);
   }
 
   // ---------------------------------------------------------------------------
@@ -752,6 +681,7 @@ export class CmsPanel extends LitElement {
           ${this._studioState
             ? html`
                 ${this._renderPresetBar()}
+                <cms-palette-manager .hass=${this.hass}></cms-palette-manager>
                 ${this._renderModuleList(this._studioState)}
               `
             : html`<div class="no-config">No card selected.</div>`}

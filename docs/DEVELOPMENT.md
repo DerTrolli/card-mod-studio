@@ -489,3 +489,33 @@ rule resolves, which only shows up by reading the component's own
 companion-variable form, and confirms plain inheritance (no special
 handling needed) on cards without such an override — entities-card rows,
 markdown, glance — by checking their real rendered `getComputedStyle`.
+
+### Fresh-page probes race the engine's cold start — wait for the engine element, not a fixed sleep
+
+A Playwright probe that mounts a `<hui-card>` right after page load can see
+*every* style silently fail — baselines unchanged, `!important` ignored,
+nothing in the console — because card-mod/UIX itself hasn't finished
+loading yet (its custom element isn't defined, so style blocks are simply
+never processed). Bumping a fixed wait from 2.5s to 8s doesn't reliably fix
+it; waiting on the actual readiness signal does:
+
+```js
+await page.waitForFunction(() =>
+  !!(customElements.get('card-mod') || customElements.get('uix-node')));
+```
+
+Checks that happen to mount `cms-panel` first never hit this (the panel's
+resource chain forces everything to load), which is exactly what made the
+failure look intermittent across scripts.
+
+### `customElements.whenDefined()` on a lazily-bundled editor element hangs forever
+
+`hui-card-element-editor` (and the editors inside it, like
+`hui-form-editor`) are only defined once HA loads the edit-dialog bundle —
+which never happens on a plain dashboard view. `await
+customElements.whenDefined('hui-card-element-editor')` therefore blocks
+*indefinitely* (the promise only rejects for invalid names; `.catch()`
+doesn't help), silently hanging the whole check. To exercise those
+elements, open the **real** edit-card dialog first (kebab menu → Edit
+dashboard → card Edit — the recipe in `dialog_popover_check.mjs` /
+`font_module_check.mjs` section 7) and only then query for the editor.

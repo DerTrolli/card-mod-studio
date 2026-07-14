@@ -273,6 +273,66 @@ function injectIntoExistingDialogs(): void {
 // Public entry point
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// hui-form-editor shim — keeps the visual editor usable with uix:/card_mod:
+// ---------------------------------------------------------------------------
+
+/**
+ * HA validates card configs in the GUI editor against strict superstruct
+ * schemas that reject unknown keys ("Key 'uix' is not expected or not
+ * supported by the visual editor" → forced YAML mode). card-mod and UIX
+ * both work around this by stripping their key before validation — but
+ * their patch hooks `getConfigElement()`, and HA has been migrating cards
+ * (entity, and more over time) to `getConfigForm()`, whose generic
+ * `hui-form-editor` neither engine patches. Result: adding a uix:/card_mod:
+ * block via the Studio breaks those cards' visual editors.
+ *
+ * This shim patches hui-form-editor.setConfig to run the strict
+ * `assertConfig` against a COPY with uix/card_mod removed, while the editor
+ * keeps the full original config — ha-form preserves keys outside its
+ * schema on save (`{ ...data, ...newValue }`), so the style block survives
+ * GUI edits untouched. Idempotent alongside a future engine-side fix: a
+ * second strip of an already-stripped copy is a no-op. Remove once UIX
+ * ships its own hui-form-editor handling (upstream issue filed).
+ */
+async function patchFormEditor(): Promise<void> {
+  await customElements.whenDefined('hui-form-editor');
+
+  const FormEditorClass = customElements.get('hui-form-editor');
+  if (!FormEditorClass) return;
+
+  const proto = FormEditorClass.prototype as HTMLElement & {
+    _cmsFormPatched?: boolean;
+    assertConfig?: (config: unknown) => void;
+    setConfig?: (config: Record<string, unknown>) => void;
+  };
+  if (proto._cmsFormPatched || typeof proto.setConfig !== 'function') return;
+  proto._cmsFormPatched = true;
+
+  const originalSetConfig = proto.setConfig;
+  proto.setConfig = function (
+    this: typeof proto,
+    config: Record<string, unknown>,
+  ): void {
+    const originalAssert = this.assertConfig;
+    if (originalAssert && config && (config.uix || config.card_mod)) {
+      this.assertConfig = (c: unknown) => {
+        const copy = { ...(c as Record<string, unknown>) };
+        delete copy.uix;
+        delete copy.card_mod;
+        originalAssert.call(this, copy);
+      };
+    }
+    try {
+      originalSetConfig.call(this, config);
+    } finally {
+      if (originalAssert) this.assertConfig = originalAssert;
+    }
+  };
+
+  console.info('[Card-Mod Studio] hui-form-editor patched (uix:/card_mod: tolerated by visual editor).');
+}
+
 /**
  * Starts the injection process. Called once from card-mod-studio.ts.
  * Waits for HA to define hui-dialog-edit-card (lazy, happens when first
@@ -280,6 +340,12 @@ function injectIntoExistingDialogs(): void {
  */
 export async function startInjector(): Promise<void> {
   console.info('[Card-Mod Studio] Waiting for hui-dialog-edit-card...');
+
+  // Independent of the dialog patch: hui-form-editor is defined lazily when
+  // the first form-based card editor loads.
+  void patchFormEditor().catch((err) =>
+    console.error('[Card-Mod Studio] hui-form-editor patch failed:', err),
+  );
 
   await customElements.whenDefined(HA_DIALOG_ELEMENT);
 

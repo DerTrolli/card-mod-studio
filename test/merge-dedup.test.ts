@@ -15,7 +15,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { parseEntityRowCss, mergeEntityRowStyles } from '../src/parser/state-mapper.js';
 import { applyCardModStyle, pickOutputKey } from '../src/generator/yaml-generator.js';
-import { buildMergedStudioState, applyStudioState } from '../src/editor/studio-state.js';
+import { buildMergedStudioState, applyStudioState, initEntityRowStyles, applyEntityRowStyles } from '../src/editor/studio-state.js';
 import type { CardModCardConfig, EntitiesCardRow } from '../src/types/index.js';
 
 class FakeCustomElementRegistry {
@@ -217,5 +217,42 @@ describe('merge-and-clean on edit: entities-row level', () => {
     expect(result.uix?.style).toContain('color: blue');
     expect(result.uix?.style).toContain('--state-icon-color: red');
     expect(result.card_mod).toBeUndefined();
+  });
+});
+
+describe('bare-string entities rows (YAML shorthand)', () => {
+  const originalRegistry = globalThis.customElements;
+  beforeEach(() => installCardMod());
+  afterEach(() => {
+    (globalThis as { customElements: CustomElementRegistry }).customElements = originalRegistry;
+  });
+
+  it('initEntityRowStyles creates a style slot for a bare-string row', () => {
+    const config = {
+      type: 'entities',
+      entities: ['sensor.a', { entity: 'sensor.b', card_mod: { style: ':host { color: red; }' } }],
+    } as unknown as CardModCardConfig;
+    const styles = initEntityRowStyles(config);
+    expect(styles['sensor.a']).toEqual({ iconColor: '', textColor: '' });
+    expect(styles['sensor.b'].textColor).toBe('red');
+  });
+
+  it('applyEntityRowStyles promotes a styled bare-string row to object form and leaves unstyled ones as strings', () => {
+    const config = {
+      type: 'entities',
+      entities: ['sensor.a', 'sensor.b'],
+    } as unknown as CardModCardConfig;
+    const result = applyEntityRowStyles(config, {
+      'sensor.a': { iconColor: '', textColor: '', fontSizePx: 20, fontWeight: 'bold' },
+      'sensor.b': { iconColor: '', textColor: '' },
+    }) as unknown as { entities: Array<EntitiesCardRow | string> };
+
+    const rowA = result.entities[0] as EntitiesCardRow;
+    expect(typeof rowA).toBe('object');
+    expect(rowA.entity).toBe('sensor.a');
+    expect(rowA.card_mod?.style).toContain('font-size: 20px');
+    expect(rowA.card_mod?.style).toContain('font-weight: bold');
+    // Unstyled string row stays a plain string — no YAML churn.
+    expect(result.entities[1]).toBe('sensor.b');
   });
 });

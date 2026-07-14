@@ -588,6 +588,85 @@ describe('generateCss — font', () => {
     expect(generateCss(reparsed, 'tile')).toBe(css);
   });
 
+  it('light: emits #info/.brightness size companions (internal --name-font-size beats plain inheritance)', () => {
+    const css = generateCss(makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontSize: 22 },
+    }), 'light');
+    expect(css).toContain('#info {\n  font-size: 22px !important;\n}');
+    expect(css).toContain('.brightness {\n  font-size: 22px !important;\n}');
+  });
+
+  it('button: base font-size gets !important (adopted-sheet ordering beats an injected plain rule)', () => {
+    const css = generateCss(makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontSize: 22 },
+    }), 'button');
+    expect(css).toContain('font-size: 22px !important;');
+  });
+
+  it('sensor/entity: .name/.value/.measurement companions with the 1.75x value ratio', () => {
+    for (const type of ['sensor', 'entity']) {
+      const css = generateCss(makeState({
+        font: { ...DEFAULT_FONT, enabled: true, fontSize: 20, fontWeight: 'bold', color: '#ff0000' },
+      }), type);
+      expect(css, type).toContain('.name {\n  font-size: 20px !important;\n  font-weight: bold !important;\n  color: #ff0000 !important;\n}');
+      expect(css, type).toContain('.value {\n  font-size: calc(20px * 1.75) !important;\n}');
+      expect(css, type).toContain('.measurement {');
+    }
+  });
+
+  it('gauge: .title companion + --primary-text-color for the SVG value fill', () => {
+    const css = generateCss(makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontSize: 20, color: '#ff0000' },
+    }), 'gauge');
+    expect(css).toContain('.title {\n  font-size: 20px !important;');
+    expect(css).toContain('--primary-text-color: #ff0000;');
+  });
+
+  it('thermostat: .title companion + label variables', () => {
+    const css = generateCss(makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontSize: 20, fontWeight: 'medium' },
+    }), 'thermostat');
+    expect(css).toContain('.title {\n  font-size: 20px !important;');
+    expect(css).toContain('--ha-font-size-l: 20px;');
+    expect(css).toContain('--ha-font-weight-medium: 500;');
+  });
+
+  it('entities: header variables at 1.5x + .card-header weight rule', () => {
+    const css = generateCss(makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontSize: 20, fontWeight: 'bold', color: '#ff0000', fontFamily: 'serif' },
+    }), 'entities');
+    expect(css).toContain('--ha-card-header-font-size: calc(20px * 1.5);');
+    expect(css).toContain('--ha-card-header-color: #ff0000;');
+    expect(css).toContain('--ha-card-header-font-family: serif;');
+    expect(css).toContain('.card-header {\n  font-weight: bold;\n}');
+  });
+
+  it('per-card font companions round-trip cleanly for every special card type', () => {
+    for (const type of ['light', 'button', 'sensor', 'entity', 'gauge', 'thermostat', 'entities', 'glance', 'tile']) {
+      const state = makeState({
+        font: { ...DEFAULT_FONT, enabled: true, fontSize: 21, fontWeight: 'bold', color: '#123456', fontFamily: 'serif' },
+      });
+      const css = generateCss(state, type);
+      const reparsed = mapToStudioState(parseCardModConfig({ type, card_mod: { style: css } }));
+      expect(reparsed.font, type).toEqual(state.font);
+      expect(reparsed.advanced.rawCss, type).toBe('');
+      expect(generateCss(reparsed, type), type).toBe(css);
+    }
+  });
+
+  it('heading style: weight + family emitted on .title p and round-tripped', () => {
+    const state = makeState({
+      headingStyle: { ...DEFAULT_HEADING_STYLE, enabled: true, fontWeight: 'bold', fontFamily: 'monospace' },
+    });
+    const css = generateCss(state, 'heading');
+    expect(css).toContain('font-weight: bold;');
+    expect(css).toContain('font-family: monospace;');
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'heading', card_mod: { style: css } }));
+    expect(reparsed.headingStyle.fontWeight).toBe('bold');
+    expect(reparsed.headingStyle.fontFamily).toBe('monospace');
+    expect(reparsed.advanced.rawCss).toBe('');
+  });
+
   it('yields to Threshold\'s text-color property: no duplicate/conflicting `color` decl on ha-card', () => {
     const css = generateCss(makeState({
       font: { ...DEFAULT_FONT, enabled: true, fontSize: 18, color: '#ff0000' },
@@ -769,6 +848,29 @@ describe('generateCss — threshold', () => {
       [100, '#ff0000'],
     ]);
     expect(reparsed.advanced.rawCss).toBe('');
+  });
+
+  it('attribute-based threshold emits state_attr() and round-trips byte-stable', () => {
+    const state = makeState({
+      threshold: {
+        enabled: true,
+        entityId: 'climate.living_room',
+        attribute: 'current_temperature',
+        properties: ['icon-color'],
+        rules: [{ id: '0', operator: '>=', value: 25, color: '#ff0000' }],
+        defaultColor: '#888888',
+      },
+    });
+    const css = generateCss(state, 'thermostat');
+    expect(css).toContain("state_attr('climate.living_room', 'current_temperature') | float(0) >= 25");
+    expect(css).not.toContain("states('climate.living_room')");
+
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'thermostat', card_mod: { style: css } }));
+    expect(reparsed.threshold.enabled).toBe(true);
+    expect(reparsed.threshold.entityId).toBe('climate.living_room');
+    expect(reparsed.threshold.attribute).toBe('current_temperature');
+    expect(reparsed.advanced.rawCss).toBe('');
+    expect(generateCss(reparsed, 'thermostat')).toBe(css);
   });
 
   it('round-trips a multi-property threshold (icon + accent) back into one module state', () => {

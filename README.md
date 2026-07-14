@@ -166,7 +166,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.8.0-beta.1`
+   - URL: `/local/card-mod-studio.js?v=0.8.0-beta.2`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -300,6 +300,7 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 14 | Full-codebase correctness audit — gauge dial + needle color support (accent + threshold/fade), tile/tile-feature color fix, stale-color-override fix, row/@keyframes/`!important` data-loss fixes, pre-0.7.0 preset migration, negative thresholds, on/off-filtered entity pickers | ✅ v0.7.1 |
 | 15 | Stack child styling — per-child styling sections (full module set) for vertical-stack/horizontal-stack/grid, written into each child's own config | 🧪 v0.8.0-beta.1 (pre-release) |
 | 16 | Font module — text size, weight, family, and color for entities-card rows, markdown, tile, and most other cards (not just headings) | 🧪 v0.8.0-beta.1 (pre-release) |
+| 17 | Font module per-card fixes (light/button/sensor/gauge/thermostat/entities title + heading weight/family + per-row fonts), form-editor "Key 'uix' not expected" shim, Color Palette Manager, attribute-based thresholds, bare-string row styling | 🧪 v0.8.0-beta.2 (pre-release) |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

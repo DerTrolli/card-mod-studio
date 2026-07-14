@@ -5,6 +5,89 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0-beta.2] — 2026-07-14
+
+**Pre-release** — fixes everything reported in the beta.1 font-module test
+round, plus the two remaining features planned for the v0.8 cycle. Every
+per-card fix below was verified against a live Home Assistant render, not
+just source reading.
+
+### Fixed — Font module per card type
+
+The beta.1 Font module relied on plain CSS inheritance from `ha-card`, which
+many cards override internally. Each card type now gets the companion
+selectors/variables it actually needs:
+
+- **Light card** — font size now works: the name/state text (`#info`) and
+  brightness percentage carry their own explicit sizes that beat inherited
+  values; both now follow the chosen size.
+- **Button card** — size now works (the card's internal stylesheet pins
+  `font-size` at equal specificity and later in the cascade, so the module's
+  declaration needed `!important`). Weight/color already inherited fine.
+- **Sensor / entity card** — size, weight, and color now apply to the
+  **name and value**, not just the unit: `.name`, `.value`, and
+  `.measurement` all carry explicit styles internally and are now each
+  targeted. The big value scales proportionally at 1.75× the chosen size
+  (its default ratio), so "16px" doesn't shrink your reading to body-text
+  size.
+- **Gauge card** — size/weight/color now apply to the title, and color also
+  recolors the value text inside the gauge (it's SVG — needs `fill`, wired
+  via the variable it reads). *Known limit:* the value text's **size**
+  can't be changed — HA auto-scales the SVG so the number always fills the
+  same fraction of the dial, regardless of font size.
+- **Thermostat card** — size/weight/color now apply to the title, and the
+  mode label follows via the card's own scoped font variables. *Known
+  limit:* the big temperature number's **size** is hard-coded (57px) two
+  shadow roots deep with no variable or selector to reach it — weight and
+  color work, size doesn't.
+- **Entities card (and similar list cards)** — the **card title** now
+  follows the Font module too (via HA's `--ha-card-header-*` variables, at
+  1.5× the chosen size — the header's default ratio), on entities, glance,
+  history-graph, statistics-graph, calendar, todo-list, logbook, and
+  picture-glance cards.
+- **Heading card** — gained the missing options: font **weight** and
+  **family** joined size/color in the Heading Style module.
+
+### Fixed — everything else from the beta.1 report
+
+- **"Visual editor not supported" on entity cards with a `uix:` (or
+  `card_mod:`) block.** HA is migrating simple cards to a schema-driven
+  form editor (`getConfigForm()`), whose strict config validation neither
+  card-mod nor UIX patches — so opening e.g. an entity card styled under
+  `uix:` kicked the whole editor into YAML-only mode with "Key 'uix' is not
+  expected". The Studio now shims that form editor's validation to ignore
+  `card_mod:`/`uix:` keys (they're preserved untouched through edits), so
+  the visual editor keeps working. This is an engine-level gap, not a
+  Studio bug — reported upstream to UIX as well.
+- **Per-row font settings on entities cards** — each entity row in the
+  Entities section now has its own optional font size/weight override,
+  layered on top of the card-level Font module.
+- **Per-row styling for an entities card inside a stack** — a stack child
+  of type `entities` now shows the same per-entity rows section the
+  top-level editor has (icon color, text color, thresholds, per-row font),
+  instead of only card-wide controls.
+- **Plain-string entity rows couldn't be styled at all** (silently): the
+  common YAML shorthand `entities: [sensor.a, sensor.b]` produced rows the
+  per-row editor didn't recognise and the save path skipped. String rows
+  now appear in the rows section and are promoted to the equivalent
+  `- entity: sensor.a` object form the moment they gain styling (unstyled
+  rows stay plain strings — no YAML churn).
+
+### Added — the rest of the planned v0.8 cycle
+
+- **Color Palette Manager** — a "My Color Palette" section in the panel:
+  define named custom colors once and they appear as extra swatches in
+  every color picker (card-level and per-row, all modules); plus overrides
+  for the built-in default ON/OFF colors that a freshly-enabled Icon
+  Color/Accent Color module starts from. Stored per HA user (same
+  cross-device storage as presets), with localStorage fallback.
+- **Attribute-based thresholds** (roadmap #16) — Threshold Colors can now
+  read an entity **attribute** (e.g. `battery_level`,
+  `current_temperature`) instead of the state: a "Value read from" selector
+  lists the picked entity's numeric attributes. Works in both Step and Fade
+  modes, round-trips on reopen, and generates standard
+  `state_attr(...)`-based Jinja both engines render natively.
+
 ## [0.8.0-beta.1] — 2026-07-06
 
 **Pre-release** — the start of the v0.8 cycle.
@@ -554,6 +637,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.8.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0-beta.2
 [0.8.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0-beta.1
 [0.7.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.1
 [0.7.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0

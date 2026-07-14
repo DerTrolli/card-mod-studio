@@ -304,8 +304,10 @@ export class ThresholdModule extends LitElement {
           .placeholder=${this.cardEntity || 'sensor.temperature'}
           label="Entity these rules read from"
           @value-changed=${(e: CustomEvent<{ value: string }>) =>
-            this._emit({ entityId: e.detail.value.trim() })}
+            this._emit({ entityId: e.detail.value.trim(), attribute: '' })}
         ></cms-entity-picker>
+
+        ${this._renderAttributeSelect()}
 
         <div class="control-row">
           <span class="control-label">Apply to</span>
@@ -372,6 +374,46 @@ export class ThresholdModule extends LitElement {
         </div>
 
         ${this.state.valueMode === 'gradient' ? this._renderGradientBody() : this._renderSwitchBody()}
+      </div>
+    `;
+  }
+
+  /** Numeric attributes of the picked entity (rules compare via float(),
+   *  so string/list attributes would always read 0). The stored attribute
+   *  is always offered even when it's not currently numeric — an entity
+   *  that's unavailable right now shouldn't hide the active selection. */
+  private _numericAttributes(): string[] {
+    const entityId = this.state.entityId || this.cardEntity;
+    const attrs = this.hass?.states?.[entityId]?.attributes ?? {};
+    const names = Object.keys(attrs).filter((k) => {
+      const v = (attrs as Record<string, unknown>)[k];
+      return typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v)));
+    });
+    const current = this.state.attribute;
+    if (current && !names.includes(current)) names.unshift(current);
+    return names;
+  }
+
+  private _renderAttributeSelect() {
+    const options = this._numericAttributes();
+    if (options.length === 0 && !this.state.attribute) return nothing;
+    return html`
+      <div class="control-row" style="margin-top: 8px;">
+        <span class="control-label">Value read from</span>
+        <div class="control-right">
+          <select
+            style="width: auto; max-width: 180px;"
+            .value=${this.state.attribute ?? ''}
+            @change=${(e: Event) => this._emit({ attribute: (e.target as HTMLSelectElement).value })}
+          >
+            <option value="" ?selected=${!this.state.attribute}>State (default)</option>
+            ${options.map(
+              (name) => html`<option value=${name} ?selected=${this.state.attribute === name}>
+                Attribute: ${name}
+              </option>`,
+            )}
+          </select>
+        </div>
       </div>
     `;
   }

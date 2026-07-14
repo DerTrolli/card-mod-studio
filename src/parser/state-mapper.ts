@@ -33,7 +33,7 @@ import type {
   EntitiesRowStyle,
 } from '../types/index.js';
 import { parseCss, parseCssDetailed } from './css-parser.js';
-import { GRADIENT_MARKER_PROPERTY, decodeGradientStops } from '../generator/css-generator.js';
+import { GRADIENT_MARKER_PROPERTY, decodeGradientStops, headerFontSize, valueFontSize } from '../generator/css-generator.js';
 
 // ---------------------------------------------------------------------------
 // Default states
@@ -92,6 +92,8 @@ export const DEFAULT_HEADING_STYLE: HeadingStyleModuleState = {
   enabled: false,
   fontSize: 24,
   textColor: '#e1e1e1',
+  fontWeight: 'normal',
+  fontFamily: '',
   iconSize: 24,
   iconColor: '#e1e1e1',
   alignment: 'left',
@@ -108,6 +110,7 @@ export const DEFAULT_FONT: FontModuleState = {
 export const DEFAULT_THRESHOLD: ThresholdModuleState = {
   enabled: false,
   entityId: '',
+  attribute: '',
   properties: ['icon-color'],
   valueMode: 'switch',
   rules: [],
@@ -316,7 +319,7 @@ export function mapToStudioState(parsed: CardModStyleState): StudioState {
     animation: mapAnimation(haCard, claimed),
     border: mapBorder(haCard, claimed),
     headingStyle: mapHeadingStyle(titleP, titleIcon, container, claimed),
-    font: mapFont(haCard, claimed),
+    font: mapFont(parsed.targets, haCard, claimed),
     threshold: mapThreshold(haCard, haStateIcon, haGauge, claimed),
     advanced: mapAdvanced(parsed, claimed),
   };
@@ -762,6 +765,20 @@ function mapHeadingStyle(
       claimed.add(claimKey(titleP.selector, 'color'));
     }
 
+    const weightProp = findProp(titleP, 'font-weight');
+    if (weightProp && !weightProp.hasCondition && FONT_WEIGHT_FROM_VALUE[weightProp.value.trim()]) {
+      state.enabled = true;
+      state.fontWeight = FONT_WEIGHT_FROM_VALUE[weightProp.value.trim()];
+      claimed.add(claimKey(titleP.selector, 'font-weight'));
+    }
+
+    const familyProp = findProp(titleP, 'font-family');
+    if (familyProp && !familyProp.hasCondition && familyProp.value.trim()) {
+      state.enabled = true;
+      state.fontFamily = familyProp.value.trim();
+      claimed.add(claimKey(titleP.selector, 'font-family'));
+    }
+
     const textAlignProp = findProp(titleP, 'text-align');
     if (textAlignProp && !textAlignProp.hasCondition) {
       const a = TEXT_ALIGN_MAP[textAlignProp.value.trim()];
@@ -826,29 +843,71 @@ const FONT_WEIGHT_FROM_VALUE: Record<string, FontModuleState['fontWeight']> = {
 
 /** Claims the tile companion variables (see fontAuxDecls in css-generator.ts)
  *  matching the recognised size/weight/color — same pattern as claimAccentAux. */
-function claimFontAux(
+/**
+ * Claims every per-card-type companion the Font generator can emit (see
+ * fontCompanionDecls/fontCompanionBlocks in css-generator.ts) whose value
+ * matches the recognised size/weight/color/family — same pattern as
+ * claimAccentAux. The parser doesn't know the card type, so it checks all
+ * known companion shapes; only exact value matches are claimed, so a
+ * hand-written declaration with a different value stays in Advanced CSS.
+ */
+function claimFontCompanions(
+  targets: CssTarget[],
   haCard: CssTarget,
+  sizePx: number,
   size: string,
   weight: string,
   color: string | null,
+  family: string | null,
   claimed: Set<string>,
 ): void {
-  const sizeVars = ['--ha-tile-info-primary-font-size', '--ha-tile-info-secondary-font-size'];
-  const weightVars = ['--ha-tile-info-primary-font-weight', '--ha-tile-info-secondary-font-weight'];
-  for (const name of sizeVars) {
-    const prop = findProp(haCard, name);
-    if (prop && prop.value.trim() === size) claimed.add(claimKey(haCard.selector, name));
+  const claimIf = (target: CssTarget | null, property: string, expected: string | null) => {
+    if (!target || expected === null) return;
+    const prop = findProp(target, property);
+    if (prop && prop.value.trim() === expected) claimed.add(claimKey(target.selector, property));
+  };
+
+  // ha-card variable companions
+  for (const [name, expected] of [
+    ['--ha-tile-info-primary-font-size', size],
+    ['--ha-tile-info-secondary-font-size', size],
+    ['--ha-tile-info-primary-font-weight', weight],
+    ['--ha-tile-info-secondary-font-weight', weight],
+    ['--ha-tile-info-primary-color', color],
+    ['--ha-tile-info-secondary-color', color],
+    ['--primary-text-color', color],
+    ['--ha-font-size-l', size],
+    ['--ha-font-weight-medium', weight],
+    ['--ha-card-header-font-size', headerFontSize(sizePx)],
+    ['--ha-card-header-color', color],
+    ['--ha-card-header-font-family', family],
+  ] as Array<[string, string | null]>) {
+    claimIf(haCard, name, expected);
   }
-  for (const name of weightVars) {
-    const prop = findProp(haCard, name);
-    if (prop && prop.value.trim() === weight) claimed.add(claimKey(haCard.selector, name));
+
+  // Selector-block companions (light/sensor/entity/gauge/thermostat/entities)
+  const name = findTarget(targets, '.name');
+  claimIf(name, 'font-size', size);
+  claimIf(name, 'font-weight', weight);
+  claimIf(name, 'color', color);
+
+  const value = findTarget(targets, '.value');
+  claimIf(value, 'font-size', valueFontSize(sizePx));
+
+  const measurement = findTarget(targets, '.measurement');
+  claimIf(measurement, 'font-size', size);
+  claimIf(measurement, 'color', color);
+
+  for (const sel of ['#info', '.brightness']) {
+    claimIf(findTarget(targets, sel), 'font-size', size);
   }
-  if (color) {
-    for (const name of ['--ha-tile-info-primary-color', '--ha-tile-info-secondary-color']) {
-      const prop = findProp(haCard, name);
-      if (prop && prop.value.trim() === color) claimed.add(claimKey(haCard.selector, name));
-    }
-  }
+
+  const title = findTarget(targets, '.title');
+  claimIf(title, 'font-size', size);
+  claimIf(title, 'font-weight', weight);
+  claimIf(title, 'color', color);
+
+  claimIf(findTarget(targets, '.card-header'), 'font-weight', weight);
 }
 
 /**
@@ -859,7 +918,7 @@ function claimFontAux(
  * the color line) still round-trips size/weight rather than falling through
  * whole-cloth to Advanced CSS.
  */
-function mapFont(haCard: CssTarget | null, claimed: Set<string>): FontModuleState {
+function mapFont(targets: CssTarget[], haCard: CssTarget | null, claimed: Set<string>): FontModuleState {
   if (!haCard) return { ...DEFAULT_FONT };
 
   const fontSizeProp = findProp(haCard, 'font-size');
@@ -887,13 +946,15 @@ function mapFont(haCard: CssTarget | null, claimed: Set<string>): FontModuleStat
     claimed.add(claimKey(haCard.selector, 'color'));
   }
 
+  let familyStr: string | null = null;
   const familyProp = findProp(haCard, 'font-family');
   if (familyProp && !familyProp.hasCondition && familyProp.value.trim()) {
-    state.fontFamily = familyProp.value.trim();
+    familyStr = familyProp.value.trim();
+    state.fontFamily = familyStr;
     claimed.add(claimKey(haCard.selector, 'font-family'));
   }
 
-  claimFontAux(haCard, sizeStr, weightStr, colorStr, claimed);
+  claimFontCompanions(targets, haCard, state.fontSize, sizeStr, weightStr, colorStr, familyStr, claimed);
 
   return state;
 }
@@ -904,6 +965,8 @@ function mapFont(haCard: CssTarget | null, claimed: Set<string>): FontModuleStat
 
 export function parseThresholdJinja(value: string): {
   entityId: string;
+  /** Set when the rules read state_attr(entity, attribute) instead of the state. */
+  attribute?: string;
   rules: ThresholdRule[];
   defaultColor: string;
 } | null {
@@ -916,18 +979,22 @@ export function parseThresholdJinja(value: string): {
   // Threshold value accepts an optional leading minus — freezer/outdoor
   // temperatures are routinely negative, and without `-?` those rules were
   // silently deleted on reopen (matched-and-claimed but never re-parsed).
+  // The value source is either states('id') or state_attr('id', 'attr')
+  // (attribute-based thresholds, roadmap #16).
   const RULE_RE =
-    /'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|[a-zA-Z]+)'\s+if\s+states\('([^']+)'\)\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+(?:\.\d+)?)/g;
+    /'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|[a-zA-Z]+)'\s+if\s+(?:states\('([^']+)'\)|state_attr\('([^']+)',\s*'([^']+)'\))\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+(?:\.\d+)?)/g;
   const DEFAULT_RE = /else\s+'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|[a-zA-Z]+)'\s*[)}\s]/;
 
   const rules: ThresholdRule[] = [];
   let entityId = '';
+  let attribute: string | undefined;
   let idx = 0;
   let match: RegExpExecArray | null;
 
   while ((match = RULE_RE.exec(value)) !== null) {
-    const [, color, entity, operator, numStr] = match;
-    entityId = entity;
+    const [, color, stateEntity, attrEntity, attrName, operator, numStr] = match;
+    entityId = stateEntity ?? attrEntity;
+    if (attrName) attribute = attrName;
     rules.push({
       id: String(idx++),
       operator: operator as ThresholdRule['operator'],
@@ -941,7 +1008,7 @@ export function parseThresholdJinja(value: string): {
   const defaultMatch = DEFAULT_RE.exec(value);
   const defaultColor = defaultMatch ? defaultMatch[1] : DEFAULT_THRESHOLD.defaultColor;
 
-  return { entityId, rules, defaultColor };
+  return { entityId, attribute, rules, defaultColor };
 }
 
 /**
@@ -976,7 +1043,10 @@ export function parseEntityRowCss(css: string): EntitiesRowStyle {
   const iconVal = valueOf('--state-icon-color', '--paper-item-icon-color');
   if (iconVal.includes('float(0)')) {
     const parsed = parseThresholdJinja(iconVal);
-    if (parsed) {
+    // Rows have no attribute-threshold UI — an attribute-form expression
+    // would silently lose its state_attr() source on regeneration, so it
+    // falls through to the row's extraCss passthrough instead.
+    if (parsed && !parsed.attribute) {
       style.iconMode = 'threshold';
       style.iconRules = parsed.rules;
       style.iconDefault = parsed.defaultColor;
@@ -993,7 +1063,7 @@ export function parseEntityRowCss(css: string): EntitiesRowStyle {
   const textVal = valueOf('color');
   if (textVal.includes('float(0)')) {
     const parsed = parseThresholdJinja(textVal);
-    if (parsed) {
+    if (parsed && !parsed.attribute) {
       style.textMode = 'threshold';
       style.textRules = parsed.rules;
       style.textDefault = parsed.defaultColor;
@@ -1002,6 +1072,22 @@ export function parseEntityRowCss(css: string): EntitiesRowStyle {
     }
   } else {
     style.textColor = textVal;
+  }
+
+  // Per-row font (issue #25 follow-up)
+  const rowFontSize = valueOf('font-size');
+  const sizeM = rowFontSize.match(/^(\d+(?:\.\d+)?)px$/);
+  if (sizeM) {
+    style.fontSizePx = parseFloat(sizeM[1]);
+  } else if (rowFontSize) {
+    consumed.delete('font-size'); // unrecognised value — keep it in extraCss
+  }
+
+  const rowWeight = valueOf('font-weight');
+  if (rowWeight && FONT_WEIGHT_FROM_VALUE[rowWeight]) {
+    style.fontWeight = FONT_WEIGHT_FROM_VALUE[rowWeight];
+  } else if (rowWeight) {
+    consumed.delete('font-weight');
   }
 
   // Everything the recogniser didn't consume — extra declarations on the
@@ -1050,6 +1136,12 @@ export function mergeEntityRowStyles(primary: EntitiesRowStyle, secondary: Entit
     textMode: textSet ? primary.textMode : secondary.textMode,
     textRules: textSet ? primary.textRules : secondary.textRules,
     textDefault: textSet ? primary.textDefault : secondary.textDefault,
+    ...(primary.fontSizePx ?? secondary.fontSizePx
+      ? { fontSizePx: primary.fontSizePx ?? secondary.fontSizePx }
+      : {}),
+    ...(primary.fontWeight ?? secondary.fontWeight
+      ? { fontWeight: primary.fontWeight ?? secondary.fontWeight }
+      : {}),
     // Same whole-or-nothing choice as mergeStudioStates' rawCss: unstructured
     // CSS can't be merged declaration-by-declaration safely.
     ...(primary.extraCss || secondary.extraCss
@@ -1060,10 +1152,11 @@ export function mergeEntityRowStyles(primary: EntitiesRowStyle, secondary: Entit
 
 /** True when two parsed threshold blocks are the same rule set (ignoring rule `id`s, which are re-minted per parse). */
 function sameThreshold(
-  a: { entityId: string; rules: ThresholdRule[]; defaultColor: string },
-  b: { entityId: string; rules: ThresholdRule[]; defaultColor: string },
+  a: { entityId: string; attribute?: string; rules: ThresholdRule[]; defaultColor: string },
+  b: { entityId: string; attribute?: string; rules: ThresholdRule[]; defaultColor: string },
 ): boolean {
   if (a.entityId !== b.entityId || a.defaultColor !== b.defaultColor) return false;
+  if ((a.attribute ?? '') !== (b.attribute ?? '')) return false;
   if (a.rules.length !== b.rules.length) return false;
   return a.rules.every(
     (r, i) => r.operator === b.rules[i].operator && r.value === b.rules[i].value && r.color === b.rules[i].color,
@@ -1119,7 +1212,7 @@ function mapThreshold(
   // `properties`. A candidate with genuinely different rules (a real
   // conflict, not the same setting duplicated) is left unclaimed and falls
   // through to Advanced CSS rather than being silently merged or dropped.
-  let base: { entityId: string; rules: ThresholdRule[]; defaultColor: string } | null = null;
+  let base: { entityId: string; attribute?: string; rules: ThresholdRule[]; defaultColor: string } | null = null;
   const properties: ThresholdProperty[] = [];
   let borderWidth: number | undefined;
   let gradientStops: ColorStop[] | null = null;
@@ -1168,6 +1261,7 @@ function mapThreshold(
   return {
     enabled: true,
     entityId: base.entityId,
+    attribute: base.attribute ?? '',
     properties,
     valueMode: gradientStops ? 'gradient' : 'switch',
     rules: gradientStops ? [] : base.rules,
