@@ -70,6 +70,7 @@ node preset_stale_state_check.mjs  # reused-panel + preset-load edge case that w
 node gauge_color_check.mjs  # gauge dial color: ha-gauge !important block applies (accent + threshold-gradient), old ha-card form documented broken
 node beta2_fixes_check.mjs  # v0.7.1-beta.2: needle-gauge needle color, tile inline --tile-color beaten by !important (+ feature rows), picker domain filters, layout banner copy
 node stack_child_check.mjs  # v0.8.0: per-child styling sections on a vertical-stack — emit into cards[i], sibling untouched, real stack render, reopen restores
+node font_module_check.mjs  # v0.8.0: Font module — plain-inheritance on entities-card rows, ha-tile-info's own --ha-tile-info-* vars on tile cards (bare ha-card form negative-controlled to genuinely fail), module gating, reopen round-trip
 node scan.mjs            # which card types mount cleanly standalone
 ```
 

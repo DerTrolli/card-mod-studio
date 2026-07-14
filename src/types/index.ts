@@ -190,6 +190,15 @@ export interface HeadingStyleModuleState {
   alignment: 'left' | 'center' | 'right';
 }
 
+export interface FontModuleState {
+  enabled: boolean;
+  fontSize: number;        // px, 10-48
+  /** '' = leave the theme's font-family alone. */
+  fontFamily: string;
+  fontWeight: 'normal' | 'medium' | 'bold';
+  color: string;
+}
+
 export interface ThresholdRule {
   id: string;
   operator: '<' | '<=' | '>' | '>=' | '==' | '!=';
@@ -276,6 +285,7 @@ export interface StudioState {
   animation: AnimationModuleState;
   border: BorderModuleState;
   headingStyle: HeadingStyleModuleState;
+  font: FontModuleState;
   threshold: ThresholdModuleState;
   advanced: AdvancedModuleState;
 }

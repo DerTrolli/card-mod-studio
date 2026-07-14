@@ -612,6 +612,34 @@ describe('mapToStudioState', () => {
     expect(state.advanced.rawCss).toContain('opacity: 0.5 !important;');
   });
 
+  it('recognises a hand-authored font-size alone (partial CSS) without requiring weight/color/family', () => {
+    const css = 'ha-card { font-size: 18px; }';
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.font.enabled).toBe(true);
+    expect(state.font.fontSize).toBe(18);
+    expect(state.font.fontWeight).toBe('normal'); // default, not claimed
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('does not recognise Font from font-weight/color alone (no font-size present)', () => {
+    const css = 'ha-card { color: #ff0000; font-weight: bold; }';
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.font.enabled).toBe(false);
+    // Falls through to Advanced CSS rather than being silently dropped.
+    expect(state.advanced.rawCss).toContain('color: #ff0000');
+    expect(state.advanced.rawCss).toContain('font-weight: bold');
+  });
+
+  it('ignores a conditional (Jinja) font-size — that is Threshold/Advanced territory, not the plain Font module', () => {
+    const css = "ha-card { font-size: {{ '20px' if is_state(config.entity, 'on') else '14px' }}; }";
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.font.enabled).toBe(false);
+    expect(state.advanced.rawCss).toContain('font-size');
+  });
+
   it('parses negative threshold rule values (regression: freezer/outdoor temps were deleted on reopen)', () => {
     const css =
       "ha-state-icon {\n  color: {{ '#ff0000' if states('sensor.freezer') | float(0) >= -5 else ('#2196f3' if states('sensor.freezer') | float(0) >= -25 else '#888888') }} !important;\n}";

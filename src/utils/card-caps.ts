@@ -65,6 +65,17 @@ export const NO_ICON_COLOR_TYPES = new Set([
   'glance',
 ]);
 
+// Font module (issue #25): sets font-size/weight/color/family on ha-card,
+// which cascades via plain CSS inheritance into most cards' text (verified
+// against HA frontend source for hui-entities-card's row component,
+// hui-markdown-card, hui-glance-card — none override font-size). heading is
+// excluded because it already has a dedicated, more capable Heading Style
+// control over the same `.title p`/`.title ha-icon` text. iframe/webpage/map
+// render no HA-templated text at all for card-mod to reach.
+export const NO_FONT_TYPES = new Set([
+  'heading', 'iframe', 'webpage', 'map',
+]);
+
 /** Domains whose entities carry a binary on/off state usable in an
  *  is_state(x, 'on'/'off') condition even when the state string itself
  *  isn't literally on/off right now. */

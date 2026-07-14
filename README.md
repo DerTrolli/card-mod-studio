@@ -299,6 +299,7 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 13 | Threshold Colors "Fade" (gradient) mode — smooth value→color interpolation as an alternative to discrete step rules | ✅ v0.7.0 |
 | 14 | Full-codebase correctness audit — gauge dial + needle color support (accent + threshold/fade), tile/tile-feature color fix, stale-color-override fix, row/@keyframes/`!important` data-loss fixes, pre-0.7.0 preset migration, negative thresholds, on/off-filtered entity pickers | ✅ v0.7.1 |
 | 15 | Stack child styling — per-child styling sections (full module set) for vertical-stack/horizontal-stack/grid, written into each child's own config | 🧪 v0.8.0-beta.1 (pre-release) |
+| 16 | Font module — text size, weight, family, and color for entities-card rows, markdown, tile, and most other cards (not just headings) | 🧪 v0.8.0-beta.1 (pre-release) |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

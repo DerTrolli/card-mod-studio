@@ -35,6 +35,7 @@ import type {
   ThresholdModuleState,
   AdvancedModuleState,
   HeadingStyleModuleState,
+  FontModuleState,
 } from '../types/index.js';
 import { buildMergedStudioState, applyStudioState } from './studio-state.js';
 import {
@@ -43,6 +44,7 @@ import {
   NO_BACKGROUND_TYPES,
   NO_BORDER_TYPES,
   NO_ICON_COLOR_TYPES,
+  NO_FONT_TYPES,
   isStateAware,
 } from '../utils/card-caps.js';
 import { moduleStyles } from '../modules/module-base.js';
@@ -56,6 +58,7 @@ import '../modules/module-border.js';
 import '../modules/module-threshold.js';
 import '../modules/module-advanced.js';
 import '../modules/module-heading-style.js';
+import '../modules/module-font.js';
 
 export class CmsChildCardSection extends LitElement {
   @property({ attribute: false }) childConfig?: CardModCardConfig;
@@ -202,6 +205,13 @@ export class CmsChildCardSection extends LitElement {
               @state-changed=${(e: CustomEvent<HeadingStyleModuleState>) =>
                 this._emitChanged({ headingStyle: e.detail })}
             ></cms-heading-style-module>`
+          : nothing}
+
+        ${!NO_FONT_TYPES.has(cardType)
+          ? html`<cms-font-module
+              .state=${s.font}
+              @state-changed=${(e: CustomEvent<FontModuleState>) => this._emitChanged({ font: e.detail })}
+            ></cms-font-module>`
           : nothing}
 
         <cms-filter-module

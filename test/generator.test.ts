@@ -22,6 +22,7 @@ import {
   DEFAULT_ANIMATION,
   DEFAULT_BORDER,
   DEFAULT_HEADING_STYLE,
+  DEFAULT_FONT,
   DEFAULT_THRESHOLD,
   mapToStudioState,
 } from '../src/parser/state-mapper.js';
@@ -41,6 +42,7 @@ function makeState(overrides: Partial<StudioState> = {}): StudioState {
     animation: { ...DEFAULT_ANIMATION },
     border: { ...DEFAULT_BORDER },
     headingStyle: { ...DEFAULT_HEADING_STYLE },
+    font: { ...DEFAULT_FONT },
     threshold: { ...DEFAULT_THRESHOLD },
     advanced: { rawCss: '' },
     ...overrides,
@@ -504,6 +506,106 @@ describe('generateCss — heading style', () => {
       }),
     );
     expect(css).toContain('justify-content: flex-start !important;');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateCss — font module (issue #25)
+// ---------------------------------------------------------------------------
+
+describe('generateCss — font', () => {
+  it('emits nothing when disabled', () => {
+    expect(generateCss(makeState({ font: { ...DEFAULT_FONT, enabled: false } }))).toBe('');
+  });
+
+  it('emits font-size, font-weight, and color on ha-card; omits font-family when unset', () => {
+    const css = generateCss(makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontSize: 20, fontWeight: 'bold', color: '#ff0000' },
+    }));
+    expect(css).toMatch(/ha-card\s*\{/);
+    expect(css).toContain('font-size: 20px;');
+    expect(css).toContain('font-weight: bold;');
+    expect(css).toContain('color: #ff0000;');
+    expect(css).not.toContain('font-family');
+  });
+
+  it('maps weight "medium" to numeric 500', () => {
+    const css = generateCss(makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontWeight: 'medium' },
+    }));
+    expect(css).toContain('font-weight: 500;');
+  });
+
+  it('emits font-family only when set', () => {
+    const css = generateCss(makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontFamily: 'monospace' },
+    }));
+    expect(css).toContain('font-family: monospace;');
+  });
+
+  it('tile cards: also emits the --ha-tile-info-* companion variables (ha-tile-info reads its own vars, not plain font-size/weight/color)', () => {
+    const css = generateCss(
+      makeState({ font: { ...DEFAULT_FONT, enabled: true, fontSize: 22, fontWeight: 'bold', color: '#00ff00' } }),
+      'tile',
+    );
+    expect(css).toContain('--ha-tile-info-primary-font-size: 22px;');
+    expect(css).toContain('--ha-tile-info-secondary-font-size: 22px;');
+    expect(css).toContain('--ha-tile-info-primary-font-weight: bold;');
+    expect(css).toContain('--ha-tile-info-secondary-font-weight: bold;');
+    expect(css).toContain('--ha-tile-info-primary-color: #00ff00;');
+    expect(css).toContain('--ha-tile-info-secondary-color: #00ff00;');
+  });
+
+  it('non-tile cards do not emit the tile companion variables', () => {
+    const css = generateCss(
+      makeState({ font: { ...DEFAULT_FONT, enabled: true } }),
+      'entities',
+    );
+    expect(css).not.toContain('--ha-tile-info');
+  });
+
+  it('round-trips size/weight/family/color through parse (plain card)', () => {
+    const state = makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontSize: 22, fontWeight: 'bold', fontFamily: 'serif', color: '#123456' },
+    });
+    const css = generateCss(state, 'entities');
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'entities', card_mod: { style: css } }));
+    expect(reparsed.font).toEqual(state.font);
+    expect(reparsed.advanced.rawCss).toBe('');
+  });
+
+  it('round-trips cleanly on a tile card, including the companion variables (no leak into Advanced CSS)', () => {
+    const state = makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontSize: 22, fontWeight: 'medium', color: '#123456' },
+    });
+    const css = generateCss(state, 'tile');
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'tile', card_mod: { style: css } }));
+    expect(reparsed.font.enabled).toBe(true);
+    expect(reparsed.font.fontSize).toBe(22);
+    expect(reparsed.font.fontWeight).toBe('medium');
+    expect(reparsed.font.color).toBe('#123456');
+    expect(reparsed.advanced.rawCss).toBe('');
+    expect(generateCss(reparsed, 'tile')).toBe(css);
+  });
+
+  it('yields to Threshold\'s text-color property: no duplicate/conflicting `color` decl on ha-card', () => {
+    const css = generateCss(makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontSize: 18, color: '#ff0000' },
+      threshold: {
+        enabled: true,
+        entityId: 'sensor.temp',
+        properties: ['text-color'],
+        rules: [{ id: '0', operator: '>=', value: 30, color: '#00ff00' }],
+        defaultColor: '#888888',
+      },
+    }));
+    // Font's size/weight still apply...
+    expect(css).toContain('font-size: 18px;');
+    // ...but only ONE `color:` declaration exists on ha-card, and it's threshold's.
+    const haCardBlocks = css.match(/ha-card\s*\{[^}]*\}/g) ?? [];
+    const colorDecls = haCardBlocks.join('\n').match(/^\s*color:/gm) ?? [];
+    expect(colorDecls).toHaveLength(1);
+    expect(css).toContain("states('sensor.temp')");
   });
 });
 

@@ -14,6 +14,7 @@ import type {
   ThresholdModuleState,
   AdvancedModuleState,
   HeadingStyleModuleState,
+  FontModuleState,
   EntitiesCardRow,
   EntitiesRowStyle,
   EntitiesRowStyles,
@@ -27,6 +28,7 @@ import {
   NO_BACKGROUND_TYPES,
   NO_BORDER_TYPES,
   NO_ICON_COLOR_TYPES,
+  NO_FONT_TYPES,
   isStateAware,
 } from '../utils/card-caps.js';
 import { buildMergedStudioState } from './studio-state.js';
@@ -46,6 +48,7 @@ import '../modules/module-border.js';
 import '../modules/module-threshold.js';
 import '../modules/module-advanced.js';
 import '../modules/module-heading-style.js';
+import '../modules/module-font.js';
 import '../modules/module-entities-rows.js';
 
 declare const __APP_VERSION__: string;
@@ -344,6 +347,10 @@ export class CmsPanel extends LitElement {
     return this.config?.type === 'heading';
   }
 
+  private get _showFont(): boolean {
+    return !NO_FONT_TYPES.has(this.config?.type ?? '');
+  }
+
   private get _isLightCard(): boolean {
     return this.config?.type === 'light';
   }
@@ -401,6 +408,12 @@ export class CmsPanel extends LitElement {
   private _onHeadingStyleChanged(e: CustomEvent<HeadingStyleModuleState>) {
     if (!this._studioState) return;
     this._studioState = { ...this._studioState, headingStyle: e.detail };
+    this._emitConfigChanged();
+  }
+
+  private _onFontChanged(e: CustomEvent<FontModuleState>) {
+    if (!this._studioState) return;
+    this._studioState = { ...this._studioState, font: e.detail };
     this._emitConfigChanged();
   }
 
@@ -846,6 +859,7 @@ export class CmsPanel extends LitElement {
     const showBackground = this._showBackground;
     const showBorder = this._showBorder;
     const showHeadingStyle = this._showHeadingStyle;
+    const showFont = this._showFont;
     const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
 
     return html`
@@ -860,6 +874,13 @@ export class CmsPanel extends LitElement {
             .state=${s.headingStyle}
             @state-changed=${this._onHeadingStyleChanged}
           ></cms-heading-style-module>`
+        : nothing}
+
+      ${showFont
+        ? html`<cms-font-module
+            .state=${s.font}
+            @state-changed=${this._onFontChanged}
+          ></cms-font-module>`
         : nothing}
 
       <cms-filter-module

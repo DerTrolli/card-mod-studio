@@ -22,6 +22,7 @@ import type {
   BackgroundModuleState,
   BorderModuleState,
   HeadingStyleModuleState,
+  FontModuleState,
   AnimationModuleState,
   ThresholdModuleState,
   ThresholdRule,
@@ -96,6 +97,14 @@ export const DEFAULT_HEADING_STYLE: HeadingStyleModuleState = {
   alignment: 'left',
 };
 
+export const DEFAULT_FONT: FontModuleState = {
+  enabled: false,
+  fontSize: 16,
+  fontFamily: '',
+  fontWeight: 'normal',
+  color: '#e1e1e1',
+};
+
 export const DEFAULT_THRESHOLD: ThresholdModuleState = {
   enabled: false,
   entityId: '',
@@ -149,6 +158,7 @@ export function migrateStudioState(raw: unknown): StudioState {
     animation: { ...DEFAULT_ANIMATION, ...(r.animation ?? {}) } as AnimationModuleState,
     border: { ...DEFAULT_BORDER, ...(r.border ?? {}) } as BorderModuleState,
     headingStyle: { ...DEFAULT_HEADING_STYLE, ...(r.headingStyle ?? {}) } as HeadingStyleModuleState,
+    font: { ...DEFAULT_FONT, ...(r.font ?? {}) } as FontModuleState,
     threshold,
     advanced: { rawCss: typeof r.advanced?.rawCss === 'string' ? (r.advanced.rawCss as string) : '' },
   };
@@ -306,6 +316,7 @@ export function mapToStudioState(parsed: CardModStyleState): StudioState {
     animation: mapAnimation(haCard, claimed),
     border: mapBorder(haCard, claimed),
     headingStyle: mapHeadingStyle(titleP, titleIcon, container, claimed),
+    font: mapFont(haCard, claimed),
     threshold: mapThreshold(haCard, haStateIcon, haGauge, claimed),
     advanced: mapAdvanced(parsed, claimed),
   };
@@ -337,6 +348,7 @@ export function mergeStudioStates(primary: StudioState, secondary: StudioState):
     animation: primary.animation.enabled ? primary.animation : secondary.animation,
     border: primary.border.enabled ? primary.border : secondary.border,
     headingStyle: primary.headingStyle.enabled ? primary.headingStyle : secondary.headingStyle,
+    font: primary.font.enabled ? primary.font : secondary.font,
     threshold: primary.threshold.enabled ? primary.threshold : secondary.threshold,
     advanced: { rawCss: mergeRawCss(primary.advanced.rawCss, secondary.advanced.rawCss) },
   };
@@ -798,6 +810,90 @@ function mapHeadingStyle(
       }
     }
   }
+
+  return state;
+}
+
+// ---------------------------------------------------------------------------
+// Font module
+// ---------------------------------------------------------------------------
+
+const FONT_WEIGHT_FROM_VALUE: Record<string, FontModuleState['fontWeight']> = {
+  normal: 'normal',
+  '500': 'medium',
+  bold: 'bold',
+};
+
+/** Claims the tile companion variables (see fontAuxDecls in css-generator.ts)
+ *  matching the recognised size/weight/color — same pattern as claimAccentAux. */
+function claimFontAux(
+  haCard: CssTarget,
+  size: string,
+  weight: string,
+  color: string | null,
+  claimed: Set<string>,
+): void {
+  const sizeVars = ['--ha-tile-info-primary-font-size', '--ha-tile-info-secondary-font-size'];
+  const weightVars = ['--ha-tile-info-primary-font-weight', '--ha-tile-info-secondary-font-weight'];
+  for (const name of sizeVars) {
+    const prop = findProp(haCard, name);
+    if (prop && prop.value.trim() === size) claimed.add(claimKey(haCard.selector, name));
+  }
+  for (const name of weightVars) {
+    const prop = findProp(haCard, name);
+    if (prop && prop.value.trim() === weight) claimed.add(claimKey(haCard.selector, name));
+  }
+  if (color) {
+    for (const name of ['--ha-tile-info-primary-color', '--ha-tile-info-secondary-color']) {
+      const prop = findProp(haCard, name);
+      if (prop && prop.value.trim() === color) claimed.add(claimKey(haCard.selector, name));
+    }
+  }
+}
+
+/**
+ * Recognises a plain (non-conditional) font-size/font-weight/color/font-family
+ * on ha-card — everything the Font module generates. font-size anchors
+ * "is this module enabled at all"; weight/color/family are each recognised
+ * independently so a hand-edited partial version (e.g. someone deleted just
+ * the color line) still round-trips size/weight rather than falling through
+ * whole-cloth to Advanced CSS.
+ */
+function mapFont(haCard: CssTarget | null, claimed: Set<string>): FontModuleState {
+  if (!haCard) return { ...DEFAULT_FONT };
+
+  const fontSizeProp = findProp(haCard, 'font-size');
+  if (!fontSizeProp || fontSizeProp.hasCondition) return { ...DEFAULT_FONT };
+  const sizeMatch = fontSizeProp.value.trim().match(/^(\d+(?:\.\d+)?)px$/);
+  if (!sizeMatch) return { ...DEFAULT_FONT };
+
+  const state: FontModuleState = { ...DEFAULT_FONT, enabled: true, fontSize: parseFloat(sizeMatch[1]) };
+  claimed.add(claimKey(haCard.selector, 'font-size'));
+  const sizeStr = fontSizeProp.value.trim();
+
+  let weightStr = 'normal';
+  const weightProp = findProp(haCard, 'font-weight');
+  if (weightProp && !weightProp.hasCondition && FONT_WEIGHT_FROM_VALUE[weightProp.value.trim()]) {
+    weightStr = weightProp.value.trim();
+    state.fontWeight = FONT_WEIGHT_FROM_VALUE[weightStr];
+    claimed.add(claimKey(haCard.selector, 'font-weight'));
+  }
+
+  let colorStr: string | null = null;
+  const colorProp = findProp(haCard, 'color');
+  if (colorProp && !colorProp.hasCondition && colorProp.value.trim()) {
+    colorStr = colorProp.value.trim();
+    state.color = colorStr;
+    claimed.add(claimKey(haCard.selector, 'color'));
+  }
+
+  const familyProp = findProp(haCard, 'font-family');
+  if (familyProp && !familyProp.hasCondition && familyProp.value.trim()) {
+    state.fontFamily = familyProp.value.trim();
+    claimed.add(claimKey(haCard.selector, 'font-family'));
+  }
+
+  claimFontAux(haCard, sizeStr, weightStr, colorStr, claimed);
 
   return state;
 }

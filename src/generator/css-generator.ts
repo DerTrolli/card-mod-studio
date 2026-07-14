@@ -13,6 +13,7 @@ import type {
   AnimationModuleState,
   BorderModuleState,
   HeadingStyleModuleState,
+  FontModuleState,
   ThresholdModuleState,
   ThresholdRule,
   ThresholdProperty,
@@ -303,6 +304,69 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
   return [container, titleP, titleIcon].join('\n\n');
 }
 
+const FONT_WEIGHT_VALUE: Record<FontModuleState['fontWeight'], string> = {
+  normal: 'normal',
+  medium: '500',
+  bold: 'bold',
+};
+
+/**
+ * hui-tile-card's name/state text (<ha-tile-info>) does NOT read the plain
+ * `font-size`/`font-weight`/`color` properties it inherits — its internal
+ * `.primary`/`.secondary` rules resolve their own
+ * `--ha-tile-info-{primary,secondary}-{font-size,font-weight,color}`
+ * variables instead (falling back to theme defaults), so a bare `ha-card`
+ * declaration is silently ignored there — the same class of gap as the
+ * accent-color/gauge-color fix. Both primary and secondary lines are driven
+ * to the same size/weight/color: a single "text size" control matching one
+ * mental model ("make the text bigger") beats two independently-tunable
+ * lines for a first version. font-family isn't in this list because
+ * ha-tile-info's internal rules never touch it — it inherits normally.
+ */
+function fontAuxDecls(cardType: string | undefined, size: string, weight: string, color: string | null): string[] {
+  if (cardType !== 'tile') return [];
+  const decls = [
+    `--ha-tile-info-primary-font-size: ${size};`,
+    `--ha-tile-info-secondary-font-size: ${size};`,
+    `--ha-tile-info-primary-font-weight: ${weight};`,
+    `--ha-tile-info-secondary-font-weight: ${weight};`,
+  ];
+  if (color) {
+    decls.push(`--ha-tile-info-primary-color: ${color};`, `--ha-tile-info-secondary-color: ${color};`);
+  }
+  return decls;
+}
+
+/**
+ * Every other stock card (entities rows, markdown, glance, sensor, ...)
+ * has no internal font-size/color override on its text — font-size,
+ * font-family, and color are all genuinely-inherited CSS properties, so a
+ * plain `ha-card` declaration reaches them with no shadow-piercing needed.
+ * Verified against HA frontend source for hui-entities-card's row component
+ * (state-info.ts) and hui-markdown-card/hui-glance-card — none declare
+ * font-size on their text. Heading cards are excluded (own dedicated
+ * control, headingStyleBlocks above); container cards never reach here
+ * (generateCss's caller skips the whole module list for them).
+ */
+/**
+ * @param skipColor  Omit the `color`/tile-color-companion declarations —
+ *   used when Threshold already owns the 'text-color' property for this
+ *   card, so the two modules don't emit conflicting `color` declarations
+ *   into the same ha-card block (size/weight/family still apply either way).
+ */
+function fontBlock(s: FontModuleState, cardType?: string, skipColor = false): string {
+  if (!s.enabled) return '';
+
+  const size = `${s.fontSize}px`;
+  const weight = FONT_WEIGHT_VALUE[s.fontWeight];
+  const decls = [`font-size: ${size};`, `font-weight: ${weight};`];
+  if (!skipColor) decls.push(`color: ${s.color};`);
+  if (s.fontFamily.trim()) decls.push(`font-family: ${s.fontFamily.trim()};`);
+  decls.push(...fontAuxDecls(cardType, size, weight, skipColor ? null : s.color));
+
+  return `ha-card {\n${decls.map((d) => `  ${d}`).join('\n')}\n}`;
+}
+
 function iconColorBlock(s: IconColorModuleState): string {
   if (!s.enabled) return '';
 
@@ -585,6 +649,9 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
 
   const headingStyle = headingStyleBlocks(state.headingStyle);
   if (headingStyle) parts.push(headingStyle);
+
+  const font = fontBlock(state.font, cardType, thresholdProps.has('text-color'));
+  if (font) parts.push(font);
 
   if (state.advanced.rawCss.trim()) {
     parts.push(state.advanced.rawCss.trim());

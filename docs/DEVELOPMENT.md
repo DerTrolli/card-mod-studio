@@ -451,3 +451,41 @@ a variable per render:
 
 When any card's color "mysteriously doesn't apply," check the element's
 `style` attribute for the variable before suspecting the generated CSS.
+
+### A related but distinct trap: a component reading its OWN CSS variable instead of the plain property — no `!important` needed, just the right variable name
+
+The gauge/tile cases above are about *inline styles* winning the cascade.
+`hui-tile-card`'s name/state text (`<ha-tile-info>`) has a different,
+easier-to-miss problem: its internal `.primary`/`.secondary` rules don't
+read the plain `font-size`/`font-weight`/`color` properties they'd normally
+inherit — they read their own custom properties instead:
+
+```css
+.primary {
+  font-size: var(--tile-info-primary-font-size);
+  /* --tile-info-primary-font-size falls back to
+     var(--ha-tile-info-primary-font-size, var(--ha-font-size-m)) */
+  ...
+}
+```
+
+So a bare `ha-card { font-size: 22px; }` is silently ignored there — not
+because anything overrides it with higher specificity (no `!important`
+fight, no inline style), but because the component never looks at
+`font-size` at all once its own named variable resolves. The fix is just
+setting the variable it actually reads: `--ha-tile-info-primary-font-size`
+(+ `-secondary-` for the second line, `-font-weight` similarly, `-color`
+falls back to `--primary-text-color` rather than inherited `color`).
+`font-family` is *not* affected — `.primary`/`.secondary` never declare it,
+so it inherits normally, same as everywhere else.
+
+This is why "does setting X on ha-card actually work" can't be answered
+from source reading alone even when there's no inline-style culprit to spot
+— you have to check what CSS custom property (if any) the target's own
+rule resolves, which only shows up by reading the component's own
+`static styles`. Verified live in
+`tools/sandbox/harness/font_module_check.mjs`, which pins the bare
+`font-size` form on a tile as *expected-to-fail* alongside the working
+companion-variable form, and confirms plain inheritance (no special
+handling needed) on cards without such an override — entities-card rows,
+markdown, glance — by checking their real rendered `getComputedStyle`.

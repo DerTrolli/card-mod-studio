@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-06 · **Current version:** v0.7.1 (stable) · v0.8.0-beta.1 (pre-release, HACS beta opt-in)
+**Last updated:** 2026-07-14 · **Current version:** v0.7.0 (stable) · v0.7.1-beta.2 (pre-release, HACS beta opt-in) — v0.7.1 final and v0.8.0-beta.1 are code-complete and merged to this branch but not yet published as releases
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -23,7 +23,7 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | Version | Theme | Contents |
 |---|---|---|
 | v0.7 ✅ | Entity binding foundation | **Shipped** — see below. Searchable entity picker everywhere; Icon Color/Background/Filter can target a different entity than the card's own; Threshold rules can drive multiple properties at once. |
-| v0.8 | Structure + color system | **Stack child styling shipped in 0.8.0-beta.1** — per-child styling sections (full module set) for vertical-stack/horizontal-stack/grid, written into each child's own config (user-proposed approach: treat `cards:[]` like `entities:[]` rows — no embedded-editor hooking needed). Still planned this cycle: the Color Palette Manager — add/rename/delete custom presets, override built-in defaults (e.g. what "off" defaults to) — stored via the existing cross-device preset storage. Plus attribute-based thresholds (item #16 below). |
+| v0.8 | Structure + color system | **Shipped in 0.8.0-beta.1**: stack child styling (per-child styling sections for vertical-stack/horizontal-stack/grid, written into each child's own config) + a Font module (size/weight/family/color, closing [#25](https://github.com/dertrolli/card-mod-studio/issues/25)). Still planned this cycle: the Color Palette Manager — add/rename/delete custom presets, override built-in defaults (e.g. what "off" defaults to) — stored via the existing cross-device preset storage. Plus attribute-based thresholds (item #16 below). |
 | v0.9 | Depth | Property-level templating beyond color (border width, icon size, blur/opacity driven by entity state — natural extension of v0.7's entity binding). Plus dict-form/`$`-pierce round-trip safety (item #1 below), which unblocks nested-shadow-DOM targets (glance icon, Mushroom/Bubble). |
 | v1.0 | Structural completeness | The remaining container gaps (item #7 — `conditional` cards, containers nested in containers, per-row styling of nested entities cards) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
 | Post-1.0 | Stretch | Official Mushroom/Bubble selectors, a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
@@ -41,6 +41,18 @@ dashboard layouts. Rough shape (effort, not calendar time):
   extracted to `src/editor/studio-state.ts` and is now literally shared
   between top-level cards and stack children (the merge-dedup test suite
   exercises the real exported functions instead of a mirror).
+- **Font module** ([#25](https://github.com/dertrolli/card-mod-studio/issues/25))
+  — text size, weight, family, and color for cards other than headings
+  (entities-card rows, markdown, tile, sensor, glance, …). Most cards
+  needed nothing special — `font-size`/`color`/`font-family` are genuinely
+  inherited CSS properties that reach them from `ha-card` with no shadow
+  piercing. Tile cards were the exception, and a genuinely new instance of
+  the gauge/tile "component reads its own CSS variable" class of bug from
+  v0.7.1: `<ha-tile-info>` reads `--ha-tile-info-{primary,secondary}-*`
+  variables rather than the plain properties it'd normally inherit, so the
+  naive form silently did nothing there — caught by live-testing the naive
+  form as a negative control (see `docs/DEVELOPMENT.md`), not source
+  reading alone.
 
 ## Recently shipped (v0.7.1)
 

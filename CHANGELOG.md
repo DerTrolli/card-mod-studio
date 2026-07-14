@@ -26,6 +26,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Not covered yet (noted inline in the UI): containers nested inside
   containers, per-row styling of a nested entities card, and `conditional`
   cards (single `card:` instead of `cards:`).
+- **A new Font module** — text size, weight, family, and color, for any
+  card that wasn't already covered by the Heading Style module (closes
+  [#25](https://github.com/dertrolli/card-mod-studio/issues/25)). Most
+  cards (entities-card rows, markdown, glance, sensor, …) inherit
+  `font-size`/`font-family`/`color` from `ha-card` with no special handling
+  needed. Tile cards are the exception: `<ha-tile-info>` (the name/state
+  text) reads its own `--ha-tile-info-{primary,secondary}-{font-size,
+  font-weight,color}` variables rather than the plain properties it would
+  normally inherit, so a bare declaration silently did nothing there —
+  confirmed live (the naive form really does render unchanged), fixed by
+  setting those variables directly alongside the plain ones. Hidden on
+  heading cards (the existing Heading Style module already covers the same
+  `.title p`/`.title ha-icon` text, in more depth) and on iframe/webpage/map
+  (no HA-templated text to reach). Available in stack child sections too.
 
 ### Changed
 - The container-level Border module (which had no visual effect — stacks
