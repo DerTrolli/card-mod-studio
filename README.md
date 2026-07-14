@@ -36,7 +36,9 @@ If you switch back from UIX to card-mod-only, card-mod never reads `uix:` at all
 
 Set a static color for the card's icon or accent, choose separate colors for when the entity is **on** vs **off**, or — for light entities — let the icon automatically reflect the light's actual `rgb_color` attribute.
 
-The Accent Color override targets the correct CSS variable per card type: `--tile-color` for tile cards, `--gauge-color` for gauges, and `--state-icon-color` for everything else.
+The on/off condition doesn't have to come from the card's own entity: a **"Controlled by"** picker lets any toggleable entity drive the colors — e.g. a button card's icon reflecting a separate status sensor.
+
+The Accent Color override targets the correct CSS variable per card type: `--tile-color` for tile cards, `--gauge-color` for gauges (including needle mode), and `--state-icon-color` for everything else.
 
 ![Icon and accent color controls](images/03%20Accent%20and%20Icon%20Color.png)
 
@@ -56,6 +58,14 @@ Each rule has three parts:
 - **Color** — the color to apply when the rule matches
 
 You can add as many rules as you need, plus a **default color** that applies when no rule matches. At runtime, card-mod/UIX evaluates the rules as a Jinja2 ternary chain against the live sensor state.
+
+Beyond the basics:
+- **Any entity** — the rules can read a different entity than the card's own.
+- **Any numeric attribute** — a "Value read from" selector switches the source from the entity's state to one of its numeric attributes (e.g. `battery_level`, `current_temperature`).
+- **One rule set, several properties** — tick multiple target properties and they all follow the same rules (e.g. icon *and* accent color changing together).
+- **Fade mode** — instead of discrete steps, define value→color points and the color blends smoothly between them, clamped at the ends. Your actual points are restored when you reopen the editor.
+
+![Threshold Colors in Fade mode](images/07%20Threshold%20Fade.png)
 
 **Target properties:**
 | Property | What it colors |
@@ -94,9 +104,17 @@ Each animation can run **always** or only trigger when the entity is **on** or *
 
 Round the card corners with a configurable **corner radius**, and optionally add a colored **border** with adjustable width. Works well combined with Threshold Colors targeting border color.
 
+### Font
+
+Text size, weight, family (including a custom free-text family), and color for almost any card — closing the gap for cards that aren't headings. Where a card overrides fonts internally, the module emits the card-specific companion selectors/variables needed so the setting actually lands: the light card's name/brightness text, the button card's label, the sensor/entity card's name *and* value (the value scales proportionally), the gauge and thermostat titles, tile-card text, and the card **title** of list-style cards (entities, glance, calendar, …).
+
+Two documented per-card limits (HA hard-codes these out of reach): the gauge's value number and the thermostat's big temperature number can't change **size** — weight and color still work there.
+
+![Font module and the Color Palette Manager](images/09%20Font%20and%20Palette.png)
+
 ### Heading Style
 
-For `heading` type cards: control font size, text color, icon size, icon color, and text alignment — all from one module.
+For `heading` type cards: control text size, weight, font family (with the same Custom… option as the Font module), text color, icon size, icon color, and text alignment — all from one module.
 
 ### Advanced CSS
 
@@ -105,6 +123,20 @@ A raw CSS editor for anything the visual modules don't cover. Your CSS is append
 ### Style presets
 
 Save the full style configuration of any card as a **named preset** and restore it on any other card in one click. Presets are stored per-user in HA's backend (`frontend/get_user_data`) so they sync automatically across every device and browser logged in as the same HA user. localStorage is also written as an instant local fallback.
+
+### My Color Palette
+
+Define named custom colors once and they appear as extra swatches in **every** color picker — card-level modules, threshold rules, and per-row controls alike. You can also override the built-in default ON/OFF colors that a freshly-enabled Icon Color/Accent Color module (and every new threshold rule) starts from. Stored per HA user, same cross-device sync as presets.
+
+---
+
+## Styling the cards inside a stack
+
+Vertical-stack, horizontal-stack, and grid cards show **one styling section per child card**, each with the full module set for that child's card type — a gauge child gets the gauge treatment, a tile child the tile treatment, and an entities-card child even gets its per-row section. Changes are written into that child's own `card_mod:`/`uix:` block inside the stack config — exactly the YAML you'd get styling it standalone — and the live preview shows the whole stack update as you edit.
+
+![Per-child styling sections on a vertical stack](images/08%20Stack%20Children.png)
+
+Not covered yet: containers nested inside containers, and `conditional` cards.
 
 ---
 
@@ -117,8 +149,11 @@ For `type: entities` cards, Card-Mod Studio adds a dedicated section for each en
 Each row can be styled independently:
 - **Icon color** — static color, or threshold rules based on the row entity's numeric value
 - **Text color** — static color, or threshold rules
+- **Font** — a per-row text size/weight override, layered on top of the card-level Font module
 
 The threshold rules per row work identically to the card-level Threshold Colors module: define operators, values, and colors, set a default, and card-mod/UIX evaluates the Jinja2 at runtime against that specific entity's state.
+
+Both row forms work — `- entity: sensor.x` and the plain-string shorthand `- sensor.x` (a string row is converted to the object form only when it actually gains styling). The same rows section also appears for an entities card nested inside a stack.
 
 ![Per-entity modifications](images/06%20Entities%20Card%20Modifications.png)
 
@@ -128,12 +163,12 @@ The threshold rules per row work identically to the card-level Threshold Colors 
 
 The panel adapts to the card type so you never see irrelevant controls:
 
-- **Container cards** (`grid`, `vertical-stack`, `horizontal-stack`, `sections`, `conditional`) — shows a redirect banner explaining that styles should be applied to child cards individually
+- **Container cards** (`grid`, `vertical-stack`, `horizontal-stack`) — per-child styling sections (see above); other containers (`sections`, `conditional`) show an explanatory banner
 - **Heading cards** — replaces icon/accent controls with the Heading Style module
 - **Light cards** — Icon Color gains an automatic mode that mirrors the light's actual color
 - **Entities cards** — hides card-level Icon Color, Accent Color, and Threshold modules (use per-row styling instead)
 - **Data-viz / media cards** — hides Animation and Icon Color where they have no effect
-- **Picture / iframe cards** — hides Background module
+- **Picture / iframe cards** — hides Background and Font modules
 
 ---
 
@@ -166,7 +201,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.8.0-beta.1`
+   - URL: `/local/card-mod-studio.js?v=0.8.0`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -298,8 +333,10 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 12 | Searchable entity picker everywhere + cross-entity control for Icon Color/Accent Color/Background/Filter (style one entity off a *different* entity's state) + multi-property threshold rules | ✅ v0.7.0 |
 | 13 | Threshold Colors "Fade" (gradient) mode — smooth value→color interpolation as an alternative to discrete step rules | ✅ v0.7.0 |
 | 14 | Full-codebase correctness audit — gauge dial + needle color support (accent + threshold/fade), tile/tile-feature color fix, stale-color-override fix, row/@keyframes/`!important` data-loss fixes, pre-0.7.0 preset migration, negative thresholds, on/off-filtered entity pickers | ✅ v0.7.1 |
-| 15 | Stack child styling — per-child styling sections (full module set) for vertical-stack/horizontal-stack/grid, written into each child's own config | 🧪 v0.8.0-beta.1 (pre-release) |
-| 16 | Font module — text size, weight, family, and color for entities-card rows, markdown, tile, and most other cards (not just headings) | 🧪 v0.8.0-beta.1 (pre-release) |
+| 15 | Stack child styling — per-child styling sections (full module set) for vertical-stack/horizontal-stack/grid, written into each child's own config | ✅ v0.8.0 |
+| 16 | Font module — text size, weight, family, and color for most cards (not just headings), with per-card companion selectors for light/button/sensor/gauge/thermostat/list-card titles + per-row fonts | ✅ v0.8.0 |
+| 17 | Color Palette Manager (custom colors in every picker + ON/OFF default overrides) + attribute-based thresholds + form-editor "Key 'uix' not expected" shim + bare-string row styling | ✅ v0.8.0 |
+| 18 | UX consistency pass — identical controls/labels/behavior for the same concept everywhere (Heading ↔ Font parity, row-font sliders, unified threshold builders, one styled-dot) | ✅ v0.8.0 |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

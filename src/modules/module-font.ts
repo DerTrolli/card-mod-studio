@@ -6,8 +6,10 @@ import { moduleStyles } from './module-base.js';
 import '../components/cms-color-picker.js';
 
 /** Preset font-family values shown in the dropdown. '' = leave the theme's
- *  own font-family alone (the common case — most people only want size/color). */
-const FONT_FAMILY_PRESETS: Array<{ value: string; label: string }> = [
+ *  own font-family alone (the common case — most people only want size/color).
+ *  Shared with the Heading Style module so both font-family selects offer
+ *  the identical list (+ the same Custom… free-text escape hatch). */
+export const FONT_FAMILY_PRESETS: Array<{ value: string; label: string }> = [
   { value: '', label: 'Theme default' },
   { value: 'sans-serif', label: 'Sans-serif' },
   { value: 'serif', label: 'Serif' },

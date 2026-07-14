@@ -185,6 +185,11 @@ export interface HeadingStyleModuleState {
   enabled: boolean;
   fontSize: number;        // px, 12–48
   textColor: string;       // CSS color for ha-card .title p
+  /** Weight of the heading text (issue #25 follow-up: headings previously
+   *  had size+color only). */
+  fontWeight: 'normal' | 'medium' | 'bold';
+  /** '' = leave the theme's font-family alone. */
+  fontFamily: string;
   iconSize: number;        // px for --mdc-icon-size on ha-card .title ha-icon
   iconColor: string;       // CSS color for ha-card .title ha-icon
   alignment: 'left' | 'center' | 'right';
@@ -223,6 +228,9 @@ export interface ColorStop {
 export interface ThresholdModuleState {
   enabled: boolean;
   entityId: string;
+  /** Entity attribute the rules read (via state_attr) instead of the state
+   *  value; '' / undefined = the state itself. */
+  attribute?: string;
   /**
    * Every property these rules drive, all sharing the same entity/rules/
    * default color — e.g. icon AND accent color changing together off one
@@ -258,6 +266,10 @@ export interface EntitiesRowStyle {
   textMode?: 'static' | 'threshold';
   textRules?: ThresholdRule[];
   textDefault?: string;
+  /** Per-row font size in px; undefined = inherit the card's font. */
+  fontSizePx?: number;
+  /** Per-row font weight; undefined = inherit. */
+  fontWeight?: 'normal' | 'medium' | 'bold';
   /** Row CSS the recogniser didn't consume (extra declarations, extra
    *  selectors, @-blocks) — the row-level Advanced-CSS passthrough. There's
    *  no UI for it; it rides along invisibly so an unrelated panel edit

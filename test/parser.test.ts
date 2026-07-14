@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseCss } from '../src/parser/css-parser.js';
 import { parseCardModConfig } from '../src/parser/yaml-parser.js';
-import { mapToStudioState, parseEntityRowCss } from '../src/parser/state-mapper.js';
+import { mapToStudioState, parseEntityRowCss, parseThresholdJinja } from '../src/parser/state-mapper.js';
 import type { CardModCardConfig } from '../src/types/index.js';
 
 // =============================================================================
@@ -737,11 +737,23 @@ describe('mapToStudioState', () => {
   });
 
   it('leaves unrecognised heading properties in advanced rawCss', () => {
-    const css = `.title p {\n  font-size: 24px;\n  color: #e1e1e1;\n  text-align: left;\n  font-weight: bold;\n}`;
+    // (font-weight moved out of this test when it became a recognised
+    // Heading Style field in 0.8.0 — text-shadow has no module.)
+    const css = `.title p {\n  font-size: 24px;\n  color: #e1e1e1;\n  text-align: left;\n  text-shadow: 1px 1px #000000;\n}`;
     const parsed = parseCardModConfig({ type: 'heading', card_mod: { style: css } });
     const state = mapToStudioState(parsed);
     expect(state.headingStyle.enabled).toBe(true);
-    expect(state.advanced.rawCss).toContain('font-weight');
+    expect(state.advanced.rawCss).toContain('text-shadow');
+  });
+
+  it('recognises heading font-weight and font-family as Heading Style fields (issue #25 follow-up)', () => {
+    const css = `.title p {\n  font-size: 24px;\n  color: #e1e1e1;\n  font-weight: 500;\n  font-family: monospace;\n}`;
+    const parsed = parseCardModConfig({ type: 'heading', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.headingStyle.enabled).toBe(true);
+    expect(state.headingStyle.fontWeight).toBe('medium');
+    expect(state.headingStyle.fontFamily).toBe('monospace');
+    expect(state.advanced.rawCss).toBe('');
   });
 
   it('recognises sensor card pattern: --accent-color + plain icon color', () => {
@@ -784,16 +796,31 @@ describe('parseEntityRowCss', () => {
   it('preserves unrecognised row declarations in extraCss instead of losing them', () => {
     // Regression: any unrelated panel edit rewrote every row from recognised
     // state only, deleting hand-authored declarations like this one.
-    const style = parseEntityRowCss(':host {\n  --state-icon-color: #ff0000;\n  font-weight: bold;\n}');
+    // (font-weight moved out of this test when it became a recognised
+    // per-row field in 0.8.0 — text-decoration has no row control.)
+    const style = parseEntityRowCss(':host {\n  --state-icon-color: #ff0000;\n  text-decoration: underline;\n}');
     expect(style.iconColor).toBe('#ff0000');
-    expect(style.extraCss).toContain('font-weight: bold');
+    expect(style.extraCss).toContain('text-decoration: underline');
   });
 
   it('preserves a fully-unrecognised row style in extraCss', () => {
-    const style = parseEntityRowCss(':host { font-weight: bold !important; }');
+    const style = parseEntityRowCss(':host { text-decoration: underline !important; }');
     expect(style.iconColor).toBe('');
     expect(style.textColor).toBe('');
-    expect(style.extraCss).toContain('font-weight: bold !important');
+    expect(style.extraCss).toContain('text-decoration: underline !important');
+  });
+
+  it('recognises per-row font-size and font-weight (issue #25 follow-up)', () => {
+    const style = parseEntityRowCss(':host {\n  font-size: 18px;\n  font-weight: bold;\n}');
+    expect(style.fontSizePx).toBe(18);
+    expect(style.fontWeight).toBe('bold');
+    expect(style.extraCss).toBeUndefined();
+  });
+
+  it('keeps an unrecognised row font-size value (em/var) in extraCss instead of dropping it', () => {
+    const style = parseEntityRowCss(':host { font-size: 1.2em; }');
+    expect(style.fontSizePx).toBeUndefined();
+    expect(style.extraCss).toContain('font-size: 1.2em');
   });
 
   it('preserves extra selectors beyond the first in extraCss', () => {
@@ -840,6 +867,25 @@ describe('parseEntityRowCss', () => {
     expect(style.iconRules?.[0]).toMatchObject({ operator: '>=', value: 85, color: 'var(--red-color)' });
     // Before the fix this fell back to the hardcoded '#888888' default.
     expect(style.iconDefault).toBe('var(--grey-color)');
+  });
+
+  it('parseThresholdJinja recognises the state_attr() attribute form', () => {
+    const parsed = parseThresholdJinja(
+      "{{ '#ff0000' if state_attr('climate.x', 'current_temperature') | float(0) >= 25 else '#888888' }}",
+    );
+    expect(parsed).not.toBeNull();
+    expect(parsed?.entityId).toBe('climate.x');
+    expect(parsed?.attribute).toBe('current_temperature');
+    expect(parsed?.rules[0]).toMatchObject({ operator: '>=', value: 25, color: '#ff0000' });
+    expect(parsed?.defaultColor).toBe('#888888');
+  });
+
+  it('an attribute-form row threshold falls to extraCss (rows have no attribute UI to round-trip it)', () => {
+    const css =
+      ":host { --state-icon-color: {{ '#ff0000' if state_attr('climate.x', 'current_temperature') | float(0) >= 25 else '#888888' }}; }";
+    const style = parseEntityRowCss(css);
+    expect(style.iconMode).not.toBe('threshold');
+    expect(style.extraCss).toContain('state_attr');
   });
 
   it('parses a multi-rule text-color threshold independently of icon color', () => {

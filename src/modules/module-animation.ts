@@ -128,13 +128,7 @@ export class AnimationModule extends LitElement {
         })}
 
         ${this.state.preset === 'gradient-shift'
-          ? html`
-              <p
-                style="margin:0;font-size:11px;color:var(--secondary-text-color,#9e9e9e);"
-              >
-                ⚠️ Gradient Shift requires a gradient background to be set.
-              </p>
-            `
+          ? html`<div class="when-hint">⚠️ Gradient Shift requires a gradient background to be set.</div>`
           : nothing}
       </div>
     `;

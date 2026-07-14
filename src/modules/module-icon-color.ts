@@ -160,11 +160,7 @@ export class IconColorModule extends LitElement {
                   ></cms-color-picker>
                 </div>
               </div>
-              <div class="control-row">
-                <span class="control-label" style="font-size:11px;color:var(--secondary-text-color,#9e9e9e)">
-                  When ON: uses the light's actual color automatically
-                </span>
-              </div>
+              <div class="when-hint">When ON: uses the light's actual color automatically.</div>
             `
           : html`
               <div class="control-row">

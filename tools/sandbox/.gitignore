@@ -56,3 +56,4 @@ harness/uix-matrix.json
 # Python bytecode
 __pycache__/
 *.pyc
+harness/attr-palette-check.json

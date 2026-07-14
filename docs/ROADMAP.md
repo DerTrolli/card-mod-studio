@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-14 · **Current version:** v0.7.0 (stable) · v0.7.1-beta.2 (pre-release, HACS beta opt-in) — v0.7.1 final and v0.8.0-beta.1 are code-complete and merged to this branch but not yet published as releases
+**Last updated:** 2026-07-14 · **Current version:** v0.8.0 (code-complete on this branch, declared final — release pending; v0.8.0-beta.3 is the latest published pre-release)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -23,12 +23,62 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | Version | Theme | Contents |
 |---|---|---|
 | v0.7 ✅ | Entity binding foundation | **Shipped** — see below. Searchable entity picker everywhere; Icon Color/Background/Filter can target a different entity than the card's own; Threshold rules can drive multiple properties at once. |
-| v0.8 | Structure + color system | **Shipped in 0.8.0-beta.1**: stack child styling (per-child styling sections for vertical-stack/horizontal-stack/grid, written into each child's own config) + a Font module (size/weight/family/color, closing [#25](https://github.com/dertrolli/card-mod-studio/issues/25)). Still planned this cycle: the Color Palette Manager — add/rename/delete custom presets, override built-in defaults (e.g. what "off" defaults to) — stored via the existing cross-device preset storage. Plus attribute-based thresholds (item #16 below). |
+| v0.8 ✅ | Structure + color system | **Shipped** — stack child styling (per-child styling sections for vertical-stack/horizontal-stack/grid, written into each child's own config) + a Font module (size/weight/family/color, closing [#25](https://github.com/dertrolli/card-mod-studio/issues/25)) in beta.1; beta.2 added the per-card font companions the beta test demanded (light/button/sensor/gauge/thermostat/entities title/heading weight+family/per-row fonts), the form-editor `uix:` rejection shim, the Color Palette Manager (custom colors in every picker + ON/OFF default overrides, cross-device storage), and attribute-based thresholds (item #16 below — done). |
 | v0.9 | Depth | Property-level templating beyond color (border width, icon size, blur/opacity driven by entity state — natural extension of v0.7's entity binding). Plus dict-form/`$`-pierce round-trip safety (item #1 below), which unblocks nested-shadow-DOM targets (glance icon, Mushroom/Bubble). |
 | v1.0 | Structural completeness | The remaining container gaps (item #7 — `conditional` cards, containers nested in containers, per-row styling of nested entities cards) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
 | Post-1.0 | Stretch | Official Mushroom/Bubble selectors, a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
 
-## Recently shipped (v0.8.0-beta.1)
+## Recently shipped (v0.8.0)
+
+The v0.8 cycle consolidated (beta.1–beta.4). Stack child styling and the
+Font module (below, from beta.1), plus beta.2's per-card font companions
+(light/button/sensor/gauge/thermostat/list-card titles — with the gauge and
+thermostat value-number *size* documented as unreachable), the
+hui-form-editor `uix:` rejection shim, per-row fonts (incl. entities cards
+nested in stacks and bare-string rows), the Color Palette Manager,
+attribute-based thresholds, and beta.4's README overhaul with regenerated,
+annotated screenshots (`tools/sandbox/harness/readme_shots.mjs`).
+
+Beta.3's UX/consistency pass (no generator/parser changes): Heading Style
+mirrors the Font module (order, labels, and the Custom… font-family
+free-text option); per-row font uses the same slider controls; the row
+threshold builder uses the card builder's wording (its "top to bottom"
+label was simply wrong — rows auto-sort too); threshold border width is a
+slider like the Border module; Palette-Manager ON-defaults now seed every
+freshly-enabled control (row icon color, threshold rules, fade points) —
+not just the card-level modules; the "styled" indicator dot is one size and
+color everywhere; Advanced CSS opens via the standard chevron header. See
+`CHANGELOG.md` for the itemized list.
+
+### The beta.2 fix round in detail
+
+Beta.1's live font-module test round (project owner, real dashboard) showed
+the plain-inheritance approach fails on every card that overrides fonts
+internally. Beta.2 fixes all of it plus the rest of the planned v0.8 cycle:
+
+- **Per-card font companions** — light (`#info`/brightness), button
+  (`!important` vs the adopted-stylesheet cascade), sensor/entity
+  (`.name`/`.value` at 1.75×/`.measurement`), gauge + thermostat (`.title`,
+  value-text color via variables), entities-and-friends card **titles**
+  (`--ha-card-header-*`), heading weight/family. Two documented
+  unreachables: gauge value-text *size* (SVG auto-scale) and the
+  thermostat's big number *size* (hard-coded 57px, no hook).
+- **Form-editor shim** — HA's newer schema-driven card editors
+  (`getConfigForm()`) rejected any card carrying `uix:`/`card_mod:` into
+  YAML-only mode ("Key 'uix' is not expected"); neither engine patches that
+  path (upstream gap, reported to UIX). The injector now shims the form
+  editor's validation to ignore both keys.
+- **Per-row fonts + rows-in-stacks** — per-entity font size/weight
+  overrides; the per-entity rows section now also appears for an entities
+  card nested in a stack; bare-string rows (`entities: [sensor.a]`) are now
+  styleable at all (they were silently skipped — promoted to object form
+  only when styled).
+- **Color Palette Manager** — named custom colors as swatches in every
+  picker + ON/OFF default overrides, stored per HA user like presets.
+- **Attribute-based thresholds** (item #16 — done) — "Value read from"
+  selector per threshold; generates/round-trips `state_attr(...)` Jinja.
+
+### The beta.1 feature round in detail
 
 - **Stack child styling** — vertical-stack/horizontal-stack/grid cards show
   one styling section per child, each with the full module set for that

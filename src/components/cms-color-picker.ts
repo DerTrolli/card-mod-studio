@@ -1,5 +1,6 @@
-import { LitElement, html, css, render as litRender } from 'lit';
+import { LitElement, html, css, nothing, render as litRender } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { getCachedPalette, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
 
 /**
  * Walks up through shadow-root hosts *and* slot assignments — the
@@ -155,8 +156,19 @@ export class CmsColorPicker extends LitElement {
     }
   `;
 
+  private _paletteChangedHandler = () => {
+    this.requestUpdate();
+    if (this._popoverOpen) this._renderPortalContent();
+  };
+
+  override connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener(PALETTE_CHANGED_EVENT, this._paletteChangedHandler);
+  }
+
   override disconnectedCallback() {
     super.disconnectedCallback();
+    window.removeEventListener(PALETTE_CHANGED_EVENT, this._paletteChangedHandler);
     this._destroyPortal();
   }
 
@@ -184,6 +196,7 @@ export class CmsColorPicker extends LitElement {
   }
 
   private _renderPickerBody() {
+    const customColors = getCachedPalette().colors;
     return html`
       <div class="container">
         <div class="presets">
@@ -196,6 +209,18 @@ export class CmsColorPicker extends LitElement {
             ></div>
           `)}
         </div>
+        ${customColors.length > 0
+          ? html`<div class="presets" title="My colors">
+              ${customColors.map(c => html`
+                <div
+                  class="preset ${this.value === c.hex ? 'selected' : ''}"
+                  style="background: ${c.hex}"
+                  title="${c.name || c.hex}"
+                  @click=${() => this._selectCustom(c.hex)}
+                ></div>
+              `)}
+            </div>`
+          : nothing}
         <div class="custom">
           <input type="color" .value=${this._toHex(this.value)} @input=${this._onColorInput} />
           <input type="text" .value=${this.value} @change=${this._onTextChange} placeholder="Color or var(--name)" />
@@ -321,6 +346,15 @@ export class CmsColorPicker extends LitElement {
 
   private _selectPreset(preset: ColorPreset) {
     this.value = preset.variable;
+    this._emit();
+    if (this.compact) this._closePopover();
+  }
+
+  /** A palette-manager color — written as its plain hex value, which every
+   *  recognizer already round-trips (unlike inventing a CSS variable no
+   *  theme defines). */
+  private _selectCustom(hex: string) {
+    this.value = hex;
     this._emit();
     if (this.compact) this._closePopover();
   }

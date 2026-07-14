@@ -5,46 +5,97 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.0-beta.1] — 2026-07-06
+## [0.8.0] — 2026-07-14
 
-**Pre-release** — the start of the v0.8 cycle.
+The "structure + color system" release — the v0.8 roadmap cycle, developed
+and live-tested through four pre-releases (beta.1–beta.4, consolidated
+here). Every per-card behavior below was verified against a live Home
+Assistant render on both card-mod and UIX, not just source reading.
 
 ### Added
+
 - **Style the cards inside a stack — directly from the stack's editor.**
-  Vertical-stack, horizontal-stack, and grid cards now show one styling
-  section per child card instead of a dead-end banner. Each section carries
-  the full module set for that child's card type — a gauge child gets the
-  gauge treatment (dial/needle/Fade), a tile child the tile treatment,
-  thresholds, animations, everything — because each child runs through
-  exactly the same parse → modules → generate pipeline as a top-level card
-  (now shared code, not a copy: `src/editor/studio-state.ts`). Changes are
-  written into that child's own `card_mod:`/`uix:` block inside the stack
-  config — the same YAML you'd get styling it standalone, applied natively
-  by both engines — and the live preview shows the whole stack update as
-  you edit. A dot marks children that carry styling; reopening the editor
-  restores each child's settings.
-  Not covered yet (noted inline in the UI): containers nested inside
-  containers, per-row styling of a nested entities card, and `conditional`
-  cards (single `card:` instead of `cards:`).
-- **A new Font module** — text size, weight, family, and color, for any
-  card that wasn't already covered by the Heading Style module (closes
-  [#25](https://github.com/dertrolli/card-mod-studio/issues/25)). Most
-  cards (entities-card rows, markdown, glance, sensor, …) inherit
-  `font-size`/`font-family`/`color` from `ha-card` with no special handling
-  needed. Tile cards are the exception: `<ha-tile-info>` (the name/state
-  text) reads its own `--ha-tile-info-{primary,secondary}-{font-size,
-  font-weight,color}` variables rather than the plain properties it would
-  normally inherit, so a bare declaration silently did nothing there —
-  confirmed live (the naive form really does render unchanged), fixed by
-  setting those variables directly alongside the plain ones. Hidden on
-  heading cards (the existing Heading Style module already covers the same
-  `.title p`/`.title ha-icon` text, in more depth) and on iframe/webpage/map
-  (no HA-templated text to reach). Available in stack child sections too.
+  Vertical-stack, horizontal-stack, and grid cards show one styling section
+  per child card instead of a dead-end banner. Each section carries the
+  full module set for that child's card type — a gauge child gets the gauge
+  treatment (dial/needle/Fade), a tile child the tile treatment,
+  thresholds, animations, everything — running through exactly the same
+  parse → modules → generate pipeline as a top-level card (shared code:
+  `src/editor/studio-state.ts`). Changes are written into the child's own
+  `card_mod:`/`uix:` block inside the stack config, applied natively by
+  both engines; the live preview shows the whole stack update as you edit.
+  An entities-card child even gets the per-entity rows section. Not
+  covered yet: containers nested inside containers, `conditional` cards.
+- **A new Font module** — text size, weight, family (incl. custom
+  free-text), and color for any card not already covered by Heading Style
+  (closes [#25](https://github.com/dertrolli/card-mod-studio/issues/25)).
+  Cards that override fonts internally get the card-specific companion
+  selectors/variables they need: light name/brightness text, button label
+  (`!important` vs its adopted-stylesheet cascade), sensor/entity name +
+  value (value scales at its native 1.75× ratio) + unit, gauge and
+  thermostat titles, tile text (`--ha-tile-info-*` variables), and the
+  card **title** of list-style cards (entities, glance, calendar, … via
+  `--ha-card-header-*`). Two documented unreachables: the gauge value
+  number and the thermostat's big temperature number can't change *size*
+  (HA hard-codes them out of reach) — weight and color still work there.
+- **Color Palette Manager** — a "My Color Palette" section: define named
+  custom colors once and they appear as extra swatches in every color
+  picker (card-level and per-row); plus overrides for the default ON/OFF
+  colors every freshly-enabled control starts from (Icon/Accent Color,
+  row colors, new threshold rules and fade points). Stored per HA user
+  (same cross-device storage as presets), with localStorage fallback.
+- **Attribute-based thresholds** — Threshold Colors can read an entity
+  **attribute** (e.g. `battery_level`, `current_temperature`) instead of
+  the state: a "Value read from" selector lists the picked entity's
+  numeric attributes. Works in Step and Fade modes, round-trips on reopen,
+  and generates standard `state_attr(...)` Jinja both engines render.
+- **Per-row font settings on entities cards** — each entity row gets an
+  optional text size/weight override, layered on top of the card-level
+  Font module; heading cards gained the missing **weight** and **family**
+  options in Heading Style.
+
+### Fixed
+
+- **"Visual editor not supported" on cards with a `uix:`/`card_mod:`
+  block.** HA is migrating simple cards to schema-driven form editors
+  (`getConfigForm()`) whose strict validation neither card-mod nor UIX
+  patches — opening e.g. an entity card styled under `uix:` kicked the
+  editor into YAML-only mode with "Key 'uix' is not expected". The Studio
+  now shims that form editor's validation to ignore both keys (they're
+  preserved untouched through edits). Engine-level gap, reported upstream.
+- **Plain-string entity rows couldn't be styled at all** (silently): the
+  common YAML shorthand `entities: [sensor.a]` produced rows the per-row
+  editor didn't recognise and the save path skipped. String rows now
+  appear in the rows section and are promoted to `- entity: sensor.a`
+  object form the moment they gain styling (unstyled rows stay plain
+  strings — no YAML churn).
 
 ### Changed
+
+- **UX consistency pass across the whole panel** — the same concept now
+  uses the same control, labels, and behavior everywhere: Heading Style
+  mirrors the Font module (order, wording, Custom… family — a
+  hand-authored family now round-trips into the visible control); per-row
+  font uses the same slider controls; the row-level threshold builder
+  matches the card-level one (its "top to bottom" label was factually
+  wrong — rows auto-sort too); Threshold's border width is a slider like
+  the Border module; one "this is styled" indicator dot (size and color)
+  for stack children and entity rows; Advanced CSS opens via the standard
+  chevron header; unified hint styles, button metrics/labels, and round
+  color swatches; palette ON-defaults seed every fresh control, not just
+  card-level modules.
 - The container-level Border module (which had no visual effect — stacks
   paint no `ha-card` box of their own) is no longer offered; container
   Advanced CSS remains available.
+
+### Docs
+
+- **README overhauled**: all screenshots regenerated from v0.8.0 through a
+  real HA edit dialog, cropped per section and annotated with callout
+  arrows; new sections for the Font module, Color Palette Manager, stack
+  child styling, per-row fonts, and the expanded Threshold capabilities.
+  The screenshot set is reproducible via
+  `tools/sandbox/harness/readme_shots.mjs`.
 
 ## [0.7.1] — 2026-07-06
 
@@ -554,7 +605,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
-[0.8.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0-beta.1
+[0.8.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0
 [0.7.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.1
 [0.7.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0
 [0.6.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.2

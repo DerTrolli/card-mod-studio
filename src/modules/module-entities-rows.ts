@@ -2,10 +2,20 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, ThresholdRule } from '../types/index.js';
 import { moduleStyles } from './module-base.js';
+import { getCachedPalette } from '../utils/palette-storage.js';
 import '../components/cms-color-picker.js';
 
+/** The color a freshly-enabled row icon/color control starts from — the
+ *  Palette Manager's ON-default override when set, else the same built-in
+ *  the card-level Icon Color module uses. Keeps "what enabling something
+ *  starts with" consistent between card level and row level. */
+function defaultOnColor(): string {
+  return getCachedPalette().defaults.onColor ?? '#2196F3';
+}
+
 export class EntitiesRowsModule extends LitElement {
-  @property({ attribute: false }) rows: EntitiesCardRow[] = [];
+  /** May contain bare-string rows ('sensor.x') — the YAML shorthand form. */
+  @property({ attribute: false }) rows: Array<EntitiesCardRow | string> = [];
   @property({ attribute: false }) styles: EntitiesRowStyles = {};
 
   @state() private _openRows = new Set<string>();
@@ -51,8 +61,8 @@ export class EntitiesRowsModule extends LitElement {
         flex: 1;
       }
       .style-dot {
-        width: 7px;
-        height: 7px;
+        width: 8px;
+        height: 8px;
         border-radius: 50%;
         background: var(--accent-color, #2196f3);
         flex-shrink: 0;
@@ -123,18 +133,19 @@ export class EntitiesRowsModule extends LitElement {
         font-size: 11px;
         color: var(--secondary-text-color, #9e9e9e);
       }
+      /* Same metrics as the card-level Threshold module's .add-btn. */
       .add-rule-btn {
         margin-top: 4px;
-        padding: 5px 10px;
+        padding: 6px 12px;
         cursor: pointer;
-        background: rgba(33, 150, 243, 0.12);
+        background: rgba(33, 150, 243, 0.15);
         color: #2196f3;
         border: 1px solid rgba(33, 150, 243, 0.3);
         border-radius: 4px;
         font-size: 12px;
         width: 100%;
       }
-      .add-rule-btn:hover { background: rgba(33, 150, 243, 0.22); }
+      .add-rule-btn:hover { background: rgba(33, 150, 243, 0.25); }
       .rules-container {
         display: flex;
         flex-direction: column;
@@ -175,15 +186,18 @@ export class EntitiesRowsModule extends LitElement {
   // ---------------------------------------------------------------------------
 
   override render() {
-    const entityRows = this.rows.filter(
-      (r): r is EntitiesCardRow & { entity: string } => !!r.entity,
-    );
+    // Rows arrive in whatever form the YAML uses — the bare-string
+    // shorthand ('sensor.x') is normalized to object form here so it's
+    // just as styleable (see EntitiesRowLike in studio-state.ts).
+    const entityRows = this.rows
+      .map((r) => (typeof r === 'string' ? ({ entity: r } as EntitiesCardRow) : r))
+      .filter((r): r is EntitiesCardRow & { entity: string } => !!r.entity);
     if (!entityRows.length) return nothing;
 
     return html`
       <div class="module">
         <div class="module-header" style="cursor:default; pointer-events:none">
-          <span class="module-title">🏠 Entities</span>
+          <span class="module-title">🏠 Entity Rows</span>
         </div>
         <div class="module-body">
           ${entityRows.map((row) => this._renderRow(row))}
@@ -201,7 +215,10 @@ export class EntitiesRowsModule extends LitElement {
       rowStyle.iconColor ||
       rowStyle.iconMode === 'threshold' ||
       rowStyle.textColor ||
-      rowStyle.textMode === 'threshold'
+      rowStyle.textMode === 'threshold' ||
+      rowStyle.fontSizePx ||
+      rowStyle.fontWeight ||
+      rowStyle.extraCss
     );
 
     return html`
@@ -247,7 +264,7 @@ export class EntitiesRowsModule extends LitElement {
               @change=${(e: Event) => {
                 const on = (e.target as HTMLInputElement).checked;
                 this._updateRow(entityId, on
-                  ? { iconColor: '#2196F3', iconMode: 'static' }
+                  ? { iconColor: defaultOnColor(), iconMode: 'static' }
                   : { iconColor: '', iconMode: undefined, iconRules: undefined, iconDefault: undefined });
               }}
             ></ha-switch>
@@ -302,6 +319,60 @@ export class EntitiesRowsModule extends LitElement {
           ? this._renderRuleBuilder(entityId, 'text', rowStyle.textRules ?? [], rowStyle.textDefault ?? '#888888')
           : nothing}
 
+        <hr class="divider" />
+
+        <!-- Per-row font (size + weight; inherits the card-level Font when off) -->
+        <div class="control-row">
+          <span class="control-label">Font (this row)</span>
+          <div class="control-right">
+            <ha-switch
+              .checked=${!!(rowStyle.fontSizePx || rowStyle.fontWeight)}
+              @change=${(e: Event) => {
+                const on = (e.target as HTMLInputElement).checked;
+                this._updateRow(entityId, on
+                  ? { fontSizePx: 16, fontWeight: 'normal' }
+                  : { fontSizePx: undefined, fontWeight: undefined });
+              }}
+            ></ha-switch>
+          </div>
+        </div>
+        ${rowStyle.fontSizePx || rowStyle.fontWeight
+          ? html`
+              <div class="control-row">
+                <span class="control-label">Text size</span>
+                <div class="control-right">
+                  <ha-slider
+                    min="8"
+                    max="48"
+                    step="1"
+                    .value=${String(rowStyle.fontSizePx ?? 16)}
+                    @change=${(e: Event) =>
+                      this._updateRow(entityId, {
+                        fontSizePx: Math.max(8, parseFloat((e.target as HTMLInputElement).value) || 16),
+                      })}
+                  ></ha-slider>
+                  <span class="value-label">${rowStyle.fontSizePx ?? 16}px</span>
+                </div>
+              </div>
+              <div class="control-row">
+                <span class="control-label">Weight</span>
+                <div class="control-right">
+                  <select
+                    .value=${rowStyle.fontWeight ?? 'normal'}
+                    @change=${(e: Event) =>
+                      this._updateRow(entityId, {
+                        fontWeight: (e.target as HTMLSelectElement).value as EntitiesRowStyle['fontWeight'],
+                      })}
+                  >
+                    <option value="normal" ?selected=${(rowStyle.fontWeight ?? 'normal') === 'normal'}>Normal</option>
+                    <option value="medium" ?selected=${rowStyle.fontWeight === 'medium'}>Medium</option>
+                    <option value="bold" ?selected=${rowStyle.fontWeight === 'bold'}>Bold</option>
+                  </select>
+                </div>
+              </div>
+            `
+          : nothing}
+
       </div>
     `;
   }
@@ -318,10 +389,10 @@ export class EntitiesRowsModule extends LitElement {
   ) {
     return html`
       <div class="rules-container">
-        <span class="rule-label">Rules (top to bottom):</span>
+        <span class="rule-label">Rules — order doesn't matter, they're sorted automatically:</span>
         ${rules.map((rule, i) => html`
           <div class="rule">
-            <span class="rule-label">If</span>
+            <span class="rule-label">If value</span>
             <select
               .value=${rule.operator}
               @change=${(e: Event) => this._updateRule(entityId, prop, i, {
@@ -363,7 +434,7 @@ export class EntitiesRowsModule extends LitElement {
                 this._updateRow(entityId, { [key]: e.detail.value });
               }}
             ></cms-color-picker>
-            <span class="rule-label">${defaultColor}</span>
+            <span class="color-label">${defaultColor}</span>
           </div>
         </div>
       </div>
@@ -375,7 +446,7 @@ export class EntitiesRowsModule extends LitElement {
     if (prop === 'icon') {
       this._updateRow(entityId, {
         iconMode: mode,
-        iconColor: mode === 'static' ? (current.iconColor || '#2196F3') : '',
+        iconColor: mode === 'static' ? (current.iconColor || defaultOnColor()) : '',
         iconRules: mode === 'threshold' ? (current.iconRules ?? []) : undefined,
         iconDefault: mode === 'threshold' ? (current.iconDefault ?? '#888888') : undefined,
       });
@@ -397,7 +468,7 @@ export class EntitiesRowsModule extends LitElement {
       id: `rule-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       operator: '<',
       value: 0,
-      color: '#2196F3',
+      color: defaultOnColor(),
     });
     this._updateRow(entityId, { [key]: rules });
   }

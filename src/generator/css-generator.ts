@@ -285,6 +285,8 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
   const titlePDecls = [
     `font-size: ${s.fontSize}px;`,
     `color: ${s.textColor} !important;`,
+    `font-weight: ${FONT_WEIGHT_VALUE[s.fontWeight ?? 'normal']};`,
+    ...(s.fontFamily?.trim() ? [`font-family: ${s.fontFamily.trim()};`] : []),
   ];
   const titleP = `.title p {\n${titlePDecls.map((d) => `  ${d}`).join('\n')}\n}`;
 
@@ -304,52 +306,165 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
   return [container, titleP, titleIcon].join('\n\n');
 }
 
-const FONT_WEIGHT_VALUE: Record<FontModuleState['fontWeight'], string> = {
+/** CSS value per Font-module weight name. Exported for the parser's
+ *  companion-claiming and the entities-row generator. */
+export const FONT_WEIGHT_VALUE: Record<FontModuleState['fontWeight'], string> = {
   normal: 'normal',
   medium: '500',
   bold: 'bold',
 };
 
 /**
- * hui-tile-card's name/state text (<ha-tile-info>) does NOT read the plain
- * `font-size`/`font-weight`/`color` properties it inherits — its internal
- * `.primary`/`.secondary` rules resolve their own
- * `--ha-tile-info-{primary,secondary}-{font-size,font-weight,color}`
- * variables instead (falling back to theme defaults), so a bare `ha-card`
- * declaration is silently ignored there — the same class of gap as the
- * accent-color/gauge-color fix. Both primary and secondary lines are driven
- * to the same size/weight/color: a single "text size" control matching one
- * mental model ("make the text bigger") beats two independently-tunable
- * lines for a first version. font-family isn't in this list because
- * ha-tile-info's internal rules never touch it — it inherits normally.
+ * Card types whose title is rendered through ha-card's header slot
+ * (`.card-header`), styled inside ha-card's own shadow stylesheet via
+ * `--ha-card-header-{font-size,color,font-family}` — a plain inherited
+ * font-size never reaches it. Verified live for entities (slotted h1) and
+ * glance (h1 inside ha-card's shadow root); the rest use the identical
+ * `ha-card .header=` mechanism.
  */
-function fontAuxDecls(cardType: string | undefined, size: string, weight: string, color: string | null): string[] {
-  if (cardType !== 'tile') return [];
-  const decls = [
-    `--ha-tile-info-primary-font-size: ${size};`,
-    `--ha-tile-info-secondary-font-size: ${size};`,
-    `--ha-tile-info-primary-font-weight: ${weight};`,
-    `--ha-tile-info-secondary-font-weight: ${weight};`,
-  ];
-  if (color) {
-    decls.push(`--ha-tile-info-primary-color: ${color};`, `--ha-tile-info-secondary-color: ${color};`);
+const HEADER_TITLE_CARD_TYPES = new Set([
+  'entities', 'glance', 'history-graph', 'statistics-graph', 'statistic',
+  'calendar', 'todo-list', 'shopping-list', 'logbook', 'picture-glance',
+]);
+
+/** Header title scales at 1.5× the body size (HA default: 24px header vs
+ *  16px body), so "make the text bigger" keeps the hierarchy intact.
+ *  Exported for the parser's companion-claiming (exact-string match). */
+export function headerFontSize(sizePx: number): string {
+  return `calc(${sizePx}px * 1.5)`;
+}
+
+/** The entity/sensor cards' big value keeps its 1.75× ratio over the body
+ *  size (HA default: 28px value vs 16px name). Exported for the parser. */
+export function valueFontSize(sizePx: number): string {
+  return `calc(${sizePx}px * 1.75)`;
+}
+
+/**
+ * Many stock cards override some font property internally, each their own
+ * way — a bare inherited `ha-card { font-size }` only reaches the ones that
+ * don't (entities rows, markdown, glance names...). This table encodes the
+ * per-card-type companions, every one verified against a LIVE render (see
+ * tools/sandbox/harness/font_module_check.mjs), not just source reading:
+ *
+ * - tile: <ha-tile-info> reads its own --ha-tile-info-* variables.
+ * - light: #info/.brightness set font-size from --name-font-size (1.2rem),
+ *   declared by the card itself on ha-card — needs !important on the
+ *   elements (they're in the card's own shadow root, so reachable).
+ * - button: ha-card's own adopted stylesheet sets font-size — adopted
+ *   sheets order AFTER injected <style> tags, so the injected declaration
+ *   needs !important to win at equal specificity.
+ * - sensor/entity: .name/.value/.measurement carry explicit sizes
+ *   (name also weight+color, measurement also color) — direct selectors.
+ * - gauge: .title has explicit size/color; the value text is SVG inside
+ *   ha-gauge's nested shadow root — its color is `fill:
+ *   var(--primary-text-color)` (reachable by variable only), its SIZE is
+ *   auto-scaled to a fixed viewBox by ha-gauge and effectively fixed.
+ * - thermostat: .title has explicit size; the hvac label reads
+ *   --ha-font-size-l / --ha-font-weight-medium; the big number's size is
+ *   hard-coded (57px) two shadow roots deep — unreachable, weight/color
+ *   inherit through.
+ * - header-title cards: see HEADER_TITLE_CARD_TYPES above.
+ *
+ * All returned as extra top-level blocks joined after the base ha-card block.
+ */
+function fontCompanionBlocks(
+  cardType: string | undefined,
+  size: string,
+  sizePx: number,
+  weight: string,
+  color: string | null,
+): string[] {
+  const blocks: string[] = [];
+
+  if (cardType === 'light') {
+    blocks.push(`#info {\n  font-size: ${size} !important;\n}`);
+    blocks.push(`.brightness {\n  font-size: ${size} !important;\n}`);
   }
+
+  if (cardType === 'sensor' || cardType === 'entity') {
+    const nameDecls = [
+      `  font-size: ${size} !important;`,
+      `  font-weight: ${weight} !important;`,
+      ...(color ? [`  color: ${color} !important;`] : []),
+    ];
+    blocks.push(`.name {\n${nameDecls.join('\n')}\n}`);
+    blocks.push(`.value {\n  font-size: ${valueFontSize(sizePx)} !important;\n}`);
+    const unitDecls = [
+      `  font-size: ${size} !important;`,
+      ...(color ? [`  color: ${color} !important;`] : []),
+    ];
+    blocks.push(`.measurement {\n${unitDecls.join('\n')}\n}`);
+  }
+
+  if (cardType === 'gauge' || cardType === 'thermostat') {
+    const titleDecls = [
+      `  font-size: ${size} !important;`,
+      `  font-weight: ${weight} !important;`,
+      ...(color ? [`  color: ${color} !important;`] : []),
+    ];
+    blocks.push(`.title {\n${titleDecls.join('\n')}\n}`);
+  }
+
+  if (cardType === 'entities') {
+    // The slotted h1 is in the card's own shadow root — a plain rule beats
+    // ha-card's internal ::slotted() styling, no !important needed. Weight
+    // has no dedicated header variable, hence the direct rule.
+    blocks.push(`.card-header {\n  font-weight: ${weight};\n}`);
+  }
+
+  return blocks;
+}
+
+/** ha-card-block companion declarations (variables that must ride in the
+ *  same block as the base font declarations). */
+function fontCompanionDecls(
+  cardType: string | undefined,
+  size: string,
+  sizePx: number,
+  weight: string,
+  color: string | null,
+  family: string | null,
+): string[] {
+  const decls: string[] = [];
+
+  if (cardType === 'tile') {
+    decls.push(
+      `--ha-tile-info-primary-font-size: ${size};`,
+      `--ha-tile-info-secondary-font-size: ${size};`,
+      `--ha-tile-info-primary-font-weight: ${weight};`,
+      `--ha-tile-info-secondary-font-weight: ${weight};`,
+    );
+    if (color) {
+      decls.push(`--ha-tile-info-primary-color: ${color};`, `--ha-tile-info-secondary-color: ${color};`);
+    }
+  }
+
+  if (cardType === 'gauge' && color) {
+    // The gauge's SVG value text is `fill: var(--primary-text-color)` inside
+    // a nested shadow root — the variable is the only way in. Scoped to this
+    // card's ha-card, so nothing outside the gauge is affected. (Accent
+    // Color's needle-mode !important on ha-gauge deliberately outranks it.)
+    decls.push(`--primary-text-color: ${color};`);
+  }
+
+  if (cardType === 'thermostat') {
+    // hvac-action/current-temperature label inside the nested climate
+    // control reads these tokens.
+    decls.push(`--ha-font-size-l: ${size};`, `--ha-font-weight-medium: ${weight};`);
+  }
+
+  if (HEADER_TITLE_CARD_TYPES.has(cardType ?? '')) {
+    decls.push(`--ha-card-header-font-size: ${headerFontSize(sizePx)};`);
+    if (color) decls.push(`--ha-card-header-color: ${color};`);
+    if (family) decls.push(`--ha-card-header-font-family: ${family};`);
+  }
+
   return decls;
 }
 
 /**
- * Every other stock card (entities rows, markdown, glance, sensor, ...)
- * has no internal font-size/color override on its text — font-size,
- * font-family, and color are all genuinely-inherited CSS properties, so a
- * plain `ha-card` declaration reaches them with no shadow-piercing needed.
- * Verified against HA frontend source for hui-entities-card's row component
- * (state-info.ts) and hui-markdown-card/hui-glance-card — none declare
- * font-size on their text. Heading cards are excluded (own dedicated
- * control, headingStyleBlocks above); container cards never reach here
- * (generateCss's caller skips the whole module list for them).
- */
-/**
- * @param skipColor  Omit the `color`/tile-color-companion declarations —
+ * @param skipColor  Omit the `color` declarations (base and companions) —
  *   used when Threshold already owns the 'text-color' property for this
  *   card, so the two modules don't emit conflicting `color` declarations
  *   into the same ha-card block (size/weight/family still apply either way).
@@ -359,12 +474,19 @@ function fontBlock(s: FontModuleState, cardType?: string, skipColor = false): st
 
   const size = `${s.fontSize}px`;
   const weight = FONT_WEIGHT_VALUE[s.fontWeight];
-  const decls = [`font-size: ${size};`, `font-weight: ${weight};`];
-  if (!skipColor) decls.push(`color: ${s.color};`);
-  if (s.fontFamily.trim()) decls.push(`font-family: ${s.fontFamily.trim()};`);
-  decls.push(...fontAuxDecls(cardType, size, weight, skipColor ? null : s.color));
+  const color = skipColor ? null : s.color;
+  const family = s.fontFamily.trim() || null;
 
-  return `ha-card {\n${decls.map((d) => `  ${d}`).join('\n')}\n}`;
+  // Button: ha-card's own adopted stylesheet declares font-size, and adopted
+  // sheets order after injected <style> elements — !important required.
+  const sizeImportant = cardType === 'button' ? ' !important' : '';
+  const decls = [`font-size: ${size}${sizeImportant};`, `font-weight: ${weight};`];
+  if (color) decls.push(`color: ${color};`);
+  if (family) decls.push(`font-family: ${family};`);
+  decls.push(...fontCompanionDecls(cardType, size, s.fontSize, weight, color, family));
+
+  const base = `ha-card {\n${decls.map((d) => `  ${d}`).join('\n')}\n}`;
+  return [base, ...fontCompanionBlocks(cardType, size, s.fontSize, weight, color)].join('\n\n');
 }
 
 function iconColorBlock(s: IconColorModuleState): string {
@@ -417,8 +539,11 @@ export function buildThresholdJinja(
   rules: ThresholdRule[],
   defaultColor: string,
   entityId: string,
+  attribute?: string,
 ): string {
-  const stateExpr = `states('${entityId}') | float(0)`;
+  const stateExpr = attribute
+    ? `state_attr('${entityId}', '${attribute}') | float(0)`
+    : `states('${entityId}') | float(0)`;
   const sortedRules = sortThresholdRules(rules);
   let jinja = '{{ ';
   for (let i = 0; i < sortedRules.length; i++) {
@@ -597,7 +722,7 @@ function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string, 
     return '';
   }
 
-  const jinja = buildThresholdJinja(rules, defaultColor, s.entityId);
+  const jinja = buildThresholdJinja(rules, defaultColor, s.entityId, s.attribute || undefined);
   return s.properties
     .map((property) => thresholdPropertyBlock(property, jinja, s.borderWidth ?? 2, gradientMarker, cardType, opts))
     .join('\n\n');
