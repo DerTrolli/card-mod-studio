@@ -22,6 +22,7 @@ import {
   DEFAULT_ANIMATION,
   DEFAULT_BORDER,
   DEFAULT_HEADING_STYLE,
+  DEFAULT_FONT,
   DEFAULT_THRESHOLD,
   mapToStudioState,
 } from '../src/parser/state-mapper.js';
@@ -41,6 +42,7 @@ function makeState(overrides: Partial<StudioState> = {}): StudioState {
     animation: { ...DEFAULT_ANIMATION },
     border: { ...DEFAULT_BORDER },
     headingStyle: { ...DEFAULT_HEADING_STYLE },
+    font: { ...DEFAULT_FONT },
     threshold: { ...DEFAULT_THRESHOLD },
     advanced: { rawCss: '' },
     ...overrides,
@@ -197,7 +199,9 @@ describe('generateCss — accent color', () => {
       }),
       'tile',
     );
-    const tileMatch = css.match(/--tile-color: (\{\{[^\n]*\}\});/);
+    // --tile-color needs !important: hui-tile-card writes its state color as
+    // an inline style on ha-card, which otherwise always wins.
+    const tileMatch = css.match(/--tile-color: (\{\{[^\n]*\}\}) !important;/);
     const accentMatch = css.match(/--accent-color: (\{\{[^\n]*\}\});/);
     expect(tileMatch?.[1]).toBe(accentMatch?.[1]);
   });
@@ -213,6 +217,83 @@ describe('generateCss — accent color', () => {
     expect(state.accentColor.colorOn).toBe('#00ff00');
     expect(state.accentColor.colorOff).toBe('#888888');
     expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('gauge: emits a separate ha-gauge block with !important (inline styleMap on <ha-gauge> beats an inherited variable)', () => {
+    const css = generateCss(
+      makeState({ accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, color: '#ff0000' } }),
+      'gauge',
+    );
+    expect(css).toContain('ha-gauge {');
+    expect(css).toContain('--gauge-color: #ff0000 !important;');
+    // The old dead declaration must be gone: --gauge-color inherited from
+    // ha-card is always overridden by the card's own inline severity color.
+    const haCardBlock = css.match(/ha-card \{[^}]*\}/)?.[0] ?? '';
+    expect(haCardBlock).not.toContain('--gauge-color');
+  });
+
+  it('gauge: conditional accent substitutes the same ternary into the ha-gauge block', () => {
+    const css = generateCss(
+      makeState({
+        accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'conditional', colorOn: '#00ff00', colorOff: '#888888' },
+      }),
+      'gauge',
+    );
+    const gaugeMatch = css.match(/--gauge-color: (\{\{[^\n]*\}\}) !important;/);
+    const accentMatch = css.match(/--accent-color: (\{\{[^\n]*\}\});/);
+    expect(gaugeMatch?.[1]).toBe(accentMatch?.[1]);
+  });
+
+  it('needle gauge: also drives --primary-text-color (needle + value text) and round-trips cleanly', () => {
+    const state = makeState({ accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, color: '#ff0000' } });
+    const css = generateCss(state, 'gauge', { gaugeNeedle: true });
+    expect(css).toContain('--gauge-color: #ff0000 !important;');
+    expect(css).toContain('--primary-text-color: #ff0000 !important;');
+
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'gauge', card_mod: { style: css } }));
+    expect(reparsed.accentColor.enabled).toBe(true);
+    expect(reparsed.advanced.rawCss).toBe('');
+    // Byte-stable when regenerated with the same needle flag.
+    expect(generateCss(reparsed, 'gauge', { gaugeNeedle: true })).toBe(css);
+  });
+
+  it('non-needle gauge does NOT touch --primary-text-color (value text keeps its theme color)', () => {
+    const css = generateCss(
+      makeState({ accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, color: '#ff0000' } }),
+      'gauge',
+    );
+    expect(css).not.toContain('--primary-text-color');
+  });
+
+  it('tile round-trip stays clean with the !important companion (regression guard for the new form)', () => {
+    const state = makeState({ accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, color: '#ff0000' } });
+    const css = generateCss(state, 'tile');
+    expect(css).toContain('--tile-color: #ff0000 !important;');
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'tile', card_mod: { style: css } }));
+    expect(reparsed.accentColor.enabled).toBe(true);
+    expect(reparsed.advanced.rawCss).toBe('');
+    expect(generateCss(reparsed, 'tile')).toBe(css);
+  });
+
+  it('accent aux variables round-trip without leaking into Advanced CSS (tile/gauge/thermostat/button)', () => {
+    for (const cardType of ['tile', 'gauge', 'thermostat', 'button']) {
+      const state = makeState({ accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, color: '#ff0000' } });
+      const css = generateCss(state, cardType);
+      const reparsed = mapToStudioState(parseCardModConfig({ type: cardType, card_mod: { style: css } }));
+      expect(reparsed.accentColor.enabled, cardType).toBe(true);
+      expect(reparsed.accentColor.color, cardType).toBe('#ff0000');
+      // Regression: these companions used to leak into Advanced CSS, where the
+      // stale copies then overrode any newly-picked accent color (Advanced CSS
+      // is emitted last, so its duplicates won the cascade).
+      expect(reparsed.advanced.rawCss, cardType).toBe('');
+    }
+  });
+
+  it('a hand-written companion variable with a DIFFERENT value is preserved in Advanced CSS, not claimed', () => {
+    const css = 'ha-card {\n  --accent-color: #ff0000;\n  --tile-color: #123456;\n}';
+    const state = mapToStudioState(parseCardModConfig({ type: 'tile', card_mod: { style: css } }));
+    expect(state.accentColor.enabled).toBe(true);
+    expect(state.advanced.rawCss).toContain('--tile-color: #123456');
   });
 });
 
@@ -429,6 +510,106 @@ describe('generateCss — heading style', () => {
 });
 
 // ---------------------------------------------------------------------------
+// generateCss — font module (issue #25)
+// ---------------------------------------------------------------------------
+
+describe('generateCss — font', () => {
+  it('emits nothing when disabled', () => {
+    expect(generateCss(makeState({ font: { ...DEFAULT_FONT, enabled: false } }))).toBe('');
+  });
+
+  it('emits font-size, font-weight, and color on ha-card; omits font-family when unset', () => {
+    const css = generateCss(makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontSize: 20, fontWeight: 'bold', color: '#ff0000' },
+    }));
+    expect(css).toMatch(/ha-card\s*\{/);
+    expect(css).toContain('font-size: 20px;');
+    expect(css).toContain('font-weight: bold;');
+    expect(css).toContain('color: #ff0000;');
+    expect(css).not.toContain('font-family');
+  });
+
+  it('maps weight "medium" to numeric 500', () => {
+    const css = generateCss(makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontWeight: 'medium' },
+    }));
+    expect(css).toContain('font-weight: 500;');
+  });
+
+  it('emits font-family only when set', () => {
+    const css = generateCss(makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontFamily: 'monospace' },
+    }));
+    expect(css).toContain('font-family: monospace;');
+  });
+
+  it('tile cards: also emits the --ha-tile-info-* companion variables (ha-tile-info reads its own vars, not plain font-size/weight/color)', () => {
+    const css = generateCss(
+      makeState({ font: { ...DEFAULT_FONT, enabled: true, fontSize: 22, fontWeight: 'bold', color: '#00ff00' } }),
+      'tile',
+    );
+    expect(css).toContain('--ha-tile-info-primary-font-size: 22px;');
+    expect(css).toContain('--ha-tile-info-secondary-font-size: 22px;');
+    expect(css).toContain('--ha-tile-info-primary-font-weight: bold;');
+    expect(css).toContain('--ha-tile-info-secondary-font-weight: bold;');
+    expect(css).toContain('--ha-tile-info-primary-color: #00ff00;');
+    expect(css).toContain('--ha-tile-info-secondary-color: #00ff00;');
+  });
+
+  it('non-tile cards do not emit the tile companion variables', () => {
+    const css = generateCss(
+      makeState({ font: { ...DEFAULT_FONT, enabled: true } }),
+      'entities',
+    );
+    expect(css).not.toContain('--ha-tile-info');
+  });
+
+  it('round-trips size/weight/family/color through parse (plain card)', () => {
+    const state = makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontSize: 22, fontWeight: 'bold', fontFamily: 'serif', color: '#123456' },
+    });
+    const css = generateCss(state, 'entities');
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'entities', card_mod: { style: css } }));
+    expect(reparsed.font).toEqual(state.font);
+    expect(reparsed.advanced.rawCss).toBe('');
+  });
+
+  it('round-trips cleanly on a tile card, including the companion variables (no leak into Advanced CSS)', () => {
+    const state = makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontSize: 22, fontWeight: 'medium', color: '#123456' },
+    });
+    const css = generateCss(state, 'tile');
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'tile', card_mod: { style: css } }));
+    expect(reparsed.font.enabled).toBe(true);
+    expect(reparsed.font.fontSize).toBe(22);
+    expect(reparsed.font.fontWeight).toBe('medium');
+    expect(reparsed.font.color).toBe('#123456');
+    expect(reparsed.advanced.rawCss).toBe('');
+    expect(generateCss(reparsed, 'tile')).toBe(css);
+  });
+
+  it('yields to Threshold\'s text-color property: no duplicate/conflicting `color` decl on ha-card', () => {
+    const css = generateCss(makeState({
+      font: { ...DEFAULT_FONT, enabled: true, fontSize: 18, color: '#ff0000' },
+      threshold: {
+        enabled: true,
+        entityId: 'sensor.temp',
+        properties: ['text-color'],
+        rules: [{ id: '0', operator: '>=', value: 30, color: '#00ff00' }],
+        defaultColor: '#888888',
+      },
+    }));
+    // Font's size/weight still apply...
+    expect(css).toContain('font-size: 18px;');
+    // ...but only ONE `color:` declaration exists on ha-card, and it's threshold's.
+    const haCardBlocks = css.match(/ha-card\s*\{[^}]*\}/g) ?? [];
+    const colorDecls = haCardBlocks.join('\n').match(/^\s*color:/gm) ?? [];
+    expect(colorDecls).toHaveLength(1);
+    expect(css).toContain("states('sensor.temp')");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // generateCss — threshold module
 // ---------------------------------------------------------------------------
 
@@ -529,6 +710,67 @@ describe('generateCss — threshold', () => {
     expect(iconMatch?.[1]).toBe(accentMatch?.[1]);
   });
 
+  it('threshold accent-color on a tile emits the tile companion variables with the same Jinja', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true,
+        entityId: 'sensor.temp',
+        properties: ['accent-color'],
+        rules: [{ id: '0', operator: '>=', value: 30, color: '#ff0000' }],
+        defaultColor: '#888888',
+      },
+    }), 'tile');
+    const tileMatch = css.match(/--tile-color: (\{\{[^\n]*\}\}) !important;/);
+    const accentMatch = css.match(/--accent-color: (\{\{[^\n]*\}\});/);
+    expect(tileMatch?.[1]).toBe(accentMatch?.[1]);
+  });
+
+  it('threshold accent-color on a gauge emits the ha-gauge !important block and round-trips cleanly', () => {
+    const state = makeState({
+      threshold: {
+        enabled: true,
+        entityId: 'sensor.temp',
+        properties: ['accent-color'],
+        rules: [{ id: '0', operator: '>=', value: 30, color: '#ff0000' }],
+        defaultColor: '#888888',
+      },
+    });
+    const css = generateCss(state, 'gauge');
+    expect(css).toMatch(/ha-gauge\s*\{\s*--gauge-color: \{\{[^\n]*\}\} !important;/);
+
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'gauge', card_mod: { style: css } }));
+    expect(reparsed.threshold.enabled).toBe(true);
+    expect(reparsed.threshold.properties).toEqual(['accent-color']);
+    expect(reparsed.advanced.rawCss).toBe('');
+    // Regenerating must be byte-stable — no drift across editor reopens.
+    expect(generateCss(reparsed, 'gauge')).toBe(css);
+  });
+
+  it('gradient-mode threshold accent-color on a gauge round-trips back to the original stops', () => {
+    const state = makeState({
+      threshold: {
+        enabled: true,
+        entityId: 'sensor.temp',
+        properties: ['accent-color'],
+        valueMode: 'gradient',
+        rules: [],
+        defaultColor: '#888888',
+        colorStops: [
+          { id: 'a', value: 0, color: '#00ff00' },
+          { id: 'b', value: 100, color: '#ff0000' },
+        ],
+      },
+    });
+    const css = generateCss(state, 'gauge');
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'gauge', card_mod: { style: css } }));
+    expect(reparsed.threshold.valueMode).toBe('gradient');
+    expect(reparsed.threshold.colorStops.map((s) => [s.value, s.color])).toEqual([
+      [0, '#00ff00'],
+      [100, '#ff0000'],
+    ]);
+    expect(reparsed.advanced.rawCss).toBe('');
+  });
+
   it('round-trips a multi-property threshold (icon + accent) back into one module state', () => {
     const original =
       "ha-state-icon {\n  color: {{ '#ff0000' if states('sensor.temp') | float(0) >= 30 else '#888888' }} !important;\n}\n\n" +
@@ -571,6 +813,11 @@ describe('gradient color math', () => {
     expect(lerpColor('#000000', '#ffffff', 0)).toBe('#000000');
     expect(lerpColor('#000000', '#ffffff', 1)).toBe('#ffffff');
     expect(lerpColor('#000000', '#ffffff', 0.5)).toBe('#808080');
+  });
+
+  it('8-digit hex (alpha) drops the alpha instead of turning gray (regression)', () => {
+    expect(lerpColor('#ff0000ff', '#ff0000ff', 0.5)).toBe('#ff0000');
+    expect(lerpColor('#f00f', '#f00f', 0.5)).toBe('#ff0000');
   });
 
   it('colorAtValue clamps below the lowest stop and above the highest', () => {

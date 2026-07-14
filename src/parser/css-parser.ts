@@ -130,8 +130,9 @@ function analyzeJinja(value: string): JinjaAnalysis {
  */
 function splitIntoBlocks(
   css: string,
-): Array<{ selector: string; declarationBlock: string }> {
+): { blocks: Array<{ selector: string; declarationBlock: string }>; atBlocks: string[] } {
   const blocks: Array<{ selector: string; declarationBlock: string }> = [];
+  const atBlocks: string[] = [];
 
   let depth = 0;
   let blockStart = -1;
@@ -152,10 +153,15 @@ function splitIntoBlocks(
         const selector = css.slice(selectorStart, blockStart - 1).trim();
         const declarationBlock = css.slice(blockStart, i).trim();
 
-        // Skip @-rules that contain nested blocks (depth would be > 1 inside)
-        // and empty blocks.
-        if (selector && declarationBlock && !selector.startsWith('@')) {
-          blocks.push({ selector, declarationBlock });
+        if (selector && declarationBlock) {
+          if (selector.startsWith('@')) {
+            // @-rules (@keyframes, @media, ...) can't be modelled as
+            // selector+declarations — captured verbatim so mapAdvanced can
+            // preserve them instead of silently deleting them on save.
+            atBlocks.push(css.slice(selectorStart, i + 1).trim());
+          } else {
+            blocks.push({ selector, declarationBlock });
+          }
         }
 
         selectorStart = i + 1;
@@ -164,7 +170,7 @@ function splitIntoBlocks(
     }
   }
 
-  return blocks;
+  return { blocks, atBlocks };
 }
 
 // ---------------------------------------------------------------------------
@@ -204,8 +210,10 @@ function parseDeclarations(
     const propertyName = trimmed.slice(0, colonIdx).trim().toLowerCase();
     let rawValue = trimmed.slice(colonIdx + 1).trim();
 
-    // Strip !important — we note it was present but don't store it separately
-    // for Phase 2 since no visual control adds it today.
+    // Strip !important from the stored value but keep the flag — recognisers
+    // match on the bare value; mapAdvanced re-appends the suffix for
+    // unclaimed declarations so preserved CSS keeps its specificity.
+    const important = /\s*!important\s*$/.test(rawValue);
     rawValue = rawValue.replace(/\s*!important\s*$/, '').trim();
 
     if (!propertyName) continue;
@@ -213,7 +221,7 @@ function parseDeclarations(
     // Restore Jinja2 content so analyzeJinja sees the real expression.
     const value = restoreJinja(rawValue, jinjaMap);
     const jinjaInfo = analyzeJinja(value);
-    const entry: CssProperty = { property: propertyName, value, ...jinjaInfo };
+    const entry: CssProperty = { property: propertyName, value, ...jinjaInfo, ...(important ? { important } : {}) };
 
     const existingIndex = indexByProperty.get(propertyName);
     if (existingIndex !== undefined) {
@@ -280,10 +288,23 @@ function coalesceBySelector(targets: CssTarget[]): CssTarget[] {
  *             Returns an empty array on empty input; never throws.
  */
 export function parseCss(css: string): CssTarget[] {
-  if (!css || !css.trim()) return [];
+  return parseCssDetailed(css).targets;
+}
+
+/**
+ * Like parseCss, but also returns the top-level @-rule blocks (@keyframes,
+ * @media, ...) verbatim. These can't be modelled as CssTargets, but they
+ * must survive a parse→regenerate round-trip — mapAdvanced appends them to
+ * Advanced CSS so a hand-authored @keyframes isn't deleted on the first
+ * save. The studio's own animation keyframes (`@keyframes cms-*`) are
+ * excluded: the animation module regenerates those from its own state, so
+ * passing them through as well would emit them twice.
+ */
+export function parseCssDetailed(css: string): { targets: CssTarget[]; passthroughCss: string } {
+  if (!css || !css.trim()) return { targets: [], passthroughCss: '' };
 
   const { cleaned, map } = extractJinja(css);
-  const blocks = splitIntoBlocks(cleaned);
+  const { blocks, atBlocks } = splitIntoBlocks(cleaned);
 
   const targets = blocks
     .map(({ selector, declarationBlock }) => {
@@ -299,5 +320,10 @@ export function parseCss(css: string): CssTarget[] {
     })
     .filter((target) => target.properties.length > 0);
 
-  return coalesceBySelector(targets);
+  const passthroughCss = atBlocks
+    .map((block) => restoreJinja(block, map))
+    .filter((block) => !/^@keyframes\s+cms-/.test(block))
+    .join('\n\n');
+
+  return { targets: coalesceBySelector(targets), passthroughCss };
 }

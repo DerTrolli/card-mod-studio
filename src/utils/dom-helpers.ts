@@ -20,9 +20,17 @@ export function isCardModInstalled(): boolean {
  * HA integration) is installed by probing the custom elements registry. UIX
  * registers 'uix-node' when it loads — it never registers 'card-mod', so this
  * is independent of isCardModInstalled().
+ *
+ * When a hass object is available, its backend component list is consulted
+ * too: the frontend registry probe has a transient false-negative window
+ * right after page load, before UIX's frontend resource has executed
+ * (observed live in the sandbox), while `hass.config.components` is backend
+ * truth independent of frontend-load timing. card-mod has no backend
+ * component, so isCardModInstalled() has no equivalent fallback.
  */
-export function isUixInstalled(): boolean {
-  return customElements.get('uix-node') !== undefined;
+export function isUixInstalled(hass?: { config?: { components?: string[] } }): boolean {
+  if (customElements.get('uix-node') !== undefined) return true;
+  return !!hass?.config?.components?.includes('uix');
 }
 
 /**

@@ -33,7 +33,18 @@ const run = async () => {
   await page.goto(`${HA}/lovelace/0`, { waitUntil: 'domcontentloaded' });
   await waitForHassReady(page);
 
-  const uixDetected = await page.evaluate(() => !!customElements.get('uix-node'));
+  // Poll: uix-node registers when UIX's frontend resource executes, which can
+  // lag domcontentloaded by several seconds right after a sandbox (re)start —
+  // a single instantaneous probe here produced a false FAIL against a
+  // perfectly working UIX install. The backend component list is checked as
+  // the authoritative fallback, mirroring isUixInstalled() in the product.
+  const uixDetected = await page.evaluate(async () => {
+    for (let i = 0; i < 20; i++) {
+      if (customElements.get('uix-node')) return true;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    return !!document.querySelector('home-assistant')?.hass?.config?.components?.includes('uix');
+  });
   record('UIX is actually installed in this sandbox', uixDetected);
 
   const rendered = await page.evaluate(async ({ entity, style }) => {

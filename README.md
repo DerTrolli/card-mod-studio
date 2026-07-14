@@ -166,7 +166,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.7.0`
+   - URL: `/local/card-mod-studio.js?v=0.8.0-beta.1`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -297,6 +297,9 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 11 | Threshold color-palette popover positioning fix — correct inside HA's real (transformed, modal) card-edit dialog | ✅ v0.6.2 |
 | 12 | Searchable entity picker everywhere + cross-entity control for Icon Color/Accent Color/Background/Filter (style one entity off a *different* entity's state) + multi-property threshold rules | ✅ v0.7.0 |
 | 13 | Threshold Colors "Fade" (gradient) mode — smooth value→color interpolation as an alternative to discrete step rules | ✅ v0.7.0 |
+| 14 | Full-codebase correctness audit — gauge dial + needle color support (accent + threshold/fade), tile/tile-feature color fix, stale-color-override fix, row/@keyframes/`!important` data-loss fixes, pre-0.7.0 preset migration, negative thresholds, on/off-filtered entity pickers | ✅ v0.7.1 |
+| 15 | Stack child styling — per-child styling sections (full module set) for vertical-stack/horizontal-stack/grid, written into each child's own config | 🧪 v0.8.0-beta.1 (pre-release) |
+| 16 | Font module — text size, weight, family, and color for entities-card rows, markdown, tile, and most other cards (not just headings) | 🧪 v0.8.0-beta.1 (pre-release) |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

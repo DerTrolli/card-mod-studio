@@ -405,3 +405,87 @@ written with this exact mistake mid-investigation and briefly "confirmed" a
 product bug that didn't exist — caught by noticing a completely inert
 sanity-check style also failed, which a *real* bug in gradient generation
 specifically could never cause.
+
+### A card that sets its variable as an *inline style* beats anything you inherit — target the element itself with `!important`
+
+HA's `hui-gauge-card` computes its severity color per render and writes it
+as an inline style directly on `<ha-gauge>` (a `styleMap` in the card's own
+template): `<ha-gauge style="--gauge-color: var(--info-color)">`. An
+inherited `--gauge-color` set on `ha-card` — however high its specificity —
+can never win against that: inline styles beat author rules for the same
+property on the same element. The Studio's pre-0.7.1 gauge output was
+exactly that dead pattern, which is why "Accent Color does nothing on my
+gauge" was true from day one despite the CSS looking perfectly reasonable.
+
+The one thing in the cascade that DOES beat a non-important inline style is
+an author declaration with `!important` on the element itself:
+
+```css
+ha-gauge {
+  --gauge-color: #ff0000 !important;
+}
+```
+
+Custom properties inherit into shadow roots, so setting it on the
+`ha-gauge` *host* reaches the internal `.value { stroke: var(--gauge-color) }`
+arc without any shadow piercing. Verified live in
+`tools/sandbox/harness/gauge_color_check.mjs`, which also pins the broken
+form as *expected-to-fail* so an HA-side change to gauge internals shows up
+as a check failure.
+
+This is a *pattern*, not a one-off. Two built-in cards are known to styleMap
+a variable per render:
+
+- `hui-gauge-card` → `--gauge-color` inline on `<ha-gauge>` (above). In
+  needle mode there's no value arc; the needle's fill is
+  `var(--primary-text-color)`, which the same `!important`-on-`ha-gauge`
+  trick drives instead (shared with the value text — they match).
+- `hui-tile-card` → `--tile-color` inline on `<ha-card>` itself, whenever
+  the tile computes a state color (active/state-colored entities — i.e.
+  exactly the interesting cases). Same fix: `--tile-color: X !important` in
+  the injected `ha-card` block. Bonus: tile *features* derive
+  `--feature-color: var(--tile-color)` in the tile's shadow styles, so
+  winning `--tile-color` on ha-card recolors the bar-gauge/toggle feature
+  rows too. Verified live in `tools/sandbox/harness/beta2_fixes_check.mjs`
+  against an active light tile (inline `--tile-color` present and beaten).
+
+When any card's color "mysteriously doesn't apply," check the element's
+`style` attribute for the variable before suspecting the generated CSS.
+
+### A related but distinct trap: a component reading its OWN CSS variable instead of the plain property — no `!important` needed, just the right variable name
+
+The gauge/tile cases above are about *inline styles* winning the cascade.
+`hui-tile-card`'s name/state text (`<ha-tile-info>`) has a different,
+easier-to-miss problem: its internal `.primary`/`.secondary` rules don't
+read the plain `font-size`/`font-weight`/`color` properties they'd normally
+inherit — they read their own custom properties instead:
+
+```css
+.primary {
+  font-size: var(--tile-info-primary-font-size);
+  /* --tile-info-primary-font-size falls back to
+     var(--ha-tile-info-primary-font-size, var(--ha-font-size-m)) */
+  ...
+}
+```
+
+So a bare `ha-card { font-size: 22px; }` is silently ignored there — not
+because anything overrides it with higher specificity (no `!important`
+fight, no inline style), but because the component never looks at
+`font-size` at all once its own named variable resolves. The fix is just
+setting the variable it actually reads: `--ha-tile-info-primary-font-size`
+(+ `-secondary-` for the second line, `-font-weight` similarly, `-color`
+falls back to `--primary-text-color` rather than inherited `color`).
+`font-family` is *not* affected — `.primary`/`.secondary` never declare it,
+so it inherits normally, same as everywhere else.
+
+This is why "does setting X on ha-card actually work" can't be answered
+from source reading alone even when there's no inline-style culprit to spot
+— you have to check what CSS custom property (if any) the target's own
+rule resolves, which only shows up by reading the component's own
+`static styles`. Verified live in
+`tools/sandbox/harness/font_module_check.mjs`, which pins the bare
+`font-size` form on a tile as *expected-to-fail* alongside the working
+companion-variable form, and confirms plain inheritance (no special
+handling needed) on cards without such an override — entities-card rows,
+markdown, glance — by checking their real rendered `getComputedStyle`.

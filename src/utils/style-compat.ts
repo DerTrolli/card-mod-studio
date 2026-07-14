@@ -46,15 +46,18 @@ export function isUixOnlyStyle(config: CardModCardConfig): boolean {
 }
 
 /**
- * True when a uix: block uses UIX-only templating features (macros, billets)
- * that card-mod cannot run under any key — rewriting the key to `card_mod:`
- * would not make this styling work, unlike plain CSS. Also used to decide
- * when it's safe to auto-sync a uix.style value: overwriting hand-authored
- * macro/billet-driven styling with the studio's plain generated CSS would
- * silently destroy it, so callers must check this before overwriting.
+ * True when a uix: block uses UIX-only features (macros, billets, per-card
+ * theme override) that card-mod cannot run under any key — rewriting the
+ * key to `card_mod:` would not make this styling work, unlike plain CSS.
+ * (`uix.class` is NOT in this list: card-mod's `card_mod: class:` is an
+ * equivalent spelling, so a class-only block is portable.) Also used to
+ * decide when it's safe to auto-sync a uix.style value: overwriting
+ * hand-authored macro/billet-driven styling with the studio's plain
+ * generated CSS would silently destroy it, so callers must check this
+ * before overwriting.
  */
 export function usesUixOnlyFeaturesInBlock(uix: UixConfig | undefined): boolean {
-  return !!(uix?.macros || uix?.billets);
+  return !!(uix?.macros || uix?.billets || uix?.theme);
 }
 
 /**

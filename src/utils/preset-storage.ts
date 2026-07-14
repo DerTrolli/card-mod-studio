@@ -12,10 +12,20 @@
  */
 
 import type { StudioState } from '../types/index.js';
+import { migrateStudioState } from '../parser/state-mapper.js';
 
 export interface StylePreset {
   name: string;
   state: StudioState;
+}
+
+/** Presets persist across app versions — every load path migrates each
+ *  stored state to the current schema (see migrateStudioState) so a preset
+ *  saved by an older version can't crash the panel. */
+function migratePresets(presets: StylePreset[]): StylePreset[] {
+  return presets
+    .filter((p) => p && typeof p === 'object' && typeof p.name === 'string')
+    .map((p) => ({ name: p.name, state: migrateStudioState(p.state) }));
 }
 
 interface HassConnection {
@@ -49,7 +59,7 @@ export async function loadPresets(hass: HassSub | undefined): Promise<StylePrese
         key: HA_KEY,
       }) as { value: StylePreset[] | null } | null;
       const value = result?.value;
-      if (Array.isArray(value)) return value;
+      if (Array.isArray(value)) return migratePresets(value);
     } catch (err) {
       console.warn('[Card-Mod Studio] Preset load from HA failed, using localStorage:', err);
     }
@@ -57,7 +67,8 @@ export async function loadPresets(hass: HassSub | undefined): Promise<StylePrese
 
   try {
     const raw = localStorage.getItem(LS_KEY);
-    return raw ? (JSON.parse(raw) as StylePreset[]) : [];
+    const parsed = raw ? (JSON.parse(raw) as StylePreset[]) : [];
+    return Array.isArray(parsed) ? migratePresets(parsed) : [];
   } catch {
     return [];
   }

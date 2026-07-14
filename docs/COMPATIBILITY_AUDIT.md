@@ -50,6 +50,7 @@ this audit. See **Action items** at the end.
 | Icon color | `ha-state-icon { color }` (plain / on-off Jinja2 / light `rgb_color`) |
 | Threshold | `ha-state-icon { color }` **or** `ha-card { background | color | --accent-color | border }` driven by a Jinja2 ternary chain |
 | Heading style | `.container { justify-content }`, `.title p { font-size; color }`, `.title ha-icon { --mdc-icon-size; color }` |
+| Font | `ha-card { font-size; font-weight; color; font-family }` + tile-card extras (`--ha-tile-info-{primary,secondary}-{font-size,font-weight,color}`) |
 | Entity rows | `:host { --state-icon-color; color }` per row |
 
 All of the above is wrapped as `card_mod: { style: "<string>" }` by

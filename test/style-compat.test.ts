@@ -152,4 +152,14 @@ describe('usesUixOnlyFeatures', () => {
     const config: CardModCardConfig = { type: 'button', uix: { billets: { a: 1 } } };
     expect(usesUixOnlyFeatures(config)).toBe(true);
   });
+
+  it('is true when a per-card theme override is set (UIX-only; no card_mod equivalent)', () => {
+    const config: CardModCardConfig = { type: 'button', uix: { theme: 'noctis', style: 'ha-card { color: red; }' } };
+    expect(usesUixOnlyFeatures(config)).toBe(true);
+  });
+
+  it('is false for uix.class alone (card-mod\'s `card_mod: class:` is an equivalent spelling)', () => {
+    const config: CardModCardConfig = { type: 'button', uix: { class: 'my-class', style: 'ha-card { color: red; }' } };
+    expect(usesUixOnlyFeatures(config)).toBe(false);
+  });
 });

@@ -13,6 +13,7 @@ import type {
   AnimationModuleState,
   BorderModuleState,
   HeadingStyleModuleState,
+  FontModuleState,
   ThresholdModuleState,
   ThresholdRule,
   ThresholdProperty,
@@ -111,43 +112,99 @@ function filterDecls(s: FilterModuleState): string[] {
   return decls;
 }
 
-function accentColorDecls(s: AccentColorModuleState, cardType?: string): string[] {
-  if (!s.enabled) return [];
+/** The single accent value (static color or on/off Jinja ternary) every
+ *  accent-color declaration shares — extracted so the ha-card declarations
+ *  and the gauge's separate ha-gauge block can't drift apart. */
+function accentValue(s: AccentColorModuleState): string {
+  return s.mode === 'conditional'
+    ? `{{ '${s.colorOn}' if is_state(${entityRef(s.entityId)}, 'on') else '${s.colorOff}' }}`
+    : s.color;
+}
 
-  const value =
-    s.mode === 'conditional'
-      ? `{{ '${s.colorOn}' if is_state(${entityRef(s.entityId)}, 'on') else '${s.colorOff}' }}`
-      : s.color;
-
-  const decls = [`--accent-color: ${value};`];
-
-  // Tile card: icon background/state color is driven by --tile-color
+/**
+ * The card-type-specific companion variables that make an accent value
+ * actually visible on each card — --accent-color alone does nothing on a
+ * tile/thermostat/button. Shared by the Accent Color module and the
+ * Threshold module's accent-color property so both stay in sync, and
+ * mirrored by ACCENT_AUX_VARS in state-mapper.ts so every variable emitted
+ * here is re-claimed on parse instead of leaking into Advanced CSS.
+ */
+function accentAuxDecls(value: string, cardType?: string): string[] {
+  // Tile card: icon background/state color is driven by --tile-color.
+  // hui-tile-card writes its state-computed color as an *inline style* on
+  // ha-card itself (styleMap in its render), so — same as the gauge — a
+  // plain declaration silently loses whenever the tile computes a color.
+  // !important is required for the value to actually win, and it also
+  // cascades into tile features: hui-card-features derives
+  // `--feature-color: var(--tile-color)`, so the bar-gauge/toggle feature
+  // rows follow the accent color too (live user report: bar gauge never
+  // changed color).
   if (cardType === 'tile') {
-    decls.push(`--tile-color: ${value};`, `--state-icon-color: ${value};`);
+    return [`--tile-color: ${value} !important;`, `--state-icon-color: ${value};`];
   }
 
   // Thermostat cards use climate state color variables
   if (cardType === 'thermostat') {
-    decls.push(
+    return [
       `--state-climate-heat-color: ${value};`,
       `--state-climate-cool-color: ${value};`,
       `--state-climate-auto-color: ${value};`,
       `--state-climate-idle-color: ${value};`,
       `--control-circular-slider-color: ${value};`,
-    );
+    ];
   }
 
-  // Gauge card uses its own color variable
-  if (cardType === 'gauge') {
-    decls.push(`--gauge-color: ${value};`);
-  }
+  // Gauge gets a separate ha-gauge block (see gaugeAccentBlock) — nothing
+  // extra in the ha-card block itself. Heading has no accent consumers.
+  if (cardType === 'gauge' || cardType === 'heading') return [];
 
   // Button card (HA built-in) and generic entity-state cards
-  if (!['tile', 'thermostat', 'gauge', 'heading'].includes(cardType ?? '')) {
-    decls.push(`--state-icon-color: ${value};`, `--paper-item-icon-active-color: ${value};`);
-  }
+  return [`--state-icon-color: ${value};`, `--paper-item-icon-active-color: ${value};`];
+}
 
-  return decls;
+function accentColorDecls(s: AccentColorModuleState, cardType?: string): string[] {
+  if (!s.enabled) return [];
+  const value = accentValue(s);
+  return [`--accent-color: ${value};`, ...accentAuxDecls(value, cardType)];
+}
+
+/**
+ * Options threaded from the card's full config into generation — cardType
+ * alone doesn't carry everything that changes what CSS is meaningful.
+ */
+export interface GenerateCssOptions {
+  /** The gauge card's `needle: true` — switches which ha-gauge variable the
+   *  accent value drives (see gaugeColorBlock). */
+  gaugeNeedle?: boolean;
+}
+
+/**
+ * Gauge cards ignore an inherited --gauge-color: hui-gauge-card writes the
+ * severity-computed color as an *inline style* on <ha-gauge> on every render
+ * (styleMap in hui-gauge-card.ts), and inline wins over anything inherited
+ * from ha-card. An author-stylesheet `!important` on the element itself is
+ * the one thing that beats a non-important inline style, so the gauge needs
+ * its own block targeting ha-gauge directly — verified live against a real
+ * gauge card (tools/sandbox/harness/gauge_color_check.mjs).
+ *
+ * In needle mode the value arc doesn't exist and --gauge-color is unused —
+ * the needle itself is the value indicator, and its fill is
+ * `var(--primary-text-color)` (ha-gauge's own shadow styles), which
+ * inherits from the ha-gauge host. Setting that instead recolors the
+ * needle (and, sharing the same variable, the value text under it — they
+ * match, which reads as intentional). Both variables are emitted so the
+ * style keeps working if `needle:` is toggled later without re-editing.
+ */
+function gaugeColorBlock(
+  value: string,
+  cardType: string | undefined,
+  marker: string | null,
+  opts?: GenerateCssOptions,
+): string {
+  if (cardType !== 'gauge') return '';
+  const markerLine = marker ? `  ${GRADIENT_MARKER_PROPERTY}: ${marker};\n` : '';
+  const needleLine = opts?.gaugeNeedle ? `  --primary-text-color: ${value} !important;\n` : '';
+  return `ha-gauge {\n${markerLine}  --gauge-color: ${value} !important;\n${needleLine}}`;
 }
 
 function backgroundDecls(s: BackgroundModuleState): string[] {
@@ -247,6 +304,69 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
   return [container, titleP, titleIcon].join('\n\n');
 }
 
+const FONT_WEIGHT_VALUE: Record<FontModuleState['fontWeight'], string> = {
+  normal: 'normal',
+  medium: '500',
+  bold: 'bold',
+};
+
+/**
+ * hui-tile-card's name/state text (<ha-tile-info>) does NOT read the plain
+ * `font-size`/`font-weight`/`color` properties it inherits — its internal
+ * `.primary`/`.secondary` rules resolve their own
+ * `--ha-tile-info-{primary,secondary}-{font-size,font-weight,color}`
+ * variables instead (falling back to theme defaults), so a bare `ha-card`
+ * declaration is silently ignored there — the same class of gap as the
+ * accent-color/gauge-color fix. Both primary and secondary lines are driven
+ * to the same size/weight/color: a single "text size" control matching one
+ * mental model ("make the text bigger") beats two independently-tunable
+ * lines for a first version. font-family isn't in this list because
+ * ha-tile-info's internal rules never touch it — it inherits normally.
+ */
+function fontAuxDecls(cardType: string | undefined, size: string, weight: string, color: string | null): string[] {
+  if (cardType !== 'tile') return [];
+  const decls = [
+    `--ha-tile-info-primary-font-size: ${size};`,
+    `--ha-tile-info-secondary-font-size: ${size};`,
+    `--ha-tile-info-primary-font-weight: ${weight};`,
+    `--ha-tile-info-secondary-font-weight: ${weight};`,
+  ];
+  if (color) {
+    decls.push(`--ha-tile-info-primary-color: ${color};`, `--ha-tile-info-secondary-color: ${color};`);
+  }
+  return decls;
+}
+
+/**
+ * Every other stock card (entities rows, markdown, glance, sensor, ...)
+ * has no internal font-size/color override on its text — font-size,
+ * font-family, and color are all genuinely-inherited CSS properties, so a
+ * plain `ha-card` declaration reaches them with no shadow-piercing needed.
+ * Verified against HA frontend source for hui-entities-card's row component
+ * (state-info.ts) and hui-markdown-card/hui-glance-card — none declare
+ * font-size on their text. Heading cards are excluded (own dedicated
+ * control, headingStyleBlocks above); container cards never reach here
+ * (generateCss's caller skips the whole module list for them).
+ */
+/**
+ * @param skipColor  Omit the `color`/tile-color-companion declarations —
+ *   used when Threshold already owns the 'text-color' property for this
+ *   card, so the two modules don't emit conflicting `color` declarations
+ *   into the same ha-card block (size/weight/family still apply either way).
+ */
+function fontBlock(s: FontModuleState, cardType?: string, skipColor = false): string {
+  if (!s.enabled) return '';
+
+  const size = `${s.fontSize}px`;
+  const weight = FONT_WEIGHT_VALUE[s.fontWeight];
+  const decls = [`font-size: ${size};`, `font-weight: ${weight};`];
+  if (!skipColor) decls.push(`color: ${s.color};`);
+  if (s.fontFamily.trim()) decls.push(`font-family: ${s.fontFamily.trim()};`);
+  decls.push(...fontAuxDecls(cardType, size, weight, skipColor ? null : s.color));
+
+  return `ha-card {\n${decls.map((d) => `  ${d}`).join('\n')}\n}`;
+}
+
 function iconColorBlock(s: IconColorModuleState): string {
   if (!s.enabled) return '';
 
@@ -329,8 +449,13 @@ export const GRADIENT_MARKER_PROPERTY = '--cms-gradient-stops';
 
 function normalizeHex(value: string): string {
   if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
-  const m = value.match(/^#([0-9a-fA-F]{3})$/);
-  if (m) return `#${[...m[1]].map((c) => c + c).join('')}`;
+  const short = value.match(/^#([0-9a-fA-F]{3})[0-9a-fA-F]?$/);
+  if (short) return `#${[...short[1]].map((c) => c + c).join('')}`;
+  // 8-digit (#rrggbbaa) — drop the alpha channel rather than falling through
+  // to gray: the interpolation math is RGB-only, and a color picker that
+  // emits alpha shouldn't silently turn a user's gradient gray.
+  const long = value.match(/^#([0-9a-fA-F]{6})[0-9a-fA-F]{2}$/);
+  if (long) return `#${long[1]}`;
   return '#888888';
 }
 
@@ -409,7 +534,9 @@ export function decodeGradientStops(encoded: string): ColorStop[] | null {
   if (parts.length < 2) return null;
   const stops: ColorStop[] = [];
   for (let i = 0; i < parts.length; i++) {
-    const m = parts[i].trim().match(/^(-?\d+(?:\.\d+)?):(#[0-9a-fA-F]{3,8})$/);
+    // Only real hex lengths (3/4/6/8 digits) — `{3,8}` also accepted
+    // invalid 5- and 7-digit values.
+    const m = parts[i].trim().match(/^(-?\d+(?:\.\d+)?):(#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8}))$/);
     if (!m) return null;
     stops.push({ id: `stop-${i}`, value: parseFloat(m[1]), color: m[2] });
   }
@@ -421,6 +548,8 @@ function thresholdPropertyBlock(
   jinja: string,
   borderWidth: number,
   gradientMarker: string | null,
+  cardType?: string,
+  opts?: GenerateCssOptions,
 ): string {
   const marker = gradientMarker ? `  ${GRADIENT_MARKER_PROPERTY}: ${gradientMarker};\n` : '';
   switch (property) {
@@ -430,8 +559,16 @@ function thresholdPropertyBlock(
       return `ha-card {\n${marker}  background: ${jinja};\n}`;
     case 'text-color':
       return `ha-card {\n${marker}  color: ${jinja};\n}`;
-    case 'accent-color':
-      return `ha-card {\n${marker}  --accent-color: ${jinja};\n}`;
+    case 'accent-color': {
+      // Same card-type companion variables as the Accent Color module —
+      // --accent-color alone is invisible on tile/thermostat/button/gauge.
+      const decls = [`--accent-color: ${jinja};`, ...accentAuxDecls(jinja, cardType)]
+        .map((d) => `  ${d}`)
+        .join('\n');
+      const haCardBlock = `ha-card {\n${marker}${decls}\n}`;
+      const gauge = gaugeColorBlock(jinja, cardType, null, opts);
+      return gauge ? `${haCardBlock}\n\n${gauge}` : haCardBlock;
+    }
     case 'border-color':
       return `ha-card {\n${marker}  border: ${borderWidth}px solid ${jinja};\n}`;
     default:
@@ -445,7 +582,7 @@ function thresholdPropertyBlock(
  * block is emitted per selected property, all sharing the same computed
  * Jinja2 expression.
  */
-function thresholdBlock(s: ThresholdModuleState | undefined): string {
+function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string, opts?: GenerateCssOptions): string {
   if (!s || !s.enabled || !s.entityId || s.properties.length === 0) return '';
 
   let rules = s.rules;
@@ -462,7 +599,7 @@ function thresholdBlock(s: ThresholdModuleState | undefined): string {
 
   const jinja = buildThresholdJinja(rules, defaultColor, s.entityId);
   return s.properties
-    .map((property) => thresholdPropertyBlock(property, jinja, s.borderWidth ?? 2, gradientMarker))
+    .map((property) => thresholdPropertyBlock(property, jinja, s.borderWidth ?? 2, gradientMarker, cardType, opts))
     .join('\n\n');
 }
 
@@ -470,7 +607,7 @@ function thresholdBlock(s: ThresholdModuleState | undefined): string {
 // Public API
 // ---------------------------------------------------------------------------
 
-export function generateCss(state: StudioState, cardType?: string): string {
+export function generateCss(state: StudioState, cardType?: string, opts?: GenerateCssOptions): string {
   const parts: string[] = [];
 
   const kf = animationKeyframes(state.animation);
@@ -496,16 +633,25 @@ export function generateCss(state: StudioState, cardType?: string): string {
     parts.push(`ha-card {\n${body}\n}`);
   }
 
+  // Gauge dial color needs its own ha-gauge block (see gaugeColorBlock).
+  if (!thresholdProps.has('accent-color') && state.accentColor.enabled) {
+    const gauge = gaugeColorBlock(accentValue(state.accentColor), cardType, null, opts);
+    if (gauge) parts.push(gauge);
+  }
+
   // Skip icon-color module when threshold is already driving icon color — both
   // emit ha-state-icon { color } and the second block would silently win.
   const iconColor = thresholdProps.has('icon-color') ? '' : iconColorBlock(state.iconColor);
   if (iconColor) parts.push(iconColor);
 
-  const threshold = thresholdBlock(state.threshold);
+  const threshold = thresholdBlock(state.threshold, cardType, opts);
   if (threshold) parts.push(threshold);
 
   const headingStyle = headingStyleBlocks(state.headingStyle);
   if (headingStyle) parts.push(headingStyle);
+
+  const font = fontBlock(state.font, cardType, thresholdProps.has('text-color'));
+  if (font) parts.push(font);
 
   if (state.advanced.rawCss.trim()) {
     parts.push(state.advanced.rawCss.trim());

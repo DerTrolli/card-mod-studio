@@ -338,7 +338,7 @@ export class EntitiesRowsModule extends LitElement {
             <input
               type="number"
               .value=${String(rule.value)}
-              @input=${(e: Event) => this._updateRule(entityId, prop, i, {
+              @change=${(e: Event) => this._updateRule(entityId, prop, i, {
                 value: parseFloat((e.target as HTMLInputElement).value) || 0,
               })}
             />

@@ -5,6 +5,189 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0-beta.1] — 2026-07-06
+
+**Pre-release** — the start of the v0.8 cycle.
+
+### Added
+- **Style the cards inside a stack — directly from the stack's editor.**
+  Vertical-stack, horizontal-stack, and grid cards now show one styling
+  section per child card instead of a dead-end banner. Each section carries
+  the full module set for that child's card type — a gauge child gets the
+  gauge treatment (dial/needle/Fade), a tile child the tile treatment,
+  thresholds, animations, everything — because each child runs through
+  exactly the same parse → modules → generate pipeline as a top-level card
+  (now shared code, not a copy: `src/editor/studio-state.ts`). Changes are
+  written into that child's own `card_mod:`/`uix:` block inside the stack
+  config — the same YAML you'd get styling it standalone, applied natively
+  by both engines — and the live preview shows the whole stack update as
+  you edit. A dot marks children that carry styling; reopening the editor
+  restores each child's settings.
+  Not covered yet (noted inline in the UI): containers nested inside
+  containers, per-row styling of a nested entities card, and `conditional`
+  cards (single `card:` instead of `cards:`).
+- **A new Font module** — text size, weight, family, and color, for any
+  card that wasn't already covered by the Heading Style module (closes
+  [#25](https://github.com/dertrolli/card-mod-studio/issues/25)). Most
+  cards (entities-card rows, markdown, glance, sensor, …) inherit
+  `font-size`/`font-family`/`color` from `ha-card` with no special handling
+  needed. Tile cards are the exception: `<ha-tile-info>` (the name/state
+  text) reads its own `--ha-tile-info-{primary,secondary}-{font-size,
+  font-weight,color}` variables rather than the plain properties it would
+  normally inherit, so a bare declaration silently did nothing there —
+  confirmed live (the naive form really does render unchanged), fixed by
+  setting those variables directly alongside the plain ones. Hidden on
+  heading cards (the existing Heading Style module already covers the same
+  `.title p`/`.title ha-icon` text, in more depth) and on iframe/webpage/map
+  (no HA-templated text to reach). Available in stack child sections too.
+
+### Changed
+- The container-level Border module (which had no visual effect — stacks
+  paint no `ha-card` box of their own) is no longer offered; container
+  Advanced CSS remains available.
+
+## [0.7.1] — 2026-07-06
+
+A pure correctness release, from a full audit of the codebase (every module
+round-trip re-derived from first principles, plus live verification against
+real card-mod and real UIX instances) and two rounds of live beta testing
+on a real dashboard. No new features — a long list of bugs found and
+fixed, several of them silent data loss.
+
+### Fixed — gauge & tile cards
+
+- **Accent Color on a gauge card never actually applied.** HA's
+  `hui-gauge-card` writes its severity-computed color as an *inline style*
+  on `<ha-gauge>` on every render, so the `--gauge-color` variable the
+  Studio set on `ha-card` was always overridden — silently. The Studio now
+  targets `ha-gauge` directly with `!important` (the one thing that beats a
+  non-important inline style), verified against a live gauge card. The same
+  applies to the Threshold module's accent-color property, so threshold
+  rules — including Fade mode — can now genuinely drive a gauge's dial
+  color (e.g. a temperature gauge fading smoothly blue→red, something the
+  gauge's own discrete `severity` segments can't do).
+- **Needle gauges (`needle: true`) color the needle and value text**
+  instead of doing nothing — in needle mode there's no value arc, and the
+  needle's fill is `var(--primary-text-color)` inside `ha-gauge`, which the
+  accent value now drives the same way. The dial keeps showing the
+  configured segments; the panel hint explains this.
+- **Tile cards: the accent color now actually wins — including tile
+  features like the bar gauge.** Same root cause, one card over:
+  `hui-tile-card` writes its state-computed color as an *inline style* on
+  `ha-card` (`--tile-color`), so the Studio's plain declaration silently
+  lost whenever the tile computed a color (active/state-colored entities —
+  exactly the interesting cases). Now emitted with `!important`, which also
+  cascades into `hui-card-features` (`--feature-color` derives from
+  `--tile-color`), so bar-gauge/toggle feature rows follow the accent color
+  too.
+- The Threshold module no longer offers **Icon Color on cards with no
+  reachable icon** (gauge, glance, thermostat, …) — it was a dead checkbox
+  generating CSS that matched nothing. On those cards, enabling Threshold
+  now starts from a property that's actually visible there, and on gauges
+  the property is labelled "Gauge / Accent Color".
+
+### Fixed — "the color won't change" (stale-override class)
+
+- **The companion variables Accent Color emits per card type**
+  (`--tile-color`, `--state-icon-color`, climate variables, …) **were never
+  re-recognised on reopen** — every edit session dumped them into Advanced
+  CSS as stale copies, and since Advanced CSS is emitted last, *the old
+  color kept winning over any new one you picked*. They're now claimed
+  back into the module when they match; a hand-written companion with a
+  deliberately different value still survives in Advanced CSS untouched.
+- **Threshold's accent-color property was invisible on tile, thermostat,
+  and gauge cards** — it emitted only `--accent-color`, which those cards
+  don't read. It now emits the same card-type companions the Accent Color
+  module does, sharing one code path.
+- Heading's forward-compatible `--ha-icon-size` twin and gradient-shift's
+  `background-size: 200% auto` companion had the same leak-into-Advanced
+  problem — both are now claimed with their module.
+
+### Fixed — silent data loss
+
+- **Editing anything in the panel destroyed hand-authored styling on
+  entities-card rows.** Every save rewrote every row's style from only what
+  the Studio recognises (icon/text color), deleting anything else — a
+  `font-weight: bold`, an extra selector, everything. Rows now carry their
+  unrecognised CSS through edits verbatim (a row-level counterpart of the
+  Advanced CSS passthrough), and rows styled in dictionary form (which the
+  Studio can't parse yet) are left completely untouched instead of wiped.
+- **A hand-authored `@keyframes` or `@media` block was deleted on the first
+  save** — the parser skipped @-blocks as unmodelable but nothing preserved
+  them. They now pass through to Advanced CSS verbatim (the Studio's own
+  `@keyframes cms-*` are excluded — the Animation module regenerates
+  those).
+- **A standalone hand-authored `transition:` on ha-card was eaten on save**
+  when the Filter module was off — claimed by the filter recogniser but
+  only ever re-emitted alongside filter declarations. It's now only claimed
+  when a filter is actually recognised.
+- **`!important` was silently stripped from preserved-but-unrecognised
+  CSS** on every round-trip, weakening its specificity. It's preserved now.
+- **When `card_mod:` and `uix:` both carried different unrecognised CSS,
+  an edit permanently destroyed the inactive key's copy** (the merge kept
+  only one, then the save cleared the other key). Differing leftovers are
+  now concatenated (active key's last, so it wins conflicts); identical
+  mirrored content is kept once.
+
+### Fixed — crashes & presets
+
+- **A preset saved by v0.6.x crashed the panel when loaded** (the threshold
+  model changed shape in 0.7.0: singular `property` → `properties[]`, new
+  gradient fields; accent colors gained modes). Stored presets are now
+  migrated to the current schema on every load, with defaults for anything
+  missing — and garbage input can't throw.
+- **Loading a preset wiped the card's own preserved Advanced CSS**,
+  replacing it with whatever the preset happened to capture. A preset now
+  keeps the current card's Advanced CSS unless the preset itself carries
+  some.
+
+### Fixed — round-trip fidelity
+
+- **Negative threshold values were silently deleted on reopen** (the rule
+  parser's number pattern had no `-?` — freezer/outdoor temperature rules
+  simply vanished on the next save).
+- **Grayscale was dropped from a conditional filter whenever brightness or
+  blur was also set** — the parser only recognised grayscale when the
+  other branch was exactly `none`, but the generator emits the remaining
+  filters there.
+- **An animation triggered by a different entity silently rebound to the
+  card's own entity on reopen** — the custom entity in the condition was
+  parsed but never read back into the module.
+- **A hand-authored `border:` with no `border-radius:` gained the module's
+  default 12px radius on save.** Only a radius the CSS actually had is
+  emitted now.
+- **An 8-digit hex color (with alpha) in a Fade point turned the whole
+  gradient gray** — the interpolation math now drops the alpha channel
+  instead of falling back to gray.
+
+### Fixed — editor UX
+
+- **Threshold switch-mode rule values and entities-row rule values now
+  commit on blur/Enter instead of every keystroke** — the same
+  mid-edit-scramble/snap-to-0 class of bug fixed for gradient points in
+  0.7.0, in the two spots that hadn't been converted.
+- **On/off entity pickers are now filtered to entities that actually have
+  an on/off state** (switches, lights, binary sensors, input booleans, fans,
+  humidifiers, sirens, remotes) — a temperature sensor in a "controlled by"
+  list was never going to match `is_state(..., 'on')`. The Icon Color
+  "match the light's color" mode filters to lights only. Typing an entity
+  outside the filter is still allowed, and value-based pickers (Threshold)
+  stay unfiltered.
+- **The layout-card message no longer sends you in a circle.** It claimed
+  you could open a child card and press Style there — but Home Assistant
+  edits stack children *inside the same dialog*, so the button kept binding
+  to the container and showing the same message. The banner is now honest
+  about the limitation and describes the YAML workaround.
+- A `uix:` block carrying a per-card `theme:` override (a UIX-only feature
+  with no card-mod equivalent) is now recognised as UIX-only by the
+  reverse-compatibility warning, the same as macros/billets already were.
+- **UIX detection no longer has a false-negative window right after page
+  load.** The registry probe (`uix-node`) can lag UIX's frontend resource
+  executing by several seconds (observed live); detection now also consults
+  `hass.config.components` — backend truth, independent of frontend-load
+  timing — so the output-key choice and the reverse-compat warning can't
+  flap on a freshly-loaded page.
+
 ## [0.7.0] — 2026-07-03
 
 The first big step toward v1.0: making cross-entity styling a first-class,
@@ -371,6 +554,8 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.8.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0-beta.1
+[0.7.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.1
 [0.7.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0
 [0.6.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.2
 [0.6.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.6.1
