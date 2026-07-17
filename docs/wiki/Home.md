@@ -32,6 +32,7 @@ through HA's normal save flow.
 - [Styling Cards Inside Stacks](Styling-Cards-Inside-Stacks)
 
 **Workflow**
+- [Recipes](Recipes) — practical walkthroughs (battery rows, fading gauges, pulse-while-running, …)
 - [Presets & My Color Palette](Presets-and-My-Color-Palette)
 
 **Reference**

@@ -40,5 +40,8 @@ the cached old bundle.
 ## Verifying it works
 
 Open any dashboard card in edit mode (pencil icon). You should see a
-**🎨 Style** button in the editor footer, next to "Show code editor". If it's
-missing, see [Troubleshooting](Troubleshooting-FAQ#the-style-button-doesnt-appear).
+**🎨 Style** button in the editor footer, next to "Show code editor":
+
+![The Style button](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/01%20Style%20button.png)
+
+If it's missing, see [Troubleshooting](Troubleshooting-FAQ#the-style-button-doesnt-appear).

@@ -20,6 +20,8 @@ won't silently wipe your custom rules.
 
 ## My Color Palette
 
+![My Color Palette](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/09%20Font%20and%20Palette.png)
+
 The **🖌️ My Color Palette** section (below the preset bar):
 
 - **My colors** — named custom colors that appear as an extra swatch row in

@@ -16,6 +16,7 @@
 - [Cards Inside Stacks](Styling-Cards-Inside-Stacks)
 
 **Workflow**
+- [Recipes](Recipes)
 - [Presets & My Color Palette](Presets-and-My-Color-Palette)
 
 **Reference**
