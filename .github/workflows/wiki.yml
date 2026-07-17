@@ -1,0 +1,43 @@
+# Publishes docs/wiki/ to the repo's GitHub Wiki whenever a push to main
+# touches those files — so the wiki stays in sync with the sources with no
+# manual copy/push step. The wiki is a separate git repo (<repo>.wiki.git)
+# with no API; the workflow's GITHUB_TOKEN can push to it directly.
+#
+# docs/wiki/ is the single source of truth: this sync OVERWRITES the live
+# wiki (including deleting pages that no longer exist in docs/wiki/), so
+# wiki edits must be made in docs/wiki/ via a normal PR, not in the wiki's
+# web editor. README.md is the publish documentation, not a wiki page.
+name: Publish wiki
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/wiki/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync docs/wiki to the wiki repo
+        run: |
+          git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" /tmp/wiki
+          rsync -a --delete --exclude '.git' docs/wiki/ /tmp/wiki/
+          rm -f /tmp/wiki/README.md
+          cd /tmp/wiki
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Wiki already in sync — nothing to publish."
+          else
+            git commit -m "Sync wiki from docs/wiki @ ${GITHUB_SHA::7}"
+            git push
+          fi
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
