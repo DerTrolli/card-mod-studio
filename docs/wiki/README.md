@@ -1,0 +1,37 @@
+# Wiki sources
+
+These are the source pages for the repo's **GitHub Wiki**
+(https://github.com/DerTrolli/card-mod-studio/wiki). The wiki is a separate
+git repository GitHub attaches to the repo — it can't be updated through the
+normal repo push or the API, so the pages are maintained here and published
+manually:
+
+## Publishing (first time)
+
+1. Open https://github.com/DerTrolli/card-mod-studio/wiki and click
+   **"Create the first page"** → Save (any content — it gets overwritten).
+   GitHub only creates the underlying wiki git repo after this step.
+2. Then:
+
+```bash
+git clone https://github.com/DerTrolli/card-mod-studio.wiki.git
+cp docs/wiki/*.md card-mod-studio.wiki/
+rm card-mod-studio.wiki/README.md          # this file is not a wiki page
+cd card-mod-studio.wiki
+git add -A && git commit -m "Publish wiki" && git push
+```
+
+## Publishing (updates)
+
+Same `cp`/`rm`/commit/push against the existing clone.
+
+## Conventions
+
+- File name = page name (dashes render as spaces): `Getting-Started.md` →
+  "Getting Started". `Home.md` is the landing page; `_Sidebar.md` and
+  `_Footer.md` are the navigation chrome.
+- Internal links use bare page names: `[text](Getting-Started)`.
+- Images are hot-linked from the main repo's `images/` on `main` via
+  raw.githubusercontent.com — regenerating the README screenshots
+  (`tools/sandbox/harness/readme_shots.mjs`) updates the wiki images too.
+- Keep pages user-facing; developer docs live in `docs/` proper.

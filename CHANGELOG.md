@@ -96,6 +96,11 @@ Assistant render on both card-mod and UIX, not just source reading.
   child styling, per-row fonts, and the expanded Threshold capabilities.
   The screenshot set is reproducible via
   `tools/sandbox/harness/readme_shots.mjs`.
+- **A full GitHub Wiki** — 14 user-facing pages (module-by-module reference,
+  per-card support & limitations, card-mod vs UIX, troubleshooting/FAQ,
+  recipes) with navigation sidebar. Sources are maintained in `docs/wiki/`
+  (the wiki is a separate git repo GitHub attaches to the project — see
+  `docs/wiki/README.md` for how it's published).
 
 ## [0.7.1] — 2026-07-06
 
