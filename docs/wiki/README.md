@@ -11,19 +11,37 @@ manually:
 1. Open https://github.com/DerTrolli/card-mod-studio/wiki and click
    **"Create the first page"** → Save (any content — it gets overwritten).
    GitHub only creates the underlying wiki git repo after this step.
-2. Then:
+2. Clone the wiki repo *next to* your main repo clone, then copy the pages
+   in from the main clone and push.
+
+**Linux/macOS** (from the folder containing your main clone):
 
 ```bash
 git clone https://github.com/DerTrolli/card-mod-studio.wiki.git
-cp docs/wiki/*.md card-mod-studio.wiki/
+cp card-mod-studio/docs/wiki/*.md card-mod-studio.wiki/
 rm card-mod-studio.wiki/README.md          # this file is not a wiki page
 cd card-mod-studio.wiki
 git add -A && git commit -m "Publish wiki" && git push
 ```
 
+**Windows (cmd)** (same layout):
+
+```cmd
+git clone https://github.com/DerTrolli/card-mod-studio.wiki.git
+copy /Y card-mod-studio\docs\wiki\*.md card-mod-studio.wiki\
+del card-mod-studio.wiki\README.md
+cd card-mod-studio.wiki
+git add -A
+git commit -m "Publish wiki"
+git push
+```
+
+The main clone must contain `docs/wiki/` — i.e. be on a branch/commit where
+these sources exist (`git pull` after they've been merged to main).
+
 ## Publishing (updates)
 
-Same `cp`/`rm`/commit/push against the existing clone.
+Same copy/delete/commit/push against the existing wiki clone.
 
 ## Conventions
 
