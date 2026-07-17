@@ -9,6 +9,10 @@ Instead of hand-writing YAML + CSS + Jinja2 templates, Card-Mod Studio gives you
 
 ![Style button in the card editor](images/01%20Style%20button.png)
 
+📖 **Detailed documentation lives in the [Wiki](../../wiki)** — module-by-module
+reference, per-card support details, and troubleshooting. This README is the
+overview.
+
 ---
 
 ## What it does
