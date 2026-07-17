@@ -35,9 +35,15 @@ through HA's normal save flow.
 - [Recipes](Recipes) — practical walkthroughs (battery rows, fading gauges, pulse-while-running, …)
 - [Presets & My Color Palette](Presets-and-My-Color-Palette)
 
+**Per-card guides** — exactly what's styleable on each card and why
+- [Tile](Tile-Card) · [Gauge](Gauge-Card) · [Thermostat & Humidifier](Thermostat-and-Humidifier-Cards) · [Light](Light-Card) · [Button](Button-Card)
+- [Sensor & Entity](Sensor-and-Entity-Cards) · [Entities](Entities-Card) · [Glance](Glance-Card) · [Heading](Heading-Card) · [Markdown](Markdown-Card)
+- [Graphs & Data](Graph-and-Data-Cards) · [Picture](Picture-Cards) · [Media & Alarm](Media-and-Alarm-Cards) · [Containers](Container-Cards) · [iframe/map](Minimal-Support-Cards)
+
 **Reference**
 - [card-mod vs UIX](card-mod-vs-UIX) — engines, keys, migration
-- [Card Support & Known Limitations](Card-Support)
+- [Card Support & Known Limitations](Card-Support) — the at-a-glance matrix
+- [What's Planned](Whats-Planned) — the road to v1.0
 - [Troubleshooting & FAQ](Troubleshooting-FAQ)
 
 ## Getting help
