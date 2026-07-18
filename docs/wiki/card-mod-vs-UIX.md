@@ -34,7 +34,11 @@ silently lost or duplicated.
 - **UIX macros/billets:** those are UIX-exclusive — card-mod can't run them
   under any key, so instead of a fake fix you get a clear incompatibility
   warning. Studio edits never destroy an existing `uix.macros` block.
-- **card-mod → UIX:** nothing to do — UIX reads `card_mod:` natively.
+- **card-mod → UIX:** nothing to do — UIX reads `card_mod:` natively, so
+  deleting card-mod and installing UIX keeps every styled card working
+  as-is. The first Studio edit of a card after the switch reads its
+  `card_mod:` styling and rewrites it under `uix:` (verified by a
+  permanent live check against a real UIX install).
 
 ## Compatibility notes
 

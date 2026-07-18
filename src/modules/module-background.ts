@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { BackgroundModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_BACKGROUND } from '../parser/state-mapper.js';
-import { moduleStyles, renderWhen } from './module-base.js';
+import { moduleStyles, renderWhen, renderOverrideBadge, renderOverrideHint } from './module-base.js';
 import '../components/cms-color-picker.js';
 
 export class BackgroundModule extends LitElement {
@@ -14,6 +14,11 @@ export class BackgroundModule extends LitElement {
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
 
   @property({ attribute: false }) hass?: HomeAssistant;
+
+  /** True when Advanced CSS overrides this module's output — shows the
+   *  warning badge/hint (computed by the panel via style-conflicts.ts). */
+  @property({ attribute: false }) overridden = false;
+  @property({ attribute: false }) overriddenDetail = '';
 
   @state() private _open = false;
   @state() private _angle = DEFAULT_BACKGROUND.angle;
@@ -50,6 +55,7 @@ export class BackgroundModule extends LitElement {
         <div class="module-header" @click=${this._toggleOpen}>
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🖼️ Background</span>
+          ${renderOverrideBadge(this.overridden)}
           <ha-switch
             .checked=${this.state.enabled}
             @click=${(e: Event) => e.stopPropagation()}
@@ -65,6 +71,7 @@ export class BackgroundModule extends LitElement {
   private _renderBody() {
     return html`
       <div class="module-body">
+        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         <div class="control-row">
           <span class="control-label">Type</span>
           <div class="control-right">

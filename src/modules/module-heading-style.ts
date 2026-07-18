@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { HeadingStyleModuleState } from '../types/index.js';
 import { DEFAULT_HEADING_STYLE } from '../parser/state-mapper.js';
-import { moduleStyles } from './module-base.js';
+import { moduleStyles, renderOverrideBadge, renderOverrideHint } from './module-base.js';
 import { FONT_FAMILY_PRESETS } from './module-font.js';
 import '../components/cms-color-picker.js';
 
@@ -10,6 +10,11 @@ export class HeadingStyleModule extends LitElement {
   @property({ attribute: false }) state: HeadingStyleModuleState = {
     ...DEFAULT_HEADING_STYLE,
   };
+
+  /** True when Advanced CSS overrides this module's output — shows the
+   *  warning badge/hint (computed by the panel via style-conflicts.ts). */
+  @property({ attribute: false }) overridden = false;
+  @property({ attribute: false }) overriddenDetail = '';
 
   @state() private _open = false;
   @state() private _fontSize = DEFAULT_HEADING_STYLE.fontSize;
@@ -48,6 +53,7 @@ export class HeadingStyleModule extends LitElement {
         <div class="module-header" @click=${this._toggleOpen}>
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🔤 Heading Style</span>
+          ${renderOverrideBadge(this.overridden)}
           <ha-switch
             .checked=${this.state.enabled}
             @click=${(e: Event) => e.stopPropagation()}
@@ -70,6 +76,7 @@ export class HeadingStyleModule extends LitElement {
 
     return html`
       <div class="module-body">
+        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         <div class="control-row">
           <span class="control-label">Text size</span>
           <div class="control-right">

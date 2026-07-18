@@ -35,6 +35,7 @@ import './cms-child-card-section.js';
 import { loadPresets, savePresets } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
 import { initPaletteCache } from '../utils/palette-storage.js';
+import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
 import { generateCss } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
@@ -791,6 +792,8 @@ export class CmsPanel extends LitElement {
     const showHeadingStyle = this._showHeadingStyle;
     const showFont = this._showFont;
     const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
+    // "Custom CSS is overriding this control" warnings (style-conflicts.ts)
+    const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s);
 
     return html`
       ${hasUnrecognisedCss
@@ -801,6 +804,8 @@ export class CmsPanel extends LitElement {
 
       ${showHeadingStyle
         ? html`<cms-heading-style-module
+            .overridden=${!!conflicts.headingStyle}
+            .overriddenDetail=${(conflicts.headingStyle ?? []).join(", ")}
             .state=${s.headingStyle}
             @state-changed=${this._onHeadingStyleChanged}
           ></cms-heading-style-module>`
@@ -808,12 +813,16 @@ export class CmsPanel extends LitElement {
 
       ${showFont
         ? html`<cms-font-module
+            .overridden=${!!conflicts.font}
+            .overriddenDetail=${(conflicts.font ?? []).join(", ")}
             .state=${s.font}
             @state-changed=${this._onFontChanged}
           ></cms-font-module>`
         : nothing}
 
       <cms-filter-module
+        .overridden=${!!conflicts.filter}
+        .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
         .state=${s.filter}
         .stateAware=${stateAware}
         .hass=${this.hass}
@@ -822,6 +831,8 @@ export class CmsPanel extends LitElement {
 
       ${!showHeadingStyle && !this._isEntitiesCard
         ? html`<cms-accent-color-module
+            .overridden=${!!conflicts.accentColor}
+            .overriddenDetail=${(conflicts.accentColor ?? []).join(", ")}
             .state=${s.accentColor}
             .stateAware=${stateAware}
             .cardEntity=${this.config?.entity ?? ''}
@@ -833,6 +844,8 @@ export class CmsPanel extends LitElement {
 
       ${showIconColor
         ? html`<cms-icon-color-module
+            .overridden=${!!conflicts.iconColor}
+            .overriddenDetail=${(conflicts.iconColor ?? []).join(", ")}
             .state=${s.iconColor}
             .stateAware=${stateAware}
             .isLightCard=${this._isLightCard}
@@ -844,6 +857,8 @@ export class CmsPanel extends LitElement {
 
       ${!this._isEntitiesCard
         ? html`<cms-threshold-module
+              .overridden=${!!conflicts.threshold}
+              .overriddenDetail=${(conflicts.threshold ?? []).join(", ")}
               .state=${s.threshold}
               .cardEntity=${this.config?.entity ?? ''}
               .cardType=${this.config?.type ?? ''}
@@ -854,6 +869,8 @@ export class CmsPanel extends LitElement {
 
       ${showBackground
         ? html`<cms-background-module
+            .overridden=${!!conflicts.background}
+            .overriddenDetail=${(conflicts.background ?? []).join(", ")}
             .state=${s.background}
             .stateAware=${stateAware}
             .hass=${this.hass}
@@ -863,6 +880,8 @@ export class CmsPanel extends LitElement {
 
       ${showAnimation
         ? html`<cms-animation-module
+            .overridden=${!!conflicts.animation}
+            .overriddenDetail=${(conflicts.animation ?? []).join(", ")}
             .state=${s.animation}
             .stateAware=${stateAware}
             .hass=${this.hass}
@@ -872,6 +891,8 @@ export class CmsPanel extends LitElement {
 
       ${showBorder
         ? html`<cms-border-module
+            .overridden=${!!conflicts.border}
+            .overriddenDetail=${(conflicts.border ?? []).join(", ")}
             .state=${s.border}
             @state-changed=${this._onBorderChanged}
           ></cms-border-module>`

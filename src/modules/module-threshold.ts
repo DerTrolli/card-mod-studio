@@ -3,7 +3,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { property, state } from 'lit/decorators.js';
 import type { ThresholdModuleState, ThresholdProperty, ThresholdRule, ColorStop, HomeAssistant } from '../types/index.js';
 import { DEFAULT_THRESHOLD } from '../parser/state-mapper.js';
-import { moduleStyles } from './module-base.js';
+import { moduleStyles, renderOverrideBadge, renderOverrideHint } from './module-base.js';
 import { sortThresholdRules } from '../generator/css-generator.js';
 import { previewHexFor } from '../components/cms-color-picker.js';
 import { NO_ICON_COLOR_TYPES } from '../utils/card-caps.js';
@@ -34,6 +34,11 @@ export class ThresholdModule extends LitElement {
   @property({ type: String }) cardType = '';
 
   @property({ attribute: false }) hass?: HomeAssistant;
+
+  /** True when Advanced CSS overrides this module's output — shows the
+   *  warning badge/hint (computed by the panel via style-conflicts.ts). */
+  @property({ attribute: false }) overridden = false;
+  @property({ attribute: false }) overriddenDetail = '';
 
   @state() private _open = false;
 
@@ -258,6 +263,7 @@ export class ThresholdModule extends LitElement {
         <div class="module-header" @click=${this._toggleOpen}>
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🎯 Threshold Colors</span>
+          ${renderOverrideBadge(this.overridden)}
           <ha-switch
             .checked=${this.state.enabled}
             @click=${(e: Event) => e.stopPropagation()}
@@ -296,6 +302,7 @@ export class ThresholdModule extends LitElement {
   private _renderBody() {
     return html`
       <div class="module-body">
+        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         <div class="control-row">
           <span class="control-label">Entity</span>
         </div>

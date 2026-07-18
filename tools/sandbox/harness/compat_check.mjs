@@ -20,7 +20,7 @@ import { waitForHassReady, makeRecorder, finish } from './harness-utils.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HA = process.env.HA_URL || 'http://127.0.0.1:8123';
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-const tokens = JSON.parse(readFileSync(resolve(HERE, 'tokens.json'), 'utf8'));
+const tokens = JSON.parse(readFileSync(resolve(HERE, process.env.TOKENS_FILE || 'tokens.json'), 'utf8'));
 
 const { results, record } = makeRecorder();
 

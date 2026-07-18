@@ -10,6 +10,14 @@
    [the issues](https://github.com/DerTrolli/card-mod-studio/issues) —
    compatibility fixes ship quickly after HA releases.
 
+## A module shows a ⚠️ "Custom CSS is currently overriding this control"
+
+Working as intended: hand-written CSS in Advanced CSS always takes
+priority over the visual controls (that's what makes the escape hatch
+safe). The warning names the selector/property that's winning — edit or
+remove those lines in Advanced CSS if you want the module's setting to
+apply instead. See [Advanced CSS](Advanced-CSS).
+
 ## Styles save but nothing changes on the card
 
 - **Is card-mod or UIX actually installed and loading?** The Studio only

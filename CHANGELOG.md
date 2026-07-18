@@ -5,6 +5,63 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] — 2026-07-14
+
+A robustness release for everyone arriving with **existing styles** — from
+older Card-Mod Studio versions, from hand-written card-mod, or mid-switch
+between card-mod and UIX. Verified with a legacy-output audit across the
+generator's full git history, 14 new unit tests, and live checks against a
+real UIX instance.
+
+### Added — "Custom CSS is currently overriding this control"
+
+- Every module (and every entities-card row) now detects when hand-written
+  CSS in Advanced CSS (or a row's preserved custom CSS) sets the same
+  property the module drives, and shows a ⚠️ badge plus an explanation of
+  exactly which declaration is winning and why — custom CSS is applied
+  last *by design* (hand-written styles always take priority), and until
+  now the only symptom was "I drag the color picker and nothing happens".
+  The warning names the offending selector/property so it's a ten-second
+  fix instead of a mystery.
+
+### Added — safe adoption of equivalent hand-written phrasings
+
+The Studio now recognises well-known *equivalent* ways of writing what its
+modules generate, and takes them over cleanly — open the card, the matching
+control is pre-filled; change it, and the hand-written line is replaced by
+the Studio's own syntax:
+
+- `ha-card { --state-icon-color: … }` and `--paper-item-icon-color`
+  (incl. the `:host { … }` form Card-Mod Studio v0.3.1–v0.3.8 itself
+  generated on sensor/entity cards) → Icon Color — plain, ON/OFF
+  conditional, and value-threshold forms.
+- `ha-icon { color: … }` → Icon Color (equivalent via inheritance).
+- `ha-card { background-color: … }` → Background (solid).
+
+**Adoption is deliberately conservative**: it only happens on card types
+where the regenerated form is verifiably equivalent (never on entities
+cards or cards without a reachable icon), only for values the module can
+express *exactly*, and never next to contradicting declarations (a
+`background-color` beside a `background-image` stays untouched; a
+multi-branch Jinja expression the modules can't represent stays untouched).
+Everything not adopted is preserved verbatim in Advanced CSS, exactly as
+before — with the new override warning pointing at it when relevant.
+
+### Verified — migration paths
+
+- **Old-version configs**: every CSS shape any released Card-Mod Studio
+  version ever generated was audited against today's parser; all either
+  round-trip into module state or are preserved harmlessly. The one
+  genuinely dangerous legacy shape (v0.3.x icon variables, which could
+  silently override a newly picked icon color forever) is the one now
+  adopted and cleaned up.
+- **card-mod → UIX switch**: styling everything with card-mod, deleting
+  card-mod and installing UIX keeps every card working with no action
+  (UIX reads `card_mod:` natively); the first Studio edit after the switch
+  reads the `card_mod:` styling and rewrites it under `uix:` — covered by
+  a new permanent live check against a real UIX install. (The reverse
+  switch keeps its existing per-card warnings and one-click fix.)
+
 ## [0.8.0] — 2026-07-14
 
 The "structure + color system" release — the v0.8 roadmap cycle, developed
@@ -610,6 +667,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.8.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.1
 [0.8.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0
 [0.7.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.1
 [0.7.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.0
