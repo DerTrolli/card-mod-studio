@@ -50,6 +50,11 @@ plain card-mod/UIX syntax with no runtime dependency on Card-Mod Studio.
 ## Editing cards that already have styles
 
 Opening a card that carries hand-written `card_mod:`/`uix:` CSS pre-fills the
-controls: everything the Studio recognises becomes editable module state, and
-anything it doesn't recognise is preserved verbatim in
-[Advanced CSS](Advanced-CSS) — unrecognised styling is never deleted.
+controls: everything the Studio recognises becomes editable module state —
+including well-known *equivalent* phrasings (icon-color variables,
+`ha-icon { color }`, `background-color`, and the shapes very old Studio
+versions generated), which are adopted into the matching control and
+rewritten in current syntax the moment you edit them. Anything it doesn't
+fully understand is preserved verbatim in [Advanced CSS](Advanced-CSS) —
+unrecognised styling is never reinterpreted or deleted, and if it overrides
+an enabled control, that control tells you so with a ⚠️ warning.
