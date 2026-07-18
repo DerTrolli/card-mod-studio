@@ -73,12 +73,12 @@ export function buildMergedStudioState(
   const primaryStyle = outputKey === 'uix' ? config.uix?.style : config.card_mod?.style;
   const secondaryStyle = outputKey === 'uix' ? config.card_mod?.style : config.uix?.style;
 
-  const primaryState = mapToStudioState(parseStyleValue(primaryStyle));
+  const primaryState = mapToStudioState(parseStyleValue(primaryStyle), config.type);
 
   const secondaryUsable = outputKey === 'uix' || !usesUixOnlyFeatures(config);
   if (!hasStyleContent(secondaryStyle) || !secondaryUsable) return applyPaletteDefaults(primaryState);
 
-  const secondaryState = mapToStudioState(parseStyleValue(secondaryStyle));
+  const secondaryState = mapToStudioState(parseStyleValue(secondaryStyle), config.type);
   return applyPaletteDefaults(mergeStudioStates(primaryState, secondaryState));
 }
 

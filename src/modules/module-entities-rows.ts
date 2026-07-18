@@ -1,8 +1,9 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, ThresholdRule } from '../types/index.js';
-import { moduleStyles } from './module-base.js';
+import { moduleStyles, renderOverrideHint } from './module-base.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
+import { findRowExtraCssConflicts } from '../utils/style-conflicts.js';
 import '../components/cms-color-picker.js';
 
 /** The color a freshly-enabled row icon/color control starts from — the
@@ -221,20 +222,25 @@ export class EntitiesRowsModule extends LitElement {
       rowStyle.extraCss
     );
 
+    const conflicts = findRowExtraCssConflicts(rowStyle);
+
     return html`
       <div class="entity-section">
         <div class="entity-header" @click=${() => this._toggleRow(id)}>
           <span class="entity-chevron">${isOpen ? '▼' : '▶'}</span>
           <span class="entity-name">${label}</span>
           <span class="entity-id">${id}</span>
+          ${conflicts.length
+            ? html`<span class="override-badge" title="Hand-written CSS on this row is overriding these controls">⚠️</span>`
+            : nothing}
           ${hasStyle ? html`<span class="style-dot"></span>` : nothing}
         </div>
-        ${isOpen ? this._renderBody(id, rowStyle) : nothing}
+        ${isOpen ? this._renderBody(id, rowStyle, conflicts) : nothing}
       </div>
     `;
   }
 
-  private _renderBody(entityId: string, rowStyle: EntitiesRowStyle) {
+  private _renderBody(entityId: string, rowStyle: EntitiesRowStyle, conflicts: string[] = []) {
     const iconEnabled = !!(rowStyle.iconColor || rowStyle.iconMode === 'threshold');
     const iconIsThreshold = rowStyle.iconMode === 'threshold';
     const textEnabled = !!(rowStyle.textColor || rowStyle.textMode === 'threshold');
@@ -242,6 +248,7 @@ export class EntitiesRowsModule extends LitElement {
 
     return html`
       <div class="entity-body">
+        ${renderOverrideHint(conflicts.length > 0, conflicts.join(', '))}
 
         <!-- Icon color -->
         <div class="control-row">

@@ -914,3 +914,101 @@ describe('parseEntityRowCss', () => {
     expect(style).toEqual({ iconColor: '', textColor: '' });
   });
 });
+
+// ---------------------------------------------------------------------------
+// v0.8.1 — legacy corpus + safe adoption of hand-written equivalents
+// ---------------------------------------------------------------------------
+
+describe('v0.8.1 legacy corpus and safe adoption', () => {
+  const mapCfg = (style: string, type = 'sensor') =>
+    mapToStudioState(parseCardModConfig({ type, card_mod: { style } }), type);
+
+  it('adopts ha-card { --state-icon-color } into Icon Color (plain) on supported cards', () => {
+    const s = mapCfg('ha-card {\n  --state-icon-color: red;\n}', 'tile');
+    expect(s.iconColor.enabled).toBe(true);
+    expect(s.iconColor.mode).toBe('plain');
+    expect(s.iconColor.color).toBe('red');
+    expect(s.advanced.rawCss).toBe('');
+  });
+
+  it('adopts the legacy v0.3.x :host { --paper-item-icon-color } form (plain and on/off)', () => {
+    const plain = mapCfg(':host {\n  --paper-item-icon-color: #ff0000;\n}', 'sensor');
+    expect(plain.iconColor.enabled).toBe(true);
+    expect(plain.iconColor.color).toBe('#ff0000');
+    expect(plain.advanced.rawCss).toBe('');
+
+    const cond = mapCfg(
+      ":host {\n  --paper-item-icon-color: {{ '#ff0000' if is_state(config.entity, 'on') else '#444444' }};\n}",
+      'entity',
+    );
+    expect(cond.iconColor.enabled).toBe(true);
+    expect(cond.iconColor.mode).toBe('conditional');
+    expect(cond.iconColor.colorOn).toBe('#ff0000');
+    expect(cond.advanced.rawCss).toBe('');
+  });
+
+  it('adopts the legacy threshold-jinja icon variable into the Threshold module', () => {
+    const s = mapCfg(
+      ":host {\n  --paper-item-icon-color: {{ '#ff0000' if states('sensor.t') | float(0) >= 30 else '#888888' }};\n}",
+      'sensor',
+    );
+    expect(s.threshold.enabled).toBe(true);
+    expect(s.threshold.properties).toEqual(['icon-color']);
+    expect(s.advanced.rawCss).toBe('');
+  });
+
+  it('adopts ha-icon { color } as Icon Color; does NOT adopt on entities or unsupported cards', () => {
+    const ok = mapCfg('ha-icon {\n  color: #00ff00;\n}', 'light');
+    expect(ok.iconColor.enabled).toBe(true);
+    expect(ok.iconColor.color).toBe('#00ff00');
+
+    const entities = mapCfg('ha-card {\n  --state-icon-color: red;\n}', 'entities');
+    expect(entities.iconColor.enabled).toBe(false);
+    expect(entities.advanced.rawCss).toContain('--state-icon-color');
+
+    const gauge = mapCfg('ha-card {\n  --state-icon-color: red;\n}', 'gauge');
+    expect(gauge.iconColor.enabled).toBe(false);
+    expect(gauge.advanced.rawCss).toContain('--state-icon-color');
+  });
+
+  it('does not steal an accent companion variable as icon color', () => {
+    const s = mapCfg('ha-card {\n  --accent-color: #03a9f4;\n  --state-icon-color: #03a9f4;\n}', 'tile');
+    expect(s.accentColor.enabled).toBe(true);
+    expect(s.iconColor.enabled).toBe(false);
+    expect(s.advanced.rawCss).toBe('');
+  });
+
+  it('adopts background-color as a solid Background, but not next to other background-* longhands', () => {
+    const s = mapCfg('ha-card {\n  background-color: #123456;\n}', 'tile');
+    expect(s.background.enabled).toBe(true);
+    expect(s.background.color1).toBe('#123456');
+    expect(s.advanced.rawCss).toBe('');
+
+    const img = mapCfg('ha-card {\n  background-color: #123456;\n  background-image: url(x.png);\n}', 'tile');
+    expect(img.background.enabled).toBe(false);
+    expect(img.advanced.rawCss).toContain('background-color');
+    expect(img.advanced.rawCss).toContain('background-image');
+  });
+
+  it('leaves unsupported variants untouched in Advanced CSS (no reinterpretation)', () => {
+    const s = mapCfg(
+      "ha-card {\n  --state-icon-color: color-mix(in srgb, red 40%, blue);\n}",
+      'tile',
+    );
+    // color-mix is adoptable-looking but plain — it IS a static value, so it
+    // adopts; the truly unadoptable class is multi-branch Jinja:
+    const t = mapCfg(
+      "ha-card {\n  --state-icon-color: {{ 'red' if is_state('a.b', 'heat') else 'blue' if is_state('a.b', 'cool') else 'grey' }};\n}",
+      'tile',
+    );
+    expect(t.iconColor.enabled).toBe(false);
+    expect(t.threshold.enabled).toBe(false);
+    expect(t.advanced.rawCss).toContain('--state-icon-color');
+  });
+
+  it('inert legacy gauge shape (ha-card --gauge-color) is preserved, not adopted', () => {
+    const s = mapCfg('ha-card {\n  --gauge-color: #ff0000;\n}', 'gauge');
+    expect(s.accentColor.enabled).toBe(false);
+    expect(s.advanced.rawCss).toContain('--gauge-color');
+  });
+});

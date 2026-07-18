@@ -34,6 +34,7 @@ import type {
 } from '../types/index.js';
 import { parseCss, parseCssDetailed } from './css-parser.js';
 import { GRADIENT_MARKER_PROPERTY, decodeGradientStops, headerFontSize, valueFontSize } from '../generator/css-generator.js';
+import { NO_ICON_COLOR_TYPES } from '../utils/card-caps.js';
 
 // ---------------------------------------------------------------------------
 // Default states
@@ -301,9 +302,13 @@ function mapAnimation(
 // Public API
 // ---------------------------------------------------------------------------
 
-export function mapToStudioState(parsed: CardModStyleState): StudioState {
+export function mapToStudioState(parsed: CardModStyleState, cardType?: string): StudioState {
   const haCard = findTarget(parsed.targets, 'ha-card');
   const haStateIcon = findTarget(parsed.targets, 'ha-state-icon');
+  const haIcon = findTarget(parsed.targets, 'ha-icon');
+  // Card-level :host — the shape v0.3.1–v0.3.8 generated icon colors into
+  // (`:host { --paper-item-icon-color: … }`), and a hand-written idiom.
+  const hostTarget = findTarget(parsed.targets, ':host');
   const haGauge = findTarget(parsed.targets, 'ha-gauge');
   const titleP = findTarget(parsed.targets, '.title p');
   const titleIcon = findTarget(parsed.targets, '.title ha-icon');
@@ -313,14 +318,14 @@ export function mapToStudioState(parsed: CardModStyleState): StudioState {
 
   return {
     filter: mapFilter(haCard, claimed),
-    iconColor: mapIconColor(haStateIcon, claimed),
+    iconColor: mapIconColor(haStateIcon, haIcon, haCard, hostTarget, cardType, claimed),
     accentColor: mapAccentColor(haCard, haGauge, claimed),
     background: mapBackground(haCard, claimed),
     animation: mapAnimation(haCard, claimed),
     border: mapBorder(haCard, claimed),
     headingStyle: mapHeadingStyle(titleP, titleIcon, container, claimed),
     font: mapFont(parsed.targets, haCard, claimed),
-    threshold: mapThreshold(haCard, haStateIcon, haGauge, claimed),
+    threshold: mapThreshold(haCard, haStateIcon, haGauge, hostTarget, cardType, claimed),
     advanced: mapAdvanced(parsed, claimed),
   };
 }
@@ -506,11 +511,65 @@ function mapFilter(haCard: CssTarget | null, claimed: Set<string>): FilterModule
 // Icon color module
 // ---------------------------------------------------------------------------
 
+/**
+ * Adopting a hand-written equivalent phrasing is only safe when (a) the
+ * card type actually offers the Icon Color module (regenerating in module
+ * syntax must land on a card where `ha-state-icon { color !important }`
+ * verifiably works — see CARD_SUPPORT_MATRIX.md), and (b) the value is
+ * something the module can express exactly. Anything else stays verbatim
+ * in Advanced CSS — never reinterpreted, never dropped (v0.8.1).
+ */
+function iconAdoptionAllowed(cardType?: string): boolean {
+  // No card type known (defensive callers) → don't adopt, only preserve.
+  if (!cardType) return false;
+  if (cardType === 'entities') return false; // rows, not a card icon
+  return !NO_ICON_COLOR_TYPES.has(cardType);
+}
+
 function mapIconColor(
   haStateIcon: CssTarget | null,
+  haIcon: CssTarget | null,
+  haCard: CssTarget | null,
+  hostTarget: CssTarget | null,
+  cardType: string | undefined,
   claimed: Set<string>,
 ): IconColorModuleState {
-  if (!haStateIcon) return { ...DEFAULT_ICON_COLOR };
+  // Hand-written equivalents, tried only when the canonical ha-state-icon
+  // form is absent (if both exist, the canonical one wins and the other is
+  // surfaced by the Advanced-CSS override warning instead of guessed at):
+  // 1. `ha-icon { color: X }` — ha-icon sits inside ha-state-icon and
+  //    inherits its color, so the module's phrasing is equivalent.
+  // 2. `ha-card { --state-icon-color: X }` / `--paper-item-icon-color` —
+  //    the standard icon-color variables; equivalent on every card type
+  //    the module is offered for.
+  if (!haStateIcon || !findProp(haStateIcon, 'color')) {
+    if (iconAdoptionAllowed(cardType)) {
+      if (haIcon) {
+        const adopted = mapIconColor(haIcon, null, null, null, cardType, claimed);
+        if (adopted.enabled) return adopted;
+      }
+      for (const target of [haCard, hostTarget]) {
+        if (!target) continue;
+        // Skip when the variable is an Accent Color companion (same value
+        // as --accent-color) — that belongs to the accent module's claims.
+        const accentProp = haCard ? findProp(haCard, '--accent-color') : undefined;
+        for (const varName of ['--state-icon-color', '--paper-item-icon-color']) {
+          const prop = findProp(target, varName);
+          if (!prop) continue;
+          if (accentProp && accentProp.value.trim() === prop.value.trim()) continue;
+          const adopted = mapIconColor(
+            { selector: target.selector, properties: [{ ...prop, property: 'color' }] } as CssTarget,
+            null, null, null, cardType, new Set(),
+          );
+          if (adopted.enabled) {
+            claimed.add(claimKey(target.selector, varName));
+            return adopted;
+          }
+        }
+      }
+    }
+    return { ...DEFAULT_ICON_COLOR };
+  }
 
   const colorProp = findProp(haStateIcon, 'color');
   if (!colorProp) return { ...DEFAULT_ICON_COLOR };
@@ -620,8 +679,30 @@ function mapBackground(
 ): BackgroundModuleState {
   if (!haCard) return { ...DEFAULT_BACKGROUND };
 
-  const bgProp = findProp(haCard, 'background');
-  if (!bgProp) return { ...DEFAULT_BACKGROUND };
+  let bgProp = findProp(haCard, 'background');
+
+  // Hand-written equivalent: `background-color: X` (the longhand). Adopted
+  // as a solid background ONLY when it's a plain static value and no other
+  // background-* longhand sits next to it — the module regenerates as the
+  // `background` shorthand, which would reset a coexisting
+  // background-image/position/size. Anything richer stays in Advanced CSS.
+  if (!bgProp) {
+    const bgColorProp = findProp(haCard, 'background-color');
+    const otherBgLonghands = haCard.properties.some(
+      (p) => p.property.startsWith('background-') && p.property !== 'background-color',
+    );
+    if (bgColorProp && !bgColorProp.hasCondition && bgColorProp.value.trim() && !otherBgLonghands) {
+      claimed.add(claimKey(haCard.selector, 'background-color'));
+      return {
+        ...DEFAULT_BACKGROUND,
+        enabled: true,
+        type: 'solid',
+        color1: bgColorProp.value.trim(),
+        applyWhen: 'always',
+      };
+    }
+    return { ...DEFAULT_BACKGROUND };
+  }
 
   // Conditional background: {{ 'color' if is_state(..., 'on'/'off') else 'none' }}
   if (bgProp.hasCondition && bgProp.onValue !== undefined && bgProp.offValue !== undefined) {
@@ -1167,6 +1248,8 @@ function mapThreshold(
   haCard: CssTarget | null,
   haStateIcon: CssTarget | null,
   haGauge: CssTarget | null,
+  hostTarget: CssTarget | null,
+  cardType: string | undefined,
   claimed: Set<string>,
 ): ThresholdModuleState {
   type Candidate = {
@@ -1204,6 +1287,21 @@ function mapThreshold(
     const colorProp = findProp(haStateIcon, 'color');
     if (colorProp?.hasCondition && !colorProp.onValue)
       candidates.push({ target: haStateIcon, cssProperty: 'color', thresholdProperty: 'icon-color' });
+  }
+
+  // Legacy (v0.3.1–v0.3.8) and hand-written icon-threshold forms: the same
+  // Jinja chain written into an icon-color VARIABLE on ha-card/:host.
+  // Adopted (and regenerated in today's ha-state-icon form) only on card
+  // types where that regeneration is verifiably equivalent.
+  if (iconAdoptionAllowed(cardType)) {
+    for (const target of [haCard, hostTarget]) {
+      if (!target) continue;
+      for (const varName of ['--state-icon-color', '--paper-item-icon-color']) {
+        const prop = findProp(target, varName);
+        if (prop?.hasCondition && !prop.onValue)
+          candidates.push({ target, cssProperty: varName, thresholdProperty: 'icon-color' });
+      }
+    }
   }
 
   // Collect every candidate whose parsed rules match the *first* matching

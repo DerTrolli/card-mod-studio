@@ -57,3 +57,4 @@ harness/uix-matrix.json
 __pycache__/
 *.pyc
 harness/attr-palette-check.json
+harness/legacy-adopt-check.json

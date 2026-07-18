@@ -3,12 +3,27 @@
 These are the source pages for the repo's **GitHub Wiki**
 (https://github.com/DerTrolli/card-mod-studio/wiki). The wiki is a separate
 git repository GitHub attaches to the repo — it can't be updated through the
-normal repo push or the API, so the pages are maintained here and published
-manually:
+normal repo push or the API.
 
-## Publishing (first time)
+## Publishing (automatic — the normal path)
 
-1. Open https://github.com/DerTrolli/card-mod-studio/wiki and click
+**Any push to `main` that touches `docs/wiki/` triggers
+`.github/workflows/wiki.yml`, which syncs these files to the live wiki.**
+Merging a PR that edits the sources is all it takes — no manual step.
+
+Two rules that follow from the sync being an overwrite:
+- Edit wiki pages **here**, never in the wiki's web editor — web edits are
+  clobbered by the next sync (pages absent from `docs/wiki/` are deleted).
+- `README.md` (this file) is publish documentation, not a wiki page — the
+  workflow excludes it.
+
+The workflow can also be run manually (Actions → "Publish wiki" → Run
+workflow) to force a re-sync.
+
+## Manual publishing (fallback, e.g. if the workflow is broken)
+
+1. If the wiki has never been initialized: open
+   https://github.com/DerTrolli/card-mod-studio/wiki and click
    **"Create the first page"** → Save (any content — it gets overwritten).
    GitHub only creates the underlying wiki git repo after this step.
 2. Clone the wiki repo *next to* your main repo clone, then copy the pages
@@ -39,7 +54,7 @@ git push
 The main clone must contain `docs/wiki/` — i.e. be on a branch/commit where
 these sources exist (`git pull` after they've been merged to main).
 
-## Publishing (updates)
+## Manual updates (same fallback)
 
 Same copy/delete/commit/push against the existing wiki clone.
 

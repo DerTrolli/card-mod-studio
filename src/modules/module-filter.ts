@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { FilterModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_FILTER } from '../parser/state-mapper.js';
-import { moduleStyles, renderWhen } from './module-base.js';
+import { moduleStyles, renderWhen, renderOverrideBadge, renderOverrideHint } from './module-base.js';
 
 export class FilterModule extends LitElement {
   @property({ attribute: false }) state: FilterModuleState = { ...DEFAULT_FILTER };
@@ -11,6 +11,11 @@ export class FilterModule extends LitElement {
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
 
   @property({ attribute: false }) hass?: HomeAssistant;
+
+  /** True when Advanced CSS overrides this module's output — shows the
+   *  warning badge/hint (computed by the panel via style-conflicts.ts). */
+  @property({ attribute: false }) overridden = false;
+  @property({ attribute: false }) overriddenDetail = '';
 
   @state() private _open = false;
   @state() private _brightness = DEFAULT_FILTER.brightness;
@@ -51,6 +56,7 @@ export class FilterModule extends LitElement {
         <div class="module-header" @click=${this._toggleOpen}>
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🔲 Visual Filters</span>
+          ${renderOverrideBadge(this.overridden)}
           <ha-switch
             .checked=${this.state.enabled}
             @click=${(e: Event) => e.stopPropagation()}
@@ -66,6 +72,7 @@ export class FilterModule extends LitElement {
   private _renderBody() {
     return html`
       <div class="module-body">
+        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         <!-- Grayscale -->
         <div class="control-row">
           <span class="control-label">Grayscale</span>

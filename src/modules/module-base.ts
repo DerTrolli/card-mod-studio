@@ -141,6 +141,26 @@ export const moduleStyles = css`
     color: var(--secondary-text-color, #9e9e9e);
   }
 
+  /* "Custom CSS is overriding this control" — see style-conflicts.ts. */
+  .override-badge {
+    font-size: 13px;
+    margin-right: 6px;
+    flex-shrink: 0;
+    cursor: help;
+  }
+  .override-hint {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--warning-color, #ffa600);
+    background: rgba(255, 166, 0, 0.08);
+    border: 1px solid rgba(255, 166, 0, 0.3);
+    border-radius: 4px;
+    padding: 6px 8px;
+  }
+  .override-hint code {
+    font-size: 10px;
+  }
+
 `;
 
 // ---------------------------------------------------------------------------
@@ -240,4 +260,33 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
       : nothing}
     <div class="when-hint">${whenHint(o.value, o)}</div>
   `;
+}
+
+// ---------------------------------------------------------------------------
+// Shared "Custom CSS is overriding this control" warning (v0.8.1)
+// ---------------------------------------------------------------------------
+
+/** Header badge for a module whose output is overridden by Advanced CSS. */
+export function renderOverrideBadge(overridden: boolean): TemplateResult | typeof nothing {
+  if (!overridden) return nothing;
+  return html`<span
+    class="override-badge"
+    title="Custom CSS in Advanced CSS is currently overriding this control"
+  >⚠️</span>`;
+}
+
+/** Body hint explaining WHY changes in this module may not be visible. */
+export function renderOverrideHint(
+  overridden: boolean,
+  detail?: string,
+): TemplateResult | typeof nothing {
+  if (!overridden) return nothing;
+  return html`<div class="override-hint">
+    ⚠️ <strong>Custom CSS is currently overriding this control</strong>${detail
+      ? html` — <code>${detail}</code>`
+      : nothing}.
+    Advanced CSS is applied after these settings (hand-written styles always
+    win), so changes here may not be visible on the card. Edit or remove
+    those lines in Advanced CSS to hand control back to this module.
+  </div>`;
 }

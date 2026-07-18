@@ -50,6 +50,7 @@ import {
   isStateAware,
 } from '../utils/card-caps.js';
 import { moduleStyles } from '../modules/module-base.js';
+import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 
 import '../modules/module-filter.js';
 import '../modules/module-icon-color.js';
@@ -217,11 +218,14 @@ export class CmsChildCardSection extends LitElement {
     const showHeading = cardType === 'heading';
     const isEntities = cardType === 'entities';
     const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
+    const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s);
 
     return html`
       <div class="child-body">
         ${showHeading
           ? html`<cms-heading-style-module
+              .overridden=${!!conflicts.headingStyle}
+              .overriddenDetail=${(conflicts.headingStyle ?? []).join(", ")}
               .state=${s.headingStyle}
               @state-changed=${(e: CustomEvent<HeadingStyleModuleState>) =>
                 this._emitChanged({ headingStyle: e.detail })}
@@ -230,12 +234,16 @@ export class CmsChildCardSection extends LitElement {
 
         ${!NO_FONT_TYPES.has(cardType)
           ? html`<cms-font-module
+              .overridden=${!!conflicts.font}
+              .overriddenDetail=${(conflicts.font ?? []).join(", ")}
               .state=${s.font}
               @state-changed=${(e: CustomEvent<FontModuleState>) => this._emitChanged({ font: e.detail })}
             ></cms-font-module>`
           : nothing}
 
         <cms-filter-module
+          .overridden=${!!conflicts.filter}
+          .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
           .state=${s.filter}
           .stateAware=${stateAware}
           .hass=${this.hass}
@@ -244,6 +252,8 @@ export class CmsChildCardSection extends LitElement {
 
         ${!showHeading && !isEntities
           ? html`<cms-accent-color-module
+              .overridden=${!!conflicts.accentColor}
+              .overriddenDetail=${(conflicts.accentColor ?? []).join(", ")}
               .state=${s.accentColor}
               .stateAware=${stateAware}
               .cardEntity=${entity}
@@ -256,6 +266,8 @@ export class CmsChildCardSection extends LitElement {
 
         ${!isEntities && !NO_ICON_COLOR_TYPES.has(cardType)
           ? html`<cms-icon-color-module
+              .overridden=${!!conflicts.iconColor}
+              .overriddenDetail=${(conflicts.iconColor ?? []).join(", ")}
               .state=${s.iconColor}
               .stateAware=${stateAware}
               .isLightCard=${cardType === 'light'}
@@ -268,6 +280,8 @@ export class CmsChildCardSection extends LitElement {
 
         ${!isEntities
           ? html`<cms-threshold-module
+              .overridden=${!!conflicts.threshold}
+              .overriddenDetail=${(conflicts.threshold ?? []).join(", ")}
               .state=${s.threshold}
               .cardEntity=${entity}
               .cardType=${cardType}
@@ -279,6 +293,8 @@ export class CmsChildCardSection extends LitElement {
 
         ${!NO_BACKGROUND_TYPES.has(cardType)
           ? html`<cms-background-module
+              .overridden=${!!conflicts.background}
+              .overriddenDetail=${(conflicts.background ?? []).join(", ")}
               .state=${s.background}
               .stateAware=${stateAware}
               .hass=${this.hass}
@@ -289,6 +305,8 @@ export class CmsChildCardSection extends LitElement {
 
         ${!NO_ANIMATION_TYPES.has(cardType)
           ? html`<cms-animation-module
+              .overridden=${!!conflicts.animation}
+              .overriddenDetail=${(conflicts.animation ?? []).join(", ")}
               .state=${s.animation}
               .stateAware=${stateAware}
               .hass=${this.hass}
@@ -299,6 +317,8 @@ export class CmsChildCardSection extends LitElement {
 
         ${!NO_BORDER_TYPES.has(cardType)
           ? html`<cms-border-module
+              .overridden=${!!conflicts.border}
+              .overriddenDetail=${(conflicts.border ?? []).join(", ")}
               .state=${s.border}
               @state-changed=${(e: CustomEvent<BorderModuleState>) => this._emitChanged({ border: e.detail })}
             ></cms-border-module>`

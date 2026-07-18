@@ -35,7 +35,26 @@ When the Studio opens a card:
 If a card opens with the note *"Some existing styles weren't recognised —
 preserved in Advanced CSS"*, that's this mechanism, working.
 
-## Evaluation order
+## Evaluation order — and the override warning
 
 Module output first, Advanced CSS last — so your raw CSS can override any
-module's declaration when selectors and specificity match.
+module's declaration when selectors and specificity match. **Your custom
+CSS always wins by design.**
+
+Since v0.8.1, when custom CSS sets a property an *enabled* module also
+drives (e.g. a hand-written `ha-card { background }` next to an enabled
+Background module), that module shows a ⚠️ badge and names the exact
+declaration that's winning — so "I changed the picker and nothing
+happened" is never a mystery. Remove or edit the named lines to hand
+control back to the module.
+
+## Equivalent phrasings get adopted (v0.8.1)
+
+A few well-known hand-written equivalents of what the modules generate are
+recognised directly into the matching control: icon-color variables
+(`--state-icon-color`, `--paper-item-icon-color`, incl. the `:host` form
+very old Studio versions generated), `ha-icon { color }`, and
+`background-color`. Editing the control then replaces the hand-written line
+with the Studio's own syntax. Adoption is strictly conservative — only on
+card types where the two forms are verifiably equivalent, and only for
+values the control can express exactly; anything else stays verbatim here.

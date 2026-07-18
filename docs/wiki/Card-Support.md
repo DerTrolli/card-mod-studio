@@ -1,6 +1,13 @@
-Which modules appear on which card types, and the honest list of what can't
-be styled. The panel only ever shows controls that can actually do something
-on the current card — a hidden module here isn't a bug.
+The at-a-glance overview of which modules appear on which card types, and
+the honest list of what can't be styled. The panel only ever shows controls
+that can actually do something on the current card — a hidden module here
+isn't a bug.
+
+**For depth, every card has its own guide** — see the *Per-card guides*
+section in the sidebar (Tile, Gauge, Thermostat, Light, Button,
+Sensor/Entity, Entities, Glance, Heading, Markdown, Graphs & Data, Picture,
+Media & Alarm, Containers, iframe/map) — each lists all available options
+on that card, its quirks, and its limits.
 
 Everything below is **measured against real rendered cards** (the project
 maintains a Docker + Playwright rig that renders each card with real
