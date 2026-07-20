@@ -28,12 +28,13 @@ import {
   NO_BORDER_TYPES,
   NO_ICON_COLOR_TYPES,
   NO_FONT_TYPES,
+  ICON_SIZE_TYPES,
   isStateAware,
 } from '../utils/card-caps.js';
 import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles } from './studio-state.js';
 import './cms-child-card-section.js';
 import './cms-preview-picker.js';
-import type { PickTarget } from '../utils/preview-map.js';
+import type { PickEventDetail } from './cms-preview-picker.js';
 import { loadPresets, savePresets } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
 import { initPaletteCache } from '../utils/palette-storage.js';
@@ -761,8 +762,8 @@ export class CmsPanel extends LitElement {
   }
 
   /** Click-to-edit: scroll to the picked module, open it, flash it. */
-  private _onPreviewPick(e: CustomEvent<PickTarget>) {
-    const { module, rowEntity } = e.detail;
+  private _onPreviewPick(e: CustomEvent<PickEventDetail>) {
+    const { module, rowEntity, rowIndex } = e.detail;
     const el = this.shadowRoot?.querySelector(module) as
       | (HTMLElement & { _open?: boolean; open?: boolean; _openRows?: Set<string> })
       | null;
@@ -773,12 +774,20 @@ export class CmsPanel extends LitElement {
     // Open it: most modules collapse via a private `_open` @state (assigning
     // from outside still triggers a reactive update); cms-advanced-module
     // uses a public `open`; cms-entities-rows-module is always open but keeps
-    // per-row sections in `_openRows`.
+    // per-row sections in `_openRows`, keyed by row INDEX (positional, like
+    // the row-style map — duplicate entity_ids are valid, so the index is
+    // the only unambiguous row identity). The rowEntity fallback (older
+    // pick details without an index) opens the FIRST matching row.
     if (module === 'cms-advanced-module') {
       el.open = true;
     } else if (module === 'cms-entities-rows-module') {
-      if (rowEntity && el._openRows) {
-        el._openRows = new Set([...el._openRows, rowEntity]);
+      const index = typeof rowIndex === 'number' && rowIndex >= 0
+        ? rowIndex
+        : rowEntity
+          ? this._rowEntityIds().indexOf(rowEntity)
+          : -1;
+      if (index >= 0 && el._openRows) {
+        el._openRows = new Set([...el._openRows, String(index)]);
       }
     } else {
       el._open = true;
@@ -931,6 +940,7 @@ export class CmsPanel extends LitElement {
             .state=${s.iconColor}
             .stateAware=${stateAware}
             .isLightCard=${this._isLightCard}
+            .allowSize=${ICON_SIZE_TYPES.has(this.config?.type ?? '')}
             .cardEntity=${this.config?.entity ?? ''}
             .hass=${this.hass}
             @state-changed=${this._onIconColorChanged}
@@ -976,6 +986,8 @@ export class CmsPanel extends LitElement {
             .overridden=${!!conflicts.border}
             .overriddenDetail=${(conflicts.border ?? []).join(", ")}
             .state=${s.border}
+            .stateAware=${stateAware}
+            .hass=${this.hass}
             @state-changed=${this._onBorderChanged}
           ></cms-border-module>`
         : nothing}

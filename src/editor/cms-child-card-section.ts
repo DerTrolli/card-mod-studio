@@ -47,6 +47,7 @@ import {
   NO_BORDER_TYPES,
   NO_ICON_COLOR_TYPES,
   NO_FONT_TYPES,
+  ICON_SIZE_TYPES,
   isStateAware,
 } from '../utils/card-caps.js';
 import { moduleStyles } from '../modules/module-base.js';
@@ -271,6 +272,7 @@ export class CmsChildCardSection extends LitElement {
               .state=${s.iconColor}
               .stateAware=${stateAware}
               .isLightCard=${cardType === 'light'}
+              .allowSize=${ICON_SIZE_TYPES.has(cardType)}
               .cardEntity=${entity}
               .hass=${this.hass}
               @state-changed=${(e: CustomEvent<IconColorModuleState>) =>
@@ -320,6 +322,8 @@ export class CmsChildCardSection extends LitElement {
               .overridden=${!!conflicts.border}
               .overriddenDetail=${(conflicts.border ?? []).join(", ")}
               .state=${s.border}
+              .stateAware=${stateAware}
+              .hass=${this.hass}
               @state-changed=${(e: CustomEvent<BorderModuleState>) => this._emitChanged({ border: e.detail })}
             ></cms-border-module>`
           : nothing}

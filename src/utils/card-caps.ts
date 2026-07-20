@@ -65,6 +65,21 @@ export const NO_ICON_COLOR_TYPES = new Set([
   'glance',
 ]);
 
+/**
+ * Cards where the Icon Color module's icon-size control is offered —
+ * ALLOWLIST, live-verified (v0.9 probe): `--mdc-icon-size`/`--ha-icon-size`
+ * on ha-card resizes exactly the main state icon on entity/sensor/
+ * picture-glance; tile needs the `ha-tile-icon { --mdc-icon-size }`
+ * companion block. Deliberately absent: button (icon auto-scales; native
+ * `icon_height` config exists), light/media-control (the variable only
+ * reaches their more-info/secondary icons — a harmful side effect),
+ * alarm-panel (no effect), glance (size works but the whole Icon Color
+ * module is hidden there — see NO_ICON_COLOR_TYPES).
+ */
+export const ICON_SIZE_TYPES = new Set([
+  'tile', 'entity', 'sensor', 'picture-glance',
+]);
+
 // Font module (issue #25): sets font-size/weight/color/family on ha-card,
 // which cascades via plain CSS inheritance into most cards' text (verified
 // against HA frontend source for hui-entities-card's row component,

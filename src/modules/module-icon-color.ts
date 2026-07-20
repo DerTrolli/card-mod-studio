@@ -2,7 +2,12 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { IconColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint } from './module-base.js';
+import {
+  moduleStyles,
+  renderOverrideBadge,
+  renderOverrideHint,
+  renderCondition,
+} from './module-base.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
@@ -16,6 +21,9 @@ export class IconColorModule extends LitElement {
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
   /** When true a third "Light color" mode is offered that reads rgb_color attribute. */
   @property({ type: Boolean, attribute: 'is-light-card' }) isLightCard = false;
+  /** When true the icon-size controls are offered (ICON_SIZE_TYPES only —
+   *  the size variables are dead or harmful elsewhere, see card-caps.ts). */
+  @property({ type: Boolean, attribute: 'allow-size' }) allowSize = false;
   /** The card's own entity — used as the picker's placeholder and as the implicit default when entityId is unset. */
   @property({ type: String }) cardEntity = '';
 
@@ -191,7 +199,68 @@ export class IconColorModule extends LitElement {
                 </div>
               </div>
             `}
+        ${this.allowSize ? this._renderSize() : nothing}
       </div>
+    `;
+  }
+
+  /** Icon size (v0.9) — 0 = leave the theme size alone; with a condition,
+   *  the size switches between "Icon size" and "Size otherwise" (24px = the
+   *  HA default when unset). */
+  private _renderSize() {
+    const sizePx = this.state.sizePx ?? 0;
+    return html`
+      <div class="control-row">
+        <span class="control-label">Icon size</span>
+        <div class="control-right">
+          <ha-slider
+            min="0"
+            max="64"
+            step="2"
+            .value=${String(sizePx)}
+            @change=${(e: Event) => {
+              const v = parseFloat((e.target as HTMLInputElement).value);
+              this._emit(
+                v > 0
+                  ? { sizePx: v }
+                  : { sizePx: undefined, sizeOffPx: undefined, sizeWhen: undefined },
+              );
+            }}
+          ></ha-slider>
+          <span class="value-label">${sizePx > 0 ? `${sizePx}px` : 'theme'}</span>
+        </div>
+      </div>
+      ${sizePx > 0
+        ? html`
+            ${renderCondition({
+              condition: this.state.sizeWhen,
+              stateAware: this.stateAware,
+              noun: 'icon size',
+              hass: this.hass,
+              onChange: (c) => this._emit({ sizeWhen: c }),
+            })}
+            ${this.state.sizeWhen && this.state.sizeWhen.when !== 'always'
+              ? html`
+                  <div class="control-row">
+                    <span class="control-label">Size otherwise</span>
+                    <div class="control-right">
+                      <ha-slider
+                        min="16"
+                        max="64"
+                        step="2"
+                        .value=${String(this.state.sizeOffPx ?? 24)}
+                        @change=${(e: Event) =>
+                          this._emit({
+                            sizeOffPx: parseFloat((e.target as HTMLInputElement).value),
+                          })}
+                      ></ha-slider>
+                      <span class="value-label">${this.state.sizeOffPx ?? 24}px</span>
+                    </div>
+                  </div>
+                `
+              : nothing}
+          `
+        : nothing}
     `;
   }
 }

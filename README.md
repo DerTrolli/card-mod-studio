@@ -42,6 +42,8 @@ Set a static color for the card's icon or accent, choose separate colors for whe
 
 The on/off condition doesn't have to come from the card's own entity: a **"Controlled by"** picker lets any toggleable entity drive the colors — e.g. a button card's icon reflecting a separate status sensor.
 
+On tile, entity, sensor, and picture-glance cards the module also offers an **icon size** slider — static, or reacting to a state/value condition with a fallback size (icon grows while the alarm is armed). It's only offered where the size variables verifiably reach the main state icon.
+
 The Accent Color override targets the correct CSS variable per card type: `--tile-color` for tile cards, `--gauge-color` for gauges (including needle mode), and `--state-icon-color` for everything else.
 
 ![Icon and accent color controls](images/03%20Accent%20and%20Icon%20Color.png)
@@ -88,7 +90,10 @@ Apply CSS filter effects to the entire card:
 - **Grayscale** — always on, only when entity is on, or only when off (great for making inactive devices look "dead")
 - **Brightness** — brighten or dim the card
 - **Blur** — blur the card content
+- **Opacity** — fade the whole card
 - **Transition speed** — control how smoothly state changes animate
+
+Brightness/blur/opacity can also **react to a state or value condition** — e.g. blur + fade a camera card only while it's off, or while a sensor crosses a threshold.
 
 ### Animation
 
@@ -106,7 +111,7 @@ Each animation can run **always** or only trigger when the entity is **on** or *
 
 ### Border
 
-Round the card corners with a configurable **corner radius**, and optionally add a colored **border** with adjustable width. Works well combined with Threshold Colors targeting border color.
+Round the card corners with a configurable **corner radius**, and optionally add a colored **border** with adjustable width. The border can also **react to a state or value condition** — e.g. a 3px red border only while the freezer is above -10°, with an optional thinner fallback border otherwise. Works well combined with Threshold Colors targeting border color.
 
 ### Font
 
@@ -205,7 +210,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.9.0-beta.2`
+   - URL: `/local/card-mod-studio.js?v=0.9.0-beta.3`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -225,7 +230,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 
 | HA Version | Status |
 |---|---|
-| 2026.x | Tested |
+| 2026.x | Tested (support baseline: 2026.7.0 — every release is live-verified against it) |
 | 2025.x | Expected compatible |
 | 2024.4+ | Minimum supported |
 
@@ -342,7 +347,7 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 17 | Color Palette Manager (custom colors in every picker + ON/OFF default overrides) + attribute-based thresholds + form-editor "Key 'uix' not expected" shim + bare-string row styling | ✅ v0.8.0 |
 | 18 | UX consistency pass — identical controls/labels/behavior for the same concept everywhere (Heading ↔ Font parity, row-font sliders, unified threshold builders, one styled-dot) | ✅ v0.8.0 |
 | 19 | Migration robustness — "custom CSS is overriding this control" warnings (card + row level), safe adoption of equivalent hand-written/legacy phrasings, audited old-version round-trips, verified card-mod→UIX switch | ✅ v0.8.1 |
-| 20 | Click-to-edit preview picker (hover-highlight any element, jump to its control) + 4 new animation presets + value-conditional animations ("pulse while sensor.x > 30") | 🧪 v0.9.0-beta.2 (pre-release) |
+| 20 | Click-to-edit preview picker (hover-highlight any element, jump to its control) + 4 new animation presets + value-conditional animations ("pulse while sensor.x > 30") | 🧪 v0.9.0-beta.3 (pre-release) |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

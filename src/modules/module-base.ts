@@ -4,7 +4,7 @@
 
 import { css, html, nothing } from 'lit';
 import type { TemplateResult } from 'lit';
-import type { HomeAssistant } from '../types/index.js';
+import type { HomeAssistant, StyleCondition } from '../types/index.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
 
@@ -289,4 +289,203 @@ export function renderOverrideHint(
     win), so changes here may not be visible on the card. Edit or remove
     those lines in Advanced CSS to hand control back to this module.
   </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Shared state-condition control (v0.9 state-driven numeric controls)
+// ---------------------------------------------------------------------------
+
+export const CONDITION_OPERATORS = ['<', '<=', '>', '>=', '==', '!='] as const;
+
+export interface ConditionControlOptions {
+  /** Current condition; undefined = 'always'. */
+  condition: StyleCondition | undefined;
+  /** False when the card's entity has no on/off state. */
+  stateAware: boolean;
+  /** Noun used in labels/hints, e.g. "border", "effects", "icon size". */
+  noun: string;
+  hass?: HomeAssistant;
+  /** Emits the new condition — undefined when back to Always. */
+  onChange: (c: StyleCondition | undefined) => void;
+}
+
+/** Numeric attributes of an entity (the condition compares via float(), so
+ *  string/list attributes would always read 0). The stored attribute is
+ *  always offered even when not currently numeric — an entity that's
+ *  unavailable right now shouldn't hide the active selection. Same rule as
+ *  the Threshold and Animation modules. */
+export function numericAttributes(
+  hass: HomeAssistant | undefined,
+  entityId: string,
+  current?: string,
+): string[] {
+  const attrs = hass?.states?.[entityId]?.attributes ?? {};
+  const names = Object.keys(attrs).filter((k) => {
+    const v = (attrs as Record<string, unknown>)[k];
+    return typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v)));
+  });
+  if (current && !names.includes(current)) names.unshift(current);
+  return names;
+}
+
+function conditionHint(c: StyleCondition | undefined, o: ConditionControlOptions): string {
+  switch (c?.when) {
+    case 'on':
+      return `Applies the ${o.noun} only while this card's entity is on.`;
+    case 'off':
+      return `Applies the ${o.noun} only while this card's entity is off.`;
+    case 'custom':
+      return `Applies the ${o.noun} only while ${c.customEntity || 'the chosen entity'} is on.`;
+    case 'value':
+      return `Applies the ${o.noun} only while the condition matches.`;
+    default:
+      return `Always applies the ${o.noun}.`;
+  }
+}
+
+/**
+ * Renders the shared "Reacts to" condition control: Always / entity ON /
+ * entity OFF / another entity ON / a numeric value comparison. Same
+ * options, labels, and hint conventions as renderWhen and the Animation
+ * module's trigger — one vocabulary everywhere. On non-state-aware cards
+ * the ON/OFF options are hidden unless one is already stored.
+ */
+export function renderCondition(o: ConditionControlOptions): TemplateResult {
+  const c = o.condition;
+  const when = c?.when ?? 'always';
+  const hasStateValue = when === 'on' || when === 'off';
+  const showOnOff = o.stateAware || hasStateValue;
+
+  const opts: Array<{ v: StyleCondition['when']; label: string }> = [
+    { v: 'always', label: 'Always' },
+  ];
+  if (showOnOff) {
+    opts.push({ v: 'on', label: 'Only while entity is ON' });
+    opts.push({ v: 'off', label: 'Only while entity is OFF' });
+  }
+  opts.push({ v: 'custom', label: 'While another entity is ON…' });
+  opts.push({ v: 'value', label: 'While a value matches…' });
+
+  const change = (patch: Partial<StyleCondition>) => {
+    const next: StyleCondition = { when, ...c, ...patch };
+    o.onChange(next.when === 'always' ? undefined : next);
+  };
+  const pick = (v: StyleCondition['when']) => {
+    if (v === 'always') return o.onChange(undefined);
+    // Seed value-mode defaults so generation is valid the moment an entity
+    // is picked (same seeding as the Animation module's value trigger).
+    if (v === 'value') return change({ when: v, valueOperator: c?.valueOperator ?? '>', valueThreshold: c?.valueThreshold ?? 0 });
+    change({ when: v });
+  };
+
+  const attrNames =
+    when === 'value' && c?.valueEntity ? numericAttributes(o.hass, c.valueEntity, c.valueAttribute) : [];
+
+  return html`
+    <div class="control-row">
+      <span class="control-label">Reacts to</span>
+      <div class="control-right">
+        <select
+          .value=${when}
+          @change=${(e: Event) => pick((e.target as HTMLSelectElement).value as StyleCondition['when'])}
+        >
+          ${opts.map(
+            (opt) =>
+              html`<option value=${opt.v} ?selected=${when === opt.v}>${opt.label}</option>`,
+          )}
+        </select>
+      </div>
+    </div>
+    ${when === 'custom'
+      ? html`
+          <div class="control-row">
+            <span class="control-label">Entity</span>
+            <div class="control-right">
+              <cms-entity-picker
+                .hass=${o.hass}
+                .value=${c?.customEntity ?? ''}
+                .includeDomains=${TOGGLE_DOMAINS}
+                label="Controlling entity"
+                placeholder="input_boolean.my_entity"
+                @value-changed=${(e: CustomEvent<{ value: string }>) =>
+                  change({ customEntity: e.detail.value.trim() })}
+              ></cms-entity-picker>
+            </div>
+          </div>
+        `
+      : nothing}
+    ${when === 'value'
+      ? html`
+          <div class="control-row">
+            <span class="control-label">Entity</span>
+            <div class="control-right">
+              <cms-entity-picker
+                .hass=${o.hass}
+                .value=${c?.valueEntity ?? ''}
+                label="Entity the value is read from"
+                placeholder="sensor.temperature"
+                @value-changed=${(e: CustomEvent<{ value: string }>) =>
+                  change({ valueEntity: e.detail.value.trim(), valueAttribute: '' })}
+              ></cms-entity-picker>
+            </div>
+          </div>
+          ${attrNames.length > 0 || c?.valueAttribute
+            ? html`
+                <div class="control-row">
+                  <span class="control-label">Value read from</span>
+                  <div class="control-right">
+                    <select
+                      .value=${c?.valueAttribute ?? ''}
+                      @change=${(e: Event) =>
+                        change({ valueAttribute: (e.target as HTMLSelectElement).value })}
+                    >
+                      <option value="" ?selected=${!c?.valueAttribute}>State</option>
+                      ${attrNames.map(
+                        (name) =>
+                          html`<option value=${name} ?selected=${c?.valueAttribute === name}>
+                            Attribute: ${name}
+                          </option>`,
+                      )}
+                    </select>
+                  </div>
+                </div>
+              `
+            : nothing}
+          <div class="control-row">
+            <span class="control-label">Condition</span>
+            <div class="control-right">
+              <select
+                .value=${c?.valueOperator ?? '>'}
+                @change=${(e: Event) =>
+                  change({
+                    valueOperator: (e.target as HTMLSelectElement)
+                      .value as StyleCondition['valueOperator'],
+                  })}
+              >
+                ${CONDITION_OPERATORS.map(
+                  (op) =>
+                    html`<option value=${op} ?selected=${(c?.valueOperator ?? '>') === op}>
+                      value ${op}
+                    </option>`,
+                )}
+              </select>
+            </div>
+          </div>
+          <div class="control-row">
+            <span class="control-label">Threshold</span>
+            <div class="control-right">
+              <input
+                type="number"
+                .value=${String(c?.valueThreshold ?? 0)}
+                @change=${(e: Event) =>
+                  change({
+                    valueThreshold: parseFloat((e.target as HTMLInputElement).value) || 0,
+                  })}
+              />
+            </div>
+          </div>
+        `
+      : nothing}
+    <div class="when-hint">${conditionHint(c, o)}</div>
+  `;
 }

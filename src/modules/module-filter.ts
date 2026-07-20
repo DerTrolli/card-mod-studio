@@ -2,7 +2,13 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { FilterModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_FILTER } from '../parser/state-mapper.js';
-import { moduleStyles, renderWhen, renderOverrideBadge, renderOverrideHint } from './module-base.js';
+import {
+  moduleStyles,
+  renderWhen,
+  renderOverrideBadge,
+  renderOverrideHint,
+  renderCondition,
+} from './module-base.js';
 
 export class FilterModule extends LitElement {
   @property({ attribute: false }) state: FilterModuleState = { ...DEFAULT_FILTER };
@@ -20,6 +26,7 @@ export class FilterModule extends LitElement {
   @state() private _open = false;
   @state() private _brightness = DEFAULT_FILTER.brightness;
   @state() private _blur = DEFAULT_FILTER.blur;
+  @state() private _opacity = 100;
   @state() private _transitionMs = DEFAULT_FILTER.transitionMs;
 
   static override styles = [moduleStyles, css``];
@@ -34,6 +41,7 @@ export class FilterModule extends LitElement {
       if (this.state.enabled && prev && !prev.enabled) this._open = true;
       this._brightness = this.state.brightness;
       this._blur = this.state.blur;
+      this._opacity = this.state.opacity ?? 100;
       this._transitionMs = this.state.transitionMs;
     }
   }
@@ -138,6 +146,35 @@ export class FilterModule extends LitElement {
             <span class="value-label">${this._blur}px</span>
           </div>
         </div>
+
+        <!-- Opacity -->
+        <div class="control-row">
+          <span class="control-label">Opacity</span>
+          <div class="control-right">
+            <ha-slider
+              min="10"
+              max="100"
+              step="5"
+              .value=${String(this._opacity)}
+              @input=${(e: Event) => {
+                this._opacity = parseFloat((e.target as HTMLInputElement).value);
+              }}
+              @change=${(e: Event) =>
+                this._emit({ opacity: parseFloat((e.target as HTMLInputElement).value) })}
+            ></ha-slider>
+            <span class="value-label">${this._opacity}%</span>
+          </div>
+        </div>
+
+        ${!this.state.grayscale
+          ? renderCondition({
+              condition: this.state.effectsWhen,
+              stateAware: this.stateAware,
+              noun: 'effects',
+              hass: this.hass,
+              onChange: (c) => this._emit({ effectsWhen: c }),
+            })
+          : nothing}
 
         <!-- Transition speed -->
         <div class="control-row">

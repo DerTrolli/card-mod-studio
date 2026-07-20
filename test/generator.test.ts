@@ -1795,3 +1795,194 @@ describe('generateCss — value-conditional animation trigger', () => {
     expect(generateCss(state)).toBe(original);
   });
 });
+
+// ---------------------------------------------------------------------------
+// v0.9 state-driven numeric controls (border width / filter effects / icon
+// size) — generation shapes + byte-stable generate→parse→generate loops.
+// ---------------------------------------------------------------------------
+
+describe('v0.9 state-driven numeric controls', () => {
+  /** generate → parse → generate must reproduce the CSS byte-for-byte. */
+  const expectStable = (state: StudioState, cardType: string) => {
+    const css = generateCss(state, cardType);
+    const parsed = parseCardModConfig({ type: cardType, card_mod: { style: css } } as CardModCardConfig);
+    const reState = mapToStudioState(parsed, cardType);
+    expect(reState.advanced.rawCss).toBe('');
+    expect(generateCss(reState, cardType)).toBe(css);
+    return reState;
+  };
+
+  it('border width reacting to ON emits a quoted ternary and round-trips', () => {
+    const state = makeState({
+      border: {
+        ...DEFAULT_BORDER,
+        enabled: true,
+        radiusPx: 0,
+        borderWidth: 3,
+        borderColor: '#ff0000',
+        widthWhen: { when: 'on' },
+      },
+    });
+    const css = generateCss(state, 'tile');
+    expect(css).toContain(
+      `border: {{ '3px solid #ff0000' if is_state(config.entity, 'on') else 'none' }};`,
+    );
+    const re = expectStable(state, 'tile');
+    expect(re.border.widthWhen).toEqual({ when: 'on' });
+    expect(re.border.borderWidth).toBe(3);
+  });
+
+  it('border width with a fallback width + value condition round-trips', () => {
+    const state = makeState({
+      border: {
+        ...DEFAULT_BORDER,
+        enabled: true,
+        radiusPx: 8,
+        borderWidth: 4,
+        borderColor: '#03a9f4',
+        widthWhen: {
+          when: 'value',
+          valueEntity: 'sensor.temp',
+          valueAttribute: 'battery_level',
+          valueOperator: '<',
+          valueThreshold: 15,
+        },
+        widthOffPx: 1,
+      },
+    });
+    const css = generateCss(state, 'entity');
+    expect(css).toContain(
+      `border: {{ '4px solid #03a9f4' if state_attr('sensor.temp', 'battery_level') | float(0) < 15 else '1px solid #03a9f4' }};`,
+    );
+    const re = expectStable(state, 'entity');
+    expect(re.border.widthOffPx).toBe(1);
+    expect(re.border.widthWhen?.valueAttribute).toBe('battery_level');
+  });
+
+  it('a hand-written conditional border with different colors per branch stays in Advanced CSS', () => {
+    const original =
+      "ha-card {\n  border: {{ '3px solid red' if is_state(config.entity, 'on') else '1px solid blue' }};\n}";
+    const parsed = parseCardModConfig({ type: 'tile', card_mod: { style: original } });
+    const state = mapToStudioState(parsed, 'tile');
+    expect(state.border.enabled).toBe(false);
+    expect(state.advanced.rawCss).toContain('border:');
+  });
+
+  it('filter opacity joins the canonical part order and round-trips', () => {
+    const state = makeState({
+      filter: { ...DEFAULT_FILTER, enabled: true, brightness: 80, blur: 2, opacity: 60 },
+    });
+    const css = generateCss(state, 'tile');
+    expect(css).toContain('filter: brightness(80%) blur(2px) opacity(60%);');
+    const re = expectStable(state, 'tile');
+    expect(re.filter.opacity).toBe(60);
+  });
+
+  it('conditional filter effects (custom entity) emit a ternary and round-trip', () => {
+    const state = makeState({
+      filter: {
+        ...DEFAULT_FILTER,
+        enabled: true,
+        blur: 4,
+        opacity: 50,
+        effectsWhen: { when: 'custom', customEntity: 'binary_sensor.preheat_active' },
+      },
+    });
+    const css = generateCss(state, 'tile');
+    expect(css).toContain(
+      `filter: {{ 'blur(4px) opacity(50%)' if is_state('binary_sensor.preheat_active', 'on') else 'none' }};`,
+    );
+    const re = expectStable(state, 'tile');
+    expect(re.filter.effectsWhen).toEqual({ when: 'custom', customEntity: 'binary_sensor.preheat_active' });
+  });
+
+  it('grayscale + opacity ride together in both branches (grayscaleWhen unchanged)', () => {
+    const state = makeState({
+      filter: { ...DEFAULT_FILTER, enabled: true, grayscale: true, grayscaleWhen: 'off', opacity: 70 },
+    });
+    const css = generateCss(state, 'tile');
+    expect(css).toContain(
+      `filter: {{ 'grayscale(100%) opacity(70%)' if is_state(config.entity, 'off') else 'opacity(70%)' }};`,
+    );
+    const re = expectStable(state, 'tile');
+    expect(re.filter.grayscale).toBe(true);
+    expect(re.filter.opacity).toBe(70);
+  });
+
+  it('a hand-written conditional filter the module cannot express stays in Advanced CSS (was flattened before)', () => {
+    const original =
+      "ha-card {\n  filter: {{ 'hue-rotate(90deg) brightness(80%)' if is_state(config.entity, 'on') else 'none' }};\n}";
+    const parsed = parseCardModConfig({ type: 'tile', card_mod: { style: original } });
+    const state = mapToStudioState(parsed, 'tile');
+    expect(state.filter.enabled).toBe(false);
+    expect(state.advanced.rawCss).toContain('hue-rotate');
+  });
+
+  it('a hand-written plain filter with foreign functions stays in Advanced CSS (was flattened before)', () => {
+    const original = 'ha-card {\n  filter: hue-rotate(90deg) brightness(80%);\n}';
+    const parsed = parseCardModConfig({ type: 'tile', card_mod: { style: original } });
+    const state = mapToStudioState(parsed, 'tile');
+    expect(state.filter.enabled).toBe(false);
+    expect(state.advanced.rawCss).toContain('hue-rotate');
+  });
+
+  it('icon size (static) emits the ha-card variable pair on entity cards and round-trips', () => {
+    const state = makeState({
+      iconColor: { ...DEFAULT_ICON_COLOR, enabled: true, mode: 'plain', color: '#ff0000', sizePx: 36 },
+    });
+    const css = generateCss(state, 'entity');
+    expect(css).toContain('--mdc-icon-size: 36px;');
+    expect(css).toContain('--ha-icon-size: 36px;');
+    const re = expectStable(state, 'entity');
+    expect(re.iconColor.sizePx).toBe(36);
+  });
+
+  it('icon size on tile emits the ha-tile-icon companion block and round-trips', () => {
+    const state = makeState({
+      iconColor: { ...DEFAULT_ICON_COLOR, enabled: true, mode: 'plain', color: '#ff0000', sizePx: 40 },
+    });
+    const css = generateCss(state, 'tile');
+    expect(css).toContain('ha-tile-icon {\n  --mdc-icon-size: 40px;\n}');
+    expect(css).not.toContain('--ha-icon-size');
+    const re = expectStable(state, 'tile');
+    expect(re.iconColor.sizePx).toBe(40);
+  });
+
+  it('conditional icon size emits quoted px branches (24px default else) and round-trips', () => {
+    const state = makeState({
+      iconColor: {
+        ...DEFAULT_ICON_COLOR,
+        enabled: true,
+        mode: 'plain',
+        color: '#ff0000',
+        sizePx: 40,
+        sizeWhen: { when: 'value', valueEntity: 'sensor.temp', valueOperator: '>', valueThreshold: 30 },
+      },
+    });
+    const css = generateCss(state, 'sensor');
+    expect(css).toContain(
+      `--mdc-icon-size: {{ '40px' if states('sensor.temp') | float(0) > 30 else '24px' }};`,
+    );
+    const re = expectStable(state, 'sensor');
+    expect(re.iconColor.sizeWhen?.when).toBe('value');
+    expect(re.iconColor.sizeOffPx).toBeUndefined();
+  });
+
+  it('icon size is NOT emitted on unsupported card types (light)', () => {
+    const state = makeState({
+      iconColor: { ...DEFAULT_ICON_COLOR, enabled: true, mode: 'plain', color: '#ff0000', sizePx: 36 },
+    });
+    const css = generateCss(state, 'light');
+    expect(css).not.toContain('icon-size');
+  });
+
+  it('hand-written icon-size vars on an unsupported card stay in Advanced CSS', () => {
+    const original =
+      'ha-state-icon {\n  color: #ff0000 !important;\n}\n\nha-card {\n  --mdc-icon-size: 36px;\n  --ha-icon-size: 36px;\n}';
+    const parsed = parseCardModConfig({ type: 'light', card_mod: { style: original } });
+    const state = mapToStudioState(parsed, 'light');
+    expect(state.iconColor.enabled).toBe(true);
+    expect(state.iconColor.sizePx).toBeUndefined();
+    expect(state.advanced.rawCss).toContain('--mdc-icon-size');
+  });
+});

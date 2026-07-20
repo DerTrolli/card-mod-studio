@@ -26,6 +26,16 @@ interface HighlightBox {
   height: number;
 }
 
+/** What a 'cms-pick' event carries: the mapped target plus — for
+ *  entities-card rows — the row's CONFIG index. The index (not the
+ *  entity_id) is what uniquely identifies a row: two rows may reference
+ *  the same entity (ROADMAP #24), so rowEntity alone is ambiguous;
+ *  rowIndex keys straight into the positional row-style/open-row maps. */
+export interface PickEventDetail extends PickTarget {
+  /** Index into `rows` (== the entities config order) of the picked row. */
+  rowIndex?: number;
+}
+
 export class CmsPreviewPicker extends LitElement {
   /** The preview card's `type:` — drives the module mapping. */
   @property({ attribute: false }) cardType = '';
@@ -35,7 +45,7 @@ export class CmsPreviewPicker extends LitElement {
   @state() private _box: HighlightBox | null = null;
   @state() private _label = '';
 
-  private _target: PickTarget | null = null;
+  private _target: PickEventDetail | null = null;
 
   static override styles = css`
     :host {
@@ -185,11 +195,11 @@ export class CmsPreviewPicker extends LitElement {
     }
   }
 
-  private _resolveRowEntity(rowEl: Element, cardEl: HTMLElement): string | undefined {
+  /** DOM row element → its index into `rows` (== config order), or -1. */
+  private _resolveRowIndex(rowEl: Element, cardEl: HTMLElement): number {
     const allRows: Element[] = [];
     CmsPreviewPicker._collectRows(cardEl, allRows);
-    const index = allRows.indexOf(rowEl);
-    return index !== -1 ? this.rows[index] : undefined;
+    return allRows.indexOf(rowEl);
   }
 
   // ---------------------------------------------------------------------------
@@ -198,7 +208,7 @@ export class CmsPreviewPicker extends LitElement {
 
   /** Recompute target + highlight for a pointer position. Returns the target
    *  (also cached in _target), or null when the point hits nothing pickable. */
-  private _updateFromPoint(x: number, y: number): PickTarget | null {
+  private _updateFromPoint(x: number, y: number): PickEventDetail | null {
     const cardEl = this._resolvedCardEl;
     const deepest = cardEl ? this._deepElementFromPoint(x, y) : null;
     const chain = deepest && cardEl ? this._buildChain(deepest, cardEl) : null;
@@ -213,10 +223,14 @@ export class CmsPreviewPicker extends LitElement {
       return null;
     }
 
-    const target: PickTarget = { ...match.target };
+    const target: PickEventDetail = { ...match.target };
     if (target.module === 'cms-entities-rows-module') {
       const rowEl = chain.find((el) => ENTITY_ROW_TAG_RE.test(el.tagName.toLowerCase()));
-      if (rowEl) target.rowEntity = this._resolveRowEntity(rowEl, cardEl);
+      const rowIndex = rowEl ? this._resolveRowIndex(rowEl, cardEl) : -1;
+      if (rowIndex !== -1) {
+        target.rowIndex = rowIndex;
+        target.rowEntity = this.rows[rowIndex];
+      }
     }
 
     // Highlight the matched (meaningful) ancestor's rect, not the deepest
@@ -258,7 +272,7 @@ export class CmsPreviewPicker extends LitElement {
     const target = this._updateFromPoint(ev.clientX, ev.clientY) ?? this._target;
     if (!target) return;
     this.dispatchEvent(
-      new CustomEvent<PickTarget>('cms-pick', {
+      new CustomEvent<PickEventDetail>('cms-pick', {
         detail: target,
         bubbles: true,
         composed: true,

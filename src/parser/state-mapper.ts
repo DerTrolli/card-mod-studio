@@ -31,10 +31,11 @@ import type {
   AdvancedModuleState,
   StudioState,
   EntitiesRowStyle,
+  StyleCondition,
 } from '../types/index.js';
 import { parseCss, parseCssDetailed } from './css-parser.js';
 import { GRADIENT_MARKER_PROPERTY, ANIMATION_TIMING, decodeGradientStops, headerFontSize, valueFontSize } from '../generator/css-generator.js';
-import { NO_ICON_COLOR_TYPES } from '../utils/card-caps.js';
+import { NO_ICON_COLOR_TYPES, ICON_SIZE_TYPES } from '../utils/card-caps.js';
 
 // ---------------------------------------------------------------------------
 // Default states
@@ -229,6 +230,56 @@ function claimAccentAux(
 }
 
 // ---------------------------------------------------------------------------
+// Shared state-condition recognizer (v0.9 state-driven numeric controls)
+// ---------------------------------------------------------------------------
+
+/** Splits `{{ 'A' if COND else 'B' }}` into its three parts. Anchored and
+ *  single-branch — richer Jinja stays unmatched (→ Advanced CSS). */
+const COND_TERNARY_PATTERN = /^\{\{\s*'([^']*)'\s+if\s+(.+?)\s+else\s+'([^']*)'\s*\}\}$/;
+
+const COND_ON_OFF_PATTERN = /^is_state\(config\.entity,\s*'(on|off)'\)$/;
+const COND_CUSTOM_PATTERN = /^is_state\('([^']+)',\s*'on'\)$/;
+const COND_VALUE_PATTERN =
+  /^(?:states\('([^']+)'\)|state_attr\('([^']+)',\s*'([^']+)'\))\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+)$/;
+
+/**
+ * Parses a condition expression into a StyleCondition — exactly the
+ * spellings conditionExpr (css-generator.ts) emits, nothing more. Returns
+ * null for anything else so callers leave the declaration unclaimed.
+ */
+function parseConditionExpr(cond: string): StyleCondition | null {
+  const trimmed = cond.trim();
+  const onOff = trimmed.match(COND_ON_OFF_PATTERN);
+  if (onOff) return { when: onOff[1] as 'on' | 'off' };
+  const custom = trimmed.match(COND_CUSTOM_PATTERN);
+  if (custom) return { when: 'custom', customEntity: custom[1] };
+  const value = trimmed.match(COND_VALUE_PATTERN);
+  if (value) {
+    const [, stateEntity, attrEntity, attrName, operator, numStr] = value;
+    return {
+      when: 'value',
+      valueEntity: stateEntity ?? attrEntity,
+      ...(attrName ? { valueAttribute: attrName } : {}),
+      valueOperator: operator as StyleCondition['valueOperator'],
+      valueThreshold: parseFloat(numStr),
+    };
+  }
+  return null;
+}
+
+/** Parses a full `{{ 'A' if COND else 'B' }}` value; null when the shape or
+ *  the condition isn't ours. */
+function parseCondTernary(
+  value: string,
+): { onValue: string; offValue: string; condition: StyleCondition } | null {
+  const match = value.trim().match(COND_TERNARY_PATTERN);
+  if (!match) return null;
+  const condition = parseConditionExpr(match[2]);
+  if (!condition) return null;
+  return { onValue: match[1], offValue: match[3], condition };
+}
+
+// ---------------------------------------------------------------------------
 // Animation module
 // ---------------------------------------------------------------------------
 
@@ -350,6 +401,7 @@ export function mapToStudioState(parsed: CardModStyleState, cardType?: string): 
   // (`:host { --paper-item-icon-color: … }`), and a hand-written idiom.
   const hostTarget = findTarget(parsed.targets, ':host');
   const haGauge = findTarget(parsed.targets, 'ha-gauge');
+  const haTileIcon = findTarget(parsed.targets, 'ha-tile-icon');
   const titleP = findTarget(parsed.targets, '.title p');
   const titleIcon = findTarget(parsed.targets, '.title ha-icon');
   const container = findTarget(parsed.targets, '.container');
@@ -358,7 +410,7 @@ export function mapToStudioState(parsed: CardModStyleState, cardType?: string): 
 
   return {
     filter: mapFilter(haCard, claimed),
-    iconColor: mapIconColor(haStateIcon, haIcon, haCard, hostTarget, cardType, claimed),
+    iconColor: mapIconColor(haStateIcon, haIcon, haCard, hostTarget, haTileIcon, cardType, claimed),
     accentColor: mapAccentColor(haCard, haGauge, claimed),
     background: mapBackground(haCard, claimed),
     animation: mapAnimation(haCard, claimed),
@@ -439,6 +491,30 @@ function findProp(target: CssTarget, property: string): CssProperty | null {
 // Filter module
 // ---------------------------------------------------------------------------
 
+/**
+ * Parses a filter-effects list into its values — but only when the string
+ * is EXACTLY `brightness(N%)? blur(Npx)? opacity(N%)?` in that (canonical
+ * generator) order. `allowEmpty` accepts '' (the grayscale-only case).
+ * Returns null otherwise, so callers leave the declaration unclaimed.
+ */
+function parseEffectParts(
+  value: string,
+  allowEmpty: boolean,
+): { brightness?: number; blur?: number; opacity?: number } | null {
+  if (value === '') return allowEmpty ? {} : null;
+  const match = value.match(
+    /^(?:brightness\((\d+(?:\.\d+)?)%\))?\s*(?:blur\((\d+(?:\.\d+)?)px\))?\s*(?:opacity\((\d+(?:\.\d+)?)%\))?$/,
+  );
+  if (!match || (match[1] === undefined && match[2] === undefined && match[3] === undefined)) {
+    return null;
+  }
+  return {
+    ...(match[1] !== undefined ? { brightness: parseFloat(match[1]) } : {}),
+    ...(match[2] !== undefined ? { blur: parseFloat(match[2]) } : {}),
+    ...(match[3] !== undefined ? { opacity: parseFloat(match[3]) } : {}),
+  };
+}
+
 function mapFilter(haCard: CssTarget | null, claimed: Set<string>): FilterModuleState {
   if (!haCard) return { ...DEFAULT_FILTER };
 
@@ -494,32 +570,65 @@ function mapFilter(haCard: CssTarget | null, claimed: Set<string>): FilterModule
         filterClaimed = true;
       }
 
-      // Brightness from on/off values
-      const brightnessSource = filterProp.onValue ?? filterProp.offValue ?? filterProp.value;
-      const bm = brightnessSource.match(/brightness\(\s*(\d+(?:\.\d+)?)%\s*\)/);
-      if (bm) { state.enabled = true; state.brightness = parseFloat(bm[1]); filterClaimed = true; }
-
-      // Blur from on/off values
-      const blurSource = filterProp.onValue ?? filterProp.offValue ?? filterProp.value;
-      const blm = blurSource.match(/blur\(\s*(\d+(?:\.\d+)?)px\s*\)/);
-      if (blm) { state.enabled = true; state.blur = parseFloat(blm[1]); filterClaimed = true; }
-
-    } else {
-      // Plain (non-conditional) filter value
-      const val = filterProp.value;
-
-      if (val.trim().startsWith('grayscale(')) {
-        state.enabled = true;
-        state.grayscale = true;
-        state.grayscaleWhen = 'always';
-        filterClaimed = true;
+      if (filterClaimed) {
+        // Brightness/blur/opacity riding along in the grayscale branches.
+        // A remainder that ISN'T exactly our effects list (hand-written
+        // hue-rotate etc.) reverts the claim — regenerating would drop it.
+        const source = filterProp.onValue ?? filterProp.offValue ?? filterProp.value;
+        const remainder = source.replace(/grayscale\([^)]*\)\s*/, '').trim();
+        const parts = parseEffectParts(remainder === 'none' ? '' : remainder, true);
+        if (parts) {
+          if (parts.brightness !== undefined) state.brightness = parts.brightness;
+          if (parts.blur !== undefined) state.blur = parts.blur;
+          if (parts.opacity !== undefined) state.opacity = parts.opacity;
+        } else {
+          state.enabled = false;
+          state.grayscale = false;
+          state.grayscaleWhen = DEFAULT_FILTER.grayscaleWhen;
+          delete state.customEntity;
+          filterClaimed = false;
+        }
+      } else {
+        // Conditional filter WITHOUT grayscale — the v0.9 effects-condition
+        // form: {{ 'brightness(…) blur(…) opacity(…)' if COND else 'none' }}.
+        // Anything else (a condition we can't spell, a branch that isn't an
+        // exact effects list) stays UNCLAIMED — the old code here salvaged
+        // brightness/blur out of the raw Jinja and silently flattened the
+        // condition away on the next save.
+        const ternary = parseCondTernary(filterProp.value);
+        const parts = ternary && ternary.offValue === 'none'
+          ? parseEffectParts(ternary.onValue, false)
+          : null;
+        if (ternary && parts) {
+          state.enabled = true;
+          if (parts.brightness !== undefined) state.brightness = parts.brightness;
+          if (parts.blur !== undefined) state.blur = parts.blur;
+          if (parts.opacity !== undefined) state.opacity = parts.opacity;
+          state.effectsWhen = ternary.condition;
+          filterClaimed = true;
+        }
       }
 
-      const bm = val.match(/brightness\(\s*(\d+(?:\.\d+)?)%\s*\)/);
-      if (bm) { state.enabled = true; state.brightness = parseFloat(bm[1]); filterClaimed = true; }
-
-      const blm = val.match(/blur\(\s*(\d+(?:\.\d+)?)px\s*\)/);
-      if (blm) { state.enabled = true; state.blur = parseFloat(blm[1]); filterClaimed = true; }
+    } else {
+      // Plain (non-conditional) filter value. Claimed only when the value
+      // is EXACTLY the parts this module emits (canonical order) — a
+      // hand-written `hue-rotate(90deg) brightness(80%)` used to have its
+      // brightness salvaged and the rest silently dropped on save.
+      const val = filterProp.value.trim();
+      const grayscale = val.startsWith('grayscale(');
+      const rest = grayscale ? val.replace(/^grayscale\([^)]*\)\s*/, '').trim() : val;
+      const parts = parseEffectParts(rest, true);
+      if (parts && (grayscale || rest.length > 0)) {
+        state.enabled = true;
+        if (grayscale) {
+          state.grayscale = true;
+          state.grayscaleWhen = 'always';
+        }
+        if (parts.brightness !== undefined) state.brightness = parts.brightness;
+        if (parts.blur !== undefined) state.blur = parts.blur;
+        if (parts.opacity !== undefined) state.opacity = parts.opacity;
+        filterClaimed = true;
+      }
     }
 
     if (filterClaimed) claimed.add(claimKey(haCard.selector, 'filter'));
@@ -571,6 +680,56 @@ function mapIconColor(
   haIcon: CssTarget | null,
   haCard: CssTarget | null,
   hostTarget: CssTarget | null,
+  haTileIcon: CssTarget | null,
+  cardType: string | undefined,
+  claimed: Set<string>,
+): IconColorModuleState {
+  const state = mapIconColorCore(haStateIcon, haIcon, haCard, hostTarget, cardType, claimed);
+  if (!state.enabled) return state;
+
+  // v0.9 icon size — the ha-card variable pair, or tile's ha-tile-icon
+  // block (see iconSizeDecls/tileIconSizeBlock). Claimed only on card
+  // types the generator re-emits it for (ICON_SIZE_TYPES): claiming it
+  // elsewhere would silently drop the declaration on the next save.
+  const applySize = (raw: string): boolean => {
+    const staticMatch = raw.trim().match(/^(\d+(?:\.\d+)?)px$/);
+    if (staticMatch) {
+      state.sizePx = parseFloat(staticMatch[1]);
+      return true;
+    }
+    const ternary = parseCondTernary(raw.trim());
+    const on = ternary?.onValue.match(/^(\d+(?:\.\d+)?)px$/);
+    const off = ternary?.offValue.match(/^(\d+(?:\.\d+)?)px$/);
+    if (!ternary || !on || !off) return false;
+    state.sizePx = parseFloat(on[1]);
+    const offPx = parseFloat(off[1]);
+    if (offPx !== 24) state.sizeOffPx = offPx; // 24 = the generator's default else-branch
+    state.sizeWhen = ternary.condition;
+    return true;
+  };
+
+  if (cardType === 'tile') {
+    const tileMdc = haTileIcon ? findProp(haTileIcon, '--mdc-icon-size') : undefined;
+    if (haTileIcon && tileMdc && applySize(tileMdc.value)) {
+      claimed.add(claimKey(haTileIcon.selector, '--mdc-icon-size'));
+    }
+  } else if (cardType && ICON_SIZE_TYPES.has(cardType) && haCard) {
+    const mdc = findProp(haCard, '--mdc-icon-size');
+    const haSize = findProp(haCard, '--ha-icon-size');
+    if (mdc && haSize && mdc.value.trim() === haSize.value.trim() && applySize(mdc.value)) {
+      claimed.add(claimKey(haCard.selector, '--mdc-icon-size'));
+      claimed.add(claimKey(haCard.selector, '--ha-icon-size'));
+    }
+  }
+
+  return state;
+}
+
+function mapIconColorCore(
+  haStateIcon: CssTarget | null,
+  haIcon: CssTarget | null,
+  haCard: CssTarget | null,
+  hostTarget: CssTarget | null,
   cardType: string | undefined,
   claimed: Set<string>,
 ): IconColorModuleState {
@@ -585,7 +744,7 @@ function mapIconColor(
   if (!haStateIcon || !findProp(haStateIcon, 'color')) {
     if (iconAdoptionAllowed(cardType)) {
       if (haIcon) {
-        const adopted = mapIconColor(haIcon, null, null, null, cardType, claimed);
+        const adopted = mapIconColorCore(haIcon, null, null, null, cardType, claimed);
         if (adopted.enabled) return adopted;
       }
       for (const target of [haCard, hostTarget]) {
@@ -597,7 +756,7 @@ function mapIconColor(
           const prop = findProp(target, varName);
           if (!prop) continue;
           if (accentProp && accentProp.value.trim() === prop.value.trim()) continue;
-          const adopted = mapIconColor(
+          const adopted = mapIconColorCore(
             { selector: target.selector, properties: [{ ...prop, property: 'color' }] } as CssTarget,
             null, null, null, cardType, new Set(),
           );
@@ -836,6 +995,26 @@ function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModule
       // the module's default 12px radius on the next save — only emit a
       // radius the CSS actually had.
       if (!radiusProp) state.radiusPx = 0;
+    }
+  } else if (borderProp) {
+    // v0.9 state-driven width: {{ 'Npx solid C' if COND else 'none'|'Mpx
+    // solid C' }} — solid only, same color both branches (exactly what
+    // borderDecls emits). Anything else stays unclaimed → Advanced CSS.
+    const ternary = parseCondTernary(borderProp.value);
+    if (ternary) {
+      const BRANCH = /^(\d+)px\s+solid\s+(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)$/i;
+      const on = ternary.onValue.match(BRANCH);
+      const off = ternary.offValue === 'none' ? 'none' : ternary.offValue.match(BRANCH);
+      const colorsMatch = off === 'none' || (off !== null && on !== null && off[2] === on[2]);
+      if (on && off !== null && colorsMatch) {
+        state.enabled = true;
+        state.borderWidth = parseInt(on[1], 10);
+        state.borderColor = on[2];
+        state.widthWhen = ternary.condition;
+        if (off !== 'none') state.widthOffPx = parseInt(off[1], 10);
+        claimed.add(claimKey(haCard.selector, 'border'));
+        if (!radiusProp) state.radiusPx = 0;
+      }
     }
   }
 
@@ -1093,18 +1272,24 @@ export function parseThresholdJinja(value: string): {
 } | null {
   if (!value.includes('float(0)')) return null;
 
-  // Color token accepts hex, a bare CSS color name, or var(--xxx-color) —
-  // the last form is what the palette presets (see cms-color-picker.ts)
-  // write, so a rule picked from the palette round-trips back into a rule
-  // instead of falling through to Advanced CSS.
+  // Color token accepts hex, a bare CSS color name, var(--xxx-color) — the
+  // var form is what the palette presets (see cms-color-picker.ts) write,
+  // so a rule picked from the palette round-trips back into a rule instead
+  // of falling through to Advanced CSS — or rgb()/rgba() (roadmap #26:
+  // comma-containing color functions generated fine but never re-parsed,
+  // so the whole block fell to Advanced CSS on reopen).
   // Threshold value accepts an optional leading minus — freezer/outdoor
   // temperatures are routinely negative, and without `-?` those rules were
   // silently deleted on reopen (matched-and-claimed but never re-parsed).
   // The value source is either states('id') or state_attr('id', 'attr')
   // (attribute-based thresholds, roadmap #16).
   const RULE_RE =
-    /'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|[a-zA-Z]+)'\s+if\s+(?:states\('([^']+)'\)|state_attr\('([^']+)',\s*'([^']+)'\))\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+(?:\.\d+)?)/g;
-  const DEFAULT_RE = /else\s+'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|[a-zA-Z]+)'\s*[)}\s]/;
+    /'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)'\s+if\s+(?:states\('([^']+)'\)|state_attr\('([^']+)',\s*'([^']+)'\))\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+(?:\.\d+)?)/g;
+  // Trailing anchor is `)` or `}` ONLY — the final else is always followed
+  // by `}}` (or `)` inside a wrapping expression). With `\s` in the class
+  // this used to match an INTERMEDIATE `else 'color' if …` of a multi-rule
+  // chain, reading rule 2's color as the default.
+  const DEFAULT_RE = /else\s+'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)'\s*[)}]/;
 
   const rules: ThresholdRule[] = [];
   let entityId = '';

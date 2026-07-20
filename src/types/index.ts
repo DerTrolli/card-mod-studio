@@ -118,6 +118,24 @@ export interface CardModStyleState {
 // Each visual module has its own state shape, all collected here.
 // ---------------------------------------------------------------------------
 
+/**
+ * A state condition a numeric style control can react to (v0.9: border
+ * width, filter effects, icon size). Same vocabulary as the animation
+ * module's trigger: on/off of the card's entity, ON of another entity, or
+ * a numeric state/attribute comparison.
+ */
+export interface StyleCondition {
+  when: 'always' | 'on' | 'off' | 'custom' | 'value';
+  /** entity_id when when === 'custom'. */
+  customEntity?: string;
+  // Fields below are only meaningful when when === 'value'.
+  valueEntity?: string;
+  /** Attribute read via state_attr(); '' / undefined = the state itself. */
+  valueAttribute?: string;
+  valueOperator?: '<' | '<=' | '>' | '>=' | '==' | '!=';
+  valueThreshold?: number;
+}
+
 export interface FilterModuleState {
   enabled: boolean;
   grayscale: boolean;
@@ -126,6 +144,15 @@ export interface FilterModuleState {
   customEntity?: string;
   brightness: number;       // 0–200, default 100
   blur: number;             // px, default 0
+  /** 0–100; 100/undefined = no opacity() part emitted. */
+  opacity?: number;
+  /**
+   * Condition on the non-grayscale effects (brightness/blur/opacity):
+   * they apply only while it matches, else the filter is 'none'.
+   * undefined / when:'always' = unconditional. Only offered while
+   * grayscale is off — grayscale's own grayscaleWhen governs otherwise.
+   */
+  effectsWhen?: StyleCondition;
   transitionMs: number;     // default 300
 }
 
@@ -138,6 +165,13 @@ export interface IconColorModuleState {
   colorOff: string;         // used when mode='conditional'
   /** Which entity's on/off state drives conditional/light mode. Empty/undefined = the card's own entity. */
   entityId?: string;
+  /** Icon size in px; 0/undefined = leave the theme size alone. Only
+   *  offered on ICON_SIZE_TYPES (live-verified reachability). */
+  sizePx?: number;
+  /** Size while sizeWhen does NOT match (conditional size only). */
+  sizeOffPx?: number;
+  /** Condition the size reacts to; undefined / when:'always' = static. */
+  sizeWhen?: StyleCondition;
 }
 
 export interface AccentColorModuleState {
@@ -192,6 +226,10 @@ export interface BorderModuleState {
   radiusPx: number;         // 0–50
   borderWidth: number;      // 0 = no border
   borderColor: string;
+  /** Condition the border reacts to; undefined / when:'always' = static. */
+  widthWhen?: StyleCondition;
+  /** Border width while widthWhen does NOT match; 0/undefined = no border then. */
+  widthOffPx?: number;
 }
 
 export interface AdvancedModuleState {

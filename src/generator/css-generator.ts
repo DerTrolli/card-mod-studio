@@ -18,7 +18,9 @@ import type {
   ThresholdRule,
   ThresholdProperty,
   ColorStop,
+  StyleCondition,
 } from '../types/index.js';
+import { ICON_SIZE_TYPES } from '../utils/card-caps.js';
 
 /**
  * Renders the entity reference used inside an `is_state(...)`/`state_attr(...)`
@@ -100,6 +102,29 @@ export const ANIMATION_TIMING: Record<AnimationModuleState['preset'], string> = 
 // Per-module declaration builders
 // ---------------------------------------------------------------------------
 
+/**
+ * The Jinja condition expression for a StyleCondition (v0.9 state-driven
+ * numeric controls: border width, filter effects, icon size). Spellings
+ * deliberately mirror animationDecls' trigger forms so the parser's
+ * condition recognizer (parseConditionExpr in state-mapper.ts) covers both
+ * features identically. Returns null for 'always' or an incomplete
+ * condition — callers emit the unconditional form then.
+ */
+export function conditionExpr(c: StyleCondition | undefined): string | null {
+  if (!c || c.when === 'always') return null;
+  if (c.when === 'on') return `is_state(config.entity, 'on')`;
+  if (c.when === 'off') return `is_state(config.entity, 'off')`;
+  if (c.when === 'custom') {
+    return c.customEntity ? `is_state('${c.customEntity}', 'on')` : null;
+  }
+  // when === 'value'
+  if (!c.valueEntity || !c.valueOperator || c.valueThreshold === undefined) return null;
+  const src = c.valueAttribute
+    ? `state_attr('${c.valueEntity}', '${c.valueAttribute}') | float(0)`
+    : `states('${c.valueEntity}') | float(0)`;
+  return `${src} ${c.valueOperator} ${c.valueThreshold}`;
+}
+
 function filterDecls(s: FilterModuleState): string[] {
   if (!s.enabled) return [];
 
@@ -115,6 +140,10 @@ function filterDecls(s: FilterModuleState): string[] {
     if (s.blur > 0) {
       grayParts.push(`blur(${s.blur}px)`);
       otherParts.push(`blur(${s.blur}px)`);
+    }
+    if (s.opacity !== undefined && s.opacity < 100) {
+      grayParts.push(`opacity(${s.opacity}%)`);
+      otherParts.push(`opacity(${s.opacity}%)`);
     }
     const grayVal = grayParts.join(' ');
     const otherVal = otherParts.length > 0 ? otherParts.join(' ') : 'none';
@@ -138,7 +167,19 @@ function filterDecls(s: FilterModuleState): string[] {
     const parts: string[] = [];
     if (s.brightness !== 100) parts.push(`brightness(${s.brightness}%)`);
     if (s.blur > 0) parts.push(`blur(${s.blur}px)`);
-    if (parts.length > 0) decls.push(`filter: ${parts.join(' ')};`);
+    if (s.opacity !== undefined && s.opacity < 100) parts.push(`opacity(${s.opacity}%)`);
+    if (parts.length > 0) {
+      // v0.9: the effects can react to a state condition (grayscale-off
+      // path only — grayscale's own grayscaleWhen governs the combined
+      // filter above, and two independent conditions in one filter value
+      // aren't representable).
+      const cond = conditionExpr(s.effectsWhen);
+      decls.push(
+        cond
+          ? `filter: {{ '${parts.join(' ')}' if ${cond} else 'none' }};`
+          : `filter: ${parts.join(' ')};`,
+      );
+    }
   }
 
   if (decls.length > 0) {
@@ -194,8 +235,11 @@ function accentAuxDecls(value: string, cardType?: string): string[] {
   // extra in the ha-card block itself. Heading has no accent consumers.
   if (cardType === 'gauge' || cardType === 'heading') return [];
 
-  // Button card (HA built-in) and generic entity-state cards
-  return [`--state-icon-color: ${value};`, `--paper-item-icon-active-color: ${value};`];
+  // Button card (HA built-in) and generic entity-state cards. The legacy
+  // --paper-item-icon-active-color companion is no longer emitted (roadmap
+  // #6) — nothing in current HA reads it; the parser still claims it on
+  // old configs (ACCENT_AUX_VARS), so a legacy save upgrades cleanly.
+  return [`--state-icon-color: ${value};`];
 }
 
 function accentColorDecls(s: AccentColorModuleState, cardType?: string): string[] {
@@ -273,7 +317,19 @@ function borderDecls(s: BorderModuleState, skipColor = false): string[] {
   if (!s.enabled) return [];
   const decls: string[] = [];
   if (s.radiusPx > 0) decls.push(`border-radius: ${s.radiusPx}px;`);
-  if (!skipColor && s.borderWidth > 0) decls.push(`border: ${s.borderWidth}px solid ${s.borderColor};`);
+  if (!skipColor && s.borderWidth > 0) {
+    const cond = conditionExpr(s.widthWhen);
+    if (cond) {
+      // v0.9: width reacts to a state condition. Same color both branches —
+      // this control drives WIDTH; a state-driven color is Threshold's job.
+      const onVal = `${s.borderWidth}px solid ${s.borderColor}`;
+      const offVal =
+        s.widthOffPx && s.widthOffPx > 0 ? `${s.widthOffPx}px solid ${s.borderColor}` : 'none';
+      decls.push(`border: {{ '${onVal}' if ${cond} else '${offVal}' }};`);
+    } else {
+      decls.push(`border: ${s.borderWidth}px solid ${s.borderColor};`);
+    }
+  }
   return decls;
 }
 
@@ -539,6 +595,40 @@ function fontBlock(s: FontModuleState, cardType?: string, skipColor = false): st
   return [base, ...fontCompanionBlocks(cardType, size, s.fontSize, weight, color)].join('\n\n');
 }
 
+/**
+ * The icon-size value: static `Npx`, or a quoted-branch ternary when the
+ * size reacts to a condition (sizeOffPx falls back to HA's 24px default).
+ */
+function iconSizeValue(s: IconColorModuleState): string | null {
+  if (!s.sizePx || s.sizePx <= 0) return null;
+  const cond = conditionExpr(s.sizeWhen);
+  if (!cond) return `${s.sizePx}px`;
+  const offPx = s.sizeOffPx && s.sizeOffPx > 0 ? s.sizeOffPx : 24;
+  return `{{ '${s.sizePx}px' if ${cond} else '${offPx}px' }}`;
+}
+
+/**
+ * Icon-size declarations for the ha-card block (entity/sensor/
+ * picture-glance — the vars cascade to exactly the main state icon there,
+ * live-verified) — tile instead needs the separate ha-tile-icon block
+ * below. Gated on ICON_SIZE_TYPES: everywhere else the vars either do
+ * nothing or hit the wrong icons (see card-caps.ts).
+ */
+function iconSizeDecls(s: IconColorModuleState, cardType?: string): string[] {
+  if (!s.enabled || !cardType || cardType === 'tile' || !ICON_SIZE_TYPES.has(cardType)) return [];
+  const value = iconSizeValue(s);
+  return value ? [`--mdc-icon-size: ${value};`, `--ha-icon-size: ${value};`] : [];
+}
+
+/** Tile's icon pins its own size — the variable only works set directly on
+ *  ha-tile-icon (live-verified; `--ha-icon-size` is untested there and
+ *  deliberately not emitted). */
+function tileIconSizeBlock(s: IconColorModuleState, cardType?: string): string {
+  if (!s.enabled || cardType !== 'tile') return '';
+  const value = iconSizeValue(s);
+  return value ? `ha-tile-icon {\n  --mdc-icon-size: ${value};\n}` : '';
+}
+
 function iconColorBlock(s: IconColorModuleState): string {
   if (!s.enabled) return '';
 
@@ -802,6 +892,7 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
     ...(thresholdProps.has('background') ? [] : backgroundDecls(state.background)),
     ...borderDecls(state.border, thresholdProps.has('border-color')),
     ...animationDecls(state.animation),
+    ...iconSizeDecls(state.iconColor, cardType),
   ];
   if (haCardDecls.length > 0) {
     const body = haCardDecls.map((d) => `  ${d}`).join('\n');
@@ -818,6 +909,9 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // emit ha-state-icon { color } and the second block would silently win.
   const iconColor = thresholdProps.has('icon-color') ? '' : iconColorBlock(state.iconColor);
   if (iconColor) parts.push(iconColor);
+
+  const tileIconSize = tileIconSizeBlock(state.iconColor, cardType);
+  if (tileIconSize) parts.push(tileIconSize);
 
   const threshold = thresholdBlock(state.threshold, cardType, opts);
   if (threshold) parts.push(threshold);

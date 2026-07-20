@@ -1127,3 +1127,15 @@ describe('mapToStudioState — animation pack presets', () => {
     expect(state.advanced.rawCss).toContain('cms-spin 2s ease-in-out infinite');
   });
 });
+
+describe('parseThresholdJinja — rgb()/rgba() colors (roadmap #26)', () => {
+  it('re-parses rules and default colored with comma-containing color functions', () => {
+    const jinja =
+      "{{ 'rgb(255, 0, 0)' if states('sensor.temp') | float(0) > 30 else 'rgba(0, 128, 255, 0.5)' if states('sensor.temp') | float(0) > 20 else 'rgb(0, 255, 0)' }}";
+    const parsed = parseThresholdJinja(jinja);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.rules.map((r) => r.color)).toEqual(['rgb(255, 0, 0)', 'rgba(0, 128, 255, 0.5)']);
+    expect(parsed!.defaultColor).toBe('rgb(0, 255, 0)');
+    expect(parsed!.entityId).toBe('sensor.temp');
+  });
+});

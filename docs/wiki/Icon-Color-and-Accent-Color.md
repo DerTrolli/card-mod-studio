@@ -12,6 +12,20 @@ Colors the card's main icon (`ha-state-icon`). Three modes:
 - **Match the light's color** *(light cards only)* — while on, the icon
   follows the light's real `rgb_color` attribute; you pick the off color.
 
+### Icon size *(since v0.9.0-beta.3)*
+
+On **tile, entity, sensor, and picture-glance** cards the module also
+offers an **Icon size** slider (theme default up to 64px). It can be
+static, or react to a condition — entity ON/OFF, another entity ON, or a
+numeric value comparison — with a **"Size otherwise"** fallback (24px, the
+HA default, unless changed). Example: the alarm card's icon grows while
+armed.
+
+It's only offered where live probing shows the size variables reach
+exactly the main state icon. Deliberately absent: button (use the card's
+native `icon_height` option), light and media-control (the variable only
+reaches their more-info button icon), alarm-panel and glance.
+
 ## Accent Color
 
 The card's "theme" color. What it actually paints depends on the card type —

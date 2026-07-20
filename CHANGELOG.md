@@ -5,6 +5,66 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.3] — 2026-07-20
+
+**Pre-release** — the v0.9 "depth" headline: numeric style properties can
+now react to entity state, plus a round of long-standing fixes. Every new
+behavior live-verified per card type on real card-mod AND UIX renders
+(computed-style assertions, 11 new live checks).
+
+### Added — state-driven numeric properties
+
+One shared "Reacts to" condition control (same vocabulary everywhere:
+always / entity ON / entity OFF / another entity ON / while a value
+matches…) now drives three numeric controls:
+
+- **Border width** (Border & Radius): the border can appear only while the
+  condition matches — e.g. a red 3px border while the freezer is above
+  -10° — with an optional fallback width otherwise. Same color both
+  branches; a state-driven *color* remains Threshold's job.
+- **Filter effects** (Visual Filters): brightness/blur/**opacity** apply
+  only while the condition matches (e.g. blur + fade a camera card while
+  it's off). Offered while grayscale is off — grayscale keeps its own
+  existing condition. **Opacity is a new control** (10–100%), available
+  unconditionally too.
+- **Icon size** (Icon Color): a new size slider (theme default–64px),
+  optionally conditional with a fallback size — icon grows while the alarm
+  is armed. Offered ONLY where live probing shows the size variables reach
+  exactly the main state icon: tile (via a `ha-tile-icon` companion
+  block), entity, sensor, and picture-glance. Deliberately absent on
+  button (native `icon_height` exists), light/media-control (the variable
+  only hits their more-info icon) and alarm-panel (no effect).
+
+All three generate anchored single-branch Jinja ternaries that round-trip
+byte-stably; hand-written conditions the modules can't express exactly
+stay untouched in Advanced CSS.
+
+### Fixed
+
+- **Two rows with the same entity no longer share one style slot** (#24):
+  per-row styles are now keyed by row position, so duplicate-entity rows
+  hold independent styling that round-trips independently — and the
+  preview picker now opens exactly the row you clicked.
+- **`rgb()`/`rgba()` threshold colors survive reopen** (#26): comma-
+  containing color functions in threshold rules re-parse into editable
+  rules instead of falling to Advanced CSS.
+- **Multi-rule thresholds no longer mis-read their default color** on
+  reopen (the default-color regex could match an intermediate branch of
+  the rule chain instead of the final `else`).
+- **Hand-written filters are no longer flattened**: a conditional or
+  combined `filter:` the module can't express exactly (e.g. containing
+  `hue-rotate(…)`) used to have its brightness/blur salvaged and the rest
+  silently dropped on save — it now stays verbatim in Advanced CSS.
+
+### Changed
+
+- The Accent Color module no longer emits the legacy
+  `--paper-item-icon-active-color` companion (roadmap #6) — nothing in
+  current HA reads it. Old configs carrying it are upgraded cleanly on the
+  next save.
+- README compatibility table now states the exact live-verification
+  baseline (HA 2026.7.0, card-mod 4.2.1, UIX 7.6.1).
+
 ## [0.9.0-beta.2] — 2026-07-20
 
 **Pre-release** — beta feedback round 1: the preview picker now covers
@@ -730,6 +790,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.9.0-beta.3]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0-beta.3
 [0.9.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0-beta.2
 [0.9.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0-beta.1
 [0.8.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.1
