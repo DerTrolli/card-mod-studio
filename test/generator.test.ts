@@ -1591,3 +1591,207 @@ describe('round-trip', () => {
     expect(generated).toContain('justify-content: center !important;');
   });
 });
+
+// ---------------------------------------------------------------------------
+// generateCss — animation pack + value-conditional trigger (v0.9.0)
+// ---------------------------------------------------------------------------
+
+describe('generateCss — animation pack presets', () => {
+  it('shake: emits cms-shake keyframes (horizontal ±4px) and the animation decl', () => {
+    const css = generateCss(
+      makeState({
+        animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'shake', speedS: 1, trigger: 'always' },
+      }),
+    );
+    expect(css).toContain('@keyframes cms-shake');
+    expect(css).toContain('translateX(-4px)');
+    expect(css).toContain('translateX(4px)');
+    expect(css).toContain('animation: cms-shake 1s ease-in-out infinite;');
+  });
+
+  it('spin: emits cms-spin keyframes (360° rotate) with LINEAR timing', () => {
+    const css = generateCss(
+      makeState({
+        animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'spin', speedS: 2, trigger: 'always' },
+      }),
+    );
+    expect(css).toContain('@keyframes cms-spin');
+    expect(css).toContain('rotate(360deg)');
+    expect(css).toContain('animation: cms-spin 2s linear infinite;');
+  });
+
+  it('glow: emits cms-glow keyframes pulsing a currentColor box-shadow', () => {
+    const css = generateCss(
+      makeState({
+        animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'glow', speedS: 3, trigger: 'always' },
+      }),
+    );
+    expect(css).toContain('@keyframes cms-glow');
+    expect(css).toContain('box-shadow');
+    expect(css).toContain('currentColor');
+    expect(css).toContain('animation: cms-glow 3s ease-in-out infinite;');
+  });
+
+  it('heartbeat: emits cms-heartbeat keyframes (double-beat scale)', () => {
+    const css = generateCss(
+      makeState({
+        animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'heartbeat', speedS: 2, trigger: 'always' },
+      }),
+    );
+    expect(css).toContain('@keyframes cms-heartbeat');
+    expect(css).toContain('scale(1.12)');
+    expect(css).toContain('animation: cms-heartbeat 2s ease-in-out infinite;');
+  });
+
+  it('new presets round-trip byte-stable (parse → map → regenerate)', () => {
+    for (const preset of ['shake', 'spin', 'glow', 'heartbeat'] as const) {
+      const original = generateCss(
+        makeState({
+          animation: { ...DEFAULT_ANIMATION, enabled: true, preset, speedS: 2.5, trigger: 'on' },
+        }),
+      );
+      const parsed = parseCardModConfig({ type: 'button', card_mod: { style: original } });
+      const state = mapToStudioState(parsed);
+      expect(state.animation.enabled).toBe(true);
+      expect(state.animation.preset).toBe(preset);
+      expect(state.animation.speedS).toBe(2.5);
+      expect(state.advanced.rawCss).toBe('');
+      expect(generateCss(state)).toBe(original);
+    }
+  });
+});
+
+describe('generateCss — value-conditional animation trigger', () => {
+  it('emits the states() conditional for trigger=value', () => {
+    const css = generateCss(
+      makeState({
+        animation: {
+          ...DEFAULT_ANIMATION,
+          enabled: true,
+          preset: 'pulse',
+          speedS: 2,
+          trigger: 'value',
+          valueEntity: 'sensor.power',
+          valueOperator: '>',
+          valueThreshold: 1500,
+        },
+      }),
+    );
+    expect(css).toContain(
+      "animation: {{ 'cms-pulse 2s ease-in-out infinite' if states('sensor.power') | float(0) > 1500 else 'none' }};",
+    );
+  });
+
+  it('emits the state_attr() conditional when valueAttribute is set', () => {
+    const css = generateCss(
+      makeState({
+        animation: {
+          ...DEFAULT_ANIMATION,
+          enabled: true,
+          preset: 'shake',
+          speedS: 1,
+          trigger: 'value',
+          valueEntity: 'climate.thermostat',
+          valueAttribute: 'current_temperature',
+          valueOperator: '>=',
+          valueThreshold: 25,
+        },
+      }),
+    );
+    expect(css).toContain(
+      "animation: {{ 'cms-shake 1s ease-in-out infinite' if state_attr('climate.thermostat', 'current_temperature') | float(0) >= 25 else 'none' }};",
+    );
+  });
+
+  it('emits no animation decl when the value condition is incomplete (no entity yet)', () => {
+    const css = generateCss(
+      makeState({
+        animation: {
+          ...DEFAULT_ANIMATION,
+          enabled: true,
+          preset: 'pulse',
+          speedS: 2,
+          trigger: 'value',
+          valueOperator: '>',
+          valueThreshold: 0,
+        },
+      }),
+    );
+    expect(css).not.toContain('animation:');
+  });
+
+  it('value trigger (states form) round-trips byte-stable', () => {
+    const original = generateCss(
+      makeState({
+        animation: {
+          ...DEFAULT_ANIMATION,
+          enabled: true,
+          preset: 'glow',
+          speedS: 1.5,
+          trigger: 'value',
+          valueEntity: 'sensor.co2',
+          valueOperator: '>=',
+          valueThreshold: 1000,
+        },
+      }),
+    );
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(true);
+    expect(state.animation.trigger).toBe('value');
+    expect(state.animation.valueEntity).toBe('sensor.co2');
+    expect(state.animation.valueOperator).toBe('>=');
+    expect(state.animation.valueThreshold).toBe(1000);
+    expect(state.advanced.rawCss).toBe('');
+    expect(generateCss(state)).toBe(original);
+  });
+
+  it('value trigger (state_attr form, negative threshold) round-trips byte-stable', () => {
+    const original = generateCss(
+      makeState({
+        animation: {
+          ...DEFAULT_ANIMATION,
+          enabled: true,
+          preset: 'spin',
+          speedS: 4,
+          trigger: 'value',
+          valueEntity: 'sensor.freezer',
+          valueAttribute: 'temperature',
+          valueOperator: '<',
+          valueThreshold: -18,
+        },
+      }),
+    );
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(true);
+    expect(state.animation.trigger).toBe('value');
+    expect(state.animation.valueAttribute).toBe('temperature');
+    expect(state.animation.valueThreshold).toBe(-18);
+    expect(state.advanced.rawCss).toBe('');
+    expect(generateCss(state)).toBe(original);
+  });
+
+  it('value trigger keeps gradient-shift\'s background-size companion and round-trips', () => {
+    const original = generateCss(
+      makeState({
+        animation: {
+          ...DEFAULT_ANIMATION,
+          enabled: true,
+          preset: 'gradient-shift',
+          speedS: 3,
+          trigger: 'value',
+          valueEntity: 'sensor.power',
+          valueOperator: '!=',
+          valueThreshold: 0,
+        },
+      }),
+    );
+    expect(original).toContain('background-size: 200% auto;');
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.preset).toBe('gradient-shift');
+    expect(state.advanced.rawCss).toBe('');
+    expect(generateCss(state)).toBe(original);
+  });
+});

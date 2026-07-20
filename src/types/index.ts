@@ -164,10 +164,27 @@ export interface BackgroundModuleState {
 
 export interface AnimationModuleState {
   enabled: boolean;
-  preset: 'pulse' | 'breathe' | 'gradient-shift' | 'bounce' | 'blink';
+  preset:
+    | 'pulse'
+    | 'breathe'
+    | 'gradient-shift'
+    | 'bounce'
+    | 'blink'
+    | 'shake'
+    | 'spin'
+    | 'glow'
+    | 'heartbeat';
   speedS: number;           // seconds
-  trigger: 'always' | 'on' | 'off' | 'custom';
+  /** 'value' = run only while a numeric state/attribute comparison matches. */
+  trigger: 'always' | 'on' | 'off' | 'custom' | 'value';
   customEntity?: string;    // entity_id when trigger === 'custom'
+  // Fields below are only meaningful when trigger === 'value'.
+  /** Entity whose numeric state (or attribute) the condition reads. */
+  valueEntity?: string;
+  /** Attribute read via state_attr(); '' / undefined = the state itself. */
+  valueAttribute?: string;
+  valueOperator?: '<' | '<=' | '>' | '>=' | '==' | '!=';
+  valueThreshold?: number;
 }
 
 export interface BorderModuleState {

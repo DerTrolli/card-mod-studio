@@ -58,6 +58,42 @@ const KEYFRAMES: Record<string, string> = {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
 }`,
+  shake: `@keyframes cms-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}`,
+  spin: `@keyframes cms-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}`,
+  glow: `@keyframes cms-glow {
+  0%, 100% { box-shadow: 0 0 2px 0 currentColor; }
+  50% { box-shadow: 0 0 12px 2px currentColor; }
+}`,
+  heartbeat: `@keyframes cms-heartbeat {
+  0%, 28%, 70%, 100% { transform: scale(1); }
+  14%, 42% { transform: scale(1.12); }
+}`,
+};
+
+/**
+ * Per-preset animation-timing-function: spin needs a constant angular
+ * velocity (ease-in-out visibly stalls at every rotation boundary);
+ * everything else keeps the original ease-in-out. Exported for the parser
+ * (mapAnimation only claims an `animation:` whose timing matches its
+ * preset exactly, so anything else falls through to Advanced CSS).
+ */
+export const ANIMATION_TIMING: Record<AnimationModuleState['preset'], string> = {
+  pulse: 'ease-in-out',
+  breathe: 'ease-in-out',
+  'gradient-shift': 'ease-in-out',
+  blink: 'ease-in-out',
+  bounce: 'ease-in-out',
+  shake: 'ease-in-out',
+  spin: 'linear',
+  glow: 'ease-in-out',
+  heartbeat: 'ease-in-out',
 };
 
 // ---------------------------------------------------------------------------
@@ -249,7 +285,7 @@ function animationKeyframes(s: AnimationModuleState): string {
 function animationDecls(s: AnimationModuleState): string[] {
   if (!s.enabled) return [];
 
-  const animValue = `cms-${s.preset} ${s.speedS}s ease-in-out infinite`;
+  const animValue = `cms-${s.preset} ${s.speedS}s ${ANIMATION_TIMING[s.preset]} infinite`;
   const decls: string[] = [];
 
   if (s.preset === 'gradient-shift') decls.push('background-size: 200% auto;');
@@ -267,6 +303,20 @@ function animationDecls(s: AnimationModuleState): string[] {
   } else if (s.trigger === 'custom' && s.customEntity) {
     decls.push(
       `animation: {{ '${animValue}' if is_state('${s.customEntity}', 'on') else 'none' }};`,
+    );
+  } else if (
+    s.trigger === 'value' &&
+    s.valueEntity &&
+    s.valueOperator &&
+    s.valueThreshold !== undefined
+  ) {
+    // Same value-source expressions as buildThresholdJinja, so both features
+    // read a numeric state/attribute in the identical spelling.
+    const stateExpr = s.valueAttribute
+      ? `state_attr('${s.valueEntity}', '${s.valueAttribute}') | float(0)`
+      : `states('${s.valueEntity}') | float(0)`;
+    decls.push(
+      `animation: {{ '${animValue}' if ${stateExpr} ${s.valueOperator} ${s.valueThreshold} else 'none' }};`,
     );
   }
 

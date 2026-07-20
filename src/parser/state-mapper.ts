@@ -33,7 +33,7 @@ import type {
   EntitiesRowStyle,
 } from '../types/index.js';
 import { parseCss, parseCssDetailed } from './css-parser.js';
-import { GRADIENT_MARKER_PROPERTY, decodeGradientStops, headerFontSize, valueFontSize } from '../generator/css-generator.js';
+import { GRADIENT_MARKER_PROPERTY, ANIMATION_TIMING, decodeGradientStops, headerFontSize, valueFontSize } from '../generator/css-generator.js';
 import { NO_ICON_COLOR_TYPES } from '../utils/card-caps.js';
 
 // ---------------------------------------------------------------------------
@@ -80,6 +80,12 @@ export const DEFAULT_ANIMATION = {
   speedS: 2,
   trigger: 'always' as const,
   customEntity: undefined,
+  // trigger === 'value' fields — undefined until that trigger is used, so
+  // spreads/toEqual comparisons of older states keep working unchanged.
+  valueEntity: undefined,
+  valueAttribute: undefined,
+  valueOperator: undefined,
+  valueThreshold: undefined,
 };
 
 export const DEFAULT_BORDER: BorderModuleState = {
@@ -226,6 +232,38 @@ function claimAccentAux(
 // Animation module
 // ---------------------------------------------------------------------------
 
+/** Pattern: cms-{preset} {speed}s {timing} infinite (see animationDecls). */
+const ANIM_PATTERN =
+  /^cms-(pulse|breathe|gradient-shift|blink|bounce|shake|spin|glow|heartbeat)\s+([\d.]+)s\s+(ease-in-out|linear)\s+infinite$/;
+
+/**
+ * The value-conditional animation form (trigger === 'value'):
+ *   {{ 'cms-… …s … infinite' if states('id') | float(0) OP N else 'none' }}
+ * (or the state_attr('id', 'attr') source). Anchored, single-branch, and
+ * `else 'none'` only — a multi-branch or otherwise richer expression stays
+ * unmatched and falls through to Advanced CSS untouched.
+ * Groups: [1]=animation value, [2]=states entity, [3]=attr entity,
+ * [4]=attribute, [5]=operator, [6]=threshold number.
+ */
+const ANIM_VALUE_TRIGGER_PATTERN =
+  /^\{\{\s*'([^']+)'\s+if\s+(?:states\('([^']+)'\)|state_attr\('([^']+)',\s*'([^']+)'\))\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+)\s+else\s+'none'\s*\}\}$/;
+
+/**
+ * Parses "cms-{preset} {speed}s {timing} infinite" into preset + speed.
+ * The timing function must be exactly what the generator emits for that
+ * preset (ANIMATION_TIMING) — a hand-edited timing is not something the
+ * module can reproduce, so it must fall through unclaimed.
+ */
+function parseAnimValue(
+  value: string,
+): { preset: AnimationModuleState['preset']; speedS: number } | null {
+  const match = value.match(ANIM_PATTERN);
+  if (!match) return null;
+  const preset = match[1] as AnimationModuleState['preset'];
+  if (match[3] !== ANIMATION_TIMING[preset]) return null;
+  return { preset, speedS: parseFloat(match[2]) };
+}
+
 function mapAnimation(
   haCard: CssTarget | null,
   claimed: Set<string>,
@@ -234,9 +272,6 @@ function mapAnimation(
 
   const animProp = findProp(haCard, 'animation');
   if (!animProp) return { ...DEFAULT_ANIMATION };
-
-  // Pattern: cms-{preset} {speed}s ease-in-out infinite
-  const ANIM_PATTERN = /^cms-(pulse|breathe|gradient-shift|blink|bounce)\s+([\d.]+)s\s+ease-in-out\s+infinite$/;
 
   // gradient-shift needs `background-size: 200% auto;` alongside the
   // animation (see animationDecls) — claim it with the animation, or it
@@ -251,46 +286,53 @@ function mapAnimation(
 
   // Parse unconditional animation (trigger=always)
   if (!animProp.hasCondition) {
-    const match = animProp.value.match(ANIM_PATTERN);
-    if (match) {
+    const parsed = parseAnimValue(animProp.value);
+    if (parsed) {
       claimCompanions();
-      return {
-        enabled: true,
-        preset: match[1] as 'pulse' | 'breathe' | 'gradient-shift' | 'blink' | 'bounce',
-        speedS: parseFloat(match[2]),
-        trigger: 'always',
-      };
+      return { enabled: true, ...parsed, trigger: 'always' };
     }
-  } else {
+  } else if (animProp.onValue || animProp.offValue) {
     // Parse conditional animation (trigger=on/off/custom entity)
     const onValue = animProp.onValue?.trim() || '';
     const offValue = animProp.offValue?.trim() || '';
 
     // Check which value has the animation
-    const animValue = onValue.match(ANIM_PATTERN) ? onValue :
-                      offValue.match(ANIM_PATTERN) ? offValue : null;
+    const parsed = parseAnimValue(onValue) ?? parseAnimValue(offValue);
 
-    if (animValue) {
-      const match = animValue.match(ANIM_PATTERN);
-      if (match) {
+    if (parsed) {
+      claimCompanions();
+
+      const base = { enabled: true, ...parsed };
+
+      // A quoted entity in the is_state(...) condition means "animate
+      // while a DIFFERENT entity is on" — losing it here silently rebound
+      // the animation to the card's own entity on the next save.
+      if (animProp.entityId && parseAnimValue(onValue)) {
+        return { ...base, trigger: 'custom', customEntity: animProp.entityId };
+      }
+
+      // Determine trigger: if animation is in onValue, trigger is 'on'
+      const trigger = parseAnimValue(onValue) ? 'on' : 'off';
+      return { ...base, trigger: trigger as 'on' | 'off' };
+    }
+  } else {
+    // Jinja the on/off analyzer didn't recognise — try the value-conditional
+    // form (trigger === 'value'). Anything else stays unclaimed.
+    const match = animProp.value.trim().match(ANIM_VALUE_TRIGGER_PATTERN);
+    if (match) {
+      const [, animValue, stateEntity, attrEntity, attrName, operator, numStr] = match;
+      const parsed = parseAnimValue(animValue);
+      if (parsed) {
         claimCompanions();
-
-        const base = {
+        return {
           enabled: true,
-          preset: match[1] as 'pulse' | 'breathe' | 'gradient-shift' | 'blink' | 'bounce',
-          speedS: parseFloat(match[2]),
+          ...parsed,
+          trigger: 'value',
+          valueEntity: stateEntity ?? attrEntity,
+          ...(attrName ? { valueAttribute: attrName } : {}),
+          valueOperator: operator as AnimationModuleState['valueOperator'],
+          valueThreshold: parseFloat(numStr),
         };
-
-        // A quoted entity in the is_state(...) condition means "animate
-        // while a DIFFERENT entity is on" — losing it here silently rebound
-        // the animation to the card's own entity on the next save.
-        if (animProp.entityId && onValue.match(ANIM_PATTERN)) {
-          return { ...base, trigger: 'custom', customEntity: animProp.entityId };
-        }
-
-        // Determine trigger: if animation is in onValue, trigger is 'on'
-        const trigger = onValue.match(ANIM_PATTERN) ? 'on' : 'off';
-        return { ...base, trigger: trigger as 'on' | 'off' };
       }
     }
   }

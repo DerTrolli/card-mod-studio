@@ -1012,3 +1012,118 @@ describe('v0.8.1 legacy corpus and safe adoption', () => {
     expect(s.advanced.rawCss).toContain('--gauge-color');
   });
 });
+
+// =============================================================================
+// v0.9.0 — value-conditional animation trigger + animation pack presets
+// =============================================================================
+
+describe('mapToStudioState — value-conditional animation trigger', () => {
+  it('recognises the states() form into trigger=value', () => {
+    const css =
+      "ha-card {\n  animation: {{ 'cms-pulse 2s ease-in-out infinite' if states('sensor.power') | float(0) > 1500 else 'none' }};\n}";
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(true);
+    expect(state.animation.trigger).toBe('value');
+    expect(state.animation.preset).toBe('pulse');
+    expect(state.animation.speedS).toBe(2);
+    expect(state.animation.valueEntity).toBe('sensor.power');
+    expect(state.animation.valueOperator).toBe('>');
+    expect(state.animation.valueThreshold).toBe(1500);
+    expect(state.animation.valueAttribute).toBeUndefined();
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('recognises the state_attr() form incl. the attribute', () => {
+    const css =
+      "ha-card {\n  animation: {{ 'cms-shake 1s ease-in-out infinite' if state_attr('climate.thermostat', 'current_temperature') | float(0) >= 25 else 'none' }};\n}";
+    const parsed = parseCardModConfig({ type: 'thermostat', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(true);
+    expect(state.animation.trigger).toBe('value');
+    expect(state.animation.preset).toBe('shake');
+    expect(state.animation.valueEntity).toBe('climate.thermostat');
+    expect(state.animation.valueAttribute).toBe('current_temperature');
+    expect(state.animation.valueOperator).toBe('>=');
+    expect(state.animation.valueThreshold).toBe(25);
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('recognises a negative threshold (freezer temps)', () => {
+    const css =
+      "ha-card {\n  animation: {{ 'cms-blink 1s ease-in-out infinite' if states('sensor.freezer') | float(0) > -12.5 else 'none' }};\n}";
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(true);
+    expect(state.animation.valueThreshold).toBe(-12.5);
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('unrecognised multi-branch animation Jinja falls through to Advanced CSS', () => {
+    const css =
+      "ha-card {\n  animation: {{ 'cms-pulse 2s ease-in-out infinite' if states('sensor.power') | float(0) > 1500 else ('cms-breathe 3s ease-in-out infinite' if states('sensor.power') | float(0) > 500 else 'none') }};\n}";
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(false);
+    expect(state.advanced.rawCss).toContain('animation:');
+    expect(state.advanced.rawCss).toContain('cms-breathe');
+  });
+
+  it('a value condition with a non-"none" else branch falls through to Advanced CSS', () => {
+    const css =
+      "ha-card {\n  animation: {{ 'cms-pulse 2s ease-in-out infinite' if states('sensor.power') | float(0) > 1500 else 'cms-breathe 3s ease-in-out infinite' }};\n}";
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(false);
+    expect(state.advanced.rawCss).toContain('animation:');
+  });
+
+  it('an unknown animation name in the value form falls through to Advanced CSS', () => {
+    const css =
+      "ha-card {\n  animation: {{ 'myspin 2s linear infinite' if states('sensor.power') | float(0) > 0 else 'none' }};\n}";
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(false);
+    expect(state.advanced.rawCss).toContain('myspin');
+  });
+});
+
+describe('mapToStudioState — animation pack presets', () => {
+  it('recognises the new presets in the unconditional form', () => {
+    for (const [preset, timing] of [
+      ['shake', 'ease-in-out'],
+      ['spin', 'linear'],
+      ['glow', 'ease-in-out'],
+      ['heartbeat', 'ease-in-out'],
+    ] as const) {
+      const css = `ha-card {\n  animation: cms-${preset} 2s ${timing} infinite;\n}`;
+      const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+      const state = mapToStudioState(parsed);
+      expect(state.animation.enabled).toBe(true);
+      expect(state.animation.preset).toBe(preset);
+      expect(state.animation.trigger).toBe('always');
+      expect(state.advanced.rawCss).toBe('');
+    }
+  });
+
+  it('does NOT pass through the new presets\' own @keyframes cms-* blocks', () => {
+    const css =
+      '@keyframes cms-shake {\n  0%, 100% { transform: translateX(0); }\n  25% { transform: translateX(-4px); }\n  75% { transform: translateX(4px); }\n}\n\n' +
+      'ha-card {\n  animation: cms-shake 1s ease-in-out infinite;\n}';
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(true);
+    expect(state.animation.preset).toBe('shake');
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('a timing that does not match the preset\'s own falls through to Advanced CSS', () => {
+    // The generator always emits linear for spin — a hand-edited ease-in-out
+    // spin is not reproducible by the module and must be preserved verbatim.
+    const css = 'ha-card {\n  animation: cms-spin 2s ease-in-out infinite;\n}';
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(false);
+    expect(state.advanced.rawCss).toContain('cms-spin 2s ease-in-out infinite');
+  });
+});

@@ -32,6 +32,8 @@ import {
 } from '../utils/card-caps.js';
 import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles } from './studio-state.js';
 import './cms-child-card-section.js';
+import './cms-preview-picker.js';
+import type { PickTarget } from '../utils/preview-map.js';
 import { loadPresets, savePresets } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
 import { initPaletteCache } from '../utils/palette-storage.js';
@@ -646,8 +648,17 @@ export class CmsPanel extends LitElement {
       border-radius: 8px;
       padding: 12px;
       min-height: 0;
-      /* Prevent clicking live card elements */
+      /* Prevent clicking live card elements — the cms-preview-picker overlay
+         (positioned against this wrapper) owns all pointer events instead. */
       pointer-events: none;
+      position: relative;
+    }
+
+    .preview-hint {
+      flex-shrink: 0;
+      font-size: 10px;
+      color: var(--secondary-text-color, #9e9e9e);
+      line-height: 1.4;
     }
 
     .preview-card-wrapper hui-card {
@@ -692,6 +703,9 @@ export class CmsPanel extends LitElement {
           ? html`
               <div class="preview-col">
                 <span class="preview-col-label">Preview</span>
+                ${this._pickerActive
+                  ? html`<span class="preview-hint">Click any part of the preview to jump to its control</span>`
+                  : nothing}
                 <div class="preview-card-wrapper">
                   ${this._renderPreviewContent()}
                 </div>
@@ -702,6 +716,18 @@ export class CmsPanel extends LitElement {
     `;
   }
 
+  /** True when the click-to-edit picker overlays the preview. Container
+   *  cards are skipped: their children/sections make per-element mapping
+   *  ambiguous (which child's module would a click mean?). */
+  private get _pickerActive(): boolean {
+    return (
+      !!this.config &&
+      !!this.hass &&
+      !this._isContainerCard &&
+      Boolean(customElements.get('hui-card'))
+    );
+  }
+
   private _renderPreviewContent() {
     if (!this.config || !this.hass) return nothing;
     const hasHuiCard = Boolean(customElements.get('hui-card'));
@@ -709,10 +735,66 @@ export class CmsPanel extends LitElement {
       return html`<p class="preview-unavailable">Preview unavailable — open a card editor first.</p>`;
     }
     const previewConfig = this._previewConfig ?? this.config;
-    return keyed(
-      this._previewKey,
-      html`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`,
-    );
+    // The picker re-queries its parent for `hui-card` on every hit-test, so
+    // keyed() swapping the card element out from under it is harmless.
+    return html`
+      ${keyed(
+        this._previewKey,
+        html`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`,
+      )}
+      ${this._pickerActive
+        ? html`<cms-preview-picker
+            .cardType=${this.config.type ?? ''}
+            .rows=${this._rowEntityIds()}
+            @cms-pick=${this._onPreviewPick}
+          ></cms-preview-picker>`
+        : nothing}
+    `;
+  }
+
+  /** Entities cards: entity_id per row in config order (undefined for rows
+   *  without one, keeping indices aligned with the DOM row order). */
+  private _rowEntityIds(): Array<string | undefined> {
+    if (this.config?.type !== 'entities') return [];
+    const rows = (this.config as unknown as { entities?: Array<EntitiesCardRow | string> }).entities ?? [];
+    return rows.map((r) => (typeof r === 'string' ? r : r.entity));
+  }
+
+  /** Click-to-edit: scroll to the picked module, open it, flash it. */
+  private _onPreviewPick(e: CustomEvent<PickTarget>) {
+    const { module, rowEntity } = e.detail;
+    const el = this.shadowRoot?.querySelector(module) as
+      | (HTMLElement & { _open?: boolean; open?: boolean; _openRows?: Set<string> })
+      | null;
+    if (!el) return;
+
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Open it: most modules collapse via a private `_open` @state (assigning
+    // from outside still triggers a reactive update); cms-advanced-module
+    // uses a public `open`; cms-entities-rows-module is always open but keeps
+    // per-row sections in `_openRows`.
+    if (module === 'cms-advanced-module') {
+      el.open = true;
+    } else if (module === 'cms-entities-rows-module') {
+      if (rowEntity && el._openRows) {
+        el._openRows = new Set([...el._openRows, rowEntity]);
+      }
+    } else {
+      el._open = true;
+    }
+
+    // Brief flash so the eye lands on the right module.
+    el.style.transition = 'box-shadow 0.3s ease';
+    el.style.borderRadius = '8px';
+    el.style.boxShadow = '0 0 0 2px var(--accent-color, #2196f3)';
+    window.setTimeout(() => {
+      el.style.boxShadow = '';
+      window.setTimeout(() => {
+        el.style.transition = '';
+        el.style.borderRadius = '';
+      }, 350);
+    }, 1200);
   }
 
   private _renderCompatBanner() {
