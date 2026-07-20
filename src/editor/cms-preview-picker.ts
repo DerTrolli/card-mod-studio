@@ -32,11 +32,6 @@ export class CmsPreviewPicker extends LitElement {
   /** Entities cards: entity_id per row, in config order (undefined for
    *  rows without one, so indices stay aligned with the DOM row order). */
   @property({ attribute: false }) rows: Array<string | undefined> = [];
-  /** Optional explicit preview card element. When unset (the normal case —
-   *  the panel's keyed() re-renders would make a stored reference stale),
-   *  the picker re-queries its parent for `hui-card` on every hit-test. */
-  @property({ attribute: false }) cardEl: HTMLElement | null = null;
-
   @state() private _box: HighlightBox | null = null;
   @state() private _label = '';
 
@@ -55,7 +50,6 @@ export class CmsPreviewPicker extends LitElement {
       inset: 0;
       pointer-events: auto;
       cursor: pointer;
-      background: transparent;
     }
 
     /* Highlight box — module-base-ish accents: 2px pink/accent border with a
@@ -70,13 +64,12 @@ export class CmsPreviewPicker extends LitElement {
       z-index: 1;
     }
 
+    /* The label sits OUTSIDE the box (above it, or below when the box
+       touches the top edge) — most targets (icons!) are far smaller than
+       the pill, so an inside-pinned label truncates to nothing (caught in
+       visual review). */
     .hl-label {
       position: absolute;
-      top: 2px;
-      left: 2px;
-      max-width: calc(100% - 4px);
-      overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
       padding: 2px 7px;
       border-radius: 10px;
@@ -93,8 +86,10 @@ export class CmsPreviewPicker extends LitElement {
   // Hit-testing
   // ---------------------------------------------------------------------------
 
+  /** Re-queried on every hit-test — the panel's keyed() re-renders would
+   *  make a stored reference stale. */
   private get _resolvedCardEl(): HTMLElement | null {
-    return this.cardEl ?? this.parentElement?.querySelector('hui-card') ?? null;
+    return this.parentElement?.querySelector('hui-card') ?? null;
   }
 
   /** HA cards paint transparent interaction layers (the tile's full-card
@@ -143,18 +138,6 @@ export class CmsPreviewPicker extends LitElement {
       }
     }
     return best;
-  }
-
-  /**
-   * Hit-test the point into the preview card. The overlay sits on top and the
-   * wrapper is pointer-events:none, so both are temporarily flipped around the
-   * (synchronous) elementFromPoint walk and restored in a finally.
-   */
-  private _hitTest(x: number, y: number): Element | null {
-    // Purely geometric (see _deepElementFromPoint) — no pointer-events
-    // flipping needed, and the walk is scoped to the card so the result is
-    // always inside it.
-    return this._deepElementFromPoint(x, y);
   }
 
   /** Next node up the flattened tree (light parent, or shadow host). */
@@ -217,7 +200,7 @@ export class CmsPreviewPicker extends LitElement {
    *  (also cached in _target), or null when the point hits nothing pickable. */
   private _updateFromPoint(x: number, y: number): PickTarget | null {
     const cardEl = this._resolvedCardEl;
-    const deepest = cardEl ? this._hitTest(x, y) : null;
+    const deepest = cardEl ? this._deepElementFromPoint(x, y) : null;
     const chain = deepest && cardEl ? this._buildChain(deepest, cardEl) : null;
     if (!chain || !cardEl) {
       this._clear();
@@ -301,8 +284,11 @@ export class CmsPreviewPicker extends LitElement {
               class="hl"
               style="left:${this._box.left}px;top:${this._box.top}px;width:${this._box.width}px;height:${this._box.height}px"
             >
-              <span class="hl-label">${this._label}</span>
             </div>
+            <span
+              class="hl-label"
+              style="left:${Math.max(0, this._box.left)}px;top:${this._box.top >= 26 ? this._box.top - 24 : this._box.top + this._box.height + 4}px"
+            >${this._label}</span>
           `
         : nothing}
     `;

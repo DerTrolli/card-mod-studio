@@ -296,8 +296,8 @@ function mapAnimation(
     const onValue = animProp.onValue?.trim() || '';
     const offValue = animProp.offValue?.trim() || '';
 
-    // Check which value has the animation
-    const parsed = parseAnimValue(onValue) ?? parseAnimValue(offValue);
+    const onParsed = parseAnimValue(onValue);
+    const parsed = onParsed ?? parseAnimValue(offValue);
 
     if (parsed) {
       claimCompanions();
@@ -307,13 +307,11 @@ function mapAnimation(
       // A quoted entity in the is_state(...) condition means "animate
       // while a DIFFERENT entity is on" — losing it here silently rebound
       // the animation to the card's own entity on the next save.
-      if (animProp.entityId && parseAnimValue(onValue)) {
+      if (animProp.entityId && onParsed) {
         return { ...base, trigger: 'custom', customEntity: animProp.entityId };
       }
 
-      // Determine trigger: if animation is in onValue, trigger is 'on'
-      const trigger = parseAnimValue(onValue) ? 'on' : 'off';
-      return { ...base, trigger: trigger as 'on' | 'off' };
+      return { ...base, trigger: onParsed ? 'on' : 'off' };
     }
   } else {
     // Jinja the on/off analyzer didn't recognise — try the value-conditional

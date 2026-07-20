@@ -1,0 +1,53 @@
+import { chromium } from 'playwright';
+import { readFileSync } from 'node:fs';
+const tokens = JSON.parse(readFileSync('tokens-uix.json', 'utf8'));
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', headless: true, args: ['--no-sandbox'] });
+const p = await b.newPage({ viewport: { width: 1500, height: 1100 } });
+await p.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
+await p.goto('http://127.0.0.1:8124/lovelace/0', { waitUntil: 'domcontentloaded' });
+await p.waitForFunction(() => !!customElements.get('cms-panel'), { timeout: 30000 });
+const rect = await p.evaluate(async () => {
+  const host = document.createElement('div');
+  host.id = 'v09host';
+  host.style.cssText = 'position:fixed;left:0;top:0;width:1400px;height:1050px;background:#fff;z-index:2147483647;overflow:auto;';
+  document.body.appendChild(host);
+  const panel = document.createElement('cms-panel');
+  panel.hass = document.querySelector('home-assistant').hass;
+  panel.config = { type: 'tile', entity: 'sensor.outside_temperature' };
+  host.appendChild(panel);
+  await panel.updateComplete;
+  await new Promise((r) => setTimeout(r, 900));
+  const walk = (root, sel) => { const o=[],s=[root]; while(s.length){const n=s.pop(); if(n.matches&&n.matches(sel))o.push(n); if(n.shadowRoot)s.push(...n.shadowRoot.children); if(n.children)s.push(...n.children);} return o; };
+  const icon = walk(panel, 'ha-tile-icon')[0];
+  const r = icon.getBoundingClientRect();
+  const picker = panel.shadowRoot.querySelector('cms-preview-picker');
+  const overlay = picker.shadowRoot.querySelector('.overlay');
+  overlay.dispatchEvent(new MouseEvent('mousemove', { clientX: r.left + r.width/2, clientY: r.top + r.height/2, bubbles: true, composed: true }));
+  await new Promise((r2) => setTimeout(r2, 300));
+  return { x: r.left, y: r.top };
+});
+await p.screenshot({ path: 'shots/v09-1-picker-hover.png' });
+await p.evaluate(async () => {
+  const panel = document.querySelector('#v09host cms-panel');
+  const walk = (root, sel) => { const o=[],s=[root]; while(s.length){const n=s.pop(); if(n.matches&&n.matches(sel))o.push(n); if(n.shadowRoot)s.push(...n.shadowRoot.children); if(n.children)s.push(...n.children);} return o; };
+  const icon = walk(panel, 'ha-tile-icon')[0];
+  const r = icon.getBoundingClientRect();
+  const overlay = panel.shadowRoot.querySelector('cms-preview-picker').shadowRoot.querySelector('.overlay');
+  overlay.dispatchEvent(new MouseEvent('click', { clientX: r.left + r.width/2, clientY: r.top + r.height/2, bubbles: true, composed: true }));
+  await new Promise((r2) => setTimeout(r2, 700));
+});
+await p.screenshot({ path: 'shots/v09-2-picker-clicked.png' });
+await p.evaluate(async () => {
+  const panel = document.querySelector('#v09host cms-panel');
+  panel._studioState = { ...panel._studioState,
+    animation: { enabled: true, preset: 'glow', speedS: 2, trigger: 'value', valueEntity: 'sensor.outside_temperature', valueAttribute: '', valueOperator: '>', valueThreshold: 25 } };
+  await panel.updateComplete;
+  const m = panel.shadowRoot.querySelector('cms-animation-module');
+  m._open = true; await m.updateComplete;
+  m.scrollIntoView({ block: 'center' });
+  panel._emitConfigChanged();
+  await new Promise((r) => setTimeout(r, 500));
+});
+await p.screenshot({ path: 'shots/v09-3-value-animation.png' });
+await b.close();
+console.log('shots done');
