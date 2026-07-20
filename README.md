@@ -205,7 +205,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.8.1`
+   - URL: `/local/card-mod-studio.js?v=0.9.0-beta.1`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -342,6 +342,7 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 17 | Color Palette Manager (custom colors in every picker + ON/OFF default overrides) + attribute-based thresholds + form-editor "Key 'uix' not expected" shim + bare-string row styling | ✅ v0.8.0 |
 | 18 | UX consistency pass — identical controls/labels/behavior for the same concept everywhere (Heading ↔ Font parity, row-font sliders, unified threshold builders, one styled-dot) | ✅ v0.8.0 |
 | 19 | Migration robustness — "custom CSS is overriding this control" warnings (card + row level), safe adoption of equivalent hand-written/legacy phrasings, audited old-version round-trips, verified card-mod→UIX switch | ✅ v0.8.1 |
+| 20 | Click-to-edit preview picker (hover-highlight any element, jump to its control) + 4 new animation presets + value-conditional animations ("pulse while sensor.x > 30") | 🧪 v0.9.0-beta.1 (pre-release) |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

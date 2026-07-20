@@ -97,18 +97,52 @@ export class CmsPreviewPicker extends LitElement {
     return this.cardEl ?? this.parentElement?.querySelector('hui-card') ?? null;
   }
 
-  /** elementFromPoint, descending through open shadow roots. */
+  /** HA cards paint transparent interaction layers (the tile's full-card
+   *  `div.background` tap surface, ripple elements) ABOVE their visual
+   *  content — a plain elementFromPoint returns those instead of the icon
+   *  or text underneath (verified live against hui-tile-card). Anything
+   *  matching this is skipped in favor of the next element in the stack. */
+  private static _isInteractionOverlay(el: Element): boolean {
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'ha-ripple' || tag === 'mwc-ripple' || tag === 'md-ripple') return true;
+    if (tag !== 'div' && tag !== 'span' && tag !== 'button') return false;
+    const cls = el.className?.toString?.() ?? '';
+    return /(^|\s)(background|ripple|overlay|mdc-ripple[\w-]*)(\s|$)/.test(cls);
+  }
+
+  /**
+   * Geometric hit-test: walk the card's composed tree (piercing open shadow
+   * roots) and return the smallest-area element whose rect contains the
+   * point. elementFromPoint is a dead end here — HA cards set
+   * pointer-events:none on their CONTENT (only a transparent full-card tap
+   * layer is interactive, e.g. the tile's div.background), which makes the
+   * icon/text invisible to browser hit-testing entirely (verified live).
+   * Rects don't care about pointer-events. Overlay/ripple layers are still
+   * skipped so the full-card tap surface never wins over real content.
+   */
   private _deepElementFromPoint(x: number, y: number): Element | null {
-    let el: Element | null = document.elementFromPoint(x, y);
-    // Guard against pathological/self-referential shadow trees.
-    for (let depth = 0; depth < 50; depth++) {
-      const root = el?.shadowRoot;
-      if (!root) break;
-      const inner = root.elementFromPoint(x, y);
-      if (!inner || inner === el) break;
-      el = inner;
+    const cardEl = this._resolvedCardEl;
+    if (!cardEl) return null;
+    let best: Element | null = null;
+    let bestArea = Infinity;
+    const stack: Element[] = [cardEl];
+    let guard = 0;
+    while (stack.length && guard++ < 2000) {
+      const el = stack.pop()!;
+      if (el.shadowRoot) stack.push(...Array.from(el.shadowRoot.children));
+      stack.push(...Array.from(el.children));
+      if (CmsPreviewPicker._isInteractionOverlay(el)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
+      const area = r.width * r.height;
+      // <= so a deeper element of equal size wins over its wrapper
+      if (area <= bestArea) {
+        best = el;
+        bestArea = area;
+      }
     }
-    return el;
+    return best;
   }
 
   /**
@@ -117,20 +151,10 @@ export class CmsPreviewPicker extends LitElement {
    * (synchronous) elementFromPoint walk and restored in a finally.
    */
   private _hitTest(x: number, y: number): Element | null {
-    const cardEl = this._resolvedCardEl;
-    const overlay = this.shadowRoot?.querySelector<HTMLElement>('.overlay');
-    if (!cardEl || !overlay) return null;
-
-    const prevOverlay = overlay.style.pointerEvents;
-    const prevCard = cardEl.style.pointerEvents;
-    overlay.style.pointerEvents = 'none';
-    cardEl.style.pointerEvents = 'auto';
-    try {
-      return this._deepElementFromPoint(x, y);
-    } finally {
-      overlay.style.pointerEvents = prevOverlay;
-      cardEl.style.pointerEvents = prevCard;
-    }
+    // Purely geometric (see _deepElementFromPoint) — no pointer-events
+    // flipping needed, and the walk is scoped to the card so the result is
+    // always inside it.
+    return this._deepElementFromPoint(x, y);
   }
 
   /** Next node up the flattened tree (light parent, or shadow host). */

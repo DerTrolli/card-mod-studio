@@ -30,9 +30,17 @@ A looping animation on the card:
 | Gradient-shift | Slowly shifts a gradient background (needs the Background module in gradient mode) |
 | Blink | Abrupt alert flash |
 | Bounce | Periodic vertical bounce |
+| Shake | Quick horizontal shake |
+| Spin | Continuous rotation (constant speed) |
+| Glow | Pulsing glow around the card |
+| Heartbeat | Double-beat scale, like a heartbeat |
 
-Plus a **speed** slider and the same Apply when control — e.g. pulse only
-while a washing machine (or any other entity) is running.
+Plus a **speed** slider and the trigger control: always / while the entity
+is ON / OFF / while *another* entity is ON — or, since v0.9.0,
+**"While a value matches…"**: pick an entity (or one of its numeric
+attributes), an operator, and a threshold, and the animation runs only
+while the condition holds. The classic attention-indicator: *glow while
+`battery_level` < 15*, *pulse while the freezer is above −10°*.
 
 ## Border & Radius
 

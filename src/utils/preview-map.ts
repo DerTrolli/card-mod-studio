@@ -47,7 +47,7 @@ export interface PickMatch {
 export const ENTITY_ROW_TAG_RE = /-entity-row$|^hui-.*-row$/;
 
 /** Icon-bearing elements the Icon Color module recolors. */
-const ICON_TAGS = new Set(['ha-state-icon', 'state-badge']);
+const ICON_TAGS = new Set(['ha-state-icon', 'state-badge', 'ha-tile-icon']);
 
 /** ha-gauge internals the Accent Color module drives on gauge cards. */
 const GAUGE_CLASSES = new Set(['value-text', 'needle', 'dial']);

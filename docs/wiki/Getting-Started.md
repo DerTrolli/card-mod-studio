@@ -17,6 +17,11 @@ The layout:
 Each module has a **toggle** (enables its output) and a collapsible body.
 A module that's off contributes nothing to the generated YAML.
 
+**Not sure which control styles what?** Since v0.9.0, just point at it:
+hovering any part of the preview shows a highlight box naming the control
+that styles that element, and clicking jumps straight to it (the preview
+stays safe — clicks never reach your real entities).
+
 ## Saving
 
 There is no separate save step — the Studio writes into the card's config as

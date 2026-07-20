@@ -5,6 +5,35 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.1] — 2026-07-18
+
+**Pre-release** — the start of the v0.9 cycle ("depth"). Both features
+verified live on real card-mod AND real UIX installs (computed-style
+assertions, not source reading).
+
+### Added
+
+- **Click-to-edit preview picker.** Hover any part of the live preview and
+  a highlight box names the control that styles it ("Icon Color", "Font",
+  "Entity Rows: sensor.x", …); click, and the panel scrolls to that
+  module, opens it, and flashes it briefly. Works per entity row on
+  entities cards. The overlay never forwards events to the live card — you
+  can point at a light card's toggle without switching anything on. Under
+  the hood it's a geometric hit-test over the card's composed tree (HA
+  cards hide their content from browser hit-testing behind a full-card tap
+  layer, so rect math is the only reliable route — verified live).
+- **Four new animation presets** — Shake, Spin (linear timing), Glow
+  (pulsing box-shadow), Heartbeat — alongside the existing five.
+- **Value-conditional animations** — a new trigger, "While a value
+  matches…": pick an entity (and optionally one of its numeric
+  attributes), an operator, and a threshold, and the animation runs only
+  while the condition holds. The attention-indicator pattern: pulse while
+  the freezer is above -10°, glow while battery_level < 15. Generates a
+  single conditional `animation:` Jinja expression both engines render
+  natively; round-trips exactly on reopen. A hand-edited timing or
+  multi-branch expression falls to Advanced CSS untouched (same
+  conservatism as v0.8.1's adoption rules).
+
 ## [0.8.1] — 2026-07-14
 
 A robustness release for everyone arriving with **existing styles** — from
@@ -667,6 +696,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.9.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0-beta.1
 [0.8.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.1
 [0.8.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0
 [0.7.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.1
