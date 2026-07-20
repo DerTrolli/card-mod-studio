@@ -52,14 +52,44 @@ const ICON_TAGS = new Set(['ha-state-icon', 'state-badge', 'ha-tile-icon']);
 /** ha-gauge internals the Accent Color module drives on gauge cards. */
 const GAUGE_CLASSES = new Set(['value-text', 'needle', 'dial']);
 
-/** Text-bearing markers the Font module's ha-card cascade reaches. */
-const FONT_CLASSES = new Set(['card-header', 'name', 'value', 'measurement', 'info']);
+/** Text-bearing markers the Font module's ha-card cascade reaches. `title`
+ *  covers gauge/thermostat/humidifier `p.title` and picture-glance's
+ *  `div.title` (the Font module emits a dedicated `.title` block for
+ *  gauge/thermostat); on heading cards the Heading Style rule outranks it. */
+const FONT_CLASSES = new Set([
+  'card-header', 'header', 'name', 'value', 'measurement', 'info', 'title',
+]);
+/** Tags the FONT_CLASSES markers are trusted on. SVG internals reuse the
+ *  same names for non-text parts (the light card's round-slider handle is
+ *  `g.value.handle`) — those must not read as Font. */
+const FONT_CLASS_TAGS = new Set([
+  'div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'td', 'th', 'li',
+]);
 /** Extra text containers that only read as "text" INSIDE a generic entity
  *  row (too generic to trust elsewhere). */
 const GENERIC_ROW_TEXT_CLASSES = new Set(['text-content', 'secondary', 'state']);
 
+/** Per-card text containers that carry none of the generic markers —
+ *  verified against each card's live DOM (picker coverage probe): the
+ *  button card's name/state are bare `<span>`/`span.state`, glance entities
+ *  are `div.entity`, media-control titles sit in hui-marquee /
+ *  div.media-info / div.icon-name, picture footers are div.footer/div.box. */
+const CARD_TEXT_MATCHERS: Record<string, (el: PickChainElement) => boolean> = {
+  button: (el) => el.tag === 'span',
+  markdown: (el) => el.tag === 'ha-markdown' || el.tag === 'ha-markdown-element',
+  glance: (el) => el.classes.includes('entity'),
+  'media-control': (el) =>
+    el.tag === 'hui-marquee' ||
+    el.classes.includes('media-info') ||
+    el.classes.includes('icon-name'),
+  'picture-entity': (el) => el.classes.includes('footer'),
+  'picture-glance': (el) => el.classes.includes('box'),
+};
+
 /** Chain-wide context computed once per lookup. */
 interface ChainContext {
+  /** The card's `type:` — lets rules match card-specific DOM shapes. */
+  cardType: string;
   /** Index of the nearest `.title` ancestor (heading card title), or -1. */
   titleIndex: number;
   /** Index of the nearest hui-generic-entity-row ancestor, or -1. */
@@ -118,15 +148,45 @@ const RULES: PickRule[] = [
           },
   },
   {
-    // Text: card header, tile info block, common text-carrying markers, and
-    // text containers inside a generic entity row.
+    // Thermostat temperature dial: the Accent Color module drives it via
+    // --control-circular-slider-color + the state-climate-* colors. The
+    // humidifier's dial gets no accent variables — not matched there, so it
+    // falls through to the card surface.
+    test: (el) => el.tag === 'ha-control-circular-slider',
+    target: (cardType) =>
+      cardType === 'thermostat'
+        ? { module: 'cms-accent-color-module', label: 'Accent Color' }
+        : null,
+  },
+  {
+    // Sensor card's inline graph: the line is stroked with --accent-color.
+    test: (el) => el.tag === 'hui-graph-base' || el.tag === 'hui-graph-header-footer',
+    target: (cardType) =>
+      cardType === 'sensor'
+        ? { module: 'cms-accent-color-module', label: 'Graph / Accent Color' }
+        : null,
+  },
+  {
+    // Tile feature rows (sliders/toggles below the info block): their
+    // --feature-color derives from --tile-color, which Accent drives.
+    test: (el) => el.tag === 'hui-card-features' || el.tag === 'hui-card-feature',
+    target: (cardType) =>
+      cardType === 'tile'
+        ? { module: 'cms-accent-color-module', label: 'Features / Accent Color' }
+        : null,
+  },
+  {
+    // Text: card header, tile info block, common text-carrying markers
+    // (trusted only on real text tags), text containers inside a generic
+    // entity row, and the per-card shapes from CARD_TEXT_MATCHERS.
     test: (el, i, ctx) =>
       el.tag === 'ha-tile-info' ||
       el.id === 'info' ||
-      el.classes.some((c) => FONT_CLASSES.has(c)) ||
+      (FONT_CLASS_TAGS.has(el.tag) && el.classes.some((c) => FONT_CLASSES.has(c))) ||
       (ctx.genericRowIndex !== -1 &&
         i < ctx.genericRowIndex &&
-        el.classes.some((c) => GENERIC_ROW_TEXT_CLASSES.has(c))),
+        el.classes.some((c) => GENERIC_ROW_TEXT_CLASSES.has(c))) ||
+      (CARD_TEXT_MATCHERS[ctx.cardType]?.(el) ?? false),
     target: (cardType) =>
       NO_FONT_TYPES.has(cardType) ? null : { module: 'cms-font-module', label: 'Font' },
   },
@@ -149,8 +209,9 @@ function fallbackTarget(cardType: string): PickTarget {
     : { module: 'cms-background-module', label: 'Background & card surface' };
 }
 
-function buildContext(chain: PickChainElement[]): ChainContext {
+function buildContext(chain: PickChainElement[], cardType: string): ChainContext {
   return {
+    cardType,
     titleIndex: chain.findIndex((el) => el.classes.includes('title')),
     genericRowIndex: chain.findIndex((el) => el.tag === 'hui-generic-entity-row'),
   };
@@ -168,7 +229,7 @@ export function mapElementToMatch(
   cardType: string,
 ): PickMatch | null {
   if (!chain.length) return null;
-  const ctx = buildContext(chain);
+  const ctx = buildContext(chain, cardType);
 
   for (let i = 0; i < chain.length; i++) {
     const el = chain[i];

@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-18 · **Current version:** v0.8.1 — v0.9.0-beta.1 (click-to-edit preview picker + animation pack + value-conditional animations) is code-complete on this branch, pre-release pending
+**Last updated:** 2026-07-20 · **Current version:** v0.9.0-beta.1 (pre-release) — v0.9.0-beta.2 (preview picker per-card coverage: button/entity/sensor/gauge/markdown/glance/media/picture text → Font, graph/features/dial → Accent) is code-complete on this branch, pre-release pending
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row

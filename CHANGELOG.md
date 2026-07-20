@@ -5,6 +5,40 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-beta.2] — 2026-07-20
+
+**Pre-release** — beta feedback round 1: the preview picker now covers
+every supported card type correctly, not just the tile/entities shapes it
+launched with. Verified with a DOM coverage probe across 17 live-rendered
+card types on both engines, plus a permanent per-card coverage matrix in
+the live check (14 assertions).
+
+### Fixed — preview picker coverage per card type
+
+- **Button card**: the name and state (bare `<span>`s in HA's markup —
+  no class to recognise) now map to Font instead of falling back to
+  Background. This was the reported gap.
+- **Entity / sensor cards**: the name (`div.header`) now maps to Font.
+- **Gauge / thermostat / humidifier titles** (`p.title`) now map to Font
+  (the Font module emits a dedicated `.title` block for these cards).
+- **Markdown card**: the rendered body now maps to Font.
+- **Glance card**: entity columns (name, state, and the icon — which has
+  no reachable color on glance) now map to Font.
+- **Media-control card**: title marquee and app/device name map to Font.
+- **Picture-entity / picture-glance**: the footer bar (name/state/title)
+  maps to Font.
+- **New Accent Color mappings** where accent genuinely drives the pixels:
+  the sensor card's graph line ("Graph / Accent Color"), tile feature rows
+  ("Features / Accent Color" — their `--feature-color` derives from
+  `--tile-color`), and the thermostat's temperature dial ring.
+- **False positive fixed**: the light card's round-slider handle
+  (`g.value` — SVG reusing a text-marker class name) no longer claims
+  Font; text-class markers are now trusted only on real text tags.
+- Picker labels stay honest: interactive controls the Studio can't style
+  (more-info buttons, alarm keypad, slider handles) and raw images still
+  fall back to the card surface / Advanced CSS rather than pointing at a
+  module that wouldn't work.
+
 ## [0.9.0-beta.1] — 2026-07-18
 
 **Pre-release** — the start of the v0.9 cycle ("depth"). Both features
@@ -696,6 +730,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.9.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0-beta.2
 [0.9.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0-beta.1
 [0.8.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.1
 [0.8.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0

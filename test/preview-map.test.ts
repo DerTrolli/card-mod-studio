@@ -117,6 +117,160 @@ describe('mapElementToTarget', () => {
     });
   });
 
+  it('maps the button card name (bare span) and state (span.state) to Font', () => {
+    const bare = [el('span'), el('ha-card'), el('hui-button-card'), el('hui-card')];
+    const state = [el('span', ['state']), el('ha-card'), el('hui-button-card'), el('hui-card')];
+    expect(mapElementToTarget(bare, 'button')?.label).toBe('Font');
+    expect(mapElementToTarget(state, 'button')?.label).toBe('Font');
+    // …but a bare span on other cards stays unclaimed (tile slider tooltip).
+    expect(mapElementToTarget(bare, 'entity')?.label).toBe('Background & card surface');
+  });
+
+  it('maps gauge / thermostat p.title to Font (dedicated .title emitter)', () => {
+    const chain = [el('p', ['title']), el('ha-card'), el('hui-gauge-card'), el('hui-card')];
+    expect(mapElementToTarget(chain, 'gauge')?.label).toBe('Font');
+    expect(mapElementToTarget(chain, 'thermostat')?.label).toBe('Font');
+  });
+
+  it('maps the entity/sensor card name (div.header) to Font', () => {
+    const chain = [el('div', ['header']), el('ha-card'), el('hui-entity-card'), el('hui-card')];
+    expect(mapElementToTarget(chain, 'entity')?.label).toBe('Font');
+    expect(mapElementToTarget(chain, 'sensor')?.label).toBe('Font');
+  });
+
+  it('does NOT trust font classes on SVG internals (light slider handle)', () => {
+    const chain = [
+      el('path', ['handle'], 'value'),
+      el('g', ['value', 'handle']),
+      el('round-slider'),
+      el('ha-card'),
+      el('hui-light-card'),
+      el('hui-card'),
+    ];
+    expect(mapElementToTarget(chain, 'light')?.label).toBe('Background & card surface');
+  });
+
+  it('maps the thermostat dial to Accent Color, humidifier dial to fallback', () => {
+    const chain = [
+      el('path', ['arc', 'arc-active', 'value'], 'value'),
+      el('g', [], 'container'),
+      el('svg', [], 'slider'),
+      el('ha-control-circular-slider'),
+      el('ha-state-control-climate-temperature'),
+      el('div', ['container']),
+      el('ha-card'),
+      el('hui-card'),
+    ];
+    expect(mapElementToTarget(chain, 'thermostat')).toEqual({
+      module: 'cms-accent-color-module',
+      label: 'Accent Color',
+    });
+    // Accent emits no humidifier dial variables — must not claim it there.
+    expect(mapElementToTarget(chain, 'humidifier')?.label).toBe('Background & card surface');
+  });
+
+  it('maps the sensor card graph to Graph / Accent Color', () => {
+    const chain = [
+      el('rect'),
+      el('g'),
+      el('svg'),
+      el('hui-graph-base'),
+      el('hui-graph-header-footer'),
+      el('div', ['footer']),
+      el('ha-card'),
+      el('hui-card'),
+    ];
+    expect(mapElementToTarget(chain, 'sensor')).toEqual({
+      module: 'cms-accent-color-module',
+      label: 'Graph / Accent Color',
+    });
+  });
+
+  it('maps tile feature rows to Features / Accent Color', () => {
+    const chain = [
+      el('div', ['slider-track-bar', 'start']),
+      el('ha-control-slider'),
+      el('hui-light-brightness-card-feature'),
+      el('hui-card-feature'),
+      el('hui-card-features'),
+      el('ha-card'),
+      el('hui-tile-card'),
+      el('hui-card'),
+    ];
+    expect(mapElementToTarget(chain, 'tile')).toEqual({
+      module: 'cms-accent-color-module',
+      label: 'Features / Accent Color',
+    });
+  });
+
+  it('maps markdown body content to Font', () => {
+    const chain = [
+      el('strong'),
+      el('p'),
+      el('ha-markdown-element'),
+      el('ha-markdown'),
+      el('ha-card'),
+      el('hui-card'),
+    ];
+    expect(mapElementToTarget(chain, 'markdown')?.label).toBe('Font');
+  });
+
+  it('maps glance entity columns (incl. the uncolorable icon) to Font', () => {
+    const stateText = [
+      el('div'),
+      el('div', ['entity', 'action']),
+      el('div', ['entities']),
+      el('ha-card'),
+      el('hui-card'),
+    ];
+    expect(mapElementToTarget(stateText, 'glance')?.label).toBe('Font');
+    // Icon Color is hidden on glance — the icon falls through to the column.
+    const icon = [
+      el('ha-state-icon'),
+      el('state-badge'),
+      el('div', ['entity', 'action']),
+      el('ha-card'),
+      el('hui-card'),
+    ];
+    expect(mapElementToTarget(icon, 'glance')?.label).toBe('Font');
+  });
+
+  it('maps media-control title/app text to Font', () => {
+    const marquee = [
+      el('span'),
+      el('div', ['marquee-inner']),
+      el('hui-marquee'),
+      el('div', ['media-info']),
+      el('ha-card'),
+      el('hui-card'),
+    ];
+    expect(mapElementToTarget(marquee, 'media-control')?.label).toBe('Font');
+    const appName = [
+      el('div', ['icon-name']),
+      el('div', ['top-info']),
+      el('ha-card'),
+      el('hui-card'),
+    ];
+    expect(mapElementToTarget(appName, 'media-control')?.label).toBe('Font');
+  });
+
+  it('maps picture card footers to Font', () => {
+    const pe = [
+      el('div'),
+      el('div', ['footer', 'both']),
+      el('ha-card'),
+      el('hui-card'),
+    ];
+    expect(mapElementToTarget(pe, 'picture-entity')?.label).toBe('Font');
+    const pg = [
+      el('div', ['title']),
+      el('div', ['box']),
+      el('ha-card'),
+      el('hui-card'),
+    ];
+    expect(mapElementToTarget(pg, 'picture-glance')?.label).toBe('Font');
+  });
+
   it('falls back to Background for a plain ha-card', () => {
     const chain = [el('ha-card'), el('hui-button-card'), el('hui-card')];
     expect(mapElementToTarget(chain, 'button')).toEqual({
