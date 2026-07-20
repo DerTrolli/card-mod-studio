@@ -67,8 +67,6 @@ interface ChainContext {
 }
 
 interface PickRule {
-  /** Doc-comment name, for readability only. */
-  name: string;
   /** Does this chain element (at index i) trigger the rule? */
   test(el: PickChainElement, i: number, ctx: ChainContext): boolean;
   /** Resolve the target for this card type — null means "this module is
@@ -87,7 +85,6 @@ const RULES: PickRule[] = [
   {
     // Icons: ha-state-icon / state-badge, plus ha-icon when it's NOT part of
     // a heading card's .title (those belong to Heading Style below).
-    name: 'icon',
     test: (el, i, ctx) =>
       ICON_TAGS.has(el.tag) ||
       (el.tag === 'ha-icon' && (ctx.titleIndex === -1 || i > ctx.titleIndex)),
@@ -101,7 +98,6 @@ const RULES: PickRule[] = [
   },
   {
     // Heading card title (.title wraps the p + ha-icon) → Heading Style.
-    name: 'heading-title',
     test: (_el, i, ctx) => ctx.titleIndex !== -1 && i <= ctx.titleIndex,
     target: (cardType) =>
       cardType === 'heading'
@@ -111,7 +107,6 @@ const RULES: PickRule[] = [
   },
   {
     // ha-gauge internals (value text / needle / dial) → Accent Color.
-    name: 'gauge-accent',
     test: (el) => el.tag === 'ha-gauge' || el.classes.some((c) => GAUGE_CLASSES.has(c)),
     target: (cardType) =>
       // Accent module is hidden on heading + entities cards (cms-panel).
@@ -125,7 +120,6 @@ const RULES: PickRule[] = [
   {
     // Text: card header, tile info block, common text-carrying markers, and
     // text containers inside a generic entity row.
-    name: 'font',
     test: (el, i, ctx) =>
       el.tag === 'ha-tile-info' ||
       el.id === 'info' ||
@@ -140,7 +134,6 @@ const RULES: PickRule[] = [
     // A row element on an entities card → the per-row styling module.
     // rowEntity is resolved by the caller (the picker), which can see the
     // actual DOM order and the card's entity list — this mapper can't.
-    name: 'entity-row',
     test: (el) => ENTITY_ROW_TAG_RE.test(el.tag),
     target: (cardType) =>
       cardType === 'entities'

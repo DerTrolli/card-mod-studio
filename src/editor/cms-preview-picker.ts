@@ -53,7 +53,7 @@ export class CmsPreviewPicker extends LitElement {
     }
 
     /* Highlight box — module-base-ish accents: 2px pink/accent border with a
-       faint fill, label pill pinned to the box's top-left corner. */
+       faint fill. */
     .hl {
       position: absolute;
       pointer-events: none;
