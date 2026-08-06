@@ -14,9 +14,12 @@ demo:
 
 frontend: {}
 
-http:
-  server_host: 0.0.0.0
-  server_port: 8123
+# recorder+history so graph-bearing cards (sensor footer graph,
+# history-graph) actually render chart internals — on HA 2026.8+ they
+# render NOTHING without history data (2026.7 still drew a placeholder).
+recorder:
+history:
+
 
 # YAML-mode dashboard so we never touch the storage/editor onboarding. HA
 # re-reads ui-lovelace.yaml on every page load, which the harness relies on.

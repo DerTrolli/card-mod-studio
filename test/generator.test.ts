@@ -1986,3 +1986,47 @@ describe('v0.9 state-driven numeric controls', () => {
     expect(state.advanced.rawCss).toContain('--mdc-icon-size');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Roadmap #27 (2026-08 engine audit): UIX Forge config preservation.
+// The Studio must never touch the UIX Forge surface — `forge:`, `foundry:`
+// (server-stored templates), and `uix.macros` — through any edit.
+// ---------------------------------------------------------------------------
+
+describe('UIX Forge / foundry key preservation (#27)', () => {
+  const forgeConfig = {
+    type: 'tile',
+    entity: 'light.a',
+    foundry: 'my-shared-tile',
+    forge: {
+      sparks: [{ type: 'tooltip', text: '{{ states("sensor.x") }}' }],
+      element: { name: '{{ my_name }}' },
+    },
+    uix: { macros: { my_macro: 'grayscale(100%)' }, style: 'ha-card {\n  background: red;\n}' },
+  } as unknown as CardModCardConfig;
+
+  it('a Studio edit writing uix: keeps forge/foundry/macros byte-identical', () => {
+    const next = applyCardModStyle('ha-card {\n  background: blue;\n}', forgeConfig, 'uix');
+    expect(next.forge).toEqual(forgeConfig.forge);
+    expect((next as Record<string, unknown>).foundry).toBe('my-shared-tile');
+    expect(next.uix?.macros).toEqual({ my_macro: 'grayscale(100%)' });
+    expect(next.uix?.style).toBe('ha-card {\n  background: blue;\n}');
+  });
+
+  it('clearing all styling keeps forge/foundry/macros', () => {
+    const next = applyCardModStyle('', forgeConfig, 'uix');
+    expect(next.forge).toEqual(forgeConfig.forge);
+    expect((next as Record<string, unknown>).foundry).toBe('my-shared-tile');
+    expect(next.uix?.macros).toEqual({ my_macro: 'grayscale(100%)' });
+    expect(next.uix?.style).toBeUndefined();
+  });
+
+  it('a card_mod-targeted edit still keeps the forge surface', () => {
+    const next = applyCardModStyle('ha-card {\n  color: red;\n}', forgeConfig, 'card_mod');
+    expect(next.forge).toEqual(forgeConfig.forge);
+    expect((next as Record<string, unknown>).foundry).toBe('my-shared-tile');
+    // uix.style is macro-free here? No — macros present, so the uix block
+    // must survive rather than being consolidated away.
+    expect(next.uix?.macros).toEqual({ my_macro: 'grayscale(100%)' });
+  });
+});

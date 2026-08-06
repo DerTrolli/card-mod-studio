@@ -299,10 +299,12 @@ const run = async () => {
     host.appendChild(panel);
     await panel.updateComplete;
     await new Promise((r) => setTimeout(r, 400));
+    // Row styles are keyed by row POSITION since v0.9.0-beta.3 (#24 —
+    // duplicate-entity rows), not by entity_id.
     panel._entityRowStyles = {
       ...panel._entityRowStyles,
-      'sensor.outside_temperature': {
-        ...(panel._entityRowStyles['sensor.outside_temperature'] ?? { iconColor: '', textColor: '' }),
+      '0': {
+        ...(panel._entityRowStyles['0'] ?? { iconColor: '', textColor: '' }),
         fontSizePx: 20,
         fontWeight: 'bold',
       },
@@ -356,7 +358,10 @@ const run = async () => {
     },
   });
 
-  await page.goto(`${HA}/${DASHBOARD}/0`, { waitUntil: 'domcontentloaded' });
+  // HA 2026.8: the kebab -> "Edit dashboard" dropdown no longer responds
+  // to synthetic clicks — navigate straight into edit mode (?edit=1 lands
+  // on the same hui-card-options overlay).
+  await page.goto(`${HA}/${DASHBOARD}/0?edit=1`, { waitUntil: 'domcontentloaded' });
   await waitForHassReady(page);
   await page.waitForTimeout(800);
 
@@ -371,36 +376,7 @@ const run = async () => {
     return o;
   `;
 
-  // Kebab menu -> Edit dashboard -> the card's Edit button.
-  const menuBtn = await page.evaluate(({ allByTagSrc }) => {
-    const all = new Function('root', 'tag', allByTagSrc);
-    const huiRoot = all(document.querySelector('home-assistant'), 'hui-root')[0];
-    const btns = [...huiRoot.shadowRoot.querySelectorAll('ha-icon-button')];
-    const last = btns[btns.length - 1];
-    const r = last.getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  }, { allByTagSrc });
-  await page.mouse.click(menuBtn.x, menuBtn.y);
-  await page.waitForTimeout(500);
-
-  const editDashboardItem = await page.evaluate(() => {
-    const o = []; const s = [document.body];
-    while (s.length) {
-      const n = s.pop();
-      o.push(n);
-      if (n.shadowRoot) s.push(...n.shadowRoot.children);
-      if (n.children) s.push(...n.children);
-    }
-    const clickable = o.find(
-      (el) => el.tagName === 'HA-DROPDOWN-ITEM' && (el.textContent || '').toLowerCase().includes('edit dashboard'),
-    );
-    if (!clickable) return null;
-    const r = clickable.getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  });
-  if (!editDashboardItem) throw new Error('Edit dashboard menu item not found');
-  await page.mouse.click(editDashboardItem.x, editDashboardItem.y);
-  await page.waitForTimeout(1200);
+  // (edit mode already active via ?edit=1)
 
   const editLink = await page.evaluate(({ allByTagSrc }) => {
     const all = new Function('root', 'tag', allByTagSrc);

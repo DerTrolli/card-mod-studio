@@ -32,3 +32,30 @@ export function finish(writeFileSync, resolve, here, filename, results) {
     process.exit(1);
   }
 }
+
+/**
+ * Ensures a STORAGE-mode dashboard exists with the given views config and
+ * returns its url_path. Needed since HA 2026.8: YAML-mode dashboards (this
+ * sandbox's main dashboard) can no longer enter edit mode at all, so any
+ * check that must click through the REAL card-edit flow (hui-card-options
+ * → Edit → hui-dialog-edit-card) drives a storage dashboard instead —
+ * which is also what real users have.
+ */
+export async function ensureStorageDashboard(page, urlPath, views) {
+  return page.evaluate(async ({ urlPath, views }) => {
+    const hass = document.querySelector('home-assistant').hass;
+    try {
+      await hass.callWS({
+        type: 'lovelace/dashboards/create',
+        url_path: urlPath,
+        mode: 'storage',
+        title: 'CMS ' + urlPath,
+        show_in_sidebar: false,
+      });
+    } catch (e) {
+      // already exists — fine, we overwrite its config below
+    }
+    await hass.callWS({ type: 'lovelace/config/save', url_path: urlPath, config: { views } });
+    return urlPath;
+  }, { urlPath, views });
+}

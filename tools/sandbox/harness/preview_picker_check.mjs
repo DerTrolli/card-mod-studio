@@ -163,6 +163,11 @@ const run = async () => {
       let target = null;
       for (let i = 0; i < 20 && !target; i++) {
         await sleep(300);
+        // Re-assign hass each retry: since HA 2026.8 some cards forward
+        // hass to child elements (sensor's graph header-footer) only on
+        // hass UPDATES — a one-shot assignment leaves them un-hydrated,
+        // which never happens on a live dashboard.
+        panel.hass = { ...document.querySelector('home-assistant').hass };
         const card = panel.shadowRoot?.querySelector('hui-card');
         if (!card) continue;
         const stack = [card];

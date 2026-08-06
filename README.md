@@ -230,7 +230,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 
 | HA Version | Status |
 |---|---|
-| 2026.x | Tested (support baseline: 2026.7.0 — every release is live-verified against it) |
+| 2026.x | Tested (support baseline: 2026.8.0 — every release is live-verified against it) |
 | 2025.x | Expected compatible |
 | 2024.4+ | Minimum supported |
 
@@ -238,10 +238,12 @@ Card-mod compatibility follows card-mod's own compatibility table. See [card-mod
 
 | Engine | Version tested | Status |
 |---|---|---|
-| card-mod | 4.2.1 | ✅ Tested, see [`docs/COMPATIBILITY_AUDIT.md`](docs/COMPATIBILITY_AUDIT.md) |
-| UIX | 7.6.1 | ✅ Tested against a real running integration in Docker, see [`docs/COMPATIBILITY_AUDIT.md` §9](docs/COMPATIBILITY_AUDIT.md) and [`tools/sandbox/run-uix.sh`](tools/sandbox/run-uix.sh) |
+| card-mod | 4.2.1 | ✅ Tested on HA 2026.8.0 (4.2.1 is still card-mod's current stable as of 2026-08), see [`docs/COMPATIBILITY_AUDIT.md`](docs/COMPATIBILITY_AUDIT.md) |
+| UIX | 8.0.0 | ✅ Tested against a real running integration in Docker (note: UIX 8.0.0 itself requires HA ≥ 2026.8.0; the `uix:`/`card_mod:` styling contract is unchanged from 7.x), see [`docs/COMPATIBILITY_AUDIT.md` §9](docs/COMPATIBILITY_AUDIT.md) and [`tools/sandbox/run-uix.sh`](tools/sandbox/run-uix.sh) |
 
 > **Note on HA updates:** Card-Mod Studio injects into the card editor using the `hui-dialog-edit-card` element. If a HA update renames this element, the Style button will not appear and a console warning will be shown. Check [GitHub Issues](../../issues) for status after major HA releases.
+
+> **YAML-mode dashboards (HA 2026.8+):** HA 2026.8 removed the ability to enter edit mode on `mode: yaml` dashboards entirely — the visual card editor (and therefore the Style button) can only be opened on normal storage-mode dashboards there. Cards on YAML dashboards keep rendering their existing `card_mod:`/`uix:` styling unchanged.
 
 ---
 

@@ -12,7 +12,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const CFG = resolve(HERE, '../config/ui-lovelace.yaml');
 const HA = process.env.HA_URL || 'http://127.0.0.1:8123';
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-const tokens = JSON.parse(readFileSync(resolve(HERE, 'tokens.json'), 'utf8'));
+const tokens = JSON.parse(readFileSync(resolve(HERE, process.env.TOKENS_FILE || 'tokens.json'), 'utf8'));
 
 const ICON = 'ha-state-icon {\n  color: #ee1111 !important;\n}';
 const BG = 'ha-card {\n  background: rgb(17, 34, 68);\n}';

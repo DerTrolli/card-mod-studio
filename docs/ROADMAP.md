@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-20 · **Current version:** v0.9.0-beta.2 (pre-release) — v0.9.0-beta.3 (state-driven numeric properties: conditional border width / filter effects + new opacity / icon size on probed-safe cards; fixes #24 duplicate-entity rows, #26 rgb() thresholds, #5 version pin, #6 legacy paper var) is code-complete on this branch, pre-release pending
+**Last updated:** 2026-08-06 · **Current version:** v0.9.0-beta.3 (pre-release, 2026-07-20) — since then: full engine/HA re-audit (see "Engine watch" below): suite green on card-mod 4.2.1 + UIX 8.0.0, both on HA 2026.8.0; remaining v0.9 decision is dict-form/`$`-pierce (item #1) as beta.4 vs v0.10
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -26,7 +26,7 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | v0.8 ✅ | Structure + color system | **Shipped** — stack child styling (per-child styling sections for vertical-stack/horizontal-stack/grid, written into each child's own config) + a Font module (size/weight/family/color, closing [#25](https://github.com/dertrolli/card-mod-studio/issues/25)) in beta.1; beta.2 added the per-card font companions the beta test demanded (light/button/sensor/gauge/thermostat/entities title/heading weight+family/per-row fonts), the form-editor `uix:` rejection shim, the Color Palette Manager (custom colors in every picker + ON/OFF default overrides, cross-device storage), and attribute-based thresholds (item #16 below — done). |
 | v0.9 | Depth | Property-level templating beyond color (border width, icon size, blur/opacity driven by entity state — natural extension of v0.7's entity binding). Plus dict-form/`$`-pierce round-trip safety (item #1 below), which unblocks nested-shadow-DOM targets (glance icon, Mushroom/Bubble). |
 | v1.0 | Structural completeness | The remaining container gaps (item #7 — `conditional` cards, containers nested in containers, per-row styling of nested entities cards) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
-| Post-1.0 | Stretch | Official Mushroom/Bubble selectors, a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
+| Post-1.0 | Stretch | Official Mushroom/Bubble selectors, UIX Forge/sparks support (item #28 — new in the 2026-08 engine audit), a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
 
 ## Recently shipped (v0.8.0)
 
@@ -338,12 +338,56 @@ from the audit.
 
 ---
 
+## Engine watch — audit of upstream changes (2026-08-06)
+
+Both engines' releases and docs were re-audited and the sandboxes upgraded;
+**the entire live-check suite is green on card-mod 4.2.1 AND UIX 8.0.0,
+both on HA 2026.8.0** (the new verification baseline).
+
+- **card-mod**: 4.2.1 is still the current stable — zero upstream changes
+  since our last audit (one beta-only patch for HA 2026.4.0b dialogs,
+  superseded).
+- **UIX 7.6.1 → 8.0.0**: the 8.0.0 major's only breaking change is
+  requiring HA ≥ 2026.8.0 — the `uix:`/`card_mod:` styling contract we
+  generate against is byte-for-byte unchanged (re-verified live: fallback
+  reads, `uix:` precedence, all module output). Internal `state_color` →
+  `color` renames track HA 2026.8 and don't touch styling.
+- **UIX Forge is the real news** (7.x→8.x feature line): templated
+  elements ("molds"), server-stored reusable configs ("foundries",
+  `foundry:` key), and add-on behaviors ("sparks": tooltips, buttons,
+  overlays, backgrounds, maps, locks, …) configured under a card's
+  `forge:` key. This is a second, larger config surface next to `uix:` —
+  see items #27/#28 below. The Studio already preserves unknown card keys
+  verbatim, so `forge:`/`foundry:` cards are safe to edit today.
+- **HA 2026.8 platform changes that affected us** (sandbox/tooling only —
+  no product code change was needed):
+  - YAML-mode dashboards can no longer enter edit mode at all → the card
+    editor (and our Style button) is reachable only on storage dashboards
+    (README/Troubleshooting note added).
+  - `hui-dialog-edit-card` / `hui-card-options` injection surface:
+    unchanged, verified through the real dialog.
+  - Harness gotchas fixed: `http.server_host` now triggers a blocking
+    confirm dialog (removed from rig configs); the kebab → "Edit
+    dashboard" dropdown ignores synthetic clicks (checks navigate with
+    `?edit=1`); sensor-card graphs render nothing without recorder history
+    AND a hass update after mount (rigs now run recorder+history; checks
+    re-assign hass).
+
+New items from this audit:
+
+| # | Item | Description | Effort |
+|---|---|---|---|
+| 27 ✅ | **Forge/foundry preservation guard** | **Done (2026-08-06, with this audit)** — regression tests assert a card carrying `forge:`/`foundry:`/`uix.macros` keeps them identical through a Studio edit targeting either key, and through style clearing (test/generator.test.ts). | S |
+| 28 | **UIX Forge / sparks support** | Visual editing for the Forge surface (spark toggles like tooltip/background/overlay-icon per card, mold/foundry awareness). This is a UIX-only, post-1.0-sized feature — scope a minimal first slice (read + preserve + a "this card uses Forge" indicator, maybe tooltip spark editing) only after the v1.0 structural items land. Overlaps: UIX billets (#20) / macros (#21) remain separate small items. | L |
+
 ## Engineering / maintenance
 
 - **Selector resilience:** injection depends on internal HA element names
   (`hui-dialog-edit-card`, `hui-card-element-editor`, `ha-button[slot=secondaryAction]`).
   Keep these centralised (`dom-helpers.ts` / `cms-injector.ts`) and add a smoke
-  test / manual checklist after each major HA release.
+  test / manual checklist after each major HA release. *(Done for HA
+  2026.8.0 — full suite re-run on both engines, 2026-08-06; see "Engine
+  watch" above.)*
 - **Parser test corpus:** grow `test/parser.test.ts` with real-world hand-written
   `card_mod` snippets (especially dict form) to lock in round-trip behaviour as
   #1 and #10 land.
