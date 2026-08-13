@@ -14,6 +14,12 @@ Instead of hand-writing YAML + CSS + Jinja2 templates, Card-Mod Studio gives you
 reference, per-card support details, and troubleshooting. This README is the
 overview.
 
+> **Enjoying Card-Mod Studio?** A ⭐ on GitHub helps others find it — and if it
+> saved you an evening of CSS frustration, you can
+> [☕ buy me a coffee](https://ko-fi.com/dertrolli). It's built with a lot of
+> paid AI tooling, so coffees go straight back into development.
+> [More ways to help ↓](#support-the-project)
+
 ---
 
 ## What it does
