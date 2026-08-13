@@ -5,6 +5,87 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-08-06
+
+The "make styling discoverable + state-aware" release — the v0.9 cycle
+consolidated (beta.1–beta.3, field-tested since 2026-07-18). Every feature
+was verified live on real card-mod AND real UIX renders (computed-style
+assertions, not source reading), and the final release was re-verified
+end-to-end against the newest engines: **card-mod 4.2.1 and UIX 8.0.0,
+both on Home Assistant 2026.8.0** — the full live-check suite is green on
+both. (UIX 8.0.0 itself requires HA ≥ 2026.8.0; its styling contract is
+unchanged, so cards styled by the Studio behave identically across
+UIX 7.x and 8.x.)
+
+### Added — click-to-edit preview picker
+
+Hover any part of the live preview and a highlight box names the control
+that styles it ("Icon Color", "Font", "Entity Rows: sensor.x", …); click,
+and the panel scrolls to that module, opens it, and flashes it briefly.
+Works per entity row on entities cards — clicking a row opens exactly that
+row's section. The overlay never forwards events to the live card, so you
+can point at a light card's toggle without switching anything on. Coverage
+was probed card-by-card across all 17 supported card types on both
+engines: button name/state, entity/sensor names, gauge/thermostat/
+humidifier titles, markdown body, glance columns, media-control titles,
+and picture-card footers resolve to Font; the sensor graph line, tile
+feature rows, and the thermostat dial resolve to Accent Color; things the
+Studio genuinely can't style (more-info buttons, keypads, raw images)
+honestly fall back to the card surface instead of pointing at a dead
+control. (Under the hood: a geometric hit-test over the card's composed
+tree — HA cards hide their content from browser hit-testing behind a
+full-card tap layer, so rect math is the only reliable route.)
+
+### Added — state-driven styling depth
+
+- **Four new animation presets** — Shake, Spin (linear timing), Glow,
+  Heartbeat — alongside the existing five.
+- **Value-conditional animations** — "While a value matches…": entity (or
+  one of its numeric attributes) + operator + threshold; the animation
+  runs only while the condition holds. Pulse while the freezer is above
+  -10°, glow while battery_level < 15.
+- **One shared "Reacts to" condition control** (always / entity ON / OFF /
+  another entity ON / while a value matches) now also drives three numeric
+  controls:
+  - **Border width** — appears only while the condition matches, with an
+    optional fallback width.
+  - **Filter effects** — brightness/blur/**opacity (new control)** apply
+    only while the condition matches (grayscale keeps its own condition).
+  - **Icon size (new control)** — static or conditional with a fallback
+    size; offered exactly where live probing shows the size variables
+    reach the main state icon: tile, entity, sensor, picture-glance.
+
+All conditional forms generate anchored single-branch Jinja ternaries that
+round-trip byte-stably; hand-written conditions the modules can't express
+exactly stay untouched in Advanced CSS.
+
+### Fixed
+
+- **Two entities-card rows with the same entity no longer share one style
+  slot** — per-row styles are keyed by row position, so duplicate-entity
+  rows hold independent styling.
+- **`rgb()`/`rgba()` threshold colors survive reopen** as editable rules;
+  and multi-rule thresholds no longer mis-read their default color from an
+  intermediate branch of the rule chain.
+- **Hand-written filters are no longer flattened**: a conditional or
+  combined `filter:` the module can't express exactly (e.g. containing
+  `hue-rotate(…)`) stays verbatim in Advanced CSS instead of losing parts
+  on save.
+- **UIX Forge safety**: cards carrying UIX 8's `forge:` / `foundry:` /
+  `uix.macros` config keep them byte-identical through every Studio edit
+  (now locked in by regression tests).
+
+### Changed
+
+- The Accent Color module no longer emits the legacy
+  `--paper-item-icon-active-color` companion — nothing in current HA reads
+  it; old configs upgrade cleanly on the next save.
+- README compatibility table pins the live-verification baseline
+  (HA 2026.8.0, card-mod 4.2.1, UIX 8.0.0), and documents an HA 2026.8
+  platform change: YAML-mode dashboards can no longer enter edit mode, so
+  the visual card editor (and the Style button) is only reachable on
+  normal storage-mode dashboards.
+
 ## [0.8.1] — 2026-07-14
 
 A robustness release for everyone arriving with **existing styles** — from
@@ -667,6 +748,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.9.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0
 [0.8.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.1
 [0.8.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0
 [0.7.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.1

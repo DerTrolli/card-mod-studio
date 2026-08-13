@@ -58,3 +58,5 @@ __pycache__/
 *.pyc
 harness/attr-palette-check.json
 harness/legacy-adopt-check.json
+harness/preview-picker-check.json
+harness/animation-pack-check.json

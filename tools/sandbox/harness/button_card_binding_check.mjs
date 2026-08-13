@@ -26,7 +26,7 @@ const SHOTS = resolve(HERE, 'shots');
 mkdirSync(SHOTS, { recursive: true });
 const HA = process.env.HA_URL || 'http://127.0.0.1:8123';
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-const tokens = JSON.parse(readFileSync(resolve(HERE, 'tokens.json'), 'utf8'));
+const tokens = JSON.parse(readFileSync(resolve(HERE, process.env.TOKENS_FILE || 'tokens.json'), 'utf8'));
 
 const { results, record } = makeRecorder();
 
@@ -51,51 +51,11 @@ async function openStyleTabInRealDialog(page, cardConfig) {
     });
   }, { urlPath: DASHBOARD, cardConfig });
 
-  await page.goto(`${HA}/${DASHBOARD}/0`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${HA}/${DASHBOARD}/0?edit=1`, { waitUntil: 'domcontentloaded' });
   await waitForHassReady(page);
-  await page.waitForTimeout(800);
-
-  const menuBtn = await page.evaluate(() => {
-    const all = (root, tag) => {
-      const o = []; const s = [root]; tag = tag.toLowerCase();
-      while (s.length) {
-        const n = s.pop();
-        if (n.tagName && n.tagName.toLowerCase() === tag) o.push(n);
-        if (n.shadowRoot) s.push(...n.shadowRoot.children);
-        if (n.children) s.push(...n.children);
-      }
-      return o;
-    };
-    const huiRoot = all(document.querySelector('home-assistant'), 'hui-root')[0];
-    const btns = [...huiRoot.shadowRoot.querySelectorAll('ha-icon-button')];
-    const last = btns[btns.length - 1];
-    const r = last.getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  });
-  await clickAt(page, menuBtn.x, menuBtn.y);
-  await page.waitForTimeout(500);
-
-  const editDashboardItem = await page.evaluate(() => {
-    const all = (root) => {
-      const o = []; const s = [root];
-      while (s.length) {
-        const n = s.pop();
-        o.push(n);
-        if (n.shadowRoot) s.push(...n.shadowRoot.children);
-        if (n.children) s.push(...n.children);
-      }
-      return o;
-    };
-    const clickable = all(document.body).find(
-      (el) => el.tagName === 'HA-DROPDOWN-ITEM' && (el.textContent || '').toLowerCase().includes('edit dashboard'),
-    );
-    if (!clickable) return null;
-    const r = clickable.getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  });
-  if (!editDashboardItem) throw new Error('Edit dashboard menu item not found');
-  await clickAt(page, editDashboardItem.x, editDashboardItem.y);
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(1500);
+  // HA 2026.8: the kebab -> "Edit dashboard" dropdown no longer responds to
+  // synthetic clicks — ?edit=1 lands on the same hui-card-options overlay.
 
   const editLink = await page.evaluate(() => {
     const all = (root, tag) => {

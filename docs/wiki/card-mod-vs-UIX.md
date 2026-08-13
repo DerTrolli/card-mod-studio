@@ -8,7 +8,14 @@ every combination. This page explains exactly what it writes and when.
 - **[UIX](https://uix.lf.technology/)** — a card-mod-derived *integration*
   by card-mod's current maintainer. Reads `uix:` **in preference to**
   `card_mod:`, but fully supports `card_mod:` as a fallback. Adds its own
-  extras (macros, billets, the Forge template builder).
+  extras (macros, billets, and the UIX Forge template surface — molds,
+  server-stored "foundries", and add-on "sparks").
+
+**Tested versions** (2026-08): card-mod **4.2.1** and UIX **8.0.0**, both
+verified live on HA 2026.8.0. Note UIX 8.x itself requires HA ≥ 2026.8.0;
+its styling contract (what the Studio reads/writes) is unchanged from 7.x.
+The Studio doesn't edit UIX Forge config (`forge:`/`foundry:` keys) but
+preserves it untouched through every edit.
 
 ## Which key does the Studio write?
 

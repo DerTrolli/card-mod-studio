@@ -227,14 +227,14 @@ describe('bare-string entities rows (YAML shorthand)', () => {
     (globalThis as { customElements: CustomElementRegistry }).customElements = originalRegistry;
   });
 
-  it('initEntityRowStyles creates a style slot for a bare-string row', () => {
+  it('initEntityRowStyles creates a style slot for a bare-string row (keyed by row index)', () => {
     const config = {
       type: 'entities',
       entities: ['sensor.a', { entity: 'sensor.b', card_mod: { style: ':host { color: red; }' } }],
     } as unknown as CardModCardConfig;
     const styles = initEntityRowStyles(config);
-    expect(styles['sensor.a']).toEqual({ iconColor: '', textColor: '' });
-    expect(styles['sensor.b'].textColor).toBe('red');
+    expect(styles['0']).toEqual({ iconColor: '', textColor: '' });
+    expect(styles['1'].textColor).toBe('red');
   });
 
   it('applyEntityRowStyles promotes a styled bare-string row to object form and leaves unstyled ones as strings', () => {
@@ -243,8 +243,8 @@ describe('bare-string entities rows (YAML shorthand)', () => {
       entities: ['sensor.a', 'sensor.b'],
     } as unknown as CardModCardConfig;
     const result = applyEntityRowStyles(config, {
-      'sensor.a': { iconColor: '', textColor: '', fontSizePx: 20, fontWeight: 'bold' },
-      'sensor.b': { iconColor: '', textColor: '' },
+      '0': { iconColor: '', textColor: '', fontSizePx: 20, fontWeight: 'bold' },
+      '1': { iconColor: '', textColor: '' },
     }) as unknown as { entities: Array<EntitiesCardRow | string> };
 
     const rowA = result.entities[0] as EntitiesCardRow;
@@ -254,5 +254,126 @@ describe('bare-string entities rows (YAML shorthand)', () => {
     expect(rowA.card_mod?.style).toContain('font-weight: bold');
     // Unstyled string row stays a plain string — no YAML churn.
     expect(result.entities[1]).toBe('sensor.b');
+  });
+
+  it('single-entity round-trip is unchanged: parse -> apply reproduces the same row styling', () => {
+    const config = {
+      type: 'entities',
+      entities: [{ entity: 'sensor.a', card_mod: { style: ':host {\n  color: red;\n}' } }, 'sensor.b'],
+    } as unknown as CardModCardConfig;
+    const styles = initEntityRowStyles(config);
+    const result = applyEntityRowStyles(config, styles) as unknown as {
+      entities: Array<EntitiesCardRow | string>;
+    };
+    expect((result.entities[0] as EntitiesCardRow).card_mod?.style).toContain('color: red');
+    expect(result.entities[1]).toBe('sensor.b');
+  });
+});
+
+describe('duplicate-entity rows keep independent style slots (ROADMAP #24)', () => {
+  const originalRegistry = globalThis.customElements;
+  beforeEach(() => installCardMod());
+  afterEach(() => {
+    (globalThis as { customElements: CustomElementRegistry }).customElements = originalRegistry;
+  });
+
+  it('initEntityRowStyles parses each duplicate row into its own positional slot', () => {
+    const config = {
+      type: 'entities',
+      entities: [
+        { entity: 'sensor.a', card_mod: { style: ':host {\n  color: red;\n}' } },
+        { entity: 'sensor.a', card_mod: { style: ':host {\n  color: blue;\n}' } },
+      ],
+    } as unknown as CardModCardConfig;
+    const styles = initEntityRowStyles(config);
+    expect(styles['0'].textColor).toBe('red');
+    expect(styles['1'].textColor).toBe('blue');
+  });
+
+  it('editing one duplicate row round-trips without touching the other (parse -> edit -> save)', () => {
+    const config = {
+      type: 'entities',
+      entities: [
+        { entity: 'sensor.a', card_mod: { style: ':host {\n  color: red;\n}' } },
+        { entity: 'sensor.a', card_mod: { style: ':host {\n  color: blue;\n}' } },
+      ],
+    } as unknown as CardModCardConfig;
+
+    // Open the card, edit only the SECOND row's text color (what the rows
+    // module's styles-changed event would carry), and save.
+    const styles = initEntityRowStyles(config);
+    const edited = { ...styles, '1': { ...styles['1'], textColor: 'green' } };
+    const result = applyEntityRowStyles(config, edited) as unknown as {
+      entities: EntitiesCardRow[];
+    };
+
+    expect(result.entities[0].card_mod?.style).toContain('color: red');
+    expect(result.entities[0].card_mod?.style).not.toContain('green');
+    expect(result.entities[1].card_mod?.style).toContain('color: green');
+    expect(result.entities[1].card_mod?.style).not.toContain('blue');
+
+    // And a second round-trip (reopen -> save with no edits) is stable.
+    const reopened = initEntityRowStyles(result as unknown as CardModCardConfig);
+    expect(reopened['0'].textColor).toBe('red');
+    expect(reopened['1'].textColor).toBe('green');
+    const resaved = applyEntityRowStyles(result as unknown as CardModCardConfig, reopened) as unknown as {
+      entities: EntitiesCardRow[];
+    };
+    expect(resaved.entities[0].card_mod?.style).toContain('color: red');
+    expect(resaved.entities[1].card_mod?.style).toContain('color: green');
+  });
+
+  it('styling only the second of two duplicate bare-string rows promotes just that row', () => {
+    const config = {
+      type: 'entities',
+      entities: ['sensor.a', 'sensor.a'],
+    } as unknown as CardModCardConfig;
+    const styles = initEntityRowStyles(config);
+    const edited = { ...styles, '1': { ...styles['1'], iconColor: 'orange' } };
+    const result = applyEntityRowStyles(config, edited) as unknown as {
+      entities: Array<EntitiesCardRow | string>;
+    };
+    // First stays the untouched YAML shorthand; second is promoted + styled.
+    expect(result.entities[0]).toBe('sensor.a');
+    const second = result.entities[1] as EntitiesCardRow;
+    expect(second.entity).toBe('sensor.a');
+    expect(second.card_mod?.style).toContain('--state-icon-color: orange');
+  });
+
+  it('rows without an entity (e.g. dividers) keep index alignment for the rows after them', () => {
+    const config = {
+      type: 'entities',
+      entities: ['sensor.a', { type: 'divider' }, 'sensor.a'],
+    } as unknown as CardModCardConfig;
+    const styles = initEntityRowStyles(config);
+    // The divider occupies index 1 but gets no style slot.
+    expect(styles['1']).toBeUndefined();
+    const edited = { ...styles, '2': { ...styles['2'], textColor: 'purple' } };
+    const result = applyEntityRowStyles(config, edited) as unknown as {
+      entities: Array<EntitiesCardRow | string | { type: string }>;
+    };
+    expect(result.entities[0]).toBe('sensor.a');
+    expect(result.entities[1]).toEqual({ type: 'divider' });
+    expect((result.entities[2] as EntitiesCardRow).card_mod?.style).toContain('color: purple');
+  });
+
+  it('dict-form duplicate row styles stay untouched while the sibling row is edited', () => {
+    // A dict-form row style can't be represented in row state (ROADMAP #23)
+    // — it must survive a save that edits the OTHER row with the same entity.
+    const dictStyle = { 'hui-generic-entity-row$': 'div { color: red; }' };
+    const config = {
+      type: 'entities',
+      entities: [
+        { entity: 'sensor.a', card_mod: { style: dictStyle } },
+        'sensor.a',
+      ],
+    } as unknown as CardModCardConfig;
+    const styles = initEntityRowStyles(config);
+    const edited = { ...styles, '1': { ...styles['1'], textColor: 'green' } };
+    const result = applyEntityRowStyles(config, edited) as unknown as {
+      entities: Array<EntitiesCardRow | string>;
+    };
+    expect((result.entities[0] as EntitiesCardRow).card_mod?.style).toEqual(dictStyle);
+    expect((result.entities[1] as EntitiesCardRow).card_mod?.style).toContain('color: green');
   });
 });

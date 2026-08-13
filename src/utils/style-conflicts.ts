@@ -46,8 +46,10 @@ interface Rule {
 const RULES: Rule[] = [
   { module: 'iconColor', selector: 'ha-state-icon', props: ['color'] },
   { module: 'iconColor', selector: 'ha-icon', props: ['color'] },
-  { module: 'iconColor', selector: 'ha-card', props: ['--state-icon-color', '--paper-item-icon-color'] },
+  { module: 'iconColor', selector: 'ha-card', props: ['--state-icon-color', '--paper-item-icon-color', '--mdc-icon-size', '--ha-icon-size'] },
   { module: 'iconColor', selector: ':host', props: ['--state-icon-color', '--paper-item-icon-color'] },
+  // v0.9 icon size, tile companion block
+  { module: 'iconColor', selector: 'ha-tile-icon', props: ['--mdc-icon-size'] },
   { module: 'accentColor', selector: 'ha-card', props: [
     '--accent-color', '--tile-color', '--state-icon-color', '--paper-item-icon-active-color',
     '--state-climate-heat-color', '--state-climate-cool-color', '--control-circular-slider-color', '--gauge-color',

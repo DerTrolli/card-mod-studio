@@ -132,7 +132,20 @@ export function rowEntityId(row: EntitiesRowLike): string | undefined {
   return typeof row === 'string' ? row : row.entity;
 }
 
-/** Builds the per-entity row-style map for an entities card config. */
+/** The row-style map key for the row at `index` — POSITIONAL, not
+ *  entity-based: two rows referencing the same entity_id are valid
+ *  entities-card YAML (ROADMAP #24), so keying by `row.entity` collapsed
+ *  them into one style slot and editing either silently overwrote both.
+ *  Index keys survive the whole parse → edit → save round-trip because
+ *  applyEntityRowStyles maps rows positionally too (rows.map preserves
+ *  order, including rows promoted from bare-string form in place). */
+export function rowStyleKey(index: number): string {
+  return String(index);
+}
+
+/** Builds the per-row style map for an entities card config, keyed by
+ *  rowStyleKey(index) (config order). Rows without an entity (section
+ *  rows etc.) get no slot — they can't be styled per-row. */
 export function initEntityRowStyles(
   config: CardModCardConfig,
   hass?: HomeAssistant,
@@ -142,13 +155,13 @@ export function initEntityRowStyles(
   if (!rows?.length) return {};
 
   const styles: EntitiesRowStyles = {};
-  for (const row of rows) {
+  rows.forEach((row, index) => {
     const entityId = rowEntityId(row);
-    if (!entityId) continue;
-    styles[entityId] = typeof row === 'string'
+    if (!entityId) return;
+    styles[rowStyleKey(index)] = typeof row === 'string'
       ? { iconColor: '', textColor: '' }
       : buildMergedRowStyle(row, hass);
-  }
+  });
   return styles;
 }
 
@@ -192,7 +205,9 @@ export function rowStyleHasContent(rowStyle: EntitiesRowStyle | undefined): bool
   return hasIcon || hasText || !!rowStyle.fontSizePx || !!rowStyle.fontWeight || !!rowStyle.extraCss;
 }
 
-/** Writes the row-style map back into each row's card_mod:/uix: block. */
+/** Writes the row-style map (keyed by rowStyleKey(index) — see above) back
+ *  into each row's card_mod:/uix: block, matching styles to rows by
+ *  position so duplicate-entity rows round-trip independently. */
 export function applyEntityRowStyles(
   config: CardModCardConfig,
   rowStyles: EntitiesRowStyles,
@@ -202,10 +217,10 @@ export function applyEntityRowStyles(
   if (!rows?.length) return config;
 
   const outputKey = pickOutputKey(hass);
-  const updatedRows = rows.map((row) => {
+  const updatedRows = rows.map((row, index) => {
     const entityId = rowEntityId(row);
     if (!entityId) return row;
-    const rowStyle = rowStyles[entityId];
+    const rowStyle = rowStyles[rowStyleKey(index)];
     const hasContent = rowStyleHasContent(rowStyle);
     // Bare-string rows stay bare strings until they actually gain a style —
     // then they're promoted to the equivalent object form (the only form

@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-07-14 · **Current version:** v0.8.0 (released) — v0.8.1 (migration robustness: override warnings + legacy/hand-written CSS adoption) is code-complete on this branch, release pending
+**Last updated:** 2026-08-06 · **Current version:** v0.9.0 (consolidates beta.1–beta.3; verified on card-mod 4.2.1 + UIX 8.0.0, both on HA 2026.8.0 — see "Engine watch" below) — next up: v0.10 "piercing" (item #1: dict-form/`$`-pierce round-trip, moved out of the v0.9 cycle)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -24,9 +24,10 @@ dashboard layouts. Rough shape (effort, not calendar time):
 |---|---|---|
 | v0.7 ✅ | Entity binding foundation | **Shipped** — see below. Searchable entity picker everywhere; Icon Color/Background/Filter can target a different entity than the card's own; Threshold rules can drive multiple properties at once. |
 | v0.8 ✅ | Structure + color system | **Shipped** — stack child styling (per-child styling sections for vertical-stack/horizontal-stack/grid, written into each child's own config) + a Font module (size/weight/family/color, closing [#25](https://github.com/dertrolli/card-mod-studio/issues/25)) in beta.1; beta.2 added the per-card font companions the beta test demanded (light/button/sensor/gauge/thermostat/entities title/heading weight+family/per-row fonts), the form-editor `uix:` rejection shim, the Color Palette Manager (custom colors in every picker + ON/OFF default overrides, cross-device storage), and attribute-based thresholds (item #16 below — done). |
-| v0.9 | Depth | Property-level templating beyond color (border width, icon size, blur/opacity driven by entity state — natural extension of v0.7's entity binding). Plus dict-form/`$`-pierce round-trip safety (item #1 below), which unblocks nested-shadow-DOM targets (glance icon, Mushroom/Bubble). |
+| v0.9 ✅ | Discoverability + state-aware depth | **Shipped** — click-to-edit preview picker (hover names the owning control, click jumps to it; per-card coverage across all 17 supported types); 4 new animation presets; value-conditional animations; the shared "Reacts to" condition on border width / filter effects (+ new opacity) / icon size (+ new control, probed-safe cards only); duplicate-row + rgb()-threshold + filter-flattening fixes; UIX Forge key preservation. Dict-form/`$`-pierce (item #1) deliberately moved out to v0.10. |
+| v0.10 | Piercing | Dict-form/`$`-pierce round-trip safety (item #1) — the unlock for nested-shadow-DOM targets: glance icon color, gauge value / thermostat big-number *size*, dict-form entity rows (item #23), and the foundation for Mushroom/Bubble (item #10). |
 | v1.0 | Structural completeness | The remaining container gaps (item #7 — `conditional` cards, containers nested in containers, per-row styling of nested entities cards) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
-| Post-1.0 | Stretch | Official Mushroom/Bubble selectors, a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
+| Post-1.0 | Stretch | Official Mushroom/Bubble selectors, UIX Forge/sparks support (item #28 — new in the 2026-08 engine audit), a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
 
 ## Recently shipped (v0.8.0)
 
@@ -292,8 +293,8 @@ from the audit.
 | 2 ✅ | **Heading module: stop relying on `--mdc-icon-size`** | **Done (v0.5.0)** — now emits `--mdc-icon-size` + `--ha-icon-size`. Sandbox confirmed `--mdc-icon-size` still sizes the heading icon today and `--ha-icon-size` is the harmless forward-compat fallback. | S |
 | 3 ◐ | **Per-card icon-color selectors** | **Partly done (v0.5.0):** dead/missing controls corrected (glance hidden, alarm-panel/media-control exposed). **Remaining:** actually *style* icons that live in nested shadow roots (glance) via card-mod `$`-pierce — depends on #1. | L |
 | 4 ✅ | **Reconcile docs with code** | **Done (v0.6.2 repo cleanup)** — the retired `docs/BUG_FIX_PLAN.md` described a sensor `--paper-item-icon-color` path that was never in the shipped generator (`iconColorBlock()` has no card-type branching and never has); confirmed against current source, and against `CARD_SUPPORT_MATRIX.md` showing plain `ha-state-icon` already works for sensor cards. Stale section retired along with the rest of that file. | S |
-| 5 | **Pin card-mod version in README** | State "tested against card-mod 4.2.x / HA 2026.6" in the compatibility table so users know the support baseline. | S |
-| 6 | **Phase out `--paper-item-icon-active-color`** in the accent module | Legacy paper var (audit §5). Low risk, low urgency. | S |
+| 5 ✅ | **Pin card-mod version in README** | **Done (v0.9.0-beta.3)** — compatibility table states the live-verification baseline (HA 2026.7.0, card-mod 4.2.1, UIX 7.6.1). | S |
+| 6 ✅ | **Phase out `--paper-item-icon-active-color`** in the accent module | **Done (v0.9.0-beta.3)** — no longer emitted; still claimed on parse so legacy configs upgrade cleanly on save. | S |
 
 ---
 
@@ -320,9 +321,9 @@ from the audit.
 | 16 | **More threshold sources** | Allow thresholds on an entity **attribute** (e.g. `battery_level`) and on `state_attr(...)`, not just the state value. | M |
 | 19 ✅ | **Per-row entities uix-only warning** | **Done (v0.6.0)** — `isUixOnlyRowStyle`/`hasUixOnlyRow` (`style-compat.ts`) extend the reverse-compat warning to entities-card rows, not just the top-level card. | S |
 | 23 | **Dict-form entities-row styles aren't read back** | Pre-existing limitation, same class as item #1 but at the row level: `_initEntityRowStyles` only recognises string-form `card_mod`/`uix` style on a row, so a hand-authored dictionary/shadow-pierce-form row style isn't parsed into the editor. ~~Worse, the next unrelated edit silently wipes it~~ — **the wipe half was fixed in v0.7.1** (dict-form rows are now left completely untouched on save); what remains is that they're invisible to the editor. Depends on #1 landing first (shared root cause: dict-form round-trip). | M |
-| 24 | **Rows sharing an entity ID cross-contaminate styling** | `_entityRowStyles` is keyed by `row.entity`, so two rows referencing the same entity (valid `entities`-card YAML) silently collapse to one style slot — editing either row's color in the studio overwrites both. Needs a positional (index-based) key instead of entity-based, which touches the existing (pre-UIX) row-styling data model, not just the UIX addition. | M |
+| 24 ✅ | **Rows sharing an entity ID cross-contaminate styling** | **Done (v0.9.0-beta.3)** — per-row styles keyed by row position; picker opens the exact clicked row. Original issue: `_entityRowStyles` is keyed by `row.entity`, so two rows referencing the same entity (valid `entities`-card YAML) silently collapse to one style slot — editing either row's color in the studio overwrites both. Needs a positional (index-based) key instead of entity-based, which touches the existing (pre-UIX) row-styling data model, not just the UIX addition. | M |
 | 25 | **Partially hand-authored styles gain module defaults on save** | Found in the v0.7.1 audit, the border case fixed there (`border:` no longer gains a 12px radius); the same class remains for Heading (a bare `.title p { font-size }` gains icon color/size + alignment defaults on save, because the module always emits its full control set) and Filter (a bare `filter: brightness()` gains a `transition:`). Fixing properly means modules tracking which fields were actually present vs. defaulted — a data-model change, not a one-liner. | M |
-| 26 | **`rgb()`/`rgba()` colors in threshold rules aren't re-parsed** | A rule colored via a comma-containing color function generates fine but `parseThresholdJinja`'s rule regex can't read it back — the whole block falls to Advanced CSS on reopen (preserved verbatim, just no longer editable as rules). The color picker only emits hex/`var()` tokens today, so this needs hand-typed values to hit. | S |
+| 26 ✅ | **`rgb()`/`rgba()` colors in threshold rules aren't re-parsed** | **Done (v0.9.0-beta.3)** — plus a multi-rule default-color mis-parse found and fixed in the same regex. Original issue: A rule colored via a comma-containing color function generates fine but `parseThresholdJinja`'s rule regex can't read it back — the whole block falls to Advanced CSS on reopen (preserved verbatim, just no longer editable as rules). The color picker only emits hex/`var()` tokens today, so this needs hand-typed values to hit. | S |
 | 20 | **UIX billets module** | A small key/value table editor for [UIX billets](https://uix.lf.technology/) (reusable named style constants) — bounded scope, unlike macros below. Nobody's asked for it yet; build when there's a real request. | S |
 | 21 | **UIX macros — raw editor only** | UIX macros are user-defined parameterized Jinja2 snippets; a *visual* composer doesn't generalize the way color-picker/slider modules do. The tractable version is a raw-text editor for `uix.macros`, same philosophy as the existing Advanced CSS escape hatch — today the Studio doesn't read or write `uix.macros` at all (it's preserved untouched if present, but can't be created). Low priority; scope for real if requested. | M |
 | 22 | **Bulk dashboard `card_mod:`/`uix:` key migration** | Explicitly requested and explicitly **parked** — since the Studio always keeps `card_mod:` working as a fallback, nothing *needs* migrating for correctness, only for YAML tidiness. Mechanically this is a key rename, not a content transform (both engines share CSS/Jinja2 syntax), but the Studio currently only ever sees one card at a time via the injected per-card editor. A real bulk tool means reading/rewriting the *whole* dashboard over HA's websocket API — meaningfully higher blast radius than anything else in this tool (a bug could touch every card at once). Needs its own dry-run/preview design before any code, not just a "next roadmap item." | L |
@@ -338,12 +339,56 @@ from the audit.
 
 ---
 
+## Engine watch — audit of upstream changes (2026-08-06)
+
+Both engines' releases and docs were re-audited and the sandboxes upgraded;
+**the entire live-check suite is green on card-mod 4.2.1 AND UIX 8.0.0,
+both on HA 2026.8.0** (the new verification baseline).
+
+- **card-mod**: 4.2.1 is still the current stable — zero upstream changes
+  since our last audit (one beta-only patch for HA 2026.4.0b dialogs,
+  superseded).
+- **UIX 7.6.1 → 8.0.0**: the 8.0.0 major's only breaking change is
+  requiring HA ≥ 2026.8.0 — the `uix:`/`card_mod:` styling contract we
+  generate against is byte-for-byte unchanged (re-verified live: fallback
+  reads, `uix:` precedence, all module output). Internal `state_color` →
+  `color` renames track HA 2026.8 and don't touch styling.
+- **UIX Forge is the real news** (7.x→8.x feature line): templated
+  elements ("molds"), server-stored reusable configs ("foundries",
+  `foundry:` key), and add-on behaviors ("sparks": tooltips, buttons,
+  overlays, backgrounds, maps, locks, …) configured under a card's
+  `forge:` key. This is a second, larger config surface next to `uix:` —
+  see items #27/#28 below. The Studio already preserves unknown card keys
+  verbatim, so `forge:`/`foundry:` cards are safe to edit today.
+- **HA 2026.8 platform changes that affected us** (sandbox/tooling only —
+  no product code change was needed):
+  - YAML-mode dashboards can no longer enter edit mode at all → the card
+    editor (and our Style button) is reachable only on storage dashboards
+    (README/Troubleshooting note added).
+  - `hui-dialog-edit-card` / `hui-card-options` injection surface:
+    unchanged, verified through the real dialog.
+  - Harness gotchas fixed: `http.server_host` now triggers a blocking
+    confirm dialog (removed from rig configs); the kebab → "Edit
+    dashboard" dropdown ignores synthetic clicks (checks navigate with
+    `?edit=1`); sensor-card graphs render nothing without recorder history
+    AND a hass update after mount (rigs now run recorder+history; checks
+    re-assign hass).
+
+New items from this audit:
+
+| # | Item | Description | Effort |
+|---|---|---|---|
+| 27 ✅ | **Forge/foundry preservation guard** | **Done (2026-08-06, with this audit)** — regression tests assert a card carrying `forge:`/`foundry:`/`uix.macros` keeps them identical through a Studio edit targeting either key, and through style clearing (test/generator.test.ts). | S |
+| 28 | **UIX Forge / sparks support** | Visual editing for the Forge surface (spark toggles like tooltip/background/overlay-icon per card, mold/foundry awareness). This is a UIX-only, post-1.0-sized feature — scope a minimal first slice (read + preserve + a "this card uses Forge" indicator, maybe tooltip spark editing) only after the v1.0 structural items land. Overlaps: UIX billets (#20) / macros (#21) remain separate small items. | L |
+
 ## Engineering / maintenance
 
 - **Selector resilience:** injection depends on internal HA element names
   (`hui-dialog-edit-card`, `hui-card-element-editor`, `ha-button[slot=secondaryAction]`).
   Keep these centralised (`dom-helpers.ts` / `cms-injector.ts`) and add a smoke
-  test / manual checklist after each major HA release.
+  test / manual checklist after each major HA release. *(Done for HA
+  2026.8.0 — full suite re-run on both engines, 2026-08-06; see "Engine
+  watch" above.)*
 - **Parser test corpus:** grow `test/parser.test.ts` with real-world hand-written
   `card_mod` snippets (especially dict form) to lock in round-trip behaviour as
   #1 and #10 land.

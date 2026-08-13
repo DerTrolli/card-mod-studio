@@ -17,8 +17,12 @@ function defaultOnColor(): string {
 export class EntitiesRowsModule extends LitElement {
   /** May contain bare-string rows ('sensor.x') — the YAML shorthand form. */
   @property({ attribute: false }) rows: Array<EntitiesCardRow | string> = [];
+  /** Keyed POSITIONALLY by String(rowIndex) — see rowStyleKey in
+   *  studio-state.ts. Two rows may share an entity_id (valid entities-card
+   *  YAML) and must keep independent style slots (ROADMAP #24). */
   @property({ attribute: false }) styles: EntitiesRowStyles = {};
 
+  /** Open sections, by the same positional row key as `styles`. */
   @state() private _openRows = new Set<string>();
 
   static override styles = [
@@ -165,20 +169,20 @@ export class EntitiesRowsModule extends LitElement {
   // Emit helpers
   // ---------------------------------------------------------------------------
 
-  private _updateRow(entityId: string, changes: Partial<EntitiesRowStyle>) {
-    const current = this.styles[entityId] ?? { iconColor: '', textColor: '' };
+  private _updateRow(rowKey: string, changes: Partial<EntitiesRowStyle>) {
+    const current = this.styles[rowKey] ?? { iconColor: '', textColor: '' };
     const updated = { ...current, ...changes };
     this.dispatchEvent(
       new CustomEvent<EntitiesRowStyles>('styles-changed', {
-        detail: { ...this.styles, [entityId]: updated },
+        detail: { ...this.styles, [rowKey]: updated },
       }),
     );
   }
 
-  private _toggleRow(entityId: string) {
+  private _toggleRow(rowKey: string) {
     const next = new Set(this._openRows);
-    if (next.has(entityId)) next.delete(entityId);
-    else next.add(entityId);
+    if (next.has(rowKey)) next.delete(rowKey);
+    else next.add(rowKey);
     this._openRows = next;
   }
 
@@ -189,11 +193,21 @@ export class EntitiesRowsModule extends LitElement {
   override render() {
     // Rows arrive in whatever form the YAML uses — the bare-string
     // shorthand ('sensor.x') is normalized to object form here so it's
-    // just as styleable (see EntitiesRowLike in studio-state.ts).
+    // just as styleable (see EntitiesRowLike in studio-state.ts). The
+    // ORIGINAL config index rides along: it's the positional style key
+    // (rows without an entity are skipped in the UI but still occupy
+    // their index, keeping keys aligned with the config).
     const entityRows = this.rows
-      .map((r) => (typeof r === 'string' ? ({ entity: r } as EntitiesCardRow) : r))
-      .filter((r): r is EntitiesCardRow & { entity: string } => !!r.entity);
+      .map((r, index) => ({
+        row: typeof r === 'string' ? ({ entity: r } as EntitiesCardRow) : r,
+        index,
+      }))
+      .filter((x): x is { row: EntitiesCardRow & { entity: string }; index: number } => !!x.row.entity);
     if (!entityRows.length) return nothing;
+
+    // Duplicate-entity rows are valid YAML and hold independent styles —
+    // number the repeats ("(2)", "(3)") so the sections are tellable apart.
+    const seen = new Map<string, number>();
 
     return html`
       <div class="module">
@@ -201,17 +215,23 @@ export class EntitiesRowsModule extends LitElement {
           <span class="module-title">🏠 Entity Rows</span>
         </div>
         <div class="module-body">
-          ${entityRows.map((row) => this._renderRow(row))}
+          ${entityRows.map(({ row, index }) => {
+            const occurrence = (seen.get(row.entity) ?? 0) + 1;
+            seen.set(row.entity, occurrence);
+            return this._renderRow(row, index, occurrence);
+          })}
         </div>
       </div>
     `;
   }
 
-  private _renderRow(row: EntitiesCardRow & { entity: string }) {
+  private _renderRow(row: EntitiesCardRow & { entity: string }, index: number, occurrence: number) {
+    const rowKey = String(index);
     const id = row.entity;
-    const label = row.name || id.split('.')[1] || id;
-    const isOpen = this._openRows.has(id);
-    const rowStyle = this.styles[id] ?? { iconColor: '', textColor: '' };
+    const baseLabel = row.name || id.split('.')[1] || id;
+    const label = occurrence > 1 ? `${baseLabel} (${occurrence})` : baseLabel;
+    const isOpen = this._openRows.has(rowKey);
+    const rowStyle = this.styles[rowKey] ?? { iconColor: '', textColor: '' };
     const hasStyle = !!(
       rowStyle.iconColor ||
       rowStyle.iconMode === 'threshold' ||
@@ -226,7 +246,7 @@ export class EntitiesRowsModule extends LitElement {
 
     return html`
       <div class="entity-section">
-        <div class="entity-header" @click=${() => this._toggleRow(id)}>
+        <div class="entity-header" @click=${() => this._toggleRow(rowKey)}>
           <span class="entity-chevron">${isOpen ? '▼' : '▶'}</span>
           <span class="entity-name">${label}</span>
           <span class="entity-id">${id}</span>
@@ -235,12 +255,12 @@ export class EntitiesRowsModule extends LitElement {
             : nothing}
           ${hasStyle ? html`<span class="style-dot"></span>` : nothing}
         </div>
-        ${isOpen ? this._renderBody(id, rowStyle, conflicts) : nothing}
+        ${isOpen ? this._renderBody(rowKey, rowStyle, conflicts) : nothing}
       </div>
     `;
   }
 
-  private _renderBody(entityId: string, rowStyle: EntitiesRowStyle, conflicts: string[] = []) {
+  private _renderBody(rowKey: string, rowStyle: EntitiesRowStyle, conflicts: string[] = []) {
     const iconEnabled = !!(rowStyle.iconColor || rowStyle.iconMode === 'threshold');
     const iconIsThreshold = rowStyle.iconMode === 'threshold';
     const textEnabled = !!(rowStyle.textColor || rowStyle.textMode === 'threshold');
@@ -258,11 +278,11 @@ export class EntitiesRowsModule extends LitElement {
               ? html`<div class="mode-toggle">
                     <button
                       class="mode-btn ${!iconIsThreshold ? 'active' : ''}"
-                      @click=${(e: Event) => { e.stopPropagation(); this._setMode(entityId, 'icon', 'static'); }}
+                      @click=${(e: Event) => { e.stopPropagation(); this._setMode(rowKey, 'icon', 'static'); }}
                     >Static</button>
                     <button
                       class="mode-btn ${iconIsThreshold ? 'active' : ''}"
-                      @click=${(e: Event) => { e.stopPropagation(); this._setMode(entityId, 'icon', 'threshold'); }}
+                      @click=${(e: Event) => { e.stopPropagation(); this._setMode(rowKey, 'icon', 'threshold'); }}
                     >Threshold</button>
                   </div>`
               : nothing}
@@ -270,7 +290,7 @@ export class EntitiesRowsModule extends LitElement {
               .checked=${iconEnabled}
               @change=${(e: Event) => {
                 const on = (e.target as HTMLInputElement).checked;
-                this._updateRow(entityId, on
+                this._updateRow(rowKey, on
                   ? { iconColor: defaultOnColor(), iconMode: 'static' }
                   : { iconColor: '', iconMode: undefined, iconRules: undefined, iconDefault: undefined });
               }}
@@ -280,11 +300,11 @@ export class EntitiesRowsModule extends LitElement {
         ${iconEnabled && !iconIsThreshold
           ? html`<cms-color-picker
                 .value=${rowStyle.iconColor}
-                @color-changed=${(e: CustomEvent) => this._updateRow(entityId, { iconColor: e.detail.value })}
+                @color-changed=${(e: CustomEvent) => this._updateRow(rowKey, { iconColor: e.detail.value })}
               ></cms-color-picker>`
           : nothing}
         ${iconEnabled && iconIsThreshold
-          ? this._renderRuleBuilder(entityId, 'icon', rowStyle.iconRules ?? [], rowStyle.iconDefault ?? '#888888')
+          ? this._renderRuleBuilder(rowKey, 'icon', rowStyle.iconRules ?? [], rowStyle.iconDefault ?? '#888888')
           : nothing}
 
         <hr class="divider" />
@@ -297,11 +317,11 @@ export class EntitiesRowsModule extends LitElement {
               ? html`<div class="mode-toggle">
                     <button
                       class="mode-btn ${!textIsThreshold ? 'active' : ''}"
-                      @click=${(e: Event) => { e.stopPropagation(); this._setMode(entityId, 'text', 'static'); }}
+                      @click=${(e: Event) => { e.stopPropagation(); this._setMode(rowKey, 'text', 'static'); }}
                     >Static</button>
                     <button
                       class="mode-btn ${textIsThreshold ? 'active' : ''}"
-                      @click=${(e: Event) => { e.stopPropagation(); this._setMode(entityId, 'text', 'threshold'); }}
+                      @click=${(e: Event) => { e.stopPropagation(); this._setMode(rowKey, 'text', 'threshold'); }}
                     >Threshold</button>
                   </div>`
               : nothing}
@@ -309,7 +329,7 @@ export class EntitiesRowsModule extends LitElement {
               .checked=${textEnabled}
               @change=${(e: Event) => {
                 const on = (e.target as HTMLInputElement).checked;
-                this._updateRow(entityId, on
+                this._updateRow(rowKey, on
                   ? { textColor: '#e1e1e1', textMode: 'static' }
                   : { textColor: '', textMode: undefined, textRules: undefined, textDefault: undefined });
               }}
@@ -319,11 +339,11 @@ export class EntitiesRowsModule extends LitElement {
         ${textEnabled && !textIsThreshold
           ? html`<cms-color-picker
                 .value=${rowStyle.textColor}
-                @color-changed=${(e: CustomEvent) => this._updateRow(entityId, { textColor: e.detail.value })}
+                @color-changed=${(e: CustomEvent) => this._updateRow(rowKey, { textColor: e.detail.value })}
               ></cms-color-picker>`
           : nothing}
         ${textEnabled && textIsThreshold
-          ? this._renderRuleBuilder(entityId, 'text', rowStyle.textRules ?? [], rowStyle.textDefault ?? '#888888')
+          ? this._renderRuleBuilder(rowKey, 'text', rowStyle.textRules ?? [], rowStyle.textDefault ?? '#888888')
           : nothing}
 
         <hr class="divider" />
@@ -336,7 +356,7 @@ export class EntitiesRowsModule extends LitElement {
               .checked=${!!(rowStyle.fontSizePx || rowStyle.fontWeight)}
               @change=${(e: Event) => {
                 const on = (e.target as HTMLInputElement).checked;
-                this._updateRow(entityId, on
+                this._updateRow(rowKey, on
                   ? { fontSizePx: 16, fontWeight: 'normal' }
                   : { fontSizePx: undefined, fontWeight: undefined });
               }}
@@ -354,7 +374,7 @@ export class EntitiesRowsModule extends LitElement {
                     step="1"
                     .value=${String(rowStyle.fontSizePx ?? 16)}
                     @change=${(e: Event) =>
-                      this._updateRow(entityId, {
+                      this._updateRow(rowKey, {
                         fontSizePx: Math.max(8, parseFloat((e.target as HTMLInputElement).value) || 16),
                       })}
                   ></ha-slider>
@@ -367,7 +387,7 @@ export class EntitiesRowsModule extends LitElement {
                   <select
                     .value=${rowStyle.fontWeight ?? 'normal'}
                     @change=${(e: Event) =>
-                      this._updateRow(entityId, {
+                      this._updateRow(rowKey, {
                         fontWeight: (e.target as HTMLSelectElement).value as EntitiesRowStyle['fontWeight'],
                       })}
                   >
@@ -389,7 +409,7 @@ export class EntitiesRowsModule extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _renderRuleBuilder(
-    entityId: string,
+    rowKey: string,
     prop: 'icon' | 'text',
     rules: ThresholdRule[],
     defaultColor: string,
@@ -402,7 +422,7 @@ export class EntitiesRowsModule extends LitElement {
             <span class="rule-label">If value</span>
             <select
               .value=${rule.operator}
-              @change=${(e: Event) => this._updateRule(entityId, prop, i, {
+              @change=${(e: Event) => this._updateRule(rowKey, prop, i, {
                 operator: (e.target as HTMLSelectElement).value as ThresholdRule['operator'],
               })}
             >
@@ -416,7 +436,7 @@ export class EntitiesRowsModule extends LitElement {
             <input
               type="number"
               .value=${String(rule.value)}
-              @change=${(e: Event) => this._updateRule(entityId, prop, i, {
+              @change=${(e: Event) => this._updateRule(rowKey, prop, i, {
                 value: parseFloat((e.target as HTMLInputElement).value) || 0,
               })}
             />
@@ -424,12 +444,12 @@ export class EntitiesRowsModule extends LitElement {
             <cms-color-picker
               compact
               .value=${rule.color}
-              @color-changed=${(e: CustomEvent) => this._updateRule(entityId, prop, i, { color: e.detail.value })}
+              @color-changed=${(e: CustomEvent) => this._updateRule(rowKey, prop, i, { color: e.detail.value })}
             ></cms-color-picker>
-            <button @click=${() => this._removeRule(entityId, prop, i)}>×</button>
+            <button @click=${() => this._removeRule(rowKey, prop, i)}>×</button>
           </div>
         `)}
-        <button class="add-rule-btn" @click=${() => this._addRule(entityId, prop)}>+ Add Rule</button>
+        <button class="add-rule-btn" @click=${() => this._addRule(rowKey, prop)}>+ Add Rule</button>
         <div class="control-row" style="margin-top:4px">
           <span class="control-label">Default color</span>
           <div class="control-right">
@@ -438,7 +458,7 @@ export class EntitiesRowsModule extends LitElement {
               .value=${defaultColor}
               @color-changed=${(e: CustomEvent) => {
                 const key = prop === 'icon' ? 'iconDefault' : 'textDefault';
-                this._updateRow(entityId, { [key]: e.detail.value });
+                this._updateRow(rowKey, { [key]: e.detail.value });
               }}
             ></cms-color-picker>
             <span class="color-label">${defaultColor}</span>
@@ -448,17 +468,17 @@ export class EntitiesRowsModule extends LitElement {
     `;
   }
 
-  private _setMode(entityId: string, prop: 'icon' | 'text', mode: 'static' | 'threshold') {
-    const current = this.styles[entityId] ?? { iconColor: '', textColor: '' };
+  private _setMode(rowKey: string, prop: 'icon' | 'text', mode: 'static' | 'threshold') {
+    const current = this.styles[rowKey] ?? { iconColor: '', textColor: '' };
     if (prop === 'icon') {
-      this._updateRow(entityId, {
+      this._updateRow(rowKey, {
         iconMode: mode,
         iconColor: mode === 'static' ? (current.iconColor || defaultOnColor()) : '',
         iconRules: mode === 'threshold' ? (current.iconRules ?? []) : undefined,
         iconDefault: mode === 'threshold' ? (current.iconDefault ?? '#888888') : undefined,
       });
     } else {
-      this._updateRow(entityId, {
+      this._updateRow(rowKey, {
         textMode: mode,
         textColor: mode === 'static' ? (current.textColor || '#e1e1e1') : '',
         textRules: mode === 'threshold' ? (current.textRules ?? []) : undefined,
@@ -467,8 +487,8 @@ export class EntitiesRowsModule extends LitElement {
     }
   }
 
-  private _addRule(entityId: string, prop: 'icon' | 'text') {
-    const current = this.styles[entityId] ?? { iconColor: '', textColor: '' };
+  private _addRule(rowKey: string, prop: 'icon' | 'text') {
+    const current = this.styles[rowKey] ?? { iconColor: '', textColor: '' };
     const key = prop === 'icon' ? 'iconRules' : 'textRules';
     const rules = [...(current[key] ?? [])];
     rules.push({
@@ -477,23 +497,23 @@ export class EntitiesRowsModule extends LitElement {
       value: 0,
       color: defaultOnColor(),
     });
-    this._updateRow(entityId, { [key]: rules });
+    this._updateRow(rowKey, { [key]: rules });
   }
 
-  private _removeRule(entityId: string, prop: 'icon' | 'text', index: number) {
-    const current = this.styles[entityId] ?? { iconColor: '', textColor: '' };
+  private _removeRule(rowKey: string, prop: 'icon' | 'text', index: number) {
+    const current = this.styles[rowKey] ?? { iconColor: '', textColor: '' };
     const key = prop === 'icon' ? 'iconRules' : 'textRules';
     const rules = [...(current[key] ?? [])];
     rules.splice(index, 1);
-    this._updateRow(entityId, { [key]: rules });
+    this._updateRow(rowKey, { [key]: rules });
   }
 
-  private _updateRule(entityId: string, prop: 'icon' | 'text', index: number, changes: Partial<ThresholdRule>) {
-    const current = this.styles[entityId] ?? { iconColor: '', textColor: '' };
+  private _updateRule(rowKey: string, prop: 'icon' | 'text', index: number, changes: Partial<ThresholdRule>) {
+    const current = this.styles[rowKey] ?? { iconColor: '', textColor: '' };
     const key = prop === 'icon' ? 'iconRules' : 'textRules';
     const rules = [...(current[key] ?? [])];
     rules[index] = { ...rules[index], ...changes };
-    this._updateRow(entityId, { [key]: rules });
+    this._updateRow(rowKey, { [key]: rules });
   }
 }
 

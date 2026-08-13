@@ -1,0 +1,57 @@
+[
+  {
+    "name": "conditional border renders 3px while the value condition is TRUE",
+    "pass": true,
+    "detail": "{\"value\":\"3px\",\"hit\":true}"
+  },
+  {
+    "name": "conditional border renders no border while the condition is FALSE",
+    "pass": true,
+    "detail": "{\"value\":\"0px\",\"hit\":true}"
+  },
+  {
+    "name": "conditional blur+opacity applies while the condition is TRUE",
+    "pass": true,
+    "detail": "{\"value\":\"blur(4px) opacity(0.5)\",\"hit\":true}"
+  },
+  {
+    "name": "conditional filter resolves to none while the condition is FALSE",
+    "pass": true,
+    "detail": "{\"value\":\"none\",\"hit\":true}"
+  },
+  {
+    "name": "icon size 40px resizes the main icon on tile",
+    "pass": true,
+    "detail": "{\"value\":40,\"hit\":true}"
+  },
+  {
+    "name": "icon size 40px resizes the main icon on entity",
+    "pass": true,
+    "detail": "{\"value\":40,\"hit\":true}"
+  },
+  {
+    "name": "icon size 40px resizes the main icon on sensor",
+    "pass": true,
+    "detail": "{\"value\":40,\"hit\":true}"
+  },
+  {
+    "name": "icon size 40px resizes the main icon on picture-glance",
+    "pass": true,
+    "detail": "{\"value\":40,\"hit\":true}"
+  },
+  {
+    "name": "conditional icon size renders the 24px fallback while FALSE",
+    "pass": true,
+    "detail": "{\"value\":24,\"hit\":true}"
+  },
+  {
+    "name": "panel round-trips border.widthWhen / filter.effectsWhen+opacity / iconColor.sizePx from generated CSS (nothing left in Advanced)",
+    "pass": true,
+    "detail": "{\"borderWhen\":\"on\",\"borderWidth\":3,\"effectsWhen\":\"custom\",\"effectsEntity\":\"binary_sensor.preheat_active\",\"opacity\":50,\"sizePx\":40,\"sizeControlShown\":true,\"advancedRaw\":\"\"}"
+  },
+  {
+    "name": "icon-size control is NOT offered on a light card",
+    "pass": true,
+    "detail": "{\"lightSizeShown\":false}"
+  }
+]

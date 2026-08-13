@@ -240,6 +240,32 @@ actually-live view — not just the first block that happened to match.
 
 ## Compatibility notes
 
+### HA 2026.8 sandbox/harness gotchas (2026-08 audit)
+
+Found while re-verifying against HA 2026.8.0 + UIX 8.0.0 — all
+harness-side, no product code needed changing:
+
+- **YAML-mode dashboards can't enter edit mode at all** anymore — checks
+  that need the REAL card-edit dialog must drive a storage-mode dashboard
+  (created over websocket: `lovelace/dashboards/create` +
+  `lovelace/config/save`).
+- **The kebab → "Edit dashboard" dropdown ignores synthetic clicks**
+  (new `ha-dropdown-item` component). Navigate with `?edit=1` on a
+  storage dashboard instead — it lands on the same `hui-card-options`
+  overlay (which is otherwise unchanged, as is `hui-dialog-edit-card`).
+- **`http.server_host` in configuration.yaml now triggers a BLOCKING
+  "Confirm new HTTP server configuration" dialog** on every page load
+  after restart (auto-reverting after ~10s!) — it silently eats
+  Playwright mouse events aimed at anything underneath. Removed from both
+  rig configs (binding all interfaces is the container default anyway).
+- **Sensor-card footer graphs render NOTHING without recorder history**
+  (2026.7 still drew a placeholder rect) — both rigs now enable
+  `recorder:` + `history:`. Additionally the sensor card forwards `hass`
+  to its `hui-graph-header-footer` only on hass UPDATES, so a
+  probe-mounted card whose hass is assigned exactly once never hydrates
+  its graph — re-assign `panel.hass = {...hass}` after mount (see
+  preview_picker_check).
+
 ### hui-dialog-edit-card
 
 This is an internal HA element name. If HA renames it:

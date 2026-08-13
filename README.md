@@ -22,6 +22,12 @@ Card-Mod Studio adds a **🎨 Style button** to the Home Assistant card editor. 
 - **Left column** — scrollable list of style modules, each collapsible
 - **Right column** — always-visible live card preview that updates as you change settings
 
+**Not sure which control styles what?** Just point at it: hovering any part
+of the preview shows a highlight box naming the control that styles that
+element ("Icon Color", "Font", "Entity Rows: sensor.x", …), and clicking
+jumps straight to it. The preview stays safe — clicks never reach your real
+entities.
+
 ![Card-Mod Studio panel](images/02%20Card-Mod%20Studio.png)
 
 All changes are serialised to `card_mod` YAML and saved with the card config through HA's normal save flow. If you open a card that already has hand-written `card_mod` (or `uix`) CSS, the panel reads it back and pre-fills the controls.
@@ -41,6 +47,8 @@ If you switch back from UIX to card-mod-only, card-mod never reads `uix:` at all
 Set a static color for the card's icon or accent, choose separate colors for when the entity is **on** vs **off**, or — for light entities — let the icon automatically reflect the light's actual `rgb_color` attribute.
 
 The on/off condition doesn't have to come from the card's own entity: a **"Controlled by"** picker lets any toggleable entity drive the colors — e.g. a button card's icon reflecting a separate status sensor.
+
+On tile, entity, sensor, and picture-glance cards the module also offers an **icon size** slider — static, or reacting to a state/value condition with a fallback size (icon grows while the alarm is armed). It's only offered where the size variables verifiably reach the main state icon.
 
 The Accent Color override targets the correct CSS variable per card type: `--tile-color` for tile cards, `--gauge-color` for gauges (including needle mode), and `--state-icon-color` for everything else.
 
@@ -88,7 +96,10 @@ Apply CSS filter effects to the entire card:
 - **Grayscale** — always on, only when entity is on, or only when off (great for making inactive devices look "dead")
 - **Brightness** — brighten or dim the card
 - **Blur** — blur the card content
+- **Opacity** — fade the whole card
 - **Transition speed** — control how smoothly state changes animate
+
+Brightness/blur/opacity can also **react to a state or value condition** — e.g. blur + fade a camera card only while it's off, or while a sensor crosses a threshold.
 
 ### Animation
 
@@ -101,12 +112,16 @@ Add a looping CSS animation to the card. Available presets:
 | Gradient-shift | Slowly shift the background gradient colors |
 | Bounce | Periodic vertical bounce |
 | Blink | Abrupt on/off flash |
+| Shake | Quick horizontal shake |
+| Spin | Continuous rotation (constant speed) |
+| Glow | Pulsing glow around the card |
+| Heartbeat | Double-beat scale, like a heartbeat |
 
-Each animation can run **always** or only trigger when the entity is **on** or **off**.
+Each animation can run **always**, only while the entity is **on**/**off**, while **another entity** is on — or only **while a value matches** (entity or numeric attribute + operator + threshold): *pulse while the freezer is above -10°, glow while `battery_level` < 15*.
 
 ### Border
 
-Round the card corners with a configurable **corner radius**, and optionally add a colored **border** with adjustable width. Works well combined with Threshold Colors targeting border color.
+Round the card corners with a configurable **corner radius**, and optionally add a colored **border** with adjustable width. The border can also **react to a state or value condition** — e.g. a 3px red border only while the freezer is above -10°, with an optional thinner fallback border otherwise. Works well combined with Threshold Colors targeting border color.
 
 ### Font
 
@@ -205,7 +220,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.8.1`
+   - URL: `/local/card-mod-studio.js?v=0.9.0`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -225,7 +240,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 
 | HA Version | Status |
 |---|---|
-| 2026.x | Tested |
+| 2026.x | Tested (support baseline: 2026.8.0 — every release is live-verified against it) |
 | 2025.x | Expected compatible |
 | 2024.4+ | Minimum supported |
 
@@ -233,10 +248,12 @@ Card-mod compatibility follows card-mod's own compatibility table. See [card-mod
 
 | Engine | Version tested | Status |
 |---|---|---|
-| card-mod | 4.2.1 | ✅ Tested, see [`docs/COMPATIBILITY_AUDIT.md`](docs/COMPATIBILITY_AUDIT.md) |
-| UIX | 7.6.1 | ✅ Tested against a real running integration in Docker, see [`docs/COMPATIBILITY_AUDIT.md` §9](docs/COMPATIBILITY_AUDIT.md) and [`tools/sandbox/run-uix.sh`](tools/sandbox/run-uix.sh) |
+| card-mod | 4.2.1 | ✅ Tested on HA 2026.8.0 (4.2.1 is still card-mod's current stable as of 2026-08), see [`docs/COMPATIBILITY_AUDIT.md`](docs/COMPATIBILITY_AUDIT.md) |
+| UIX | 8.0.0 | ✅ Tested against a real running integration in Docker (note: UIX 8.0.0 itself requires HA ≥ 2026.8.0; the `uix:`/`card_mod:` styling contract is unchanged from 7.x), see [`docs/COMPATIBILITY_AUDIT.md` §9](docs/COMPATIBILITY_AUDIT.md) and [`tools/sandbox/run-uix.sh`](tools/sandbox/run-uix.sh) |
 
 > **Note on HA updates:** Card-Mod Studio injects into the card editor using the `hui-dialog-edit-card` element. If a HA update renames this element, the Style button will not appear and a console warning will be shown. Check [GitHub Issues](../../issues) for status after major HA releases.
+
+> **YAML-mode dashboards (HA 2026.8+):** HA 2026.8 removed the ability to enter edit mode on `mode: yaml` dashboards entirely — the visual card editor (and therefore the Style button) can only be opened on normal storage-mode dashboards there. Cards on YAML dashboards keep rendering their existing `card_mod:`/`uix:` styling unchanged.
 
 ---
 
@@ -245,8 +262,28 @@ Card-mod compatibility follows card-mod's own compatibility table. See [card-mod
 - **card-mod or UIX required** — this plugin generates YAML; it does not apply CSS itself
 - **Common card types prioritised** — standard HA cards are fully supported; custom cards (Mushroom, Bubble) have varying shadow DOM paths and may need the Advanced CSS editor
 - **Entity-state conditionals only** — the UI supports on/off entity state conditions and numeric threshold rules; complex Jinja2 logic goes in the Advanced CSS editor
-- **UIX reverse-compat warning doesn't cover dict-form or duplicate-entity-ID rows** — the per-card and per-row "styling is only under uix:" warnings (and the plain-CSS fix) work for the common case, but two pre-existing entities-card limitations carry over: hand-authored dictionary/shadow-pierce-form row styles aren't parsed back (same lossy round-trip as [dict-form card_mod](docs/COMPATIBILITY_AUDIT.md) generally), and rows sharing the same entity ID share one style slot. See [ROADMAP.md](docs/ROADMAP.md).
+- **Dict-form / shadow-pierce styles aren't editable (yet)** — hand-authored dictionary/`$`-pierce `card_mod`/`uix` styles (card-level or per-row) are preserved untouched but aren't parsed back into the visual controls; this is the v0.10 roadmap headline. See [ROADMAP.md](docs/ROADMAP.md).
 - **No UIX-exclusive features** — macros, billets, and Forge (UIX's own visual template builder) aren't generated by this tool; see [ROADMAP.md](docs/ROADMAP.md) for why and what's planned
+
+---
+
+## Support the project
+
+Card-Mod Studio is free and always will be. If it saves you time, two
+things genuinely help:
+
+- **⭐ Star the repo** — stars are how people discover HACS projects, and
+  the clearest signal that this is worth continuing.
+- **☕ Support development** — this project is built and live-tested with
+  a lot of (paid) AI tooling against real Home Assistant instances, so if
+  you'd like to chip in, it quite literally keeps the lights on.
+  <!-- Uncomment once the account exists, and mirror it in
+       .github/FUNDING.yml for the repo's Sponsor button:
+  [Buy me a coffee](https://buymeacoffee.com/YOUR_NAME)
+  -->
+
+And if something's broken or missing — [an issue](../../issues) is just as
+valuable as a coffee.
 
 ---
 
@@ -342,6 +379,7 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 17 | Color Palette Manager (custom colors in every picker + ON/OFF default overrides) + attribute-based thresholds + form-editor "Key 'uix' not expected" shim + bare-string row styling | ✅ v0.8.0 |
 | 18 | UX consistency pass — identical controls/labels/behavior for the same concept everywhere (Heading ↔ Font parity, row-font sliders, unified threshold builders, one styled-dot) | ✅ v0.8.0 |
 | 19 | Migration robustness — "custom CSS is overriding this control" warnings (card + row level), safe adoption of equivalent hand-written/legacy phrasings, audited old-version round-trips, verified card-mod→UIX switch | ✅ v0.8.1 |
+| 20 | Click-to-edit preview picker (hover-highlight any element, jump to its control) + 4 new animation presets + value-conditional animations ("pulse while sensor.x > 30") | ✅ v0.9.0 |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

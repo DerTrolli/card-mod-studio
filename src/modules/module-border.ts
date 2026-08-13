@@ -1,12 +1,19 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import type { BorderModuleState } from '../types/index.js';
+import type { BorderModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_BORDER } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint } from './module-base.js';
+import {
+  moduleStyles,
+  renderOverrideBadge,
+  renderOverrideHint,
+  renderCondition,
+} from './module-base.js';
 import '../components/cms-color-picker.js';
 
 export class BorderModule extends LitElement {
   @property({ attribute: false }) state: BorderModuleState = { ...DEFAULT_BORDER };
+  @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
+  @property({ attribute: false }) hass?: HomeAssistant;
 
   /** True when Advanced CSS overrides this module's output — shows the
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
@@ -119,6 +126,37 @@ export class BorderModule extends LitElement {
                   ></cms-color-picker>
                 </div>
               </div>
+              ${renderCondition({
+                condition: this.state.widthWhen,
+                stateAware: this.stateAware,
+                noun: 'border',
+                hass: this.hass,
+                onChange: (c) => this._emit({ widthWhen: c }),
+              })}
+              ${this.state.widthWhen && this.state.widthWhen.when !== 'always'
+                ? html`
+                    <div class="control-row">
+                      <span class="control-label">Width otherwise</span>
+                      <div class="control-right">
+                        <ha-slider
+                          min="0"
+                          max="8"
+                          step="1"
+                          .value=${String(this.state.widthOffPx ?? 0)}
+                          @change=${(e: Event) =>
+                            this._emit({
+                              widthOffPx: parseFloat((e.target as HTMLInputElement).value),
+                            })}
+                        ></ha-slider>
+                        <span class="value-label">
+                          ${(this.state.widthOffPx ?? 0) > 0
+                            ? `${this.state.widthOffPx}px`
+                            : 'no border'}
+                        </span>
+                      </div>
+                    </div>
+                  `
+                : nothing}
             `
           : nothing}
       </div>

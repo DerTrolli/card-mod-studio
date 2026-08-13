@@ -1591,3 +1591,442 @@ describe('round-trip', () => {
     expect(generated).toContain('justify-content: center !important;');
   });
 });
+
+// ---------------------------------------------------------------------------
+// generateCss — animation pack + value-conditional trigger (v0.9.0)
+// ---------------------------------------------------------------------------
+
+describe('generateCss — animation pack presets', () => {
+  it('shake: emits cms-shake keyframes (horizontal ±4px) and the animation decl', () => {
+    const css = generateCss(
+      makeState({
+        animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'shake', speedS: 1, trigger: 'always' },
+      }),
+    );
+    expect(css).toContain('@keyframes cms-shake');
+    expect(css).toContain('translateX(-4px)');
+    expect(css).toContain('translateX(4px)');
+    expect(css).toContain('animation: cms-shake 1s ease-in-out infinite;');
+  });
+
+  it('spin: emits cms-spin keyframes (360° rotate) with LINEAR timing', () => {
+    const css = generateCss(
+      makeState({
+        animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'spin', speedS: 2, trigger: 'always' },
+      }),
+    );
+    expect(css).toContain('@keyframes cms-spin');
+    expect(css).toContain('rotate(360deg)');
+    expect(css).toContain('animation: cms-spin 2s linear infinite;');
+  });
+
+  it('glow: emits cms-glow keyframes pulsing a currentColor box-shadow', () => {
+    const css = generateCss(
+      makeState({
+        animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'glow', speedS: 3, trigger: 'always' },
+      }),
+    );
+    expect(css).toContain('@keyframes cms-glow');
+    expect(css).toContain('box-shadow');
+    expect(css).toContain('currentColor');
+    expect(css).toContain('animation: cms-glow 3s ease-in-out infinite;');
+  });
+
+  it('heartbeat: emits cms-heartbeat keyframes (double-beat scale)', () => {
+    const css = generateCss(
+      makeState({
+        animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'heartbeat', speedS: 2, trigger: 'always' },
+      }),
+    );
+    expect(css).toContain('@keyframes cms-heartbeat');
+    expect(css).toContain('scale(1.12)');
+    expect(css).toContain('animation: cms-heartbeat 2s ease-in-out infinite;');
+  });
+
+  it('new presets round-trip byte-stable (parse → map → regenerate)', () => {
+    for (const preset of ['shake', 'spin', 'glow', 'heartbeat'] as const) {
+      const original = generateCss(
+        makeState({
+          animation: { ...DEFAULT_ANIMATION, enabled: true, preset, speedS: 2.5, trigger: 'on' },
+        }),
+      );
+      const parsed = parseCardModConfig({ type: 'button', card_mod: { style: original } });
+      const state = mapToStudioState(parsed);
+      expect(state.animation.enabled).toBe(true);
+      expect(state.animation.preset).toBe(preset);
+      expect(state.animation.speedS).toBe(2.5);
+      expect(state.advanced.rawCss).toBe('');
+      expect(generateCss(state)).toBe(original);
+    }
+  });
+});
+
+describe('generateCss — value-conditional animation trigger', () => {
+  it('emits the states() conditional for trigger=value', () => {
+    const css = generateCss(
+      makeState({
+        animation: {
+          ...DEFAULT_ANIMATION,
+          enabled: true,
+          preset: 'pulse',
+          speedS: 2,
+          trigger: 'value',
+          valueEntity: 'sensor.power',
+          valueOperator: '>',
+          valueThreshold: 1500,
+        },
+      }),
+    );
+    expect(css).toContain(
+      "animation: {{ 'cms-pulse 2s ease-in-out infinite' if states('sensor.power') | float(0) > 1500 else 'none' }};",
+    );
+  });
+
+  it('emits the state_attr() conditional when valueAttribute is set', () => {
+    const css = generateCss(
+      makeState({
+        animation: {
+          ...DEFAULT_ANIMATION,
+          enabled: true,
+          preset: 'shake',
+          speedS: 1,
+          trigger: 'value',
+          valueEntity: 'climate.thermostat',
+          valueAttribute: 'current_temperature',
+          valueOperator: '>=',
+          valueThreshold: 25,
+        },
+      }),
+    );
+    expect(css).toContain(
+      "animation: {{ 'cms-shake 1s ease-in-out infinite' if state_attr('climate.thermostat', 'current_temperature') | float(0) >= 25 else 'none' }};",
+    );
+  });
+
+  it('emits no animation decl when the value condition is incomplete (no entity yet)', () => {
+    const css = generateCss(
+      makeState({
+        animation: {
+          ...DEFAULT_ANIMATION,
+          enabled: true,
+          preset: 'pulse',
+          speedS: 2,
+          trigger: 'value',
+          valueOperator: '>',
+          valueThreshold: 0,
+        },
+      }),
+    );
+    expect(css).not.toContain('animation:');
+  });
+
+  it('value trigger (states form) round-trips byte-stable', () => {
+    const original = generateCss(
+      makeState({
+        animation: {
+          ...DEFAULT_ANIMATION,
+          enabled: true,
+          preset: 'glow',
+          speedS: 1.5,
+          trigger: 'value',
+          valueEntity: 'sensor.co2',
+          valueOperator: '>=',
+          valueThreshold: 1000,
+        },
+      }),
+    );
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(true);
+    expect(state.animation.trigger).toBe('value');
+    expect(state.animation.valueEntity).toBe('sensor.co2');
+    expect(state.animation.valueOperator).toBe('>=');
+    expect(state.animation.valueThreshold).toBe(1000);
+    expect(state.advanced.rawCss).toBe('');
+    expect(generateCss(state)).toBe(original);
+  });
+
+  it('value trigger (state_attr form, negative threshold) round-trips byte-stable', () => {
+    const original = generateCss(
+      makeState({
+        animation: {
+          ...DEFAULT_ANIMATION,
+          enabled: true,
+          preset: 'spin',
+          speedS: 4,
+          trigger: 'value',
+          valueEntity: 'sensor.freezer',
+          valueAttribute: 'temperature',
+          valueOperator: '<',
+          valueThreshold: -18,
+        },
+      }),
+    );
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.enabled).toBe(true);
+    expect(state.animation.trigger).toBe('value');
+    expect(state.animation.valueAttribute).toBe('temperature');
+    expect(state.animation.valueThreshold).toBe(-18);
+    expect(state.advanced.rawCss).toBe('');
+    expect(generateCss(state)).toBe(original);
+  });
+
+  it('value trigger keeps gradient-shift\'s background-size companion and round-trips', () => {
+    const original = generateCss(
+      makeState({
+        animation: {
+          ...DEFAULT_ANIMATION,
+          enabled: true,
+          preset: 'gradient-shift',
+          speedS: 3,
+          trigger: 'value',
+          valueEntity: 'sensor.power',
+          valueOperator: '!=',
+          valueThreshold: 0,
+        },
+      }),
+    );
+    expect(original).toContain('background-size: 200% auto;');
+    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+    expect(state.animation.preset).toBe('gradient-shift');
+    expect(state.advanced.rawCss).toBe('');
+    expect(generateCss(state)).toBe(original);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v0.9 state-driven numeric controls (border width / filter effects / icon
+// size) — generation shapes + byte-stable generate→parse→generate loops.
+// ---------------------------------------------------------------------------
+
+describe('v0.9 state-driven numeric controls', () => {
+  /** generate → parse → generate must reproduce the CSS byte-for-byte. */
+  const expectStable = (state: StudioState, cardType: string) => {
+    const css = generateCss(state, cardType);
+    const parsed = parseCardModConfig({ type: cardType, card_mod: { style: css } } as CardModCardConfig);
+    const reState = mapToStudioState(parsed, cardType);
+    expect(reState.advanced.rawCss).toBe('');
+    expect(generateCss(reState, cardType)).toBe(css);
+    return reState;
+  };
+
+  it('border width reacting to ON emits a quoted ternary and round-trips', () => {
+    const state = makeState({
+      border: {
+        ...DEFAULT_BORDER,
+        enabled: true,
+        radiusPx: 0,
+        borderWidth: 3,
+        borderColor: '#ff0000',
+        widthWhen: { when: 'on' },
+      },
+    });
+    const css = generateCss(state, 'tile');
+    expect(css).toContain(
+      `border: {{ '3px solid #ff0000' if is_state(config.entity, 'on') else 'none' }};`,
+    );
+    const re = expectStable(state, 'tile');
+    expect(re.border.widthWhen).toEqual({ when: 'on' });
+    expect(re.border.borderWidth).toBe(3);
+  });
+
+  it('border width with a fallback width + value condition round-trips', () => {
+    const state = makeState({
+      border: {
+        ...DEFAULT_BORDER,
+        enabled: true,
+        radiusPx: 8,
+        borderWidth: 4,
+        borderColor: '#03a9f4',
+        widthWhen: {
+          when: 'value',
+          valueEntity: 'sensor.temp',
+          valueAttribute: 'battery_level',
+          valueOperator: '<',
+          valueThreshold: 15,
+        },
+        widthOffPx: 1,
+      },
+    });
+    const css = generateCss(state, 'entity');
+    expect(css).toContain(
+      `border: {{ '4px solid #03a9f4' if state_attr('sensor.temp', 'battery_level') | float(0) < 15 else '1px solid #03a9f4' }};`,
+    );
+    const re = expectStable(state, 'entity');
+    expect(re.border.widthOffPx).toBe(1);
+    expect(re.border.widthWhen?.valueAttribute).toBe('battery_level');
+  });
+
+  it('a hand-written conditional border with different colors per branch stays in Advanced CSS', () => {
+    const original =
+      "ha-card {\n  border: {{ '3px solid red' if is_state(config.entity, 'on') else '1px solid blue' }};\n}";
+    const parsed = parseCardModConfig({ type: 'tile', card_mod: { style: original } });
+    const state = mapToStudioState(parsed, 'tile');
+    expect(state.border.enabled).toBe(false);
+    expect(state.advanced.rawCss).toContain('border:');
+  });
+
+  it('filter opacity joins the canonical part order and round-trips', () => {
+    const state = makeState({
+      filter: { ...DEFAULT_FILTER, enabled: true, brightness: 80, blur: 2, opacity: 60 },
+    });
+    const css = generateCss(state, 'tile');
+    expect(css).toContain('filter: brightness(80%) blur(2px) opacity(60%);');
+    const re = expectStable(state, 'tile');
+    expect(re.filter.opacity).toBe(60);
+  });
+
+  it('conditional filter effects (custom entity) emit a ternary and round-trip', () => {
+    const state = makeState({
+      filter: {
+        ...DEFAULT_FILTER,
+        enabled: true,
+        blur: 4,
+        opacity: 50,
+        effectsWhen: { when: 'custom', customEntity: 'binary_sensor.preheat_active' },
+      },
+    });
+    const css = generateCss(state, 'tile');
+    expect(css).toContain(
+      `filter: {{ 'blur(4px) opacity(50%)' if is_state('binary_sensor.preheat_active', 'on') else 'none' }};`,
+    );
+    const re = expectStable(state, 'tile');
+    expect(re.filter.effectsWhen).toEqual({ when: 'custom', customEntity: 'binary_sensor.preheat_active' });
+  });
+
+  it('grayscale + opacity ride together in both branches (grayscaleWhen unchanged)', () => {
+    const state = makeState({
+      filter: { ...DEFAULT_FILTER, enabled: true, grayscale: true, grayscaleWhen: 'off', opacity: 70 },
+    });
+    const css = generateCss(state, 'tile');
+    expect(css).toContain(
+      `filter: {{ 'grayscale(100%) opacity(70%)' if is_state(config.entity, 'off') else 'opacity(70%)' }};`,
+    );
+    const re = expectStable(state, 'tile');
+    expect(re.filter.grayscale).toBe(true);
+    expect(re.filter.opacity).toBe(70);
+  });
+
+  it('a hand-written conditional filter the module cannot express stays in Advanced CSS (was flattened before)', () => {
+    const original =
+      "ha-card {\n  filter: {{ 'hue-rotate(90deg) brightness(80%)' if is_state(config.entity, 'on') else 'none' }};\n}";
+    const parsed = parseCardModConfig({ type: 'tile', card_mod: { style: original } });
+    const state = mapToStudioState(parsed, 'tile');
+    expect(state.filter.enabled).toBe(false);
+    expect(state.advanced.rawCss).toContain('hue-rotate');
+  });
+
+  it('a hand-written plain filter with foreign functions stays in Advanced CSS (was flattened before)', () => {
+    const original = 'ha-card {\n  filter: hue-rotate(90deg) brightness(80%);\n}';
+    const parsed = parseCardModConfig({ type: 'tile', card_mod: { style: original } });
+    const state = mapToStudioState(parsed, 'tile');
+    expect(state.filter.enabled).toBe(false);
+    expect(state.advanced.rawCss).toContain('hue-rotate');
+  });
+
+  it('icon size (static) emits the ha-card variable pair on entity cards and round-trips', () => {
+    const state = makeState({
+      iconColor: { ...DEFAULT_ICON_COLOR, enabled: true, mode: 'plain', color: '#ff0000', sizePx: 36 },
+    });
+    const css = generateCss(state, 'entity');
+    expect(css).toContain('--mdc-icon-size: 36px;');
+    expect(css).toContain('--ha-icon-size: 36px;');
+    const re = expectStable(state, 'entity');
+    expect(re.iconColor.sizePx).toBe(36);
+  });
+
+  it('icon size on tile emits the ha-tile-icon companion block and round-trips', () => {
+    const state = makeState({
+      iconColor: { ...DEFAULT_ICON_COLOR, enabled: true, mode: 'plain', color: '#ff0000', sizePx: 40 },
+    });
+    const css = generateCss(state, 'tile');
+    expect(css).toContain('ha-tile-icon {\n  --mdc-icon-size: 40px;\n}');
+    expect(css).not.toContain('--ha-icon-size');
+    const re = expectStable(state, 'tile');
+    expect(re.iconColor.sizePx).toBe(40);
+  });
+
+  it('conditional icon size emits quoted px branches (24px default else) and round-trips', () => {
+    const state = makeState({
+      iconColor: {
+        ...DEFAULT_ICON_COLOR,
+        enabled: true,
+        mode: 'plain',
+        color: '#ff0000',
+        sizePx: 40,
+        sizeWhen: { when: 'value', valueEntity: 'sensor.temp', valueOperator: '>', valueThreshold: 30 },
+      },
+    });
+    const css = generateCss(state, 'sensor');
+    expect(css).toContain(
+      `--mdc-icon-size: {{ '40px' if states('sensor.temp') | float(0) > 30 else '24px' }};`,
+    );
+    const re = expectStable(state, 'sensor');
+    expect(re.iconColor.sizeWhen?.when).toBe('value');
+    expect(re.iconColor.sizeOffPx).toBeUndefined();
+  });
+
+  it('icon size is NOT emitted on unsupported card types (light)', () => {
+    const state = makeState({
+      iconColor: { ...DEFAULT_ICON_COLOR, enabled: true, mode: 'plain', color: '#ff0000', sizePx: 36 },
+    });
+    const css = generateCss(state, 'light');
+    expect(css).not.toContain('icon-size');
+  });
+
+  it('hand-written icon-size vars on an unsupported card stay in Advanced CSS', () => {
+    const original =
+      'ha-state-icon {\n  color: #ff0000 !important;\n}\n\nha-card {\n  --mdc-icon-size: 36px;\n  --ha-icon-size: 36px;\n}';
+    const parsed = parseCardModConfig({ type: 'light', card_mod: { style: original } });
+    const state = mapToStudioState(parsed, 'light');
+    expect(state.iconColor.enabled).toBe(true);
+    expect(state.iconColor.sizePx).toBeUndefined();
+    expect(state.advanced.rawCss).toContain('--mdc-icon-size');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Roadmap #27 (2026-08 engine audit): UIX Forge config preservation.
+// The Studio must never touch the UIX Forge surface — `forge:`, `foundry:`
+// (server-stored templates), and `uix.macros` — through any edit.
+// ---------------------------------------------------------------------------
+
+describe('UIX Forge / foundry key preservation (#27)', () => {
+  const forgeConfig = {
+    type: 'tile',
+    entity: 'light.a',
+    foundry: 'my-shared-tile',
+    forge: {
+      sparks: [{ type: 'tooltip', text: '{{ states("sensor.x") }}' }],
+      element: { name: '{{ my_name }}' },
+    },
+    uix: { macros: { my_macro: 'grayscale(100%)' }, style: 'ha-card {\n  background: red;\n}' },
+  } as unknown as CardModCardConfig;
+
+  it('a Studio edit writing uix: keeps forge/foundry/macros byte-identical', () => {
+    const next = applyCardModStyle('ha-card {\n  background: blue;\n}', forgeConfig, 'uix');
+    expect(next.forge).toEqual(forgeConfig.forge);
+    expect((next as Record<string, unknown>).foundry).toBe('my-shared-tile');
+    expect(next.uix?.macros).toEqual({ my_macro: 'grayscale(100%)' });
+    expect(next.uix?.style).toBe('ha-card {\n  background: blue;\n}');
+  });
+
+  it('clearing all styling keeps forge/foundry/macros', () => {
+    const next = applyCardModStyle('', forgeConfig, 'uix');
+    expect(next.forge).toEqual(forgeConfig.forge);
+    expect((next as Record<string, unknown>).foundry).toBe('my-shared-tile');
+    expect(next.uix?.macros).toEqual({ my_macro: 'grayscale(100%)' });
+    expect(next.uix?.style).toBeUndefined();
+  });
+
+  it('a card_mod-targeted edit still keeps the forge surface', () => {
+    const next = applyCardModStyle('ha-card {\n  color: red;\n}', forgeConfig, 'card_mod');
+    expect(next.forge).toEqual(forgeConfig.forge);
+    expect((next as Record<string, unknown>).foundry).toBe('my-shared-tile');
+    // uix.style is macro-free here? No — macros present, so the uix block
+    // must survive rather than being consolidated away.
+    expect(next.uix?.macros).toEqual({ my_macro: 'grayscale(100%)' });
+  });
+});
