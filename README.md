@@ -18,7 +18,8 @@ overview.
 > saved you an evening of CSS frustration, you can
 > [☕ buy me a coffee](https://ko-fi.com/dertrolli). It's built with a lot of
 > paid AI tooling, so coffees go straight back into development.
-> [More ways to help ↓](#support-the-project)
+> Bug or feature wish? [Open an issue](../../issues) — requests are just as
+> welcome as bug reports. [More ways to help ↓](#support-the-project)
 
 ---
 
@@ -288,8 +289,11 @@ things genuinely help:
 
   [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20development-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/dertrolli)
 
-And if something's broken or missing — [an issue](../../issues) is just as
-valuable as a coffee.
+**💡 Found a bug — or wishing for a feature?** Both belong in the same
+place: [open a GitHub issue](../../issues). Feature requests are just as
+welcome as bug reports (a lot of what's in the Studio today — the Font
+module, styling cards inside stacks, per-row fonts — started as someone's
+issue), and I'll get right on it.
 
 ---
 
