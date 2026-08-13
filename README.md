@@ -2,6 +2,7 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-blue.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/v/release/dertrolli/card-mod-studio)](https://github.com/dertrolli/card-mod-studio/releases)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-☕-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/dertrolli)
 
 A visual GUI editor for [card-mod](https://github.com/thomasloven/lovelace-card-mod) CSS styles in Home Assistant. Also works with [UIX](https://uix.lf.technology/), card-mod's integration-based successor.
 
@@ -274,13 +275,12 @@ things genuinely help:
 
 - **⭐ Star the repo** — stars are how people discover HACS projects, and
   the clearest signal that this is worth continuing.
-- **☕ Support development** — this project is built and live-tested with
-  a lot of (paid) AI tooling against real Home Assistant instances, so if
-  you'd like to chip in, it quite literally keeps the lights on.
-  <!-- Uncomment once the account exists, and mirror it in
-       .github/FUNDING.yml for the repo's Sponsor button:
-  [Buy me a coffee](https://buymeacoffee.com/YOUR_NAME)
-  -->
+- **☕ [Buy me a coffee on Ko-fi](https://ko-fi.com/dertrolli)** — this
+  project is built and live-tested with a lot of (paid) AI tooling against
+  real Home Assistant instances, so a coffee quite literally goes right
+  back into development.
+
+  [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20development-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/dertrolli)
 
 And if something's broken or missing — [an issue](../../issues) is just as
 valuable as a coffee.
