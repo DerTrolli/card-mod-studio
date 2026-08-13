@@ -17,10 +17,10 @@ CSS filter effects on the whole card:
   "dead" is the classic use: grayscale *while OFF*)
 - **Brightness** — 0–200%
 - **Blur** — 0–20px
-- **Opacity** *(since v0.9.0-beta.3)* — 10–100%, fades the whole card
+- **Opacity** *(since v0.9.0)* — 10–100%, fades the whole card
 - **Transition speed** — how smoothly the filter animates on state change
 
-Since v0.9.0-beta.3, brightness/blur/opacity share a **"Reacts to"**
+Since v0.9.0, brightness/blur/opacity share a **"Reacts to"**
 condition (shown while grayscale is off — grayscale keeps its own control):
 always / entity ON / entity OFF / another entity ON / **while a value
 matches…** (entity or numeric attribute + operator + threshold). Example:
@@ -54,7 +54,7 @@ while the condition holds. The classic attention-indicator: *glow while
 - **Border radius** — round the card's corners (0–50px)
 - **Border width** (0–8px) and **border color** — the color picker appears
   once width > 0
-- **"Reacts to"** *(since v0.9.0-beta.3)* — the border can appear only
+- **"Reacts to"** *(since v0.9.0)* — the border can appear only
   while a condition matches (entity ON/OFF, another entity ON, or a
   numeric value comparison), with an optional **"Width otherwise"**
   fallback. Example: a 3px red border while the freezer is above −10°,

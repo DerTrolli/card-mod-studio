@@ -5,128 +5,86 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.0-beta.3] — 2026-07-20
+## [0.9.0] — 2026-08-06
 
-**Pre-release** — the v0.9 "depth" headline: numeric style properties can
-now react to entity state, plus a round of long-standing fixes. Every new
-behavior live-verified per card type on real card-mod AND UIX renders
-(computed-style assertions, 11 new live checks).
+The "make styling discoverable + state-aware" release — the v0.9 cycle
+consolidated (beta.1–beta.3, field-tested since 2026-07-18). Every feature
+was verified live on real card-mod AND real UIX renders (computed-style
+assertions, not source reading), and the final release was re-verified
+end-to-end against the newest engines: **card-mod 4.2.1 and UIX 8.0.0,
+both on Home Assistant 2026.8.0** — the full live-check suite is green on
+both. (UIX 8.0.0 itself requires HA ≥ 2026.8.0; its styling contract is
+unchanged, so cards styled by the Studio behave identically across
+UIX 7.x and 8.x.)
 
-### Added — state-driven numeric properties
+### Added — click-to-edit preview picker
 
-One shared "Reacts to" condition control (same vocabulary everywhere:
-always / entity ON / entity OFF / another entity ON / while a value
-matches…) now drives three numeric controls:
+Hover any part of the live preview and a highlight box names the control
+that styles it ("Icon Color", "Font", "Entity Rows: sensor.x", …); click,
+and the panel scrolls to that module, opens it, and flashes it briefly.
+Works per entity row on entities cards — clicking a row opens exactly that
+row's section. The overlay never forwards events to the live card, so you
+can point at a light card's toggle without switching anything on. Coverage
+was probed card-by-card across all 17 supported card types on both
+engines: button name/state, entity/sensor names, gauge/thermostat/
+humidifier titles, markdown body, glance columns, media-control titles,
+and picture-card footers resolve to Font; the sensor graph line, tile
+feature rows, and the thermostat dial resolve to Accent Color; things the
+Studio genuinely can't style (more-info buttons, keypads, raw images)
+honestly fall back to the card surface instead of pointing at a dead
+control. (Under the hood: a geometric hit-test over the card's composed
+tree — HA cards hide their content from browser hit-testing behind a
+full-card tap layer, so rect math is the only reliable route.)
 
-- **Border width** (Border & Radius): the border can appear only while the
-  condition matches — e.g. a red 3px border while the freezer is above
-  -10° — with an optional fallback width otherwise. Same color both
-  branches; a state-driven *color* remains Threshold's job.
-- **Filter effects** (Visual Filters): brightness/blur/**opacity** apply
-  only while the condition matches (e.g. blur + fade a camera card while
-  it's off). Offered while grayscale is off — grayscale keeps its own
-  existing condition. **Opacity is a new control** (10–100%), available
-  unconditionally too.
-- **Icon size** (Icon Color): a new size slider (theme default–64px),
-  optionally conditional with a fallback size — icon grows while the alarm
-  is armed. Offered ONLY where live probing shows the size variables reach
-  exactly the main state icon: tile (via a `ha-tile-icon` companion
-  block), entity, sensor, and picture-glance. Deliberately absent on
-  button (native `icon_height` exists), light/media-control (the variable
-  only hits their more-info icon) and alarm-panel (no effect).
+### Added — state-driven styling depth
 
-All three generate anchored single-branch Jinja ternaries that round-trip
-byte-stably; hand-written conditions the modules can't express exactly
-stay untouched in Advanced CSS.
+- **Four new animation presets** — Shake, Spin (linear timing), Glow,
+  Heartbeat — alongside the existing five.
+- **Value-conditional animations** — "While a value matches…": entity (or
+  one of its numeric attributes) + operator + threshold; the animation
+  runs only while the condition holds. Pulse while the freezer is above
+  -10°, glow while battery_level < 15.
+- **One shared "Reacts to" condition control** (always / entity ON / OFF /
+  another entity ON / while a value matches) now also drives three numeric
+  controls:
+  - **Border width** — appears only while the condition matches, with an
+    optional fallback width.
+  - **Filter effects** — brightness/blur/**opacity (new control)** apply
+    only while the condition matches (grayscale keeps its own condition).
+  - **Icon size (new control)** — static or conditional with a fallback
+    size; offered exactly where live probing shows the size variables
+    reach the main state icon: tile, entity, sensor, picture-glance.
+
+All conditional forms generate anchored single-branch Jinja ternaries that
+round-trip byte-stably; hand-written conditions the modules can't express
+exactly stay untouched in Advanced CSS.
 
 ### Fixed
 
-- **Two rows with the same entity no longer share one style slot** (#24):
-  per-row styles are now keyed by row position, so duplicate-entity rows
-  hold independent styling that round-trips independently — and the
-  preview picker now opens exactly the row you clicked.
-- **`rgb()`/`rgba()` threshold colors survive reopen** (#26): comma-
-  containing color functions in threshold rules re-parse into editable
-  rules instead of falling to Advanced CSS.
-- **Multi-rule thresholds no longer mis-read their default color** on
-  reopen (the default-color regex could match an intermediate branch of
-  the rule chain instead of the final `else`).
+- **Two entities-card rows with the same entity no longer share one style
+  slot** — per-row styles are keyed by row position, so duplicate-entity
+  rows hold independent styling.
+- **`rgb()`/`rgba()` threshold colors survive reopen** as editable rules;
+  and multi-rule thresholds no longer mis-read their default color from an
+  intermediate branch of the rule chain.
 - **Hand-written filters are no longer flattened**: a conditional or
   combined `filter:` the module can't express exactly (e.g. containing
-  `hue-rotate(…)`) used to have its brightness/blur salvaged and the rest
-  silently dropped on save — it now stays verbatim in Advanced CSS.
+  `hue-rotate(…)`) stays verbatim in Advanced CSS instead of losing parts
+  on save.
+- **UIX Forge safety**: cards carrying UIX 8's `forge:` / `foundry:` /
+  `uix.macros` config keep them byte-identical through every Studio edit
+  (now locked in by regression tests).
 
 ### Changed
 
 - The Accent Color module no longer emits the legacy
-  `--paper-item-icon-active-color` companion (roadmap #6) — nothing in
-  current HA reads it. Old configs carrying it are upgraded cleanly on the
-  next save.
-- README compatibility table now states the exact live-verification
-  baseline (HA 2026.7.0, card-mod 4.2.1, UIX 7.6.1).
-
-## [0.9.0-beta.2] — 2026-07-20
-
-**Pre-release** — beta feedback round 1: the preview picker now covers
-every supported card type correctly, not just the tile/entities shapes it
-launched with. Verified with a DOM coverage probe across 17 live-rendered
-card types on both engines, plus a permanent per-card coverage matrix in
-the live check (14 assertions).
-
-### Fixed — preview picker coverage per card type
-
-- **Button card**: the name and state (bare `<span>`s in HA's markup —
-  no class to recognise) now map to Font instead of falling back to
-  Background. This was the reported gap.
-- **Entity / sensor cards**: the name (`div.header`) now maps to Font.
-- **Gauge / thermostat / humidifier titles** (`p.title`) now map to Font
-  (the Font module emits a dedicated `.title` block for these cards).
-- **Markdown card**: the rendered body now maps to Font.
-- **Glance card**: entity columns (name, state, and the icon — which has
-  no reachable color on glance) now map to Font.
-- **Media-control card**: title marquee and app/device name map to Font.
-- **Picture-entity / picture-glance**: the footer bar (name/state/title)
-  maps to Font.
-- **New Accent Color mappings** where accent genuinely drives the pixels:
-  the sensor card's graph line ("Graph / Accent Color"), tile feature rows
-  ("Features / Accent Color" — their `--feature-color` derives from
-  `--tile-color`), and the thermostat's temperature dial ring.
-- **False positive fixed**: the light card's round-slider handle
-  (`g.value` — SVG reusing a text-marker class name) no longer claims
-  Font; text-class markers are now trusted only on real text tags.
-- Picker labels stay honest: interactive controls the Studio can't style
-  (more-info buttons, alarm keypad, slider handles) and raw images still
-  fall back to the card surface / Advanced CSS rather than pointing at a
-  module that wouldn't work.
-
-## [0.9.0-beta.1] — 2026-07-18
-
-**Pre-release** — the start of the v0.9 cycle ("depth"). Both features
-verified live on real card-mod AND real UIX installs (computed-style
-assertions, not source reading).
-
-### Added
-
-- **Click-to-edit preview picker.** Hover any part of the live preview and
-  a highlight box names the control that styles it ("Icon Color", "Font",
-  "Entity Rows: sensor.x", …); click, and the panel scrolls to that
-  module, opens it, and flashes it briefly. Works per entity row on
-  entities cards. The overlay never forwards events to the live card — you
-  can point at a light card's toggle without switching anything on. Under
-  the hood it's a geometric hit-test over the card's composed tree (HA
-  cards hide their content from browser hit-testing behind a full-card tap
-  layer, so rect math is the only reliable route — verified live).
-- **Four new animation presets** — Shake, Spin (linear timing), Glow
-  (pulsing box-shadow), Heartbeat — alongside the existing five.
-- **Value-conditional animations** — a new trigger, "While a value
-  matches…": pick an entity (and optionally one of its numeric
-  attributes), an operator, and a threshold, and the animation runs only
-  while the condition holds. The attention-indicator pattern: pulse while
-  the freezer is above -10°, glow while battery_level < 15. Generates a
-  single conditional `animation:` Jinja expression both engines render
-  natively; round-trips exactly on reopen. A hand-edited timing or
-  multi-branch expression falls to Advanced CSS untouched (same
-  conservatism as v0.8.1's adoption rules).
+  `--paper-item-icon-active-color` companion — nothing in current HA reads
+  it; old configs upgrade cleanly on the next save.
+- README compatibility table pins the live-verification baseline
+  (HA 2026.8.0, card-mod 4.2.1, UIX 8.0.0), and documents an HA 2026.8
+  platform change: YAML-mode dashboards can no longer enter edit mode, so
+  the visual card editor (and the Style button) is only reachable on
+  normal storage-mode dashboards.
 
 ## [0.8.1] — 2026-07-14
 
@@ -790,9 +748,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
-[0.9.0-beta.3]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0-beta.3
-[0.9.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0-beta.2
-[0.9.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0-beta.1
+[0.9.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0
 [0.8.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.1
 [0.8.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0
 [0.7.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.7.1

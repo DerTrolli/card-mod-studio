@@ -12,7 +12,7 @@ Colors the card's main icon (`ha-state-icon`). Three modes:
 - **Match the light's color** *(light cards only)* — while on, the icon
   follows the light's real `rgb_color` attribute; you pick the off color.
 
-### Icon size *(since v0.9.0-beta.3)*
+### Icon size *(since v0.9.0)*
 
 On **tile, entity, sensor, and picture-glance** cards the module also
 offers an **Icon size** slider (theme default up to 64px). It can be

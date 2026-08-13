@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-08-06 · **Current version:** v0.9.0-beta.3 (pre-release, 2026-07-20) — since then: full engine/HA re-audit (see "Engine watch" below): suite green on card-mod 4.2.1 + UIX 8.0.0, both on HA 2026.8.0; remaining v0.9 decision is dict-form/`$`-pierce (item #1) as beta.4 vs v0.10
+**Last updated:** 2026-08-06 · **Current version:** v0.9.0 (consolidates beta.1–beta.3; verified on card-mod 4.2.1 + UIX 8.0.0, both on HA 2026.8.0 — see "Engine watch" below) — next up: v0.10 "piercing" (item #1: dict-form/`$`-pierce round-trip, moved out of the v0.9 cycle)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -24,7 +24,8 @@ dashboard layouts. Rough shape (effort, not calendar time):
 |---|---|---|
 | v0.7 ✅ | Entity binding foundation | **Shipped** — see below. Searchable entity picker everywhere; Icon Color/Background/Filter can target a different entity than the card's own; Threshold rules can drive multiple properties at once. |
 | v0.8 ✅ | Structure + color system | **Shipped** — stack child styling (per-child styling sections for vertical-stack/horizontal-stack/grid, written into each child's own config) + a Font module (size/weight/family/color, closing [#25](https://github.com/dertrolli/card-mod-studio/issues/25)) in beta.1; beta.2 added the per-card font companions the beta test demanded (light/button/sensor/gauge/thermostat/entities title/heading weight+family/per-row fonts), the form-editor `uix:` rejection shim, the Color Palette Manager (custom colors in every picker + ON/OFF default overrides, cross-device storage), and attribute-based thresholds (item #16 below — done). |
-| v0.9 | Depth | Property-level templating beyond color (border width, icon size, blur/opacity driven by entity state — natural extension of v0.7's entity binding). Plus dict-form/`$`-pierce round-trip safety (item #1 below), which unblocks nested-shadow-DOM targets (glance icon, Mushroom/Bubble). |
+| v0.9 ✅ | Discoverability + state-aware depth | **Shipped** — click-to-edit preview picker (hover names the owning control, click jumps to it; per-card coverage across all 17 supported types); 4 new animation presets; value-conditional animations; the shared "Reacts to" condition on border width / filter effects (+ new opacity) / icon size (+ new control, probed-safe cards only); duplicate-row + rgb()-threshold + filter-flattening fixes; UIX Forge key preservation. Dict-form/`$`-pierce (item #1) deliberately moved out to v0.10. |
+| v0.10 | Piercing | Dict-form/`$`-pierce round-trip safety (item #1) — the unlock for nested-shadow-DOM targets: glance icon color, gauge value / thermostat big-number *size*, dict-form entity rows (item #23), and the foundation for Mushroom/Bubble (item #10). |
 | v1.0 | Structural completeness | The remaining container gaps (item #7 — `conditional` cards, containers nested in containers, per-row styling of nested entities cards) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
 | Post-1.0 | Stretch | Official Mushroom/Bubble selectors, UIX Forge/sparks support (item #28 — new in the 2026-08 engine audit), a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
 
