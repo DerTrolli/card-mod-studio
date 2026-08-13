@@ -1,9 +1,2 @@
-# GitHub shows a "Sponsor" button on the repo once at least one line here
-# is active (uncommented). Fill in whichever you actually set up — links to
-# accounts that don't exist yet frustrate would-be supporters, so keep a
-# line commented until the account is live:
-#
-# github: [DerTrolli]              # requires enrolling at github.com/sponsors
-# buy_me_a_coffee: dertrolli       # buymeacoffee.com account name
-# ko_fi: dertrolli                 # ko-fi.com account name
-# custom: ["https://www.paypal.me/..."]
+# Shown as the repo's "Sponsor" button.
+ko_fi: dertrolli
