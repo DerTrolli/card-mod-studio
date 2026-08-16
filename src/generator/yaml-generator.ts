@@ -10,7 +10,7 @@
 
 import type { CardModCardConfig, UixConfig } from '../types/index.js';
 import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
-import { usesUixOnlyFeaturesInBlock } from '../utils/style-compat.js';
+import { usesUixOnlyFeaturesInBlock, hasDictFormStyle } from '../utils/style-compat.js';
 
 export type StyleOutputKey = 'card_mod' | 'uix';
 
@@ -85,6 +85,15 @@ export function applyCardModStyle(
   existingConfig: CardModCardConfig,
   outputKey: StyleOutputKey = 'card_mod',
 ): CardModCardConfig {
+  // v0.9.1 data-loss guard: a dictionary-form ($-pierce) style under EITHER
+  // key can't be faithfully regenerated yet (v0.10 — docs/V0.10_PLAN.md).
+  // Preserve both style keys completely untouched — the card-level lift of
+  // the v0.7.1 row guard. Without this, a nested dict was DELETED, a
+  // pierce-key dict corrupted, and a dict uix.style cleared on save.
+  if (hasDictFormStyle(existingConfig)) {
+    return { ...existingConfig };
+  }
+
   const trimmed = css.trim();
 
   if (!trimmed) {

@@ -52,6 +52,7 @@ import {
 } from '../utils/card-caps.js';
 import { moduleStyles } from '../modules/module-base.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
+import { hasDictFormStyle } from '../utils/style-compat.js';
 
 import '../modules/module-filter.js';
 import '../modules/module-icon-color.js';
@@ -210,6 +211,16 @@ export class CmsChildCardSection extends LitElement {
         This child is itself a "${c.type}" container — open it as its own card
         (or edit its YAML) to style the cards inside it. Nested container
         styling isn't supported yet.
+      </div>`;
+    }
+
+    // v0.9.1: dictionary-form ($-pierce) styling can't be edited yet — the
+    // save path preserves it verbatim, so don't offer dead controls here.
+    if (hasDictFormStyle(c)) {
+      return html`<div class="child-note">
+        🔒 This child's styling is written in card-mod's dictionary form
+        ($ shadow-piercing), which the Studio can't edit yet — planned for
+        v0.10. It is preserved exactly as written.
       </div>`;
     }
 

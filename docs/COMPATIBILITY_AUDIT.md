@@ -94,7 +94,21 @@ All use card-mod's documented template surface: **`config.entity`**, **`states()
 
 ---
 
-## 4. Dictionary / `$` shadow-pierce round-trip (⚠️ lossy)
+## 4. Dictionary / `$` shadow-pierce round-trip (fixed in v0.9.1: preserved verbatim)
+
+> **v0.9.1 addendum (2026-08):** the empirical re-audit for the v0.10 plan
+> found this was WORSE than documented below — besides the corruption case,
+> a *nested* dict-form style caused the whole `card_mod:` key to be
+> **deleted** on the first edit, and a dict-form `uix.style` was cleared by
+> the save path's uix-consolidation branch. All of it is fixed in v0.9.1:
+> `applyCardModStyle` now short-circuits when EITHER style key is
+> dictionary-form (`hasDictFormStyle`, style-compat.ts) and preserves both
+> keys byte-identically; the panel shows a dedicated "preserved as-is"
+> banner instead of dead controls (rows stay editable). Covered by 7 unit
+> regressions + `dict_preserve_check.mjs` live on both engines. Visual
+> EDITING of the dict form remains future work — see docs/V0.10_PLAN.md.
+
+### Original finding (pre-v0.9.1, kept for history)
 
 `parser/yaml-parser.ts → parseDictStyle` reads the dictionary form by treating
 each key as a selector and wrapping its value: `` `${selector} { ${decls} }` ``.

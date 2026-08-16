@@ -19,7 +19,7 @@ import type {
   EntitiesRowStyles,
 } from '../types/index.js';
 import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
-import { isUixOnlyStyle, usesUixOnlyFeatures, hasUixOnlyRow, hasStyleContent } from '../utils/style-compat.js';
+import { isUixOnlyStyle, usesUixOnlyFeatures, hasUixOnlyRow, hasStyleContent, hasDictFormStyle } from '../utils/style-compat.js';
 import {
   CONTAINER_CARD_TYPES,
   STYLABLE_CHILDREN_CARD_TYPES,
@@ -875,6 +875,26 @@ export class CmsPanel extends LitElement {
       return this._renderContainerCard(s);
     }
 
+    // v0.9.1: a dictionary-form ($-pierce) style can't be edited yet — the
+    // save path preserves it verbatim (yaml-generator guard), so offering
+    // the card-level modules would be dead controls. Rows stay editable on
+    // entities cards: they're separate row configs with their own guard.
+    if (hasDictFormStyle(this.config ?? {})) {
+      return html`
+        <div class="container-banner">
+          <strong>🔒 Hand-written shadow-piercing style — preserved as-is</strong>
+          This card's styling is written in card-mod's dictionary form
+          (<code>$</code> shadow-piercing), which the Studio can't edit yet —
+          visual editing of this form is planned for v0.10. Nothing here will
+          overwrite it: your styling is preserved exactly as written.
+          ${this._isEntitiesCard
+            ? html`Per-row styling below still works as usual.`
+            : nothing}
+        </div>
+        ${this._renderEntityRowsModule()}
+      `;
+    }
+
     const stateAware = this._isStateAware;
     const showIconColor = this._showIconColor;
     const showAnimation = this._showAnimation;
@@ -998,14 +1018,18 @@ export class CmsPanel extends LitElement {
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
 
-      ${this.config?.type === 'entities'
-        ? html`<cms-entities-rows-module
-              .rows=${(this.config as unknown as { entities?: EntitiesCardRow[] }).entities ?? []}
-              .styles=${this._entityRowStyles}
-              @styles-changed=${this._onEntityRowStylesChanged}
-            ></cms-entities-rows-module>`
-        : nothing}
+      ${this._renderEntityRowsModule()}
     `;
+  }
+
+  private _renderEntityRowsModule() {
+    return this.config?.type === 'entities'
+      ? html`<cms-entities-rows-module
+            .rows=${(this.config as unknown as { entities?: EntitiesCardRow[] }).entities ?? []}
+            .styles=${this._entityRowStyles}
+            @styles-changed=${this._onEntityRowStylesChanged}
+          ></cms-entities-rows-module>`
+      : nothing;
   }
 
   private _onChildConfigChanged(e: CustomEvent<{ index: number; config: CardModCardConfig }>) {
