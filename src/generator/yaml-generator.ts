@@ -8,7 +8,7 @@
  * serialised — so we work with plain JS objects, not YAML strings.
  */
 
-import type { CardModCardConfig, UixConfig } from '../types/index.js';
+import type { CardModCardConfig, UixConfig, DictSource } from '../types/index.js';
 import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
 import { usesUixOnlyFeaturesInBlock, hasDictFormStyle } from '../utils/style-compat.js';
 
@@ -53,6 +53,56 @@ function clearCardModStyle(existingConfig: CardModCardConfig): CardModCardConfig
 }
 
 /**
+ * Dict-form save (v0.10): reassembles the dictionary in ORIGINAL key order —
+ * pierced entries verbatim, the regenerated `.` css at its original
+ * position (or first, when the dict had no `.` yet). An empty css drops
+ * the `.` entry; an empty resulting dict clears the style like the string
+ * path does. The non-active key keeps only non-style siblings; a dict-form
+ * style on the NON-active key is never touched (mixed-form freeze happens
+ * before this is called).
+ */
+function applyDictStyle(
+  css: string,
+  existingConfig: CardModCardConfig,
+  outputKey: StyleOutputKey,
+  dictSource: DictSource,
+): CardModCardConfig {
+  const trimmed = css.trim();
+  const list: Array<[string, unknown]> = dictSource.entries.map((e) => [e.key, e.value]);
+  if (trimmed) {
+    const at = dictSource.rootIndex === null ? 0 : Math.min(dictSource.rootIndex, list.length);
+    list.splice(at, 0, ['.', trimmed]);
+  }
+
+  const next: CardModCardConfig = { ...existingConfig };
+
+  if (list.length === 0) {
+    // Nothing left at all — same semantics as the string clear path.
+    const cleanedCardMod = clearCardModStyle(next);
+    if (cleanedCardMod === undefined) delete next.card_mod;
+    else next.card_mod = cleanedCardMod;
+    const cleanedUix = clearUixStyle(next);
+    if (cleanedUix === undefined) delete next.uix;
+    else next.uix = cleanedUix;
+    return next;
+  }
+
+  const style = Object.fromEntries(list) as Record<string, string>;
+  if (outputKey === 'uix') {
+    next.uix = { ...existingConfig.uix, style };
+    const cleanedCardMod = clearCardModStyle(next);
+    if (cleanedCardMod === undefined) delete next.card_mod;
+    else next.card_mod = cleanedCardMod;
+  } else {
+    next.card_mod = { ...existingConfig.card_mod, style };
+    const cleanedUix = clearUixStyle(next);
+    if (cleanedUix === undefined) delete next.uix;
+    else next.uix = cleanedUix;
+  }
+  return next;
+}
+
+/**
  * Returns a new card config with style set to the given CSS string, under
  * either the card_mod or uix key.
  *
@@ -93,12 +143,17 @@ export function applyCardModStyle(
   css: string,
   existingConfig: CardModCardConfig,
   outputKey: StyleOutputKey = 'card_mod',
+  dictSource?: DictSource,
 ): CardModCardConfig {
-  // v0.9.1 data-loss guard: a dictionary-form ($-pierce) style under EITHER
-  // key can't be faithfully regenerated yet (v0.10 — docs/V0.10_PLAN.md).
-  // Preserve both style keys completely untouched — the card-level lift of
-  // the v0.7.1 row guard. Without this, a nested dict was DELETED, a
-  // pierce-key dict corrupted, and a dict uix.style cleared on save.
+  // v0.10: with a dict carrier, the ACTIVE key's dictionary style is
+  // rebuilt byte-identically around the regenerated `.` entry (pierced
+  // entries verbatim, original order). Without a carrier, any dict-form
+  // style still freezes the card (the v0.9.1 guard) — that covers legacy
+  // callers and the mixed-form case (active string + dict secondary),
+  // which has no faithful single-key rewrite.
+  if (dictSource) {
+    return applyDictStyle(css, existingConfig, outputKey, dictSource);
+  }
   if (hasDictFormStyle(existingConfig)) {
     return { ...existingConfig };
   }

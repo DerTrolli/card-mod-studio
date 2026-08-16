@@ -425,6 +425,9 @@ export function mapToStudioState(parsed: CardModStyleState, cardType?: string): 
     font: mapFont(parsed.targets, haCard, claimed),
     threshold: mapThreshold(haCard, haStateIcon, haGauge, hostTarget, cardType, claimed),
     advanced: mapAdvanced(parsed, claimed),
+    // Dict-form carrier (v0.10): threaded to the save path so the dict is
+    // rebuilt byte-identically around the regenerated `.` entry.
+    ...(parsed.dictSource ? { dictSource: parsed.dictSource } : {}),
   };
 }
 
@@ -457,6 +460,9 @@ export function mergeStudioStates(primary: StudioState, secondary: StudioState):
     font: primary.font.enabled ? primary.font : secondary.font,
     threshold: primary.threshold.enabled ? primary.threshold : secondary.threshold,
     advanced: { rawCss: mergeRawCss(primary.advanced.rawCss, secondary.advanced.rawCss) },
+    // The dict carrier always follows the PRIMARY (active-key) style — a
+    // dict-form secondary is the mixed-form case the save path freezes.
+    ...(primary.dictSource ? { dictSource: primary.dictSource } : {}),
   };
 }
 
@@ -1540,6 +1546,10 @@ export function mergeEntityRowStyles(primary: EntitiesRowStyle, secondary: Entit
     ...(primary.extraCss || secondary.extraCss
       ? { extraCss: primary.extraCss || secondary.extraCss }
       : {}),
+    // Same rule as mergeStudioStates: the dict carrier always follows the
+    // PRIMARY (active-key) style — a secondary dict never merges (the
+    // caller freezes that case instead).
+    ...(primary.dictSource ? { dictSource: primary.dictSource } : {}),
   };
 }
 

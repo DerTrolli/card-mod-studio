@@ -69,8 +69,28 @@ export function isUixOnlyStyle(config: CardModCardConfig): boolean {
 }
 
 /**
+ * True when a dict-form style value uses UIX-only selector extensions
+ * anywhere in its (recursive) key structure (docs/V0.10_PLAN.md §1):
+ * - `$$` express selector (recursive deep shadow search). The single
+ *   trailing-`$` pierce (`ha-gauge$`) is NOT UIX-only — that's the shared
+ *   syntax card-mod also runs.
+ * - `&`-prefixed host-filter keys.
+ * Values recurse: dict-in-dict entries are navigation steps whose keys
+ * need the same scan.
+ */
+export function dictUsesUixOnlySelectors(style: unknown): boolean {
+  if (!style || typeof style !== 'object') return false;
+  for (const [key, value] of Object.entries(style as Record<string, unknown>)) {
+    if (key.includes('$$') || key.trimStart().startsWith('&')) return true;
+    if (dictUsesUixOnlySelectors(value)) return true;
+  }
+  return false;
+}
+
+/**
  * True when a uix: block uses UIX-only features (macros, billets, per-card
- * theme override) that card-mod cannot run under any key — rewriting the
+ * theme override, or dict-style keys using `$$` express selectors /
+ * `&` host filters) that card-mod cannot run under any key — rewriting the
  * key to `card_mod:` would not make this styling work, unlike plain CSS.
  * (`uix.class` is NOT in this list: card-mod's `card_mod: class:` is an
  * equivalent spelling, so a class-only block is portable.) Also used to
@@ -80,6 +100,18 @@ export function isUixOnlyStyle(config: CardModCardConfig): boolean {
  * before overwriting.
  */
 export function usesUixOnlyFeaturesInBlock(uix: UixConfig | undefined): boolean {
+  return usesUixMacroBlockFeatures(uix) || (isDictForm(uix?.style) && dictUsesUixOnlySelectors(uix?.style));
+}
+
+/**
+ * Narrower check: only the block-LEVEL UIX features (macros/billets/theme),
+ * NOT dict `$$`/`&` selector keys. The panel's coexist/overwrite banners
+ * need this distinction — they describe hand-authored macro/billet styling
+ * being left unsynced or overwritten by a save, which doesn't apply to
+ * dict-form styles under the v0.10 model (those are rebuilt with pierced
+ * entries preserved, or frozen entirely, never silently replaced).
+ */
+export function usesUixMacroBlockFeatures(uix: UixConfig | undefined): boolean {
   return !!(uix?.macros || uix?.billets || uix?.theme);
 }
 

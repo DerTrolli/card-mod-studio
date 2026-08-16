@@ -27,9 +27,10 @@
 import type {
   CardModCardConfig,
   CardModStyleState,
-  CssTarget,
+  PiercedEntry,
+  DictSource,
 } from '../types/index.js';
-import { parseCss, parseCssDetailed } from './css-parser.js';
+import { parseCssDetailed } from './css-parser.js';
 import { resolveStyle, type StyleValue } from '../utils/style-compat.js';
 
 // ---------------------------------------------------------------------------
@@ -56,10 +57,14 @@ export function parseStyleValue(style: StyleValue): CardModStyleState {
     return parseStyleString(style);
   }
 
-  // Dictionary form — each key is a selector (or '$' for shadow-pierce),
-  // each value is a CSS declaration block (not a full ruleset with braces).
+  // Dictionary form (v0.10): ONLY the `.` entry (styles for the element
+  // itself, full CSS ruleset text) is parsed — through the exact string
+  // pipeline, so every module works on it. EVERY other entry (pierced
+  // `sel $` chains, `$$`/`&` UIX extensions, element keys, nested dicts)
+  // is preserved verbatim in original order and re-emitted untouched by
+  // the save path (docs/V0.10_PLAN.md §4.1).
   if (typeof style === 'object' && style !== null) {
-    return parseDictStyle(style as Record<string, unknown>);
+    return parseDictForm(style as Record<string, unknown>);
   }
 
   return emptyState();
@@ -97,44 +102,42 @@ function parseStyleString(css: string): CardModStyleState {
 // ---------------------------------------------------------------------------
 
 /**
- * Converts the dictionary form of card_mod.style into CssTarget[].
- *
- * card-mod allows a nested dictionary where '$' means "pierce shadow root
- * into the next level". The values are bare declaration blocks (no selector
- * wrapper), so we wrap each in a synthetic ruleset before calling parseCss.
- *
- * Example input:
- *   { "ha-card": "filter: grayscale(100%);", "$": "color: red;" }
- *
- * We treat each key as the CSS selector and its value as the declaration
- * block, producing one CssTarget per key.
+ * Dictionary-form style (v0.10 model). The `.` entry is full CSS ruleset
+ * text — parsed like any string style. All other entries are preserved
+ * verbatim (see PiercedEntry): the Studio does not interpret pierced
+ * selectors yet, it only guarantees they survive every edit
+ * byte-identically. (The pre-v0.9.1 behavior of wrapping every key as
+ * `key { value }` mis-modelled card-mod's semantics — dict values are full
+ * rule text scoped to the selected element/shadow-root, not bare
+ * declaration blocks — and corrupted or deleted such styles on save.)
  */
-function parseDictStyle(dict: Record<string, unknown>): CardModStyleState {
-  const targets: CssTarget[] = [];
-  const rawParts: string[] = [];
+function parseDictForm(dict: Record<string, unknown>): CardModStyleState {
+  const { rootCss, dictSource } = splitDictStyle(dict);
+  const base = rootCss ? parseStyleString(rootCss) : emptyState();
+  return { ...base, dictSource };
+}
 
-  for (const [selector, declarations] of Object.entries(dict)) {
-    if (typeof declarations !== 'string') continue;
+/**
+ * Splits a dict-form style into its parseable `.` text and the preserved
+ * remainder (DictSource). Shared by the card-level parse above and the
+ * entities-row parse (studio-state.ts), so both build the exact same
+ * carrier the save path (applyDictStyle) rebuilds from.
+ */
+export function splitDictStyle(dict: Record<string, unknown>): { rootCss: string; dictSource: DictSource } {
+  const entries: PiercedEntry[] = [];
+  let rootCss = '';
+  let rootIndex: number | null = null;
 
-    const trimmedDecls = declarations.trim();
-    if (!trimmedDecls) continue;
-
-    // Build a synthetic full CSS ruleset so parseCss can handle it normally.
-    const synthetic = `${selector} { ${trimmedDecls} }`;
-    rawParts.push(synthetic);
-
-    try {
-      const parsed = parseCss(synthetic);
-      targets.push(...parsed);
-    } catch {
-      // Unparseable entry — it will still appear in rawCss.
+  Object.entries(dict).forEach(([key, value], i) => {
+    if (key === '.' && typeof value === 'string') {
+      rootCss = value;
+      rootIndex = i;
+    } else {
+      entries.push({ key, value });
     }
-  }
+  });
 
-  return {
-    targets,
-    rawCss: rawParts.join('\n'),
-  };
+  return { rootCss, dictSource: { entries, rootIndex } };
 }
 
 // ---------------------------------------------------------------------------

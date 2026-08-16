@@ -18,7 +18,8 @@
  * Not handled here (v1 scope, noted inline in the UI):
  * - container children (a stack inside a stack) — no recursion yet;
  * - an entities-card child's per-ROW styling (the card-level modules work);
- * - dict-form child styles are preserved untouched, same as everywhere.
+ * - mixed-form child styles (string + dict together) are preserved
+ *   untouched, same as everywhere (pure dict-form IS editable — v0.10).
  */
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
@@ -215,13 +216,17 @@ export class CmsChildCardSection extends LitElement {
       </div>`;
     }
 
-    // v0.9.1: dictionary-form ($-pierce) styling can't be edited yet — the
-    // save path preserves it verbatim, so don't offer dead controls here.
-    if (hasDictFormStyle(c)) {
+    // v0.10: dict-form child styles are editable when the parsed state
+    // carries the dict (dictSource) — the `.` entry runs through the normal
+    // module pipeline and every pierced entry is preserved verbatim on save.
+    // Only the MIXED form (active string style + dict on the secondary key)
+    // still freezes: there's no faithful single-key rewrite for it, so the
+    // save path preserves both keys untouched (same gate as cms-panel).
+    if (hasDictFormStyle(c) && !s.dictSource) {
       return html`<div class="child-note">
-        🔒 This child's styling is written in card-mod's dictionary form
-        ($ shadow-piercing), which the Studio can't edit yet — planned for
-        v0.10. It is preserved exactly as written.
+        🔒 Mixed-form styling — this child has both a plain style and a
+        dictionary-form ($ shadow-piercing) style. The Studio can't edit
+        that combination, so it is preserved exactly as written.
       </div>`;
     }
 
@@ -342,7 +347,8 @@ export class CmsChildCardSection extends LitElement {
 
         <cms-advanced-module
           .state=${s.advanced}
-          ?open=${hasUnrecognisedCss}
+          .pierced=${s.dictSource?.entries ?? []}
+          ?open=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
           @state-changed=${(e: CustomEvent<AdvancedModuleState>) => this._emitChanged({ advanced: e.detail })}
         ></cms-advanced-module>
 

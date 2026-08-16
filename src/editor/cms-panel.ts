@@ -19,7 +19,14 @@ import type {
   EntitiesRowStyles,
 } from '../types/index.js';
 import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
-import { isUixOnlyStyle, usesUixOnlyFeatures, hasUixOnlyRow, hasStyleContent, hasDictFormStyle } from '../utils/style-compat.js';
+import {
+  isUixOnlyStyle,
+  usesUixOnlyFeatures,
+  usesUixMacroBlockFeatures,
+  hasUixOnlyRow,
+  hasStyleContent,
+  hasDictFormStyle,
+} from '../utils/style-compat.js';
 import {
   CONTAINER_CARD_TYPES,
   STYLABLE_CHILDREN_CARD_TYPES,
@@ -190,7 +197,11 @@ export class CmsPanel extends LitElement {
    * card-mod is the target, even on a card with no card_mod block yet.
    */
   private get _uixMacrosCoexist(): boolean {
-    return !!this.config && this._cardModPresent && usesUixOnlyFeatures(this.config);
+    // Macro/billet-only (usesUixMacroBlockFeatures, not the selector-aware
+    // check): a dict-form uix style with $$/& keys is preserved or frozen
+    // outright (mixed-form gate), so this "can't be auto-synced" note
+    // doesn't describe it.
+    return !!this.config && this._cardModPresent && usesUixMacroBlockFeatures(this.config.uix);
   }
 
   /**
@@ -203,7 +214,10 @@ export class CmsPanel extends LitElement {
    * data lost" guarantee.
    */
   private get _uixMacrosWillBeOverwritten(): boolean {
-    return !!this.config && this._uixPresent && !this._cardModPresent && usesUixOnlyFeatures(this.config);
+    // Macro/billet-only for the same reason as _uixMacrosCoexist: a uix-keyed
+    // save on a dict-form style rebuilds it around `.` with every pierced
+    // ($$/&) entry byte-identical — nothing is overwritten there.
+    return !!this.config && this._uixPresent && !this._cardModPresent && usesUixMacroBlockFeatures(this.config.uix);
   }
 
   /**
@@ -365,7 +379,7 @@ export class CmsPanel extends LitElement {
     const css = generateCss(this._studioState, this.config?.type, {
       gaugeNeedle: (this.config as { needle?: boolean }).needle === true,
     });
-    let newConfig = applyCardModStyle(css, this.config, pickOutputKey(this.hass));
+    let newConfig = applyCardModStyle(css, this.config, pickOutputKey(this.hass), this._studioState.dictSource);
     if (this.config.type === 'entities') {
       newConfig = this._applyEntityRowStyles(newConfig);
     }
@@ -832,8 +846,9 @@ export class CmsPanel extends LitElement {
     if (atRisk) {
       if (this._uixOnlyUsesMacros) {
         return html`<div class="warning-banner">
-          ⚠️ This card's styling uses UIX-only macros/billets and UIX isn't detected — it won't apply, and
-          card-mod cannot run these features under any key. Reinstall UIX, or restyle this card manually.
+          ⚠️ This card's styling uses UIX-only features (macros/billets, or $$/&amp; selectors) and UIX
+          isn't detected — it won't apply, and card-mod cannot run these features under any key.
+          Reinstall UIX, or restyle this card manually.
         </div>`;
       }
       const what = this._uixOnlyAtRisk && this._uixOnlyRowsAtRisk
@@ -890,14 +905,21 @@ export class CmsPanel extends LitElement {
     // save path preserves it verbatim (yaml-generator guard), so offering
     // the card-level modules would be dead controls. Rows stay editable on
     // entities cards: they're separate row configs with their own guard.
-    if (hasDictFormStyle(this.config ?? {})) {
+    // v0.10: a dict-form ACTIVE style is editable — its `.` entry runs
+    // through the normal module pipeline and every pierced entry is
+    // preserved byte-identically (dictSource carrier). Only the MIXED
+    // case (active string style + dict-form style on the other key) still
+    // freezes: that combination has no faithful single-key rewrite.
+    if (hasDictFormStyle(this.config ?? {}) && !this._studioState?.dictSource) {
       return html`
         <div class="container-banner">
-          <strong>🔒 Hand-written shadow-piercing style — preserved as-is</strong>
-          This card's styling is written in card-mod's dictionary form
-          (<code>$</code> shadow-piercing), which the Studio can't edit yet —
-          visual editing of this form is planned for v0.10. Nothing here will
-          overwrite it: your styling is preserved exactly as written.
+          <strong>🔒 Mixed-form styling — preserved as-is</strong>
+          This card carries a hand-written dictionary-form
+          (<code>$</code> shadow-piercing) style alongside a plain style on
+          the other engine key. The Studio can't rewrite that combination
+          faithfully, so nothing here will overwrite it — your styling is
+          preserved exactly as written. Consolidate to one key in YAML to
+          edit it visually.
           ${this._isEntitiesCard
             ? html`Per-row styling below still works as usual.`
             : nothing}
@@ -1025,7 +1047,8 @@ export class CmsPanel extends LitElement {
 
       <cms-advanced-module
         .state=${s.advanced}
-        ?open=${hasUnrecognisedCss}
+        .pierced=${s.dictSource?.entries ?? []}
+        ?open=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
 
@@ -1109,7 +1132,8 @@ export class CmsPanel extends LitElement {
 
       <cms-advanced-module
         .state=${s.advanced}
-        ?open=${hasUnrecognisedCss}
+        .pierced=${s.dictSource?.entries ?? []}
+        ?open=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
     `;
