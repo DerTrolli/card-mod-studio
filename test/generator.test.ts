@@ -1703,7 +1703,7 @@ describe('generateCss — value-conditional animation trigger', () => {
     );
   });
 
-  it('emits no animation decl when the value condition is incomplete (no entity yet)', () => {
+  it('emits the UNCONDITIONAL animation while the value condition is incomplete (audit W8: the old empty emission left an orphan @keyframes that reset the module on reopen)', () => {
     const css = generateCss(
       makeState({
         animation: {
@@ -1717,7 +1717,8 @@ describe('generateCss — value-conditional animation trigger', () => {
         },
       }),
     );
-    expect(css).not.toContain('animation:');
+    expect(css).toContain('animation: cms-pulse 2s ease-in-out infinite;');
+    expect(css).toContain('@keyframes cms-pulse');
   });
 
   it('value trigger (states form) round-trips byte-stable', () => {
@@ -2028,5 +2029,82 @@ describe('UIX Forge / foundry key preservation (#27)', () => {
     // uix.style is macro-free here? No — macros present, so the uix block
     // must survive rather than being consolidated away.
     expect(next.uix?.macros).toEqual({ my_macro: 'grayscale(100%)' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v0.9.1 hotfix: dictionary-form ($-pierce) styles are preserved VERBATIM
+// through the save path. The four loss shapes from the 2026-08 audit
+// (docs/V0.10_PLAN.md §3): flat dict flattened, pierce-key dict corrupted,
+// nested dict DELETED, dict uix.style cleared.
+// ---------------------------------------------------------------------------
+
+describe('v0.9.1 dict-form preservation guard', () => {
+  const openEditSave = (config: CardModCardConfig): CardModCardConfig => {
+    // The real pipeline a user edit runs: parse -> state -> regenerate ->
+    // apply back onto the existing config.
+    const state = mapToStudioState(parseCardModConfig(config), config.type);
+    const css = generateCss(state, config.type);
+    return applyCardModStyle(css, config, 'card_mod');
+  };
+
+  it('flat dict card_mod.style survives an open+save byte-identically', () => {
+    const style = { 'ha-card': 'border-radius: 12px;', 'ha-state-icon': 'color: red;' };
+    const config = { type: 'tile', entity: 'light.a', card_mod: { style } } as unknown as CardModCardConfig;
+    const next = openEditSave(config);
+    expect(next.card_mod?.style).toEqual(style);
+    expect(next.card_mod?.style).toBe(style === next.card_mod?.style ? style : next.card_mod?.style); // same shape, dict not string
+    expect(typeof next.card_mod?.style).not.toBe('string');
+  });
+
+  it('pierce-key dict is not corrupted into a flat string', () => {
+    const style = { 'ha-card $': 'h1 { color: purple; }' };
+    const config = { type: 'markdown', card_mod: { style } } as unknown as CardModCardConfig;
+    const next = openEditSave(config);
+    expect(next.card_mod?.style).toEqual(style);
+  });
+
+  it('NESTED dict no longer deletes the card_mod key entirely (the v0.9.0 data-loss bug)', () => {
+    const style = { 'ha-state-control-climate-temperature$': { 'ha-big-number$': '.value { font-size: 30px; }' } };
+    const config = { type: 'thermostat', entity: 'climate.x', card_mod: { style } } as unknown as CardModCardConfig;
+    const next = openEditSave(config);
+    expect(next.card_mod).toBeDefined();
+    expect(next.card_mod?.style).toEqual(style);
+  });
+
+  it('dict-form uix.style is no longer cleared by a card_mod-keyed save', () => {
+    const uixStyle = { 'ha-gauge$': 'text.value-text { font-size: 30px; }' };
+    const config = {
+      type: 'gauge', entity: 'sensor.t',
+      card_mod: { style: 'ha-card {\n  border-radius: 12px;\n}' },
+      uix: { style: uixStyle },
+    } as unknown as CardModCardConfig;
+    const next = openEditSave(config);
+    expect(next.uix?.style).toEqual(uixStyle);
+    // and the string card_mod side is ALSO untouched (whole card frozen)
+    expect(next.card_mod?.style).toBe('ha-card {\n  border-radius: 12px;\n}');
+  });
+
+  it('uix-keyed saves are equally guarded', () => {
+    const style = { '.': 'ha-card { color: red; }', 'ha-gauge$': 'text { fill: blue; }' };
+    const config = { type: 'gauge', uix: { style } } as unknown as CardModCardConfig;
+    const next = applyCardModStyle('ha-card {\n  color: green;\n}', config, 'uix');
+    expect(next.uix?.style).toEqual(style);
+  });
+
+  it('an empty-css save (clearing all modules) still preserves a dict card', () => {
+    const style = { 'ha-card $': 'h1 { color: purple; }' };
+    const config = { type: 'markdown', card_mod: { style } } as unknown as CardModCardConfig;
+    const next = applyCardModStyle('', config, 'card_mod');
+    expect(next.card_mod?.style).toEqual(style);
+  });
+
+  it('string-form cards are completely unaffected by the guard', () => {
+    const config = {
+      type: 'tile', entity: 'light.a',
+      card_mod: { style: 'ha-card {\n  border-radius: 12px;\n}' },
+    } as unknown as CardModCardConfig;
+    const next = applyCardModStyle('ha-card {\n  border-radius: 9px;\n}', config, 'card_mod');
+    expect(next.card_mod?.style).toBe('ha-card {\n  border-radius: 9px;\n}');
   });
 });

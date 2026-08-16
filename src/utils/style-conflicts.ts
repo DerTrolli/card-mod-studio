@@ -52,14 +52,17 @@ const RULES: Rule[] = [
   { module: 'iconColor', selector: 'ha-tile-icon', props: ['--mdc-icon-size'] },
   { module: 'accentColor', selector: 'ha-card', props: [
     '--accent-color', '--tile-color', '--state-icon-color', '--paper-item-icon-active-color',
-    '--state-climate-heat-color', '--state-climate-cool-color', '--control-circular-slider-color', '--gauge-color',
+    '--state-climate-heat-color', '--state-climate-cool-color', '--state-climate-auto-color',
+    '--state-climate-idle-color', '--control-circular-slider-color', '--gauge-color',
   ] },
   { module: 'accentColor', selector: 'ha-gauge', props: ['--gauge-color', '--primary-text-color'] },
   { module: 'background', selector: 'ha-card', props: ['background', 'background-color', 'background-image'] },
   { module: 'font', selector: 'ha-card', props: [
     'font-size', 'font-weight', 'font-family', 'color',
     '--ha-tile-info-primary-font-size', '--ha-tile-info-primary-font-weight', '--ha-tile-info-primary-color',
+    '--ha-tile-info-secondary-font-size', '--ha-tile-info-secondary-font-weight', '--ha-tile-info-secondary-color',
     '--ha-card-header-font-size', '--ha-card-header-color', '--ha-card-header-font-family',
+    '--ha-font-size-l', '--ha-font-weight-medium', '--primary-text-color',
   ] },
   { module: 'headingStyle', selector: '.title', props: ['font-size', 'font-weight', 'font-family', 'color', '--mdc-icon-size', '--ha-icon-size'] },
   { module: 'border', selector: 'ha-card', props: ['border', 'border-radius', 'border-width', 'border-color'] },
@@ -71,8 +74,12 @@ const RULES: Rule[] = [
 const THRESHOLD_PROPS: Record<string, Rule[]> = {
   'icon-color': [{ module: 'threshold', selector: 'ha-state-icon', props: ['color'] }],
   'accent-color': [
-    { module: 'threshold', selector: 'ha-card', props: ['--accent-color', '--tile-color'] },
-    { module: 'threshold', selector: 'ha-gauge', props: ['--gauge-color'] },
+    { module: 'threshold', selector: 'ha-card', props: [
+      '--accent-color', '--tile-color', '--state-icon-color',
+      '--state-climate-heat-color', '--state-climate-cool-color', '--state-climate-auto-color',
+      '--state-climate-idle-color', '--control-circular-slider-color',
+    ] },
+    { module: 'threshold', selector: 'ha-gauge', props: ['--gauge-color', '--primary-text-color'] },
   ],
   background: [{ module: 'threshold', selector: 'ha-card', props: ['background'] }],
   'text-color': [{ module: 'threshold', selector: 'ha-card', props: ['color'] }],

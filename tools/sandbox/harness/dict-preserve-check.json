@@ -1,0 +1,32 @@
+[
+  {
+    "name": "dict-form card shows the preserved-as-is banner",
+    "pass": true,
+    "detail": "{\"bannerShown\":true}"
+  },
+  {
+    "name": "card-level modules are not rendered for a dict-form card (no dead controls)",
+    "pass": true,
+    "detail": "{\"modulesHidden\":true}"
+  },
+  {
+    "name": "entities card with dict card style keeps the per-row module",
+    "pass": true,
+    "detail": "{\"rowsModulePresent\":true}"
+  },
+  {
+    "name": "a row edit emits with the card-level dict byte-identical",
+    "pass": true,
+    "detail": "{\"emitted\":true,\"cardDictIntact\":true}"
+  },
+  {
+    "name": "…and the edited row actually gained its style",
+    "pass": true,
+    "detail": "{\"rowGotStyle\":true}"
+  },
+  {
+    "name": "stack child with dict style shows the preserved note instead of controls",
+    "pass": true,
+    "detail": "{\"note\":true,\"hidden\":true}"
+  }
+]

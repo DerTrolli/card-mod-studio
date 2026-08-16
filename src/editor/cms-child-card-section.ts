@@ -52,6 +52,8 @@ import {
 } from '../utils/card-caps.js';
 import { moduleStyles } from '../modules/module-base.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
+import { hasDictFormStyle } from '../utils/style-compat.js';
+import { ConfigEchoGuard } from '../utils/config-echo.js';
 
 import '../modules/module-filter.js';
 import '../modules/module-icon-color.js';
@@ -74,10 +76,11 @@ export class CmsChildCardSection extends LitElement {
   @state() private _entityRowStyles: EntitiesRowStyles = {};
   @state() private _open = false;
 
-  /** Mirror of cms-panel's _lastEmittedConfigJson dedup guard: when the
-   *  panel reflects our own emitted child config back down, don't rebuild
-   *  state mid-edit. */
-  private _lastEmittedChildJson: string | null = null;
+  /** Mirror of cms-panel's own-echo dedup guard: when the panel reflects
+   *  our own emitted child config back down, don't rebuild state mid-edit.
+   *  The guard advances its baseline on every external rebuild (see
+   *  ConfigEchoGuard for the revert-to-A regression this prevents). */
+  private _echoGuard = new ConfigEchoGuard();
 
   static override styles = [
     moduleStyles,
@@ -139,11 +142,10 @@ export class CmsChildCardSection extends LitElement {
       if (!this.childConfig) {
         this._studioState = null;
         this._entityRowStyles = {};
-        this._lastEmittedChildJson = null;
+        this._echoGuard.reset();
         return;
       }
-      const json = JSON.stringify(this.childConfig);
-      if (json !== this._lastEmittedChildJson) {
+      if (this._echoGuard.shouldRebuild(JSON.stringify(this.childConfig))) {
         this._studioState = buildMergedStudioState(this.childConfig, this.hass);
         this._entityRowStyles = initEntityRowStyles(this.childConfig, this.hass);
       }
@@ -167,7 +169,7 @@ export class CmsChildCardSection extends LitElement {
     if (this.childConfig.type === 'entities') {
       newChild = applyEntityRowStyles(newChild, this._entityRowStyles, this.hass);
     }
-    this._lastEmittedChildJson = JSON.stringify(newChild);
+    this._echoGuard.noteEmitted(JSON.stringify(newChild));
     this.dispatchEvent(
       new CustomEvent<{ index: number; config: CardModCardConfig }>('child-config-changed', {
         detail: { index: this.index, config: newChild },
@@ -210,6 +212,16 @@ export class CmsChildCardSection extends LitElement {
         This child is itself a "${c.type}" container — open it as its own card
         (or edit its YAML) to style the cards inside it. Nested container
         styling isn't supported yet.
+      </div>`;
+    }
+
+    // v0.9.1: dictionary-form ($-pierce) styling can't be edited yet — the
+    // save path preserves it verbatim, so don't offer dead controls here.
+    if (hasDictFormStyle(c)) {
+      return html`<div class="child-note">
+        🔒 This child's styling is written in card-mod's dictionary form
+        ($ shadow-piercing), which the Studio can't edit yet — planned for
+        v0.10. It is preserved exactly as written.
       </div>`;
     }
 

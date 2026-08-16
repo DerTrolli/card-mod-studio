@@ -351,6 +351,12 @@ function mapAnimation(
     const parsed = onParsed ?? parseAnimValue(offValue);
 
     if (parsed) {
+      // An animation on the OFF side of a CUSTOM entity has no
+      // representable trigger ('custom' means while-ON): claiming it used
+      // to drop the entity and rebind the animation to config.entity on
+      // save (audit W1). Leave it unclaimed → Advanced CSS, verbatim.
+      if (animProp.entityId && !onParsed) return { ...DEFAULT_ANIMATION };
+
       claimCompanions();
 
       const base = { enabled: true, ...parsed };
@@ -538,25 +544,32 @@ function mapFilter(haCard: CssTarget | null, claimed: Set<string>): FilterModule
       // filter, but with brightness/blur set it's the same filter list
       // minus grayscale() (see filterDecls: grayVal vs otherVal). Only
       // matching the literal 'none' silently dropped grayscale from any
-      // combined filter on reopen.
+      // combined filter on reopen. The 'none' shortcut is only valid when
+      // the gray branch is grayscale-ONLY — otherwise ride-along effects
+      // were silently dropped from the other branch (audit W2). Exactly
+      // grayscale(100%) is required: grayscale(50%) is not something the
+      // module can express and used to be rewritten to 100% (audit W2).
+      const grayRemainder = (branch: string | undefined): string =>
+        (branch ?? '').replace(/^grayscale\(100%\)\s*/, '').trim();
       const matchesOther = (grayBranch: string | undefined, other: string | undefined): boolean => {
-        if (other?.trim() === 'none') return true;
-        if (!grayBranch || !other) return false;
-        const remainder = grayBranch.replace(/grayscale\([^)]*\)\s*/, '').trim();
+        if (!grayBranch?.trim().startsWith('grayscale(100%)')) return false;
+        const remainder = grayRemainder(grayBranch);
+        if (other?.trim() === 'none') return remainder.length === 0;
+        if (!other) return false;
         return remainder.length > 0 && other.trim() === remainder;
       };
 
       if (offHasGrayscale && matchesOther(filterProp.offValue, filterProp.onValue)) {
-        // grayscale when off, none when on
-        state.enabled = true;
-        state.grayscale = true;
-        if (customEntity) {
-          state.grayscaleWhen = 'custom';
-          state.customEntity = customEntity;
-        } else {
+        // grayscale when off, none when on. With a CUSTOM entity this shape
+        // is NOT claimable: 'custom' means "while the entity is ON", so
+        // claiming an off-side custom conditional inverted it on the next
+        // save (audit W1).
+        if (!customEntity) {
+          state.enabled = true;
+          state.grayscale = true;
           state.grayscaleWhen = 'off';
+          filterClaimed = true;
         }
-        filterClaimed = true;
       } else if (onHasGrayscale && matchesOther(filterProp.onValue, filterProp.offValue)) {
         // grayscale when on, none when off
         state.enabled = true;
@@ -571,12 +584,13 @@ function mapFilter(haCard: CssTarget | null, claimed: Set<string>): FilterModule
       }
 
       if (filterClaimed) {
-        // Brightness/blur/opacity riding along in the grayscale branches.
-        // A remainder that ISN'T exactly our effects list (hand-written
-        // hue-rotate etc.) reverts the claim — regenerating would drop it.
-        const source = filterProp.onValue ?? filterProp.offValue ?? filterProp.value;
-        const remainder = source.replace(/grayscale\([^)]*\)\s*/, '').trim();
-        const parts = parseEffectParts(remainder === 'none' ? '' : remainder, true);
+        // Brightness/blur/opacity riding along in the grayscale branches —
+        // read from the branch that actually CARRIES the grayscale (the
+        // old onValue-first read grabbed the wrong branch for off-side
+        // conditionals, audit W2). A remainder that isn't exactly our
+        // effects list (hand-written hue-rotate etc.) reverts the claim.
+        const source = (offHasGrayscale ? filterProp.offValue : filterProp.onValue) ?? filterProp.value;
+        const parts = parseEffectParts(grayRemainder(source), true);
         if (parts) {
           if (parts.brightness !== undefined) state.brightness = parts.brightness;
           if (parts.blur !== undefined) state.blur = parts.blur;
@@ -611,23 +625,35 @@ function mapFilter(haCard: CssTarget | null, claimed: Set<string>): FilterModule
 
     } else {
       // Plain (non-conditional) filter value. Claimed only when the value
-      // is EXACTLY the parts this module emits (canonical order) — a
-      // hand-written `hue-rotate(90deg) brightness(80%)` used to have its
-      // brightness salvaged and the rest silently dropped on save.
+      // is EXACTLY the parts this module emits (canonical order, grayscale
+      // exactly 100% — grayscale(50%) used to be rewritten to 100%, audit
+      // W2) — a hand-written `hue-rotate(90deg) brightness(80%)` used to
+      // have its brightness salvaged and the rest silently dropped on save.
       const val = filterProp.value.trim();
-      const grayscale = val.startsWith('grayscale(');
-      const rest = grayscale ? val.replace(/^grayscale\([^)]*\)\s*/, '').trim() : val;
-      const parts = parseEffectParts(rest, true);
-      if (parts && (grayscale || rest.length > 0)) {
-        state.enabled = true;
-        if (grayscale) {
-          state.grayscale = true;
-          state.grayscaleWhen = 'always';
+      const grayscale = val.startsWith('grayscale(100%)');
+      if (!grayscale && val.startsWith('grayscale(')) {
+        // A grayscale amount the module can't express — leave unclaimed.
+      } else {
+        const rest = grayscale ? val.replace(/^grayscale\(100%\)\s*/, '').trim() : val;
+        const parts = parseEffectParts(rest, true);
+        // Claim only when regeneration re-emits something: an all-defaults
+        // list like `brightness(100%)` produced state the generator emits
+        // NOTHING for — claimed-then-deleted on save (audit W2).
+        const emittable =
+          (parts?.brightness !== undefined && parts.brightness !== 100) ||
+          (parts?.blur !== undefined && parts.blur > 0) ||
+          (parts?.opacity !== undefined && parts.opacity < 100);
+        if (parts && (grayscale || emittable)) {
+          state.enabled = true;
+          if (grayscale) {
+            state.grayscale = true;
+            state.grayscaleWhen = 'always';
+          }
+          if (parts.brightness !== undefined) state.brightness = parts.brightness;
+          if (parts.blur !== undefined) state.blur = parts.blur;
+          if (parts.opacity !== undefined) state.opacity = parts.opacity;
+          filterClaimed = true;
         }
-        if (parts.brightness !== undefined) state.brightness = parts.brightness;
-        if (parts.blur !== undefined) state.blur = parts.blur;
-        if (parts.opacity !== undefined) state.opacity = parts.opacity;
-        filterClaimed = true;
       }
     }
 
@@ -639,8 +665,12 @@ function mapFilter(haCard: CssTarget | null, claimed: Set<string>): FilterModule
   // (see filterDecls), so claiming a hand-authored standalone transition
   // here would delete it on the next save: claimed (not in Advanced CSS)
   // but never regenerated.
+  // …and only a transition whose property list is exactly `filter` — a
+  // hand-written `transition: all …` was claimed and NARROWED to
+  // `transition: filter …` on save (audit W2). An `all` transition now
+  // stays verbatim in Advanced CSS (it keeps winning — emitted last).
   if (transitionProp && state.enabled) {
-    if (transitionProp.value.includes('filter') || transitionProp.value.includes('all')) {
+    if (/^filter[\s,]/.test(transitionProp.value.trim())) {
       const msMatch = transitionProp.value.match(/(\d+)ms/);
       const sMatch = transitionProp.value.match(/(\d*\.?\d+)s(?:\s|$|,)/);
       if (msMatch) {
@@ -685,12 +715,39 @@ function mapIconColor(
   claimed: Set<string>,
 ): IconColorModuleState {
   const state = mapIconColorCore(haStateIcon, haIcon, haCard, hostTarget, cardType, claimed);
-  if (!state.enabled) return state;
 
-  // v0.9 icon size — the ha-card variable pair, or tile's ha-tile-icon
-  // block (see iconSizeDecls/tileIconSizeBlock). Claimed only on card
-  // types the generator re-emits it for (ICON_SIZE_TYPES): claiming it
-  // elsewhere would silently drop the declaration on the next save.
+  if (!state.enabled) {
+    // Icon SIZE must survive even when the color side wasn't recognized —
+    // specifically when Threshold owns icon-color (the ha-state-icon color
+    // is then a multi-branch ternary this mapper deliberately doesn't
+    // claim). Bailing out here lost the size setting and leaked the size
+    // vars into Advanced CSS on reopen (audit W5/BUG-8). Only that
+    // threshold-shaped case may re-enable the module for size: a PLAIN
+    // unrecognized color stays fully unclaimed, since enabled:true would
+    // make the generator emit a default color over the hand-written one.
+    const colorProp = haStateIcon ? findProp(haStateIcon, 'color') : undefined;
+    const thresholdShaped =
+      !!colorProp && colorProp.hasCondition && !colorProp.onValue && !colorProp.offValue;
+    if (!thresholdShaped) return state;
+    applyIconSize(state, haCard, haTileIcon, cardType, claimed);
+    if (state.sizePx !== undefined && state.sizePx > 0) state.enabled = true;
+    return state;
+  }
+
+  return applyIconSize(state, haCard, haTileIcon, cardType, claimed);
+}
+
+/** v0.9 icon size — the ha-card variable pair, or tile's ha-tile-icon
+ *  block (see iconSizeDecls/tileIconSizeBlock). Claimed only on card
+ *  types the generator re-emits it for (ICON_SIZE_TYPES): claiming it
+ *  elsewhere would silently drop the declaration on the next save. */
+function applyIconSize(
+  state: IconColorModuleState,
+  haCard: CssTarget | null,
+  haTileIcon: CssTarget | null,
+  cardType: string | undefined,
+  claimed: Set<string>,
+): IconColorModuleState {
   const applySize = (raw: string): boolean => {
     const staticMatch = raw.trim().match(/^(\d+(?:\.\d+)?)px$/);
     if (staticMatch) {
@@ -870,6 +927,35 @@ function mapAccentColor(
 
 // ---------------------------------------------------------------------------
 // Background module
+
+/** Parses `linear-gradient(NNdeg, c1, c2)` splitting on TOP-LEVEL commas —
+ *  palette colors are `var(--x-color)` and hand-typed ones can be
+ *  `rgb(r, g, b)`, both of which broke the old `[^,]+` capture and dumped
+ *  the whole gradient string into color1 as a "solid" (audit W7). */
+function parseLinearGradient(value: string): { angle: number; color1: string; color2: string } | null {
+  const m = value.trim().match(/^linear-gradient\(\s*(\d+)deg\s*,([\s\S]+)\)$/i);
+  if (!m) return null;
+  const body = m[2];
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    else if (ch === ',' && depth === 0) {
+      parts.push(body.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(body.slice(start));
+  if (parts.length !== 2) return null;
+  const color1 = parts[0].trim();
+  const color2 = parts[1].trim();
+  if (!color1 || !color2) return null;
+  return { angle: parseInt(m[1], 10), color1, color2 };
+}
+
 // ---------------------------------------------------------------------------
 
 function mapBackground(
@@ -913,20 +999,23 @@ function mapBackground(
       applyWhen = bgProp.entityId ? 'custom' : 'on';
       colorVal = onVal;
     } else if (onVal === 'none' && offVal && offVal !== 'none') {
-      applyWhen = bgProp.entityId ? 'custom' : 'off';
+      // Background on the OFF side of a CUSTOM entity is NOT claimable:
+      // 'custom' regenerates as "while the entity is ON" — claiming this
+      // shape INVERTED the user's condition on save (audit W1). Falls to
+      // Advanced CSS, preserved verbatim.
+      if (bgProp.entityId) return { ...DEFAULT_BACKGROUND };
+      applyWhen = 'off';
       colorVal = offVal;
     }
     if (applyWhen && colorVal) {
       claimed.add(claimKey(haCard.selector, 'background'));
       const customEntity = applyWhen === 'custom' ? { customEntity: bgProp.entityId } : {};
-      const gradientMatch = colorVal.match(
-        /^linear-gradient\(\s*(\d+)deg\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)$/i,
-      );
-      if (gradientMatch) {
+      const gradient = parseLinearGradient(colorVal);
+      if (gradient) {
         return {
           enabled: true, type: 'gradient',
-          color1: gradientMatch[2].trim(), color2: gradientMatch[3].trim(),
-          angle: parseInt(gradientMatch[1], 10), applyWhen, ...customEntity,
+          color1: gradient.color1, color2: gradient.color2,
+          angle: gradient.angle, applyWhen, ...customEntity,
         };
       }
       return { ...DEFAULT_BACKGROUND, enabled: true, type: 'solid', color1: colorVal, applyWhen, ...customEntity };
@@ -938,17 +1027,15 @@ function mapBackground(
 
   const value = bgProp.value.trim();
 
-  const gradientMatch = value.match(
-    /^linear-gradient\(\s*(\d+)deg\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)$/i,
-  );
-  if (gradientMatch) {
+  const gradient = parseLinearGradient(value);
+  if (gradient) {
     claimed.add(claimKey(haCard.selector, 'background'));
     return {
       enabled: true,
       type: 'gradient',
-      color1: gradientMatch[2].trim(),
-      color2: gradientMatch[3].trim(),
-      angle: parseInt(gradientMatch[1], 10),
+      color1: gradient.color1,
+      color2: gradient.color2,
+      angle: gradient.angle,
       applyWhen: 'always',
     };
   }
@@ -984,7 +1071,7 @@ function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModule
 
   if (borderProp && !borderProp.hasCondition) {
     const match = borderProp.value.match(
-      /^(\d+)px\s+(solid|dashed|dotted|double|groove|ridge|inset|outset|none)\s+(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)$/i,
+      /^(\d+)px\s+(solid|dashed|dotted|double|groove|ridge|inset|outset|none)\s+(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)$/i,
     );
     if (match) {
       state.enabled = true;
@@ -1002,7 +1089,7 @@ function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModule
     // borderDecls emits). Anything else stays unclaimed → Advanced CSS.
     const ternary = parseCondTernary(borderProp.value);
     if (ternary) {
-      const BRANCH = /^(\d+)px\s+solid\s+(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)$/i;
+      const BRANCH = /^(\d+)px\s+solid\s+(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)$/i;
       const on = ternary.onValue.match(BRANCH);
       const off = ternary.offValue === 'none' ? 'none' : ternary.offValue.match(BRANCH);
       const colorsMatch = off === 'none' || (off !== null && on !== null && off[2] === on[2]);
@@ -1521,10 +1608,17 @@ function mapThreshold(
   if (iconAdoptionAllowed(cardType)) {
     for (const target of [haCard, hostTarget]) {
       if (!target) continue;
+      // An icon-var whose value EQUALS --accent-color's is that module's
+      // own companion (accentAuxDecls), not a hand-written icon threshold —
+      // adopting it added an unrequested 'icon-color' property to the
+      // threshold on every reopen (audit W4). Same skip mapIconColorCore
+      // does for its adoption path.
+      const accentProp = haCard ? findProp(haCard, '--accent-color') : undefined;
       for (const varName of ['--state-icon-color', '--paper-item-icon-color']) {
         const prop = findProp(target, varName);
-        if (prop?.hasCondition && !prop.onValue)
-          candidates.push({ target, cssProperty: varName, thresholdProperty: 'icon-color' });
+        if (!prop?.hasCondition || prop.onValue) continue;
+        if (accentProp && accentProp.value.trim() === prop.value.trim()) continue;
+        candidates.push({ target, cssProperty: varName, thresholdProperty: 'icon-color' });
       }
     }
   }
@@ -1563,18 +1657,17 @@ function mapThreshold(
     }
 
     // Gradient mode leaves its real anchor points in a sibling custom
-    // property on the same target — see encodeGradientStops/GRADIENT_MARKER_PROPERTY
-    // in css-generator.ts. Without this, gradient-driven cards would round-trip
-    // back as ~32 confusing switch-mode rules instead of the actual stops.
-    if (!gradientStops) {
-      const markerProp = findProp(target, GRADIENT_MARKER_PROPERTY);
-      if (markerProp) {
-        const unquoted = markerProp.value.trim().replace(/^'|'$/g, '');
-        const decoded = decodeGradientStops(unquoted);
-        if (decoded) {
-          gradientStops = decoded;
-          claimed.add(claimKey(target.selector, GRADIENT_MARKER_PROPERTY));
-        }
+    // property on EVERY property block the generator emitted (see
+    // thresholdPropertyBlock) — claim the marker on each claimed target,
+    // not just the first: the unclaimed copies accreted as orphan blocks
+    // in Advanced CSS on every save (audit W3).
+    const markerProp = findProp(target, GRADIENT_MARKER_PROPERTY);
+    if (markerProp) {
+      const unquoted = markerProp.value.trim().replace(/^'|'$/g, '');
+      const decoded = decodeGradientStops(unquoted);
+      if (decoded) {
+        gradientStops ??= decoded;
+        claimed.add(claimKey(target.selector, GRADIENT_MARKER_PROPERTY));
       }
     }
   }

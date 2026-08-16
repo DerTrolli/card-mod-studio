@@ -269,7 +269,11 @@ export class CmsPreviewPicker extends LitElement {
     ev.stopPropagation();
     // Recompute at the click point so tap-without-hover (mobile) works too;
     // fall back to the last hover target if the recompute finds nothing.
-    const target = this._updateFromPoint(ev.clientX, ev.clientY) ?? this._target;
+    // The previous target must be captured BEFORE recomputing — the
+    // no-match paths inside _updateFromPoint call _clear(), which nulls
+    // _target and made this fallback dead code (audit BUG-11).
+    const prev = this._target;
+    const target = this._updateFromPoint(ev.clientX, ev.clientY) ?? prev;
     if (!target) return;
     this.dispatchEvent(
       new CustomEvent<PickEventDetail>('cms-pick', {

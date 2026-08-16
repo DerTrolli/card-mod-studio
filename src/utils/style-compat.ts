@@ -18,6 +18,29 @@ import type { CardModCardConfig, EntitiesCardRow, UixConfig } from '../types/ind
 
 export type StyleValue = string | Record<string, string> | undefined;
 
+/**
+ * True when a style value is card-mod's dictionary form (selector keys,
+ * `$` shadow-piercing, nested dicts). The Studio can't rewrite that form
+ * faithfully yet (v0.10 — see docs/V0.10_PLAN.md); until then anything
+ * dict-form is preserved verbatim, never regenerated. Takes `unknown`
+ * because the config types can't express nested dicts (a known type-level
+ * gap, also v0.10).
+ */
+export function isDictForm(style: unknown): boolean {
+  return style !== undefined && style !== null && typeof style !== 'string';
+}
+
+/** True when EITHER of a config's style keys is dictionary-form — the save
+ *  path must then leave both keys completely untouched: rewriting only one
+ *  would corrupt precedence between them, and rewriting the dict one
+ *  corrupts or deletes it (the v0.9.0 loss paths — V0.10_PLAN.md §3). */
+export function hasDictFormStyle(source: {
+  uix?: { style?: unknown };
+  card_mod?: { style?: unknown };
+}): boolean {
+  return isDictForm(source.card_mod?.style) || isDictForm(source.uix?.style);
+}
+
 /** A style value counts as "real" content only if it has something in it — an
  * explicit empty string or empty dict is the same as not being set at all. */
 export function hasStyleContent(style: StyleValue): boolean {

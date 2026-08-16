@@ -18,7 +18,7 @@ import { parseStyleValue } from '../parser/yaml-parser.js';
 import { mapToStudioState, mergeStudioStates, parseEntityRowCss, mergeEntityRowStyles } from '../parser/state-mapper.js';
 import { generateCss, buildThresholdJinja, FONT_WEIGHT_VALUE } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
-import { hasStyleContent, usesUixOnlyFeatures, resolveStyle } from '../utils/style-compat.js';
+import { hasStyleContent, usesUixOnlyFeatures, resolveStyle, isDictForm } from '../utils/style-compat.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
 
 /**
@@ -237,7 +237,7 @@ export function applyEntityRowStyles(
     // (ROADMAP #23) — rewriting the row would replace it with nothing.
     // Leave such rows completely untouched instead of destroying them.
     const currentStyle = resolveStyle(row as unknown as CardModCardConfig);
-    if (currentStyle !== undefined && typeof currentStyle !== 'string') return row;
+    if (isDictForm(currentStyle)) return row;
     const rowCss = hasContent ? generateEntityRowCss(rowStyle!, entityId) : '';
     return applyCardModStyle(rowCss, row as unknown as CardModCardConfig, outputKey) as unknown as EntitiesCardRow;
   });
