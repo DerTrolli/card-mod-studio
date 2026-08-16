@@ -40,9 +40,14 @@ export interface LovelaceCardConfig {
 // Card-Mod Studio internal state types
 // ---------------------------------------------------------------------------
 
-/** The top-level config that card-mod reads from a card's YAML. */
+/** The top-level config that card-mod reads from a card's YAML. Besides
+ *  `style`, card-mod supports `class:` (extra CSS class on the card) and
+ *  `debug:` — the Studio never writes them but must preserve them through
+ *  edits (audit BUG-1: they used to be dropped on save). */
 export interface CardModConfig {
   style?: string | Record<string, string>;
+  class?: string;
+  debug?: boolean;
 }
 
 /**

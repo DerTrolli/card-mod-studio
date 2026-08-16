@@ -37,6 +37,8 @@ import './cms-preview-picker.js';
 import type { PickEventDetail } from './cms-preview-picker.js';
 import { loadPresets, savePresets } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
+import { filterPresetStateForCardType } from '../utils/preset-caps.js';
+import { ConfigEchoGuard } from '../utils/config-echo.js';
 import { initPaletteCache } from '../utils/palette-storage.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
@@ -77,7 +79,10 @@ export class CmsPanel extends LitElement {
   /** True when the panel is too narrow for the side-by-side preview. */
   @state() private _narrow = false;
 
-  private _lastEmittedConfigJson: string | null = null;
+  /** Own-echo guard: skips state rebuilds for configs we ourselves just
+   *  emitted, while advancing its baseline on every genuine external
+   *  rebuild (see ConfigEchoGuard for the revert-to-A regression). */
+  private _echoGuard = new ConfigEchoGuard();
   private _resizeObserver?: ResizeObserver;
 
   override connectedCallback() {
@@ -123,11 +128,10 @@ export class CmsPanel extends LitElement {
     if (!this.config) {
       this._studioState = null;
       this._entityRowStyles = {};
-      this._lastEmittedConfigJson = null;
+      this._echoGuard.reset();
       return;
     }
-    const configJson = JSON.stringify(this.config);
-    if (configJson === this._lastEmittedConfigJson) return;
+    if (!this._echoGuard.shouldRebuild(JSON.stringify(this.config))) return;
 
     this._studioState = this._buildMergedState(this.config);
     this._initEntityRowStyles();
@@ -241,7 +245,7 @@ export class CmsPanel extends LitElement {
 
     this._previewConfig = next;
     this._previewKey++;
-    this._lastEmittedConfigJson = JSON.stringify(next);
+    this._echoGuard.noteEmitted(JSON.stringify(next));
     this.dispatchEvent(
       new CustomEvent('config-changed', { bubbles: true, composed: true, detail: { config: next } }),
     );
@@ -367,7 +371,7 @@ export class CmsPanel extends LitElement {
     }
     this._previewConfig = newConfig;
     this._previewKey++;
-    this._lastEmittedConfigJson = JSON.stringify(newConfig);
+    this._echoGuard.noteEmitted(JSON.stringify(newConfig));
     this.dispatchEvent(
       new CustomEvent('config-changed', {
         bubbles: true,
@@ -412,10 +416,17 @@ export class CmsPanel extends LitElement {
     // the thing that wipes it.
     const currentAdvanced = this._studioState?.advanced;
     const presetHasAdvanced = !!preset.state.advanced?.rawCss?.trim();
-    this._studioState = {
-      ...preset.state,
-      ...(presetHasAdvanced || !currentAdvanced ? {} : { advanced: currentAdvanced }),
-    };
+    // Reset any module THIS card type's panel hides back to its disabled
+    // default — a preset saved on a different card type must not smuggle in
+    // styling (e.g. tile animation onto a heading card) that the hidden
+    // module offers no control to ever disable. See preset-caps.ts.
+    this._studioState = filterPresetStateForCardType(
+      {
+        ...preset.state,
+        ...(presetHasAdvanced || !currentAdvanced ? {} : { advanced: currentAdvanced }),
+      },
+      this.config?.type,
+    );
     this._emitConfigChanged();
   }
 
@@ -1042,7 +1053,7 @@ export class CmsPanel extends LitElement {
 
     this._previewConfig = newConfig;
     this._previewKey++;
-    this._lastEmittedConfigJson = JSON.stringify(newConfig);
+    this._echoGuard.noteEmitted(JSON.stringify(newConfig));
     this.dispatchEvent(
       new CustomEvent('config-changed', {
         bubbles: true,

@@ -137,9 +137,26 @@ function splitIntoBlocks(
   let depth = 0;
   let blockStart = -1;
   let selectorStart = 0;
+  let inComment = false;
 
   for (let i = 0; i < css.length; i++) {
     const ch = css[i];
+
+    // Braces inside /* … */ comments must not touch the depth counter — a
+    // stray `}` in a comment used to desync it and silently DROP every
+    // following block (audit D1: the whole style wiped on save).
+    if (inComment) {
+      if (ch === '*' && css[i + 1] === '/') {
+        inComment = false;
+        i++;
+      }
+      continue;
+    }
+    if (ch === '/' && css[i + 1] === '*') {
+      inComment = true;
+      i++;
+      continue;
+    }
 
     if (ch === '{') {
       if (depth === 0) {
@@ -148,7 +165,9 @@ function splitIntoBlocks(
       }
       depth++;
     } else if (ch === '}') {
-      depth--;
+      // Floor at 0: a stray closing brace outside any block must not push
+      // the counter negative and desync all following blocks (audit D1).
+      if (depth > 0) depth--;
       if (depth === 0 && blockStart !== -1) {
         const selector = css.slice(selectorStart, blockStart - 1).trim();
         const declarationBlock = css.slice(blockStart, i).trim();
@@ -187,6 +206,34 @@ function splitIntoBlocks(
  * Without this, `findProp`'s `.find()` would return the first (overridden,
  * dead) occurrence instead of the one that's actually rendered.
  */
+/** Splits a declaration block on `;` while skipping semicolons inside
+ *  parentheses and single/double-quoted strings (audit D2). */
+function splitDeclarations(block: string): string[] {
+  const out: string[] = [];
+  let start = 0;
+  let parens = 0;
+  let quote: string | null = null;
+  for (let i = 0; i < block.length; i++) {
+    const ch = block[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === '(') {
+      parens++;
+    } else if (ch === ')') {
+      if (parens > 0) parens--;
+    } else if (ch === ';' && parens === 0) {
+      out.push(block.slice(start, i));
+      start = i + 1;
+    }
+  }
+  out.push(block.slice(start));
+  return out;
+}
+
 function parseDeclarations(
   declarationBlock: string,
   jinjaMap: Map<string, string>,
@@ -194,8 +241,11 @@ function parseDeclarations(
   const properties: CssProperty[] = [];
   const indexByProperty = new Map<string, number>();
 
-  // Split on ";" — trailing empties are fine, we skip them below.
-  const declarations = declarationBlock.split(';');
+  // Split on ";" — but NOT inside (…) or quotes: url(data:image/png;base64,…)
+  // and quoted strings legitimately contain semicolons; a naive split
+  // truncated them and the corrupted remainder was written back on save
+  // (audit D2). Jinja is already placeholder-protected upstream.
+  const declarations = splitDeclarations(declarationBlock);
 
   for (const decl of declarations) {
     const trimmed = decl.trim();

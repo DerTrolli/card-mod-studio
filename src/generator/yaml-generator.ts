@@ -43,6 +43,15 @@ function clearUixStyle(existingConfig: CardModCardConfig): UixConfig | undefined
   return existingConfig.uix ? withoutStyle(existingConfig.uix) : undefined;
 }
 
+/** card_mod twin of clearUixStyle: strips .style but preserves class:/debug:
+ *  siblings (audit BUG-1 — they used to be deleted with the whole block). */
+function clearCardModStyle(existingConfig: CardModCardConfig): CardModCardConfig['card_mod'] | undefined {
+  if (!existingConfig.card_mod) return undefined;
+  const rest = { ...existingConfig.card_mod };
+  delete rest.style;
+  return Object.keys(rest).length > 0 ? rest : undefined;
+}
+
 /**
  * Returns a new card config with style set to the given CSS string, under
  * either the card_mod or uix key.
@@ -98,7 +107,14 @@ export function applyCardModStyle(
 
   if (!trimmed) {
     const result: CardModCardConfig = { ...existingConfig };
-    delete result.card_mod;
+    // Strip only .style — card_mod can carry class:/debug: siblings the
+    // Studio never writes but must not delete (audit BUG-1).
+    const cleanedCardMod = clearCardModStyle(result);
+    if (cleanedCardMod === undefined) {
+      delete result.card_mod;
+    } else {
+      result.card_mod = cleanedCardMod;
+    }
 
     const cleanedUix = clearUixStyle(result);
     if (cleanedUix === undefined) {
@@ -111,11 +127,17 @@ export function applyCardModStyle(
 
   if (outputKey === 'uix') {
     const next: CardModCardConfig = { ...existingConfig, uix: { ...existingConfig.uix, style: trimmed } };
-    delete next.card_mod;
+    // Same sibling-preservation on the key being vacated (audit BUG-1).
+    const cleanedCardMod = clearCardModStyle(next);
+    if (cleanedCardMod === undefined) {
+      delete next.card_mod;
+    } else {
+      next.card_mod = cleanedCardMod;
+    }
     return next;
   }
 
-  const next: CardModCardConfig = { ...existingConfig, card_mod: { style: trimmed } };
+  const next: CardModCardConfig = { ...existingConfig, card_mod: { ...existingConfig.card_mod, style: trimmed } };
   if (next.uix?.style !== undefined && !usesUixOnlyFeaturesInBlock(next.uix)) {
     const cleanedUix = clearUixStyle(next);
     if (cleanedUix === undefined) {

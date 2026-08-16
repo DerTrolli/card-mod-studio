@@ -154,9 +154,14 @@ function filterDecls(s: FilterModuleState): string[] {
       decls.push(
         `filter: {{ '${grayVal}' if is_state(config.entity, 'off') else '${otherVal}' }};`,
       );
-    } else if (s.grayscaleWhen === 'custom' && s.customEntity) {
+    } else if (s.grayscaleWhen === 'custom') {
+      // Custom with no entity picked yet emits the UNCONDITIONAL form —
+      // falling into the 'on' branch here silently changed the condition
+      // (audit W8/BUG-3); matches conditionExpr's incomplete-guard.
       decls.push(
-        `filter: {{ '${grayVal}' if is_state(${entityRef(s.customEntity)}, 'on') else '${otherVal}' }};`,
+        s.customEntity
+          ? `filter: {{ '${grayVal}' if is_state(${entityRef(s.customEntity)}, 'on') else '${otherVal}' }};`
+          : `filter: ${grayVal};`,
       );
     } else {
       decls.push(
@@ -296,10 +301,14 @@ function backgroundDecls(s: BackgroundModuleState): string[] {
       : s.color1;
 
   if (s.applyWhen === 'always') return [`background: ${bgValue};`];
-  if (s.applyWhen === 'custom' && s.customEntity) {
-    return [
-      `background: {{ '${bgValue}' if is_state(${entityRef(s.customEntity)}, 'on') else 'none' }};`,
-    ];
+  if (s.applyWhen === 'custom') {
+    // No entity picked yet → unconditional. The old fallthrough mapped an
+    // incomplete 'custom' to the 'off' branch — the background instantly
+    // INVERTED and the intent was rewritten to applyWhen:'off' on reopen
+    // (audit W8/BUG-2).
+    return s.customEntity
+      ? [`background: {{ '${bgValue}' if is_state(${entityRef(s.customEntity)}, 'on') else 'none' }};`]
+      : [`background: ${bgValue};`];
   }
   const when = s.applyWhen === 'on' ? 'on' : 'off';
   return [
@@ -356,24 +365,28 @@ function animationDecls(s: AnimationModuleState): string[] {
     decls.push(
       `animation: {{ '${animValue}' if is_state(config.entity, 'off') else 'none' }};`,
     );
-  } else if (s.trigger === 'custom' && s.customEntity) {
+  } else if (s.trigger === 'custom') {
+    // Incomplete (no entity picked yet) → the UNCONDITIONAL form. The old
+    // code emitted NOTHING here, leaving an orphan @keyframes block that
+    // reset the whole module to disabled on reopen (audit W8/BUG-4).
     decls.push(
-      `animation: {{ '${animValue}' if is_state('${s.customEntity}', 'on') else 'none' }};`,
+      s.customEntity
+        ? `animation: {{ '${animValue}' if is_state('${s.customEntity}', 'on') else 'none' }};`
+        : `animation: ${animValue};`,
     );
-  } else if (
-    s.trigger === 'value' &&
-    s.valueEntity &&
-    s.valueOperator &&
-    s.valueThreshold !== undefined
-  ) {
-    // Same value-source expressions as buildThresholdJinja, so both features
-    // read a numeric state/attribute in the identical spelling.
-    const stateExpr = s.valueAttribute
-      ? `state_attr('${s.valueEntity}', '${s.valueAttribute}') | float(0)`
-      : `states('${s.valueEntity}') | float(0)`;
-    decls.push(
-      `animation: {{ '${animValue}' if ${stateExpr} ${s.valueOperator} ${s.valueThreshold} else 'none' }};`,
-    );
+  } else if (s.trigger === 'value') {
+    if (s.valueEntity && s.valueOperator && s.valueThreshold !== undefined) {
+      // Same value-source expressions as buildThresholdJinja, so both
+      // features read a numeric state/attribute in the identical spelling.
+      const stateExpr = s.valueAttribute
+        ? `state_attr('${s.valueEntity}', '${s.valueAttribute}') | float(0)`
+        : `states('${s.valueEntity}') | float(0)`;
+      decls.push(
+        `animation: {{ '${animValue}' if ${stateExpr} ${s.valueOperator} ${s.valueThreshold} else 'none' }};`,
+      );
+    } else {
+      decls.push(`animation: ${animValue};`); // incomplete → unconditional (W8)
+    }
   }
 
   return decls;
@@ -863,7 +876,12 @@ function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string, 
   }
 
   const jinja = buildThresholdJinja(rules, defaultColor, s.entityId, s.attribute || undefined);
-  return s.properties
+  // Canonical property order, matching the parser's candidate-collection
+  // order exactly — without this, a reopen reordered the blocks and broke
+  // the byte-stable round-trip once (audit C1).
+  const CANONICAL: ThresholdProperty[] = ['background', 'text-color', 'accent-color', 'border-color', 'icon-color'];
+  const ordered = [...s.properties].sort((a, b) => CANONICAL.indexOf(a) - CANONICAL.indexOf(b));
+  return ordered
     .map((property) => thresholdPropertyBlock(property, jinja, s.borderWidth ?? 2, gradientMarker, cardType, opts))
     .join('\n\n');
 }
@@ -875,7 +893,10 @@ function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string, 
 export function generateCss(state: StudioState, cardType?: string, opts?: GenerateCssOptions): string {
   const parts: string[] = [];
 
-  const kf = animationKeyframes(state.animation);
+  // Keyframes only ever ride along an actual `animation:` declaration — an
+  // orphan @keyframes block resets the module on reopen (audit W8/BUG-4).
+  const animDecls = animationDecls(state.animation);
+  const kf = animDecls.some((d) => d.startsWith('animation')) ? animationKeyframes(state.animation) : '';
   if (kf) parts.push(kf);
 
   // A property the Threshold module already drives is skipped in the
@@ -891,7 +912,7 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
     ...filterDecls(state.filter),
     ...(thresholdProps.has('background') ? [] : backgroundDecls(state.background)),
     ...borderDecls(state.border, thresholdProps.has('border-color')),
-    ...animationDecls(state.animation),
+    ...animDecls,
     ...iconSizeDecls(state.iconColor, cardType),
   ];
   if (haCardDecls.length > 0) {

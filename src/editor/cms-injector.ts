@@ -138,7 +138,10 @@ function togglePanel(dialog: HuiDialogEditCard, active: boolean): void {
     } else {
       panel.config = dialog._cardConfig;
       panel.hass = dialog.hass;
-      panel.style.display = 'block';
+      // '' (not 'block'): an inline display:block would beat the :host
+      // display:flex rule and break the panel's column layout/scrolling on
+      // every re-show after a hide (audit BUG-10).
+      panel.style.display = '';
     }
   } else {
     if (panel) {

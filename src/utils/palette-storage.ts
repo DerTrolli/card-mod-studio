@@ -78,6 +78,12 @@ function sanitize(raw: unknown): CustomPalette {
 
 let cache: CustomPalette = { ...EMPTY_PALETTE };
 let initPromise: Promise<void> | null = null;
+/** True once any save has written the cache. From that point the in-memory
+ *  palette is strictly newer than whatever a still-in-flight init load will
+ *  resolve with, so initPaletteCache must not assign over it — doing so
+ *  would revert the cache to the pre-save palette, and the NEXT save would
+ *  then persist that stale palette (permanent loss of the first save). */
+let cacheDirty = false;
 
 /** Synchronous read for hot paths (picker renders, state building). Returns
  *  the empty palette until initPaletteCache has completed. */
@@ -89,7 +95,12 @@ export function getCachedPalette(): CustomPalette {
  *  cache is then kept current by savePalette). Safe to call repeatedly. */
 export function initPaletteCache(hass: HassSub | undefined): Promise<void> {
   initPromise ??= (async () => {
-    cache = await loadPalette(hass);
+    const loaded = await loadPalette(hass);
+    // A savePalette that landed while the load was in flight already put
+    // newer data in the cache (and persisted it) — keep it. Assigning the
+    // just-loaded palette here would clobber that save with stale data.
+    if (cacheDirty) return;
+    cache = loaded;
     window.dispatchEvent(new CustomEvent(PALETTE_CHANGED_EVENT));
   })();
   return initPromise;
@@ -124,6 +135,7 @@ export async function loadPalette(hass: HassSub | undefined): Promise<CustomPale
  *  localStorage synchronously, HA WebSocket storage best-effort. */
 export async function savePalette(palette: CustomPalette, hass: HassSub | undefined): Promise<void> {
   cache = sanitize(palette);
+  cacheDirty = true;
   window.dispatchEvent(new CustomEvent(PALETTE_CHANGED_EVENT));
 
   try {

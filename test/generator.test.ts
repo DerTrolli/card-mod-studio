@@ -1703,7 +1703,7 @@ describe('generateCss — value-conditional animation trigger', () => {
     );
   });
 
-  it('emits no animation decl when the value condition is incomplete (no entity yet)', () => {
+  it('emits the UNCONDITIONAL animation while the value condition is incomplete (audit W8: the old empty emission left an orphan @keyframes that reset the module on reopen)', () => {
     const css = generateCss(
       makeState({
         animation: {
@@ -1717,7 +1717,8 @@ describe('generateCss — value-conditional animation trigger', () => {
         },
       }),
     );
-    expect(css).not.toContain('animation:');
+    expect(css).toContain('animation: cms-pulse 2s ease-in-out infinite;');
+    expect(css).toContain('@keyframes cms-pulse');
   });
 
   it('value trigger (states form) round-trips byte-stable', () => {

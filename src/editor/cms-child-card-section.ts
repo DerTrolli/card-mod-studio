@@ -53,6 +53,7 @@ import {
 import { moduleStyles } from '../modules/module-base.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import { hasDictFormStyle } from '../utils/style-compat.js';
+import { ConfigEchoGuard } from '../utils/config-echo.js';
 
 import '../modules/module-filter.js';
 import '../modules/module-icon-color.js';
@@ -75,10 +76,11 @@ export class CmsChildCardSection extends LitElement {
   @state() private _entityRowStyles: EntitiesRowStyles = {};
   @state() private _open = false;
 
-  /** Mirror of cms-panel's _lastEmittedConfigJson dedup guard: when the
-   *  panel reflects our own emitted child config back down, don't rebuild
-   *  state mid-edit. */
-  private _lastEmittedChildJson: string | null = null;
+  /** Mirror of cms-panel's own-echo dedup guard: when the panel reflects
+   *  our own emitted child config back down, don't rebuild state mid-edit.
+   *  The guard advances its baseline on every external rebuild (see
+   *  ConfigEchoGuard for the revert-to-A regression this prevents). */
+  private _echoGuard = new ConfigEchoGuard();
 
   static override styles = [
     moduleStyles,
@@ -140,11 +142,10 @@ export class CmsChildCardSection extends LitElement {
       if (!this.childConfig) {
         this._studioState = null;
         this._entityRowStyles = {};
-        this._lastEmittedChildJson = null;
+        this._echoGuard.reset();
         return;
       }
-      const json = JSON.stringify(this.childConfig);
-      if (json !== this._lastEmittedChildJson) {
+      if (this._echoGuard.shouldRebuild(JSON.stringify(this.childConfig))) {
         this._studioState = buildMergedStudioState(this.childConfig, this.hass);
         this._entityRowStyles = initEntityRowStyles(this.childConfig, this.hass);
       }
@@ -168,7 +169,7 @@ export class CmsChildCardSection extends LitElement {
     if (this.childConfig.type === 'entities') {
       newChild = applyEntityRowStyles(newChild, this._entityRowStyles, this.hass);
     }
-    this._lastEmittedChildJson = JSON.stringify(newChild);
+    this._echoGuard.noteEmitted(JSON.stringify(newChild));
     this.dispatchEvent(
       new CustomEvent<{ index: number; config: CardModCardConfig }>('child-config-changed', {
         detail: { index: this.index, config: newChild },

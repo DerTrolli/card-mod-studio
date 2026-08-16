@@ -5,6 +5,93 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] — 2026-08-07
+
+A pure correctness release: the v0.10 planning audit plus a full-codebase
+bug hunt (two audit passes with ~2,900 fuzzed round-trips and empirical
+repros; every fix below inverts a REPRODUCED bug). 46 new unit tests, a
+new live check, and the full live suite green on card-mod 4.2.1 AND
+UIX 8.0.0, both on HA 2026.8.0.
+
+### Fixed — data loss
+
+- **Dictionary-form (`$` shadow-piercing) styles are now preserved
+  verbatim.** Hand-written dict styles were badly mishandled on the first
+  Studio edit: a *nested* dict deleted the entire `card_mod:` key, a
+  pierce-key dict was corrupted into invalid flat CSS, a flat dict was
+  silently flattened, and a dict-form `uix.style` was cleared by the save
+  path. The save path now freezes both style keys untouched whenever
+  either is dictionary-form, and the panel shows a dedicated "preserved
+  as-is" banner instead of dead controls (per-row styling on entities
+  cards stays fully editable). Visual editing of this form is the v0.10
+  cycle (see `docs/V0.10_PLAN.md`).
+- **A `}` inside a CSS comment (or a stray brace) wiped the entire
+  hand-written style on save** — the block splitter now tracks comments
+  and floors its depth counter.
+- **Semicolons inside `url(data:…)` or quoted strings corrupted the
+  declaration on save** — declarations now split with a paren/quote-aware
+  scanner.
+- **`card_mod: class:` / `debug:` were deleted by any Studio edit** (and
+  by clear-all, and by switching the output key to `uix:`) — non-style
+  card_mod keys are now preserved everywhere, including the reverse-compat
+  "copy to card_mod" fix button.
+
+### Fixed — wrong output (silent behavior changes)
+
+- **Hand-written conditionals bound to another entity's OFF state were
+  claimed and INVERTED on save** (filter/background) or rebound to the
+  card's own entity (animation) — such shapes now stay verbatim in
+  Advanced CSS; the modules genuinely can't express "while another entity
+  is off".
+- **Filter adoption over-claimed non-equivalent filters**:
+  `grayscale(50%)` was rewritten to 100%, ride-along effects were dropped
+  from conditional branches, `transition: all` was narrowed to
+  `transition: filter`, and a no-op `brightness(100%)` was
+  claimed-then-deleted. All now stay untouched unless exactly
+  expressible.
+- **Icon size was destroyed when Threshold drove icon color**: reopening
+  disabled the Icon Color module, lost the size slider, and leaked the
+  size variables into Advanced CSS.
+- **Gradient thresholds driving multiple properties accreted orphan
+  `--cms-gradient-stops` blocks** in Advanced CSS on every reopen.
+- **Accent-color thresholds gained a phantom `icon-color` property** on
+  reopen (the accent module's own companion variable was re-adopted as a
+  hand-written icon threshold).
+- **Palette `var(--x-color)` and `rgb()` colors broke recognition** in
+  borders (control lost to Advanced CSS) and gradients (whole gradient
+  string mis-parsed as a solid color) — both now round-trip.
+- **Half-filled conditions generated a DIFFERENT condition**: background's
+  "another entity" mode with no entity picked yet inverted to while-OFF
+  (and rewrote the choice on reopen), grayscale's fell to while-ON, and an
+  animation with an incomplete trigger emitted an orphan `@keyframes` that
+  reset the whole module on reopen. Incomplete conditions now emit the
+  unconditional form.
+- **Loading a preset onto a card type that hides some of its modules**
+  saved styling that could never be seen or disabled again from the UI —
+  hidden modules now reset to defaults on preset load.
+- **Threshold property blocks now emit in a canonical order** so
+  multi-property thresholds round-trip byte-stably.
+
+### Fixed — UI
+
+- Re-opening the Style panel after toggling it off broke the column
+  layout (content below the fold became unreachable — an inline
+  `display:block` beat the panel's flex layout).
+- A race between the palette cache's initial load and an immediate first
+  save could permanently revert the save.
+- An external edit-and-revert of the card config could leave the panel
+  showing stale state (own-echo guard baseline now advances correctly).
+- The preview picker's tap-without-hover fallback (mobile) was dead code.
+- Override warnings now also cover the thermostat accent variables and
+  the tile-secondary/thermostat/gauge font variables.
+
+### Notes
+
+- Deferred (cosmetic/nuance, recorded as roadmap item #29): `!important`
+  dropped from claimed hand-written declarations; off-first binary
+  conditionals normalizing to on-first (third-state nuance); half-picked
+  conditions flattening to "Always" on reopen.
+
 ## [0.9.0] — 2026-08-06
 
 The "make styling discoverable + state-aware" release — the v0.9 cycle
@@ -748,6 +835,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.9.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.1
 [0.9.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0
 [0.8.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.1
 [0.8.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.0
