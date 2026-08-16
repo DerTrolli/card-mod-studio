@@ -1,32 +1,37 @@
 [
   {
-    "name": "dict-form card shows the preserved-as-is banner",
+    "name": "dict card: no freeze banner, full modules rendered",
     "pass": true,
-    "detail": "{\"bannerShown\":true}"
+    "detail": "{\"noFreezeBanner\":true,\"modulesVisible\":true}"
   },
   {
-    "name": "card-level modules are not rendered for a dict-form card (no dead controls)",
+    "name": "Advanced shows the pierced entries read-only",
     "pass": true,
-    "detail": "{\"modulesHidden\":true}"
+    "detail": "{\"piercedShown\":true}"
   },
   {
-    "name": "entities card with dict card style keeps the per-row module",
+    "name": "edit keeps dict form, pierced bytes identical, \".\" added first",
     "pass": true,
-    "detail": "{\"rowsModulePresent\":true}"
+    "detail": "{\"dict\":true,\"pierced\":true,\"rootFirst\":true}"
   },
   {
-    "name": "a row edit emits with the card-level dict byte-identical",
+    "name": "\".\" mid-dict: key order preserved, \".\" updated in place",
     "pass": true,
-    "detail": "{\"emitted\":true,\"cardDictIntact\":true}"
+    "detail": "{\"order\":true,\"updated\":true}"
   },
   {
-    "name": "…and the edited row actually gained its style",
+    "name": "mixed-form (string + dict) still freezes with banner",
     "pass": true,
-    "detail": "{\"rowGotStyle\":true}"
+    "detail": "{\"banner\":true,\"hidden\":true}"
   },
   {
-    "name": "stack child with dict style shows the preserved note instead of controls",
+    "name": "dict ROW: \".\" parsed into row state and rebuilt with pierced kept",
     "pass": true,
-    "detail": "{\"note\":true,\"hidden\":true}"
+    "detail": "{\"parsed\":true,\"rebuilt\":true}"
+  },
+  {
+    "name": "stack child dict: modules visible, pierced kept through edit",
+    "pass": true,
+    "detail": "{\"visible\":true,\"kept\":true}"
   }
 ]

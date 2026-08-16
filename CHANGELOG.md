@@ -5,6 +5,43 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0-beta.1] — 2026-08-16
+
+The first cut of the v0.10 "Piercing" cycle (see `docs/V0.10_PLAN.md`):
+dictionary-form styles go from "preserved but frozen" (v0.9.1) to
+**editable**.
+
+### Added
+
+- **Dict-form (`$` shadow-piercing) styles are now editable.** The `.`
+  entry of a dictionary style — the CSS for the card itself — runs
+  through the normal visual-module pipeline, so every module works on
+  dict-form cards exactly like on string-form ones. Every *other* entry
+  (pierced `selector$` chains, nested dicts, UIX `$$`/`&` extensions) is
+  preserved **byte-identically, in original key order**, through every
+  edit and save; an edit on a dict that had no `.` yet inserts one first.
+  Applies to top-level cards, stack children, and entities-card rows
+  alike.
+- The **Advanced module lists a dict card's pierced entries read-only**,
+  so hand-written shadow-piercing styling is visible in the panel (with a
+  note that it's preserved verbatim and edited in YAML).
+- The **UIX-only reverse-compat warning now also covers `$$` express
+  selectors and `&` host-filter keys** in dict styles — like
+  macros/billets, these can't run under card-mod under any key, and the
+  "Copy to card_mod" offer is correctly suppressed for them.
+
+### Changed
+
+- **Mixed-form styling still freezes** — a card (or row) carrying a
+  string-form style *and* a dict-form style across its two keys, or
+  dicts under *both* keys, has no faithful single-key rewrite, so both
+  keys stay preserved verbatim behind a "Mixed-form styling" banner.
+  This is the only remaining frozen case; the v0.9.1 whole-card freeze
+  for any dict is gone.
+- The macros/billets info banners no longer fire for dict-form styles
+  with `$$`/`&` keys — those are never overwritten or left unsynced
+  under the new model, so the warning would have been wrong.
+
 ## [0.9.1] — 2026-08-07
 
 A pure correctness release: the v0.10 planning audit plus a full-codebase
@@ -835,6 +872,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.10.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.10.0-beta.1
 [0.9.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.1
 [0.9.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0
 [0.8.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.1

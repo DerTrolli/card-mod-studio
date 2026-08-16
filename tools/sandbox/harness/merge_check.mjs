@@ -182,8 +182,10 @@ const run = async () => {
     const rowsModule = panel.shadowRoot?.querySelector('cms-entities-rows-module');
     // Re-dispatch the same (already-merged) row styles a real edit would
     // produce, to trigger a save without changing the visible outcome.
+    // Row styles are keyed POSITIONALLY ('0', '1', …) since the #24 fix,
+    // not by entity_id.
     rowsModule?.dispatchEvent(new CustomEvent('styles-changed', {
-      detail: { 'light.ceiling_lights': { iconColor: 'red', textColor: 'blue' } },
+      detail: { '0': { iconColor: 'red', textColor: 'blue' } },
       bubbles: true,
       composed: true,
     }));
