@@ -118,11 +118,11 @@ export function applyStudioState(
 /** Parses one row style value — string or dict-form. A dict row's `.` entry
  *  runs through the normal row recogniser; everything else rides in the
  *  dictSource carrier, exactly like the card-level parseDictForm. */
-function parseRowStyleValue(style: unknown): EntitiesRowStyle {
-  if (typeof style === 'string') return parseEntityRowCss(style);
+function parseRowStyleValue(style: unknown, entity?: string): EntitiesRowStyle {
+  if (typeof style === 'string') return parseEntityRowCss(style, entity);
   if (style && typeof style === 'object') {
     const { rootCss, dictSource } = splitDictStyle(style as Record<string, unknown>);
-    return { ...parseEntityRowCss(rootCss), dictSource };
+    return { ...parseEntityRowCss(rootCss, entity), dictSource };
   }
   return parseEntityRowCss('');
 }
@@ -140,14 +140,14 @@ export function buildMergedRowStyle(
   const primaryStyle = outputKey === 'uix' ? row.uix?.style : row.card_mod?.style;
   const secondaryStyle = outputKey === 'uix' ? row.card_mod?.style : row.uix?.style;
 
-  const primaryRowStyle = parseRowStyleValue(primaryStyle);
+  const primaryRowStyle = parseRowStyleValue(primaryStyle, row.entity);
   if (isDictForm(secondaryStyle) && hasStyleContent(secondaryStyle)) {
     const { dictSource: _mixed, ...frozen } = primaryRowStyle;
     return frozen;
   }
   if (!hasStyleContent(secondaryStyle)) return primaryRowStyle;
 
-  const secondaryRowStyle = parseEntityRowCss(typeof secondaryStyle === 'string' ? secondaryStyle : '');
+  const secondaryRowStyle = parseEntityRowCss(typeof secondaryStyle === 'string' ? secondaryStyle : '', row.entity);
   return mergeEntityRowStyles(primaryRowStyle, secondaryRowStyle);
 }
 
