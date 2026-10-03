@@ -127,6 +127,9 @@ Found by a dedicated audit (every item reproduced first, now covered by
   selected colour swatch is visible on every colour (it disappeared on
   blue/cyan); light swatches have an outline; swatches wrap as two even
   rows on narrow screens.
+- Click-to-edit works on the whole preview of a tall card — on a long
+  entities card the lower rows weren't clickable once the preview was
+  scrolled.
 - The colour popover is placed using its real height (it could run off
   the bottom with custom colours) and never past the screen edge on
   phones; the click-to-edit preview label is readable on any card and
