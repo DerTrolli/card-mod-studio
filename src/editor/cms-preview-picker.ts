@@ -36,6 +36,13 @@ export interface PickEventDetail extends PickTarget {
   rowIndex?: number;
 }
 
+/** Room below the card inside the preview box (cms-panel's
+ *  .preview-card-wrapper padding is 12px) the label may hang into. */
+const PREVIEW_PADDING_BELOW = 10;
+/** The highlight's border sits just OUTSIDE the target — on its exact edge
+ *  the 2px border cut through the first letter of text targets. */
+const HL_OUTSET = 3;
+
 export class CmsPreviewPicker extends LitElement {
   /** The preview card's `type:` — drives the module mapping. */
   @property({ attribute: false }) cardType = '';
@@ -303,12 +310,16 @@ export class CmsPreviewPicker extends LitElement {
 
   /** Keep the label inside the preview: render() places it at the target's
    *  left edge, which overflows (scrollbar flicker + clipping) for targets
-   *  on the right half of the card — shift it left by the overhang. */
+   *  on the right half of the card — shift it left by the overhang. Below a
+   *  box that fills a short card, it may only use the preview box's own
+   *  padding (the box is sized to the card) — lift it by the rest. */
   override updated() {
     const label = this.shadowRoot?.querySelector('.hl-label') as HTMLElement | null;
     if (!label) return;
     const overhang = label.offsetLeft + label.offsetWidth - (this.clientWidth - 2);
     if (overhang > 0) label.style.left = `${Math.max(0, label.offsetLeft - overhang)}px`;
+    const below = label.offsetTop + label.offsetHeight - (this.clientHeight + PREVIEW_PADDING_BELOW);
+    if (below > 0) label.style.top = `${label.offsetTop - below}px`;
   }
 
   override render() {
@@ -323,7 +334,7 @@ export class CmsPreviewPicker extends LitElement {
         ? html`
             <div
               class="hl"
-              style="left:${this._box.left}px;top:${this._box.top}px;width:${this._box.width}px;height:${this._box.height}px"
+              style="left:${this._box.left - HL_OUTSET}px;top:${this._box.top - HL_OUTSET}px;width:${this._box.width + 2 * HL_OUTSET}px;height:${this._box.height + 2 * HL_OUTSET}px"
             >
             </div>
             <span

@@ -192,6 +192,11 @@ export const moduleStyles = [
   select {
     cursor: pointer;
     width: 100%;
+    /* Long option text in a narrow column (stack children on phones)
+       ends in "…" instead of being cut mid-letter. */
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
   }
   input[type='text'] {
     width: 100%;

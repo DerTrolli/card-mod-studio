@@ -695,6 +695,9 @@ export class CmsPanel extends LitElement {
     .preset-bar select {
       flex: 1;
       min-width: 0;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
       box-sizing: border-box;
       min-height: 32px;
       padding: 5px 8px;
