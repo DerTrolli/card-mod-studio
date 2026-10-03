@@ -449,7 +449,7 @@ const run = async () => {
     await setNextModulesVisibility('hidden');
     const content = await panelElementRect(page, 'cms-background-module');
     const ann = await annotate(page, [
-      { find: { module: 'cms-background-module', sel: 'select', text: 'Only while entity is ON' }, label: 'Only while the entity is ON / OFF', side: 'bottom', shiftX: -40 },
+      { find: { module: 'cms-background-module', sel: 'select', text: 'Only while entity is ON' }, label: 'Only while the entity is ON / OFF', side: 'insideRight' },
     ]);
     await shot(page, union(content, ann ? pad(ann, 12) : null), '04 Background Color.png');
     await clearAnnotations(page);
@@ -573,7 +573,7 @@ const run = async () => {
   {
     const content = await panelElementRect(page, 'cms-entities-rows-module');
     const ann = await annotate(page, [
-      { find: { module: 'cms-entities-rows-module', sel: '.rule' }, label: 'Value-based rules for just this row', side: 'insideRight', shiftX: -56 },
+      { find: { module: 'cms-entities-rows-module', sel: '.rule' }, label: 'Rules for just this row', side: 'insideRight', shiftX: -48 },
       { find: { module: 'cms-entities-rows-module', sel: 'ha-slider' }, label: 'Per-row font override', side: 'left' },
     ]);
     await shot(page, union(content, ann ? pad(ann, 12) : null), '06 Entities Card Modifications.png');
