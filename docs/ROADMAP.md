@@ -77,7 +77,15 @@ list and [`docs/V0.10_PLAN.md`](V0.10_PLAN.md) for the original plan.
   the controls below 720px panel width; the Style button is icon-only below
   500px viewport width; touch targets grow on touch screens; every
   collapsible section is keyboard-reachable (Tab, Enter/Space) with visible
-  focus rings.
+  focus rings. Module controls share one left edge, and the side-by-side
+  preview is wide enough that entity names aren't cut off.
+- **Fixes from the release QA** (real clicks on all four rigs plus four
+  independent screenshot reviews): entity-row icon colors now also show
+  while the entity is on (the Studio sets HA's own per-row
+  `state_color: false`); an unfinished Threshold no longer silently disables
+  Background/Accent; the gauge value no longer turns black in dark mode;
+  HA's YAML editor stays in sync with Studio edits; "Show code editor" no
+  longer greys out after a no-op edit.
 - **Engine re-verification** — see "Engine watch" below: card-mod 4.2.1 is
   effectively unmaintained and hangs on HA ≥ 2026.8 for themes that define
   `card-mod-*-yaml` variables; UIX 8.1–8.3 re-verified (the `uix:`/`card_mod:`
