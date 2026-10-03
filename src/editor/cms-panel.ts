@@ -74,6 +74,12 @@ const VERSION = __APP_VERSION__;
 // cms-child-card-section so a stack child gets the exact same module gating
 // as a top-level card of that type.
 
+/** HA's dark-mode flag — `hass.themes.darkMode` (typed loosely upstream). */
+function isDarkTheme(hass: HomeAssistant | undefined): boolean {
+  const themes = hass?.themes as { darkMode?: boolean } | undefined;
+  return themes?.darkMode === true;
+}
+
 export class CmsPanel extends LitElement {
   @property({ attribute: false }) config?: CardModCardConfig;
   @property({ attribute: false }) hass?: HomeAssistant;
@@ -122,6 +128,13 @@ export class CmsPanel extends LitElement {
 
   override updated(changed: Map<PropertyKey, unknown>) {
     super.updated(changed);
+    if (changed.has('hass')) {
+      // HA's own dark-mode flag (not prefers-color-scheme — a user can run a
+      // dark HA theme on a light OS). HA sets no color-scheme on the page,
+      // so without this, browser-drawn parts of the panel (scrollbars,
+      // native dropdown lists, number spinners) stayed light in dark mode.
+      this.toggleAttribute('dark', isDarkTheme(this.hass));
+    }
     if (changed.has('config') || changed.has('hass')) {
       this._initState();
       this._previewConfig = undefined;
@@ -492,6 +505,10 @@ export class CmsPanel extends LitElement {
       overflow: hidden;
     }
 
+    :host([dark]) {
+      color-scheme: dark;
+    }
+
     /* ---- Header ---- */
 
     .header {
@@ -537,11 +554,14 @@ export class CmsPanel extends LitElement {
       overflow-x: hidden;
     }
     /* Scrolling past the end of the panel must not chain into HA's dialog
-       behind it (on phones that slid our header under the dialog title). */
+       behind it (on phones that slid our header under the dialog title).
+       Scrollbars use HA's own scrollbar colour, like HA's panels. */
     .panel-body.narrow,
     .modules-col,
     .preview-card-wrapper {
       overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb-color, rgba(128, 128, 128, 0.5)) transparent;
     }
     .panel-body.narrow .modules-col {
       overflow: visible;

@@ -123,7 +123,9 @@ Found by a dedicated audit (every item reproduced first, now covered by
   HA's dialog footer fits; touch targets grow on touch screens (no target
   under 24px anywhere in the panel).
 - Native inputs and selects follow the theme (no white boxes in dark
-  mode) and use HA's font; round colour inputs are actually round; the
+  mode) and use HA's font; scrollbars, dropdown lists and other
+  browser-drawn parts follow HA's dark mode too (HA's own setting, not
+  the operating system's) and use HA's scrollbar colour; round colour inputs are actually round; the
   selected colour swatch is visible on every colour (it disappeared on
   blue/cyan); light swatches have an outline; swatches wrap as two even
   rows on narrow screens.

@@ -352,6 +352,9 @@ export class CmsColorPicker extends LitElement {
   private _ensurePortal(): ShadowRoot {
     if (!this._portalShadow) {
       this._portalHost = document.createElement('div');
+      // The portal sits outside the panel, so it can't inherit the panel's
+      // dark color-scheme (native colour input / text field) — copy it.
+      this._portalHost.style.colorScheme = getComputedStyle(this).colorScheme;
       (this._containingDialog ?? document.body).appendChild(this._portalHost);
       this._portalShadow = this._portalHost.attachShadow({ mode: 'open' });
     }
