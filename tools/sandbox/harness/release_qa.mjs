@@ -285,7 +285,11 @@ async function openStyle(page, urlPath) {
       const opts = Q.find('hui-card-options')[0]; if (!opts) return null;
       const els = Q.deepAll(opts);
       const t = els.find((el) => (el.textContent || '').trim().toLowerCase() === 'edit' && el.children.length === 0);
-      return t ? (t.closest('ha-button, mwc-button, button') || t) : null;`);
+      if (t) return t.closest('ha-button, mwc-button, button') || t;
+      // HA sometimes renders hui-card-options before its translations
+      // arrive and never re-renders the label (HA race, also without the
+      // Studio): the blank first .card-actions button is still Edit.
+      return els.find((el) => el.tagName === 'HA-BUTTON' && el.closest('.card-actions') && Q.visible(el)) || null;`);
     if (!ok) await page.waitForTimeout(700);
   }
   if (!ok) {
