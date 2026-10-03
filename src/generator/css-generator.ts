@@ -264,6 +264,18 @@ export interface GenerateCssOptions {
 }
 
 /**
+ * Whether a value reads the custom property it would be assigned to.
+ * `--x: var(--x)` is a dependency cycle: invalid at computed-value time, so
+ * everything reading --x falls back to its initial value — the gauge's value
+ * text turned black on dark themes with the theme-default text colour.
+ * Leaving the declaration out keeps the inherited theme value, which is what
+ * the value meant anyway.
+ */
+function refersTo(value: string, name: string): boolean {
+  return new RegExp(`var\\(\\s*${name}\\s*[,)]`).test(value);
+}
+
+/**
  * Gauge cards ignore an inherited --gauge-color: hui-gauge-card writes the
  * severity-computed color as an *inline style* on <ha-gauge> on every render
  * (styleMap in hui-gauge-card.ts), and inline wins over anything inherited
@@ -288,7 +300,9 @@ function gaugeColorBlock(
 ): string {
   if (cardType !== 'gauge') return '';
   const markerLine = marker ? `  ${GRADIENT_MARKER_PROPERTY}: ${marker};\n` : '';
-  const needleLine = opts?.gaugeNeedle ? `  --primary-text-color: ${value} !important;\n` : '';
+  const needleLine = opts?.gaugeNeedle && !refersTo(value, '--primary-text-color')
+    ? `  --primary-text-color: ${value} !important;\n`
+    : '';
   return `ha-gauge {\n${markerLine}  --gauge-color: ${value} !important;\n${needleLine}}`;
 }
 
@@ -578,11 +592,12 @@ function fontCompanionDecls(
     }
   }
 
-  if (cardType === 'gauge' && color) {
+  if (cardType === 'gauge' && color && !refersTo(color, '--primary-text-color')) {
     // The gauge's SVG value text is `fill: var(--primary-text-color)` inside
     // a nested shadow root — the variable is the only way in. Scoped to this
     // card's ha-card, so nothing outside the gauge is affected. (Accent
     // Color's needle-mode !important on ha-gauge deliberately outranks it.)
+    // The theme default needs no override (and must not get one: see refersTo).
     decls.push(`--primary-text-color: ${color};`);
   }
 
@@ -874,6 +889,18 @@ function thresholdPropertyBlock(
 }
 
 /**
+ * The properties the Threshold module is currently writing — empty until it
+ * has an entity, at least one rule (gradient: two stops) and a property,
+ * i.e. exactly when thresholdBlock() emits something. The static module for
+ * each of these properties steps aside (see generateCss).
+ */
+export function thresholdOwnedProperties(s: ThresholdModuleState | undefined): Set<ThresholdProperty> {
+  if (!s || !s.enabled || !s.entityId || s.properties.length === 0) return new Set();
+  if (s.valueMode === 'gradient' ? s.colorStops.length < 2 : s.rules.length === 0) return new Set();
+  return new Set(s.properties);
+}
+
+/**
  * Threshold rules can drive more than one CSS property at once (e.g. icon
  * color AND accent color changing together off the same rule set) — one
  * block is emitted per selected property, all sharing the same computed
@@ -923,7 +950,10 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // same declaration into the same ha-card block, and only the one that
   // happens to render later would actually take effect (silently ignoring
   // the static module's own control).
-  const thresholdProps = new Set(state.threshold.enabled ? state.threshold.properties : []);
+  // Only once Threshold actually writes something: an enabled-but-unfinished
+  // Threshold (no entity / no rules yet) used to silently disable e.g.
+  // Background on a thermostat or Accent on a gauge (its default property).
+  const thresholdProps = thresholdOwnedProperties(state.threshold);
 
   // ha-card block
   const haCardDecls = [

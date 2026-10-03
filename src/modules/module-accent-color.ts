@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { AccentColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ACCENT_COLOR } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
+import { moduleStyles, renderOverrideBadge, renderOverrideHint, renderThresholdOwnedHint, onHeaderKeydown } from './module-base.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
@@ -25,6 +25,8 @@ export class AccentColorModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** Threshold Colors is currently writing this module's property. */
+  @property({ attribute: false }) thresholdOwned = false;
 
   @state() private _open = false;
 
@@ -86,6 +88,7 @@ export class AccentColorModule extends LitElement {
     return html`
       <div class="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${renderThresholdOwnedHint(this.thresholdOwned, 'accent color', 'Accent Color')}
         <div class="control-row">
           <span class="control-label">Color mode</span>
           <div class="control-right">

@@ -142,11 +142,24 @@ Found by a dedicated audit (every item reproduced first, now covered by
   Temperature"), like HA does, instead of its object id
   (`outside_temperature`).
 
-### Fixed — with HA's code editor open
+### Fixed — working alongside HA's card editor
 
 - Styling a card while HA's editor is in YAML mode ("Show code editor")
   now updates the YAML text too. It used to keep showing the old YAML, and
   typing anything in it afterwards silently undid the Studio's changes.
+- HA's "Show code editor" button no longer greys out after switching on a
+  module that doesn't change anything yet (e.g. Visual Filters at its
+  defaults).
+
+### Fixed — modules
+
+- Switching on **Threshold Colors** before it's set up (no entity or no
+  rules yet) no longer silently disables another module: on a thermostat
+  the Background switch did nothing, on a gauge the Accent Color switch did
+  nothing. Once Threshold Colors *is* driving a property, the module it
+  takes over now says so instead of looking broken.
+- **Font on a gauge in dark mode**: with the default (theme) text colour,
+  the gauge's value turned black — unreadable on a dark card.
 
 ### Changed
 

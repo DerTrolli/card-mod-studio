@@ -214,3 +214,18 @@ describe('audits #6 / #4 / #16 at the panel level', () => {
     expect(moduleListText(p)).toContain('preserved as-is');
   });
 });
+
+describe('config-changed carries guiModeAvailable (HA disables "Show code editor" without it)', () => {
+  it('is sent on every emit — also when the config comes out identical', () => {
+    const p = new Panel();
+    const details: Array<{ config: unknown; guiModeAvailable?: boolean }> = [];
+    p.dispatchEvent = (e: Event) => { details.push((e as CustomEvent).detail); return true; };
+    p.config = { type: 'heading', heading: 'Living room' } as unknown as CardModCardConfig;
+    p._initState();
+    // Visual Filters switched on at its defaults emits no CSS → identical config.
+    p._studioState = { ...p._studioState!, filter: { ...p._studioState!.filter, enabled: true } };
+    p._emitConfigChanged();
+    expect(details.at(-1)!.config).toEqual({ type: 'heading', heading: 'Living room' });
+    expect(details.at(-1)!.guiModeAvailable).toBe(true);
+  });
+});

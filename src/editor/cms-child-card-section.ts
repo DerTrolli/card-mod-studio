@@ -53,6 +53,7 @@ import {
 } from '../utils/card-caps.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
+import { thresholdOwnedProperties } from '../generator/css-generator.js';
 import { hasDictFormStyle, hasUnsupportedDictRoot } from '../utils/style-compat.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
 
@@ -273,6 +274,7 @@ export class CmsChildCardSection extends LitElement {
     const isEntities = cardType === 'entities';
     const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
     const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s);
+    const thresholdOwned = thresholdOwnedProperties(s.threshold);
 
     return html`
       <div class="child-body">
@@ -308,6 +310,7 @@ export class CmsChildCardSection extends LitElement {
           ? html`<cms-accent-color-module
               .overridden=${!!conflicts.accentColor}
               .overriddenDetail=${(conflicts.accentColor ?? []).join(", ")}
+              .thresholdOwned=${thresholdOwned.has('accent-color')}
               .state=${s.accentColor}
               .stateAware=${stateAware}
               .cardEntity=${entity}
@@ -322,6 +325,7 @@ export class CmsChildCardSection extends LitElement {
           ? html`<cms-icon-color-module
               .overridden=${!!conflicts.iconColor}
               .overriddenDetail=${(conflicts.iconColor ?? []).join(", ")}
+              .thresholdOwned=${thresholdOwned.has('icon-color')}
               .state=${s.iconColor}
               .stateAware=${stateAware}
               .isLightCard=${cardType === 'light'}
@@ -350,6 +354,7 @@ export class CmsChildCardSection extends LitElement {
           ? html`<cms-background-module
               .overridden=${!!conflicts.background}
               .overriddenDetail=${(conflicts.background ?? []).join(", ")}
+              .thresholdOwned=${thresholdOwned.has('background')}
               .state=${s.background}
               .stateAware=${stateAware}
               .hass=${this.hass}
@@ -374,6 +379,7 @@ export class CmsChildCardSection extends LitElement {
           ? html`<cms-border-module
               .overridden=${!!conflicts.border}
               .overriddenDetail=${(conflicts.border ?? []).join(", ")}
+              .thresholdOwned=${thresholdOwned.has('border-color')}
               .state=${s.border}
               .stateAware=${stateAware}
               .hass=${this.hass}

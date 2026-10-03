@@ -404,6 +404,28 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
 }
 
 // ---------------------------------------------------------------------------
+// Threshold Colors owns this property
+// ---------------------------------------------------------------------------
+
+/**
+ * Body note for a module whose property Threshold Colors is currently
+ * writing (see thresholdOwnedProperties) — without it the module's switch is
+ * on, yet nothing it sets reaches the card.
+ */
+export function renderThresholdOwnedHint(
+  owned: boolean,
+  what: string,
+  option: string,
+): TemplateResult | typeof nothing {
+  if (!owned) return nothing;
+  return html`<div class="override-hint">
+    🎯 <strong>Threshold Colors is setting the ${what}</strong>, so the
+    ${what} chosen here isn't used. Untick “${option}” under Threshold Colors
+    → Apply to (or turn Threshold Colors off) to use this module again.
+  </div>`;
+}
+
+// ---------------------------------------------------------------------------
 // Shared "Custom CSS is overriding this control" warning (v0.8.1)
 // ---------------------------------------------------------------------------
 

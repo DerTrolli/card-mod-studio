@@ -12,6 +12,7 @@ import {
   gradientToRules,
   encodeGradientStops,
   decodeGradientStops,
+  thresholdOwnedProperties,
 } from '../src/generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../src/generator/yaml-generator.js';
 import {
@@ -644,6 +645,26 @@ describe('generateCss — font', () => {
     expect(css).toContain('--primary-text-color: #ff0000;');
   });
 
+  it('gauge: the theme-default text colour emits no self-referencing --primary-text-color (value text went black in dark mode)', () => {
+    const state = makeState({ font: { ...DEFAULT_FONT, enabled: true, fontSize: 20 } });
+    expect(state.font.color).toBe('var(--primary-text-color)');
+    const css = generateCss(state, 'gauge');
+    expect(css).not.toMatch(/--primary-text-color:\s*var\(--primary-text-color/);
+    expect(css).toContain('color: var(--primary-text-color);');
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'gauge', card_mod: { style: css } }));
+    expect(reparsed.font.color).toBe('var(--primary-text-color)');
+    expect(reparsed.advanced.rawCss).toBe('');
+    expect(generateCss(reparsed, 'gauge')).toBe(css);
+  });
+
+  it('needle gauge: an accent of var(--primary-text-color) emits no self-reference either', () => {
+    const css = generateCss(makeState({
+      accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'plain', color: 'var(--primary-text-color)' },
+    }), 'gauge', { gaugeNeedle: true });
+    expect(css).not.toMatch(/--primary-text-color:\s*var\(--primary-text-color/);
+    expect(css).toContain('--gauge-color: var(--primary-text-color) !important;');
+  });
+
   it('thermostat: .title companion + label variables', () => {
     const css = generateCss(makeState({
       font: { ...DEFAULT_FONT, enabled: true, fontSize: 20, fontWeight: 'medium' },
@@ -715,6 +736,43 @@ describe('generateCss — font', () => {
 // ---------------------------------------------------------------------------
 
 describe('generateCss — threshold', () => {
+  it('an enabled but unfinished Threshold does not switch off the static module for its property', () => {
+    // Thermostat's default Threshold property is background, gauge's is
+    // accent-color — turning Threshold on (no entity / no rules yet) used to
+    // make the Background / Accent switch silently do nothing.
+    const unfinished = [
+      { ...DEFAULT_THRESHOLD, enabled: true, properties: ['background' as const] },
+      { ...DEFAULT_THRESHOLD, enabled: true, entityId: 'sensor.t', properties: ['background' as const], rules: [] },
+      { ...DEFAULT_THRESHOLD, enabled: true, entityId: 'sensor.t', properties: ['background' as const], valueMode: 'gradient' as const, colorStops: [{ id: 'a', value: 0, color: '#000000' }] },
+    ];
+    for (const threshold of unfinished) {
+      const css = generateCss(makeState({
+        background: { ...DEFAULT_BACKGROUND, enabled: true, applyWhen: 'always', color1: '#03a9f4' },
+        threshold,
+      }), 'thermostat');
+      expect(css).toContain('background: #03a9f4;');
+    }
+    const gauge = generateCss(makeState({
+      accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'plain', color: '#03a9f4' },
+      threshold: { ...DEFAULT_THRESHOLD, enabled: true, properties: ['accent-color'] },
+    }), 'gauge');
+    expect(gauge).toContain('--gauge-color: #03a9f4 !important;');
+  });
+
+  it('a finished Threshold still takes its property over from the static module', () => {
+    const css = generateCss(makeState({
+      background: { ...DEFAULT_BACKGROUND, enabled: true, applyWhen: 'always', color1: '#03a9f4' },
+      threshold: {
+        ...DEFAULT_THRESHOLD, enabled: true, entityId: 'sensor.t', properties: ['background'],
+        rules: [{ id: '0', operator: '>', value: 20, color: '#ff0000' }],
+      },
+    }), 'thermostat');
+    expect(css).not.toContain('background: #03a9f4;');
+    expect(css).toContain("'#ff0000'");
+    expect(thresholdOwnedProperties({ ...DEFAULT_THRESHOLD, enabled: true, entityId: 'sensor.t', properties: ['background'], rules: [{ id: '0', operator: '>', value: 20, color: '#ff0000' }] })).toEqual(new Set(['background']));
+    expect(thresholdOwnedProperties({ ...DEFAULT_THRESHOLD, enabled: true, properties: ['background'] }).size).toBe(0);
+  });
+
   it('sorts > rules descending so highest value is checked first', () => {
     const css = generateCss(makeState({
       threshold: {

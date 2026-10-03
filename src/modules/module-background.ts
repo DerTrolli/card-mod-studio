@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { BackgroundModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_BACKGROUND } from '../parser/state-mapper.js';
-import { moduleStyles, renderWhen, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
+import { moduleStyles, renderWhen, renderOverrideBadge, renderOverrideHint, renderThresholdOwnedHint, onHeaderKeydown } from './module-base.js';
 import '../components/cms-color-picker.js';
 
 export class BackgroundModule extends LitElement {
@@ -19,6 +19,8 @@ export class BackgroundModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** Threshold Colors is currently writing this module's property. */
+  @property({ attribute: false }) thresholdOwned = false;
 
   @state() private _open = false;
   @state() private _angle = DEFAULT_BACKGROUND.angle;
@@ -79,6 +81,7 @@ export class BackgroundModule extends LitElement {
     return html`
       <div class="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${renderThresholdOwnedHint(this.thresholdOwned, 'background', 'Background')}
         <div class="control-row">
           <span class="control-label">Type</span>
           <div class="control-right">

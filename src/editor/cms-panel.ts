@@ -51,7 +51,7 @@ import { ConfigEchoGuard } from '../utils/config-echo.js';
 import { initPaletteCache } from '../utils/palette-storage.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
-import { generateCss } from '../generator/css-generator.js';
+import { generateCss, thresholdOwnedProperties } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
 import { cmsTokens } from '../modules/module-base.js';
 
@@ -73,6 +73,15 @@ const VERSION = __APP_VERSION__;
 // Per-card-type capability tables live in ../utils/card-caps.ts, shared with
 // cms-child-card-section so a stack child gets the exact same module gating
 // as a top-level card of that type.
+
+/** The parts of HA's hui-card-element-editor (this panel's shadow host) the
+ *  panel reads — public getters on HA's HuiElementEditor. */
+interface HaElementEditor extends HTMLElement {
+  GUImode?: boolean;
+  hasWarning?: boolean;
+  hasError?: boolean;
+  _guiSupported?: boolean;
+}
 
 /** HA's dark-mode flag — `hass.themes.darkMode` (typed loosely upstream). */
 function isDarkTheme(hass: HomeAssistant | undefined): boolean {
@@ -396,6 +405,13 @@ export class CmsPanel extends LitElement {
    * Hands a new card config to HA (the dialog listens for config-changed on
    * hui-card-element-editor, whose shadow root hosts this panel).
    *
+   * The dialog copies `guiModeAvailable` from every config-changed it gets
+   * and disables "Show code editor" when it's missing. HA's own editor
+   * re-fires the right value only when the config actually changed, so a
+   * Studio edit that leaves it identical (a module switched on at defaults
+   * that emit nothing) left the button greyed out. Send the value HA's
+   * editor would compute itself.
+   *
    * If HA's editor is in YAML mode ("Show code editor"), its ha-yaml-editor
    * only reads its value when first rendered, so it would keep showing the
    * pre-edit YAML — and typing in it afterwards would re-emit that stale text
@@ -406,12 +422,20 @@ export class CmsPanel extends LitElement {
     this._previewConfig = next;
     this._previewKey++;
     this._echoGuard.noteEmitted(JSON.stringify(next));
+    const root = this.getRootNode?.() as (ShadowRoot & { host?: HaElementEditor }) | undefined;
+    const editor = root?.host;
+    const guiModeAvailable = editor && 'hasWarning' in editor
+      ? !(editor.hasWarning || editor.hasError || editor._guiSupported === false)
+      : true;
     this.dispatchEvent(
-      new CustomEvent('config-changed', { bubbles: true, composed: true, detail: { config: next } }),
+      new CustomEvent('config-changed', {
+        bubbles: true,
+        composed: true,
+        detail: { config: next, guiModeAvailable },
+      }),
     );
-    const root = this.getRootNode?.() as (ShadowRoot & { host?: { GUImode?: boolean } }) | undefined;
-    if (root?.host?.GUImode === false) {
-      const yamlEditor = root.querySelector('ha-yaml-editor') as (HTMLElement & { setValue?: (v: unknown) => void }) | null;
+    if (editor?.GUImode === false) {
+      const yamlEditor = root?.querySelector('ha-yaml-editor') as (HTMLElement & { setValue?: (v: unknown) => void }) | null;
       yamlEditor?.setValue?.(next);
     }
   }
@@ -1046,6 +1070,7 @@ export class CmsPanel extends LitElement {
     const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
     // "Custom CSS is overriding this control" warnings (style-conflicts.ts)
     const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s);
+    const thresholdOwned = thresholdOwnedProperties(s.threshold);
 
     return html`
       ${hasUnrecognisedCss
@@ -1085,6 +1110,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-accent-color-module
             .overridden=${!!conflicts.accentColor}
             .overriddenDetail=${(conflicts.accentColor ?? []).join(", ")}
+            .thresholdOwned=${thresholdOwned.has('accent-color')}
             .state=${s.accentColor}
             .stateAware=${stateAware}
             .cardEntity=${this.config?.entity ?? ''}
@@ -1098,6 +1124,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-icon-color-module
             .overridden=${!!conflicts.iconColor}
             .overriddenDetail=${(conflicts.iconColor ?? []).join(", ")}
+            .thresholdOwned=${thresholdOwned.has('icon-color')}
             .state=${s.iconColor}
             .stateAware=${stateAware}
             .isLightCard=${this._isLightCard}
@@ -1124,6 +1151,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-background-module
             .overridden=${!!conflicts.background}
             .overriddenDetail=${(conflicts.background ?? []).join(", ")}
+            .thresholdOwned=${thresholdOwned.has('background')}
             .state=${s.background}
             .stateAware=${stateAware}
             .hass=${this.hass}
@@ -1146,6 +1174,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-border-module
             .overridden=${!!conflicts.border}
             .overriddenDetail=${(conflicts.border ?? []).join(", ")}
+            .thresholdOwned=${thresholdOwned.has('border-color')}
             .state=${s.border}
             .stateAware=${stateAware}
             .hass=${this.hass}
