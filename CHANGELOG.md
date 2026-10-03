@@ -142,6 +142,12 @@ Found by a dedicated audit (every item reproduced first, now covered by
   Temperature"), like HA does, instead of its object id
   (`outside_temperature`).
 
+### Fixed — with HA's code editor open
+
+- Styling a card while HA's editor is in YAML mode ("Show code editor")
+  now updates the YAML text too. It used to keep showing the old YAML, and
+  typing anything in it afterwards silently undid the Studio's changes.
+
 ### Changed
 
 - **Mixed-form styling still freezes** — a card or row carrying a plain

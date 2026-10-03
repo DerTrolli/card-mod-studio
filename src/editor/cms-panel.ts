@@ -280,12 +280,7 @@ export class CmsPanel extends LitElement {
       }
     }
 
-    this._previewConfig = next;
-    this._previewKey++;
-    this._echoGuard.noteEmitted(JSON.stringify(next));
-    this.dispatchEvent(
-      new CustomEvent('config-changed', { bubbles: true, composed: true, detail: { config: next } }),
-    );
+    this._emitConfig(next);
   }
 
   // ---------------------------------------------------------------------------
@@ -397,6 +392,30 @@ export class CmsPanel extends LitElement {
     this._emitConfigChanged();
   }
 
+  /**
+   * Hands a new card config to HA (the dialog listens for config-changed on
+   * hui-card-element-editor, whose shadow root hosts this panel).
+   *
+   * If HA's editor is in YAML mode ("Show code editor"), its ha-yaml-editor
+   * only reads its value when first rendered, so it would keep showing the
+   * pre-edit YAML — and typing in it afterwards would re-emit that stale text
+   * and silently undo the Studio edit. setValue() refreshes the text without
+   * firing value-changed (the same call HA itself uses to load it).
+   */
+  private _emitConfig(next: CardModCardConfig) {
+    this._previewConfig = next;
+    this._previewKey++;
+    this._echoGuard.noteEmitted(JSON.stringify(next));
+    this.dispatchEvent(
+      new CustomEvent('config-changed', { bubbles: true, composed: true, detail: { config: next } }),
+    );
+    const root = this.getRootNode?.() as (ShadowRoot & { host?: { GUImode?: boolean } }) | undefined;
+    if (root?.host?.GUImode === false) {
+      const yamlEditor = root.querySelector('ha-yaml-editor') as (HTMLElement & { setValue?: (v: unknown) => void }) | null;
+      yamlEditor?.setValue?.(next);
+    }
+  }
+
   private _emitConfigChanged() {
     if (!this.config || !this._studioState) return;
     const css = generateCss(this._studioState, this.config?.type, {
@@ -406,16 +425,7 @@ export class CmsPanel extends LitElement {
     if (this.config.type === 'entities') {
       newConfig = this._applyEntityRowStyles(newConfig);
     }
-    this._previewConfig = newConfig;
-    this._previewKey++;
-    this._echoGuard.noteEmitted(JSON.stringify(newConfig));
-    this.dispatchEvent(
-      new CustomEvent('config-changed', {
-        bubbles: true,
-        composed: true,
-        detail: { config: newConfig },
-      }),
-    );
+    this._emitConfig(newConfig);
   }
 
   private _onEntityRowStylesChanged(e: CustomEvent<EntitiesRowStyles>) {
@@ -1173,16 +1183,7 @@ export class CmsPanel extends LitElement {
     const updatedCards = cards.map((c, i) => (i === e.detail.index ? e.detail.config : c));
     const newConfig = { ...(this.config as unknown as object), cards: updatedCards } as unknown as CardModCardConfig;
 
-    this._previewConfig = newConfig;
-    this._previewKey++;
-    this._echoGuard.noteEmitted(JSON.stringify(newConfig));
-    this.dispatchEvent(
-      new CustomEvent('config-changed', {
-        bubbles: true,
-        composed: true,
-        detail: { config: newConfig },
-      }),
-    );
+    this._emitConfig(newConfig);
   }
 
   private _renderContainerCard(s: StudioState) {
