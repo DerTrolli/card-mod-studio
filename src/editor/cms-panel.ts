@@ -512,23 +512,36 @@ export class CmsPanel extends LitElement {
 
     /* ---- Two-column body ---- */
 
+    /* minmax(0, …): a plain 1fr track can't shrink below its widest
+       child's min-content — a card preview with a fixed minimum width (the
+       thermostat dial, ~385px) stretched the whole column past a 360px
+       phone screen and clipped every module. The preview scrolls inside
+       its own box instead. */
     .panel-body {
       flex: 1;
       display: grid;
-      grid-template-columns: 1fr 280px;
+      grid-template-columns: minmax(0, 1fr) 280px;
       overflow: hidden;
       min-height: 0;
     }
 
     .panel-body.no-preview {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
 
     /* Narrow editors (mobile / slim side panel): stack the preview below the
        controls instead of starving them of width. */
     .panel-body.narrow {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
       overflow-y: auto;
+      overflow-x: hidden;
+    }
+    /* Scrolling past the end of the panel must not chain into HA's dialog
+       behind it (on phones that slid our header under the dialog title). */
+    .panel-body.narrow,
+    .modules-col,
+    .preview-card-wrapper {
+      overscroll-behavior: contain;
     }
     .panel-body.narrow .modules-col {
       overflow: visible;
@@ -687,6 +700,7 @@ export class CmsPanel extends LitElement {
     /* ---- Right column: preview ---- */
 
     .preview-col {
+      min-width: 0;
       border-left: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       padding: 10px 12px;
       overflow: hidden;

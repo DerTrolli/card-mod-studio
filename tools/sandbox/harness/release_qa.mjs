@@ -288,6 +288,21 @@ async function openStyle(page, urlPath) {
       return t ? (t.closest('ha-button, mwc-button, button') || t) : null;`);
     if (!ok) await page.waitForTimeout(700);
   }
+  if (!ok) {
+    // Narrow viewports: HA collapses the card-options footer to "− n + ⋮" —
+    // "Edit" lives in the ⋮ overflow menu there (what a phone user taps).
+    const opened = await clickEl(page, `
+      const opts = Q.find('hui-card-options')[0]; if (!opts) return null;
+      const btns = Q.deepAll(opts).filter((n) => n.tagName === 'HA-ICON-BUTTON' && Q.visible(n));
+      return btns[btns.length - 1] || null;`);
+    if (opened) {
+      await page.waitForTimeout(600);
+      ok = await clickEl(page, `
+        const items = Q.deepAll(document.body).filter((n) => Q.visible(n) && n.children.length === 0 && (n.textContent || '').trim().toLowerCase() === 'edit');
+        const t = items[0]; if (!t) return null;
+        return t.closest('ha-md-menu-item, ha-list-item, mwc-list-item, ha-dropdown-item, [role=menuitem]') || t;`);
+    }
+  }
   if (!ok) throw new Error('card Edit button not found');
   await page.waitForFunction(() => window.__qa.find('cms-tab-button').length > 0, { timeout: 20000 });
   await page.waitForTimeout(900);
@@ -344,6 +359,14 @@ async function scrollFrames(page, dir, prefix) {
     const p = window.__qa.panel();
     const sc = p.shadowRoot.querySelector('.panel-body.narrow') || p.shadowRoot.querySelector('.modules-col');
     window.__qaScroller = sc; sc.scrollTop = 0;
+    // scrollIntoView() during the clicks also scrolls OUTER containers
+    // (HA's dialog content, even overflow:hidden hosts) — a user scrolling
+    // the panel never does; reset them so frames show the real layout.
+    for (let n = window.__qa.vparent(p); n; n = window.__qa.vparent(n)) {
+      if (n.scrollTop) n.scrollTop = 0;
+      if (n.scrollLeft) n.scrollLeft = 0;
+    }
+    if (p.scrollTop) p.scrollTop = 0;
   });
   for (let i = 0; i < 14; i++) {
     await page.waitForTimeout(250);
