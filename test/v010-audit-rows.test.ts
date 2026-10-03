@@ -158,3 +158,46 @@ describe('audit #20 — a null entry in entities: no longer crashes', () => {
     expect(out.entities[2]).toBe('sensor.b');
   });
 });
+
+describe('row icon colour sets state_color: false (HA\'s inline on-state colour beats --state-icon-color)', () => {
+  const apply = (config: CardModCardConfig, patch: (s: Record<string, unknown>) => Record<string, unknown>, index = 0) => {
+    installEngines(['card-mod']);
+    const styles = initEntityRowStyles(config);
+    const key = rowStyleKey(index);
+    return applyEntityRowStyles(config, { ...styles, [key]: patch(styles[key] as unknown as Record<string, unknown>) as never }) as unknown as Rows;
+  };
+
+  it('a new icon colour on a bare-string row adds it', () => {
+    const out = apply(cfg({ type: 'entities', entities: ['light.a'] }), (s) => ({ ...s, iconColor: '#e91e63' }));
+    expect(out.entities[0]).toMatchObject({ entity: 'light.a', state_color: false });
+    expect(out.entities[0].card_mod?.style).toContain('--state-icon-color: #e91e63;');
+  });
+
+  it('a changed icon colour adds it; a threshold icon colour too', () => {
+    const row = { entity: 'light.a', card_mod: { style: ':host {\n  --state-icon-color: red;\n}' } };
+    expect(apply(cfg({ type: 'entities', entities: [row] }), (s) => ({ ...s, iconColor: 'blue' })).entities[0].state_color).toBe(false);
+    const thr = apply(cfg({ type: 'entities', entities: [{ entity: 'sensor.t' }] }), (s) => ({
+      ...s, iconMode: 'threshold', iconDefault: '#888888', iconRules: [{ id: '0', operator: '>', value: 20, color: '#ff0000' }],
+    }));
+    expect(thr.entities[0].state_color).toBe(false);
+  });
+
+  it('an unchanged icon colour (older / hand-written row) is left exactly as it was', () => {
+    const row = { entity: 'light.a', card_mod: { style: ':host {\n  --state-icon-color: red;\n}' } };
+    const out = apply(cfg({ type: 'entities', entities: [row, { entity: 'light.b' }] }), (s) => ({ ...s, textColor: 'blue' }), 1);
+    expect(out.entities[0]).toEqual(row);
+  });
+
+  it('removing the icon colour removes it again', () => {
+    const row = { entity: 'light.a', state_color: false, card_mod: { style: ':host {\n  --state-icon-color: red;\n  color: blue;\n}' } };
+    const out = apply(cfg({ type: 'entities', entities: [row] }), (s) => ({ ...s, iconColor: '' }));
+    expect(out.entities[0].state_color).toBeUndefined();
+    expect(out.entities[0].card_mod?.style).toBe(':host {\n  color: blue;\n}');
+  });
+
+  it('a hand-set state_color on a row without an icon colour is never touched', () => {
+    const row = { entity: 'light.a', state_color: false };
+    const out = apply(cfg({ type: 'entities', entities: [row] }), (s) => ({ ...s, textColor: 'blue' }));
+    expect(out.entities[0].state_color).toBe(false);
+  });
+});

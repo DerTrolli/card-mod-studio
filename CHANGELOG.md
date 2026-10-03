@@ -160,6 +160,12 @@ Found by a dedicated audit (every item reproduced first, now covered by
   takes over now says so instead of looking broken.
 - **Font on a gauge in dark mode**: with the default (theme) text colour,
   the gauge's value turned black — unreadable on a dark card.
+- **Entity row icon colours now show while the entity is on.** HA colours
+  an active entity's icon itself (lights always do), which beat the row
+  colour, so it only showed while the entity was off. Setting a row icon
+  color now also sets HA's own `state_color: false` on that row (and
+  removing the color removes it); rows you don't touch are left as they
+  are.
 
 ### Changed
 

@@ -273,6 +273,41 @@ export function rowStyleHasContent(rowStyle: EntitiesRowStyle | undefined): bool
   return hasIcon || hasText || !!rowStyle.fontSizePx || !!rowStyle.fontWeight || !!rowStyle.extraCss;
 }
 
+/**
+ * Row icon colours need `state_color: false` on the row. HA colours the icon
+ * of an active entity itself — an inline style on the icon (lights always,
+ * other domains with state_color) — which beats `--state-icon-color`, so a
+ * row colour only showed while the entity was off. `state_color: false` is
+ * HA's own per-row switch for that colouring.
+ *
+ * Touched only when this edit changes the row's icon colour: set (or
+ * changed) → add it; removed → drop it. A row whose icon colour is unchanged
+ * keeps exactly what it had, so an unrelated edit never rewrites an older
+ * or hand-written row, and a hand-set `state_color` on a row without an
+ * icon colour is never touched.
+ */
+function withRowStateColor(
+  updated: EntitiesCardRow,
+  previousStyle: unknown,
+  newCss: string,
+): EntitiesCardRow {
+  const iconDecl = (text: string): string | null => {
+    const m = /--state-icon-color\s*:\s*([^;]*);/.exec(text);
+    return m ? m[1].trim() : null;
+  };
+  const before = iconDecl(typeof previousStyle === 'string' ? previousStyle : JSON.stringify(previousStyle ?? '').replace(/\\n/g, '\n'));
+  const after = iconDecl(newCss);
+  if (after === before) return updated;
+  if (after !== null) {
+    return updated.state_color === false ? updated : { ...updated, state_color: false };
+  }
+  if (updated.state_color === false) {
+    const { state_color: _dropped, ...rest } = updated;
+    return rest as EntitiesCardRow;
+  }
+  return updated;
+}
+
 /** Writes the row-style map (keyed by rowStyleKey(index) — see above) back
  *  into each row's card_mod:/uix: block, matching styles to rows by
  *  position so duplicate-entity rows round-trip independently. */
@@ -295,11 +330,12 @@ export function applyEntityRowStyles(
     // that can carry a card_mod:/uix: block).
     if (typeof row === 'string') {
       if (!hasContent) return row;
-      return applyCardModStyle(
+      const promoted = applyCardModStyle(
         generateEntityRowCss(rowStyle!, entityId),
         { entity: row } as unknown as CardModCardConfig,
         outputKey,
       ) as unknown as EntitiesCardRow;
+      return withRowStateColor(promoted, undefined, generateEntityRowCss(rowStyle!, entityId));
     }
     // v0.10: a dict-form row WITH a parsed carrier is editable — the save
     // rebuilds its dictionary around the regenerated `.` entry, pierced
@@ -310,12 +346,13 @@ export function applyEntityRowStyles(
     const currentStyle = resolveStyle(row as unknown as CardModCardConfig);
     if (isDictForm(currentStyle) && hasStyleContent(currentStyle) && !rowStyle?.dictSource) return row;
     const rowCss = hasContent ? generateEntityRowCss(rowStyle!, entityId) : '';
-    return applyCardModStyle(
+    const updated = applyCardModStyle(
       rowCss,
       row as unknown as CardModCardConfig,
       outputKey,
       rowStyle?.dictSource,
     ) as unknown as EntitiesCardRow;
+    return withRowStateColor(updated, currentStyle, rowCss);
   });
 
   return { ...(config as unknown as object), entities: updatedRows } as unknown as CardModCardConfig;

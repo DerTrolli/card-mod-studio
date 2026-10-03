@@ -35,6 +35,7 @@ Row styles are written into each row's own `card_mod:`/`uix:` block:
 ```yaml
 entities:
   - entity: sensor.temperature
+    state_color: false
     card_mod:
       style: |
         :host {
@@ -42,6 +43,13 @@ entities:
           font-size: 18px;
         }
 ```
+
+`state_color: false` is HA's own per-row option. While an entity is *on*,
+HA colours its icon itself (lights always do), and that colour wins over
+any style — so without it a row icon colour would only show while the
+entity is off. The Studio adds it when you set a row's icon color and
+removes it again when you remove that color; rows whose icon color you
+don't touch are left exactly as they are.
 
 ## Dictionary-form rows (v0.10.0)
 
