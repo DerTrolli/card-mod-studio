@@ -5,42 +5,163 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.10.0-beta.1] — 2026-08-16
+## [0.10.0] — 2026-10-03
 
-The first cut of the v0.10 "Piercing" cycle (see `docs/V0.10_PLAN.md`):
-dictionary-form styles go from "preserved but frozen" (v0.9.1) to
-**editable**.
+The "Piercing + polish" release — the v0.10 cycle consolidated (beta.1,
+field-tested since 2026-08-17) plus a full release-readiness pass:
+re-verification against the newest engines, an HA 2026.10 compatibility
+fix, a 20-bug audit of how hand-written CSS survives an edit, and a
+light-mode / dark-mode / phone overhaul of the editor UI.
+
+Verified live on **four** Home Assistant instances — **HA 2026.9.4** (the
+current stable) and **HA 2026.10.0b0** (2026.10.0 ships 2026-10-07), each
+with **card-mod 4.2.1** and with **UIX 8.3.1** separately: the full
+live-check suite, a new real-dialog functional test of every control,
+and a visual QA sweep in light and dark mode at six screen sizes (360px
+phone → 1920px desktop) with automated contrast, clipping and touch-target
+measurements.
 
 ### Added
 
-- **Dict-form (`$` shadow-piercing) styles are now editable.** The `.`
-  entry of a dictionary style — the CSS for the card itself — runs
-  through the normal visual-module pipeline, so every module works on
-  dict-form cards exactly like on string-form ones. Every *other* entry
+- **Dict-form (`$` shadow-piercing) styles are editable.** The `.` entry
+  of a dictionary style — the CSS for the card itself — runs through the
+  normal visual modules, exactly like a plain style. Every *other* entry
   (pierced `selector$` chains, nested dicts, UIX `$$`/`&` extensions) is
   preserved **byte-identically, in original key order**, through every
   edit and save; an edit on a dict that had no `.` yet inserts one first.
-  Applies to top-level cards, stack children, and entities-card rows
-  alike.
-- The **Advanced module lists a dict card's pierced entries read-only**,
-  so hand-written shadow-piercing styling is visible in the panel (with a
-  note that it's preserved verbatim and edited in YAML).
-- The **UIX-only reverse-compat warning now also covers `$$` express
-  selectors and `&` host-filter keys** in dict styles — like
-  macros/billets, these can't run under card-mod under any key, and the
-  "Copy to card_mod" offer is correctly suppressed for them.
+  Works for top-level cards, stack children and entities-card rows. A
+  dictionary that is the card's only style is editable whichever key
+  holds it; a `uix:` dictionary using UIX-only features stays under
+  `uix:`.
+- The **Advanced CSS module lists a dict card's pierced entries
+  read-only**, so hand-written shadow-piercing styling is visible in the
+  panel.
+- **Heading Style now also styles "Subtitle" headings**
+  (`heading_style: subtitle`), which it never reached before.
+- **Keyboard access**: every collapsible section (modules, stack
+  children, entity rows) is reachable with Tab and toggles with
+  Enter/Space; colour swatches are real buttons with accessible names;
+  visible focus rings throughout.
+
+### Fixed — Home Assistant 2026.10
+
+- **Heading Style stopped working on HA 2026.10.** HA 2026.10 changes the
+  heading card's title from `<p>` to `<h2 class="heading">`, so the
+  `.title p` rule the module wrote no longer matched anything. The module
+  now uses HA's own `--ha-heading-card-*` variables (size / colour /
+  weight — verified on 2026.9 and 2026.10, card-mod and UIX) plus a font
+  family rule that matches both versions. **Existing heading styles are
+  migrated automatically**: open the card in the Studio and save once.
+
+### Fixed — hand-written CSS is never rewritten or lost
+
+Found by a dedicated audit (every item reproduced first, now covered by
+134 regression tests, including seeded fuzz suites):
+
+- **Jinja statements** (`{% if %}`, `{% set %}`, `{# … #}`) are kept
+  exactly as written — an `{% endif %}` used to be dropped (breaking the
+  whole style) and an `{% if %}` wrapper could vanish, making a
+  conditional style unconditional.
+- **`@media` / `@supports` blocks keep their position**, so responsive
+  overrides keep working (they used to be moved above the rules they
+  override). Nested rules (CSS nesting, nested `@media`) are no longer
+  corrupted.
+- **Threshold colours are only adopted when the Studio would write them
+  back identically** — expressions with extra conditions
+  (`and is_state(…)`), a non-colour fallback, several entities,
+  arithmetic, or a rule order the Studio would re-sort now stay in
+  Advanced CSS instead of being silently simplified.
+- A **`uix:` style using macros, billets or a theme is never deleted**
+  when the Studio saves to `card_mod:` (including "clear all styling").
+- **Entity rows** keep their hand-written CSS from *both* `card_mod:` and
+  `uix:` after an edit; a row rule aimed at part of the row
+  (`state-badge`, `hui-generic-entity-row`, …) is no longer turned into a
+  whole-row rule; a row style that is only an `@media` block no longer
+  gains a corrupt duplicate.
+- **Border**: only `solid` borders are adopted — `dashed`, `dotted`,
+  `none` etc. stay as written instead of becoming solid.
+- **Filter transition**: lists, custom easing and delays are kept
+  (only a plain `transition: filter <duration>` is adopted).
+- **`!important` wins over source order** when the same selector appears
+  twice, as in the browser.
+- **Dictionary styles**: a dict under only one key, or the identical dict
+  under both keys (what "Copy to card_mod" produces), is no longer frozen
+  behind a wrong "Mixed-form" banner; an empty `style: {}` no longer
+  freezes the card; a dict whose `.` isn't plain CSS is preserved behind
+  an accurate banner instead of silently discarding edits; presets on a
+  dict card apply correctly and never carry another card's pierced
+  entries.
+- **Rows that can't be rewritten** (mixed-form) show a lock note instead
+  of controls whose edits were silently dropped; a mixed-form stack child
+  keeps its entity rows editable.
+- **"Copy to card_mod"** keeps existing `card_mod: class:` / `debug:`.
+- A row-level `uix:` dictionary with `$$`/`&` keys gets the UIX-only
+  warning instead of a "Copy to card_mod" offer that couldn't work.
+- A `null` entry in `entities:` no longer breaks the panel.
+- The "custom CSS is overriding this control" warning also sees rules
+  that come after an `@media` or nested block.
+
+### Fixed — light mode, dark mode and phones
+
+- **Readable in light mode.** Warning/info banners, the mixed-form and
+  stack banners, "+ Add" / delete / preset buttons, override hints and
+  the "no on/off state" hint used coloured text on a tint of the same
+  colour — down to 1.4:1 contrast on light themes. Everything now meets
+  WCAG AA (4.5:1) in light AND dark mode, measured on the real dialog.
+- **Turning on Font or Heading Style no longer paints the card's text
+  near-white** on light themes — new text colours default to the theme's
+  own text colour (`var(--primary-text-color)`), and colour swatches show
+  what a `var()` colour really resolves to.
+- **The preview sits on your theme's dashboard background** instead of a
+  black box.
+- **Phones**: the panel never gets wider than the screen — on a 360px
+  phone a thermostat (or any card with a wide preview) used to push every
+  module's right edge, toggles included, off-screen; rule rows, colour
+  grids and control rows wrap instead of clipping their buttons;
+  scrolling past the end of the panel no longer drags HA's dialog along; the side-by-side preview only appears from
+  720px panel width; the Style button is icon-only on narrow screens so
+  HA's dialog footer fits; touch targets grow on touch screens (no target
+  under 24px anywhere in the panel).
+- Native inputs and selects follow the theme (no white boxes in dark
+  mode) and use HA's font; round colour inputs are actually round; the
+  selected colour swatch is visible on every colour (it disappeared on
+  blue/cyan); light swatches have an outline; swatches wrap as two even
+  rows on narrow screens.
+- The colour popover is placed using its real height (it could run off
+  the bottom with custom colours) and never past the screen edge on
+  phones; the click-to-edit preview label is readable on any card and
+  stays inside the preview.
+- Entity pickers no longer show HA's large floating label next to the
+  row's own label.
+- Entity rows are labelled with the entity's friendly name ("Outside
+  Temperature"), like HA does, instead of its object id
+  (`outside_temperature`).
 
 ### Changed
 
-- **Mixed-form styling still freezes** — a card (or row) carrying a
-  string-form style *and* a dict-form style across its two keys, or
-  dicts under *both* keys, has no faithful single-key rewrite, so both
-  keys stay preserved verbatim behind a "Mixed-form styling" banner.
-  This is the only remaining frozen case; the v0.9.1 whole-card freeze
-  for any dict is gone.
-- The macros/billets info banners no longer fire for dict-form styles
-  with `$$`/`&` keys — those are never overwritten or left unsynced
-  under the new model, so the warning would have been wrong.
+- **Mixed-form styling still freezes** — a card or row carrying a plain
+  style on one key and a *different* dictionary style on the other has no
+  faithful single-key rewrite, so both keys stay preserved verbatim
+  behind a lock banner. This is the only remaining frozen case.
+- The macro/billet info banners no longer fire for dict styles with
+  `$$`/`&` keys (those are never overwritten under the new model).
+- The heading icon rule no longer emits the inert `--ha-icon-size` twin
+  (HA never read it); older output that has it is still recognised.
+
+### Compatibility notes
+
+- **card-mod 4.2.1** (still the newest release) works, but is
+  effectively unmaintained: on HA ≥ 2026.8 it hangs if your *theme*
+  defines `card-mod-*-yaml` variables (card-mod issues #606/#617). UIX is
+  a drop-in replacement and the Studio fully supports it.
+- **UIX 8.4** (in beta) will require HA 2026.10 or newer.
+
+### Not in this release
+
+- The planned Font-module size controls for the gauge value number and
+  the thermostat big number moved to **v0.11** — they need a new
+  generated-dictionary path in the save logic, which deserves its own
+  beta round (see `docs/ROADMAP.md`).
 
 ## [0.9.1] — 2026-08-07
 
@@ -872,7 +993,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
-[0.10.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.10.0-beta.1
+[0.10.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.10.0
 [0.9.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.1
 [0.9.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0
 [0.8.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.8.1

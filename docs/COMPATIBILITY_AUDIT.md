@@ -1,13 +1,17 @@
 # Card-Mod Studio — card-mod 4.x / HA 2026 Compatibility Audit
 
-**Audit date:** 2026-06-25 (card-mod/HA) · 2026-07-03 (UIX addendum, §9)
-**Audited version:** v0.4.0 (card-mod/HA) · v0.6.0 (UIX) · v0.6.1 (entities-row parser fix §10 item 5a, card_mod:/uix: dedup-on-edit §10 item 5b, same-selector-twice parse bug §10 item 5c) · v0.6.2 (dialog-transform popover positioning §10 item 5d)
+**Audit date:** 2026-06-25 (card-mod/HA) · 2026-07-03 (UIX addendum, §9) · 2026-10-03 (v0.10.0 refresh, §11)
+**Audited version:** v0.4.0 (card-mod/HA) · v0.6.0 (UIX) · v0.6.1 (entities-row parser fix §10 item 5a, card_mod:/uix: dedup-on-edit §10 item 5b, same-selector-twice parse bug §10 item 5c) · v0.6.2 (dialog-transform popover positioning §10 item 5d) · v0.10.0 (§11)
 **Reference targets:**
 - card-mod **v4.2.1** (latest; released 2026-02-08). Major breaking release was
   **v4.0.0** (2026-11-18, requires HA 2025.11+).
 - Home Assistant **2026.6** (latest stable, 2026-06-03).
 - UIX **v7.6.1** ([Lint-Free-Technology/uix](https://github.com/Lint-Free-Technology/uix),
   latest as of the audit; see §9).
+- **Refreshed 2026-10-03 (v0.10.0):** HA **2026.9.4** (stable) and
+  **2026.10.0b0**, card-mod **4.2.1** (still the newest release), UIX
+  **8.3.1** — see §11. The sections below keep the original audit text;
+  statements the refresh overturned are annotated in place.
 
 This document records how the YAML/CSS that Card-Mod Studio **generates** holds
 up against current card-mod and Home Assistant, what is safe, and what needs
@@ -24,11 +28,17 @@ of `src/generator/css-generator.ts`.
 / `$` shadow-pierce form** and **theme-class selectors** — neither of which the
 generator produces. So the generated output was essentially unaffected by v4.
 
-⚠️ **Three things to watch**, in priority order:
-1. **`--mdc-icon-size`** (heading module) — MDC variables are deprecated in HA
-   2026.4+. Still works in 2026.6 but will need migration.
+⚠️ **Three things to watch**, in priority order *(statuses updated for
+v0.10.0 — see §11)*:
+1. **`--mdc-icon-size`** (heading module) — the original audit expected MDC
+   variables to be deprecated from HA 2026.4 on and to need migration.
+   **Not borne out:** it is still HA's live icon-size variable and its use
+   in HA's frontend grew (179 → 192 → 208 references across 2026.8.0 →
+   2026.9.4 → 2026.10.0b0). No migration needed (§5).
 2. **Dict / `$` shadow-pierce round-trip is lossy** — opening and saving a card
-   that was hand-written in card-mod's dictionary form can corrupt those styles.
+   that was hand-written in card-mod's dictionary form could corrupt those
+   styles. **Resolved:** preserved verbatim since v0.9.1, *editable* since
+   v0.10.0 (§4).
 3. **Icon-color selector is `ha-state-icon` for every card type** — correct for
    button/tile/entity, but not all cards expose `ha-state-icon`, so icon color
    silently does nothing on some card types.
@@ -49,12 +59,16 @@ this audit. See **Action items** at the end.
 | Animation | `@keyframes cms-*` + `ha-card { animation; background-size }` |
 | Icon color | `ha-state-icon { color }` (plain / on-off Jinja2 / light `rgb_color`) |
 | Threshold | `ha-state-icon { color }` **or** `ha-card { background | color | --accent-color | border }` driven by a Jinja2 ternary chain |
-| Heading style | `.container { justify-content }`, `.title p { font-size; color }`, `.title ha-icon { --mdc-icon-size; color }` |
+| Heading style | v0.10.0: `.container { justify-content; --ha-heading-card-{title,subtitle}-{font-size,color,font-weight} }`, `.content p, .content .heading { font-family }`, `.content ha-icon { --mdc-icon-size; color }`. (Up to v0.9.x: `.title p { font-size; color }` and `.title ha-icon { --mdc-icon-size; --ha-icon-size; color }` — the `.title p` rule stopped matching on HA 2026.10, see §11.) |
 | Font | `ha-card { font-size; font-weight; color; font-family }` + tile-card extras (`--ha-tile-info-{primary,secondary}-{font-size,font-weight,color}`) |
 | Entity rows | `:host { --state-icon-color; color }` per row |
 
 All of the above is wrapped as `card_mod: { style: "<string>" }` by
-`yaml-generator.ts → applyCardModStyle`. **We never write the dictionary form.**
+`yaml-generator.ts → applyCardModStyle`. **We never turn a string style into
+a dictionary.** *(Since v0.10.0 a card that was already dictionary-form is
+rebuilt in dictionary form around its regenerated `.` entry — see §4.)* This
+inventory is the v0.4.0 snapshot; only the heading row is refreshed — later
+modules and per-card companions are listed in `CHANGELOG.md`.
 
 ---
 
@@ -94,7 +108,7 @@ All use card-mod's documented template surface: **`config.entity`**, **`states()
 
 ---
 
-## 4. Dictionary / `$` shadow-pierce round-trip (fixed in v0.9.1: preserved verbatim)
+## 4. Dictionary / `$` shadow-pierce round-trip (fixed in v0.9.1: preserved verbatim; editable since v0.10.0)
 
 > **v0.9.1 addendum (2026-08):** the empirical re-audit for the v0.10 plan
 > found this was WORSE than documented below — besides the corruption case,
@@ -106,7 +120,19 @@ All use card-mod's documented template surface: **`config.entity`**, **`states()
 > keys byte-identically; the panel shows a dedicated "preserved as-is"
 > banner instead of dead controls (rows stay editable). Covered by 7 unit
 > regressions + `dict_preserve_check.mjs` live on both engines. Visual
-> EDITING of the dict form remains future work — see docs/V0.10_PLAN.md.
+> EDITING of the dict form followed in v0.10.0 (addendum below) — see
+> docs/V0.10_PLAN.md.
+
+> **v0.10.0 addendum (2026-10):** dictionary-form styles are now **editable**.
+> The `.` entry — the CSS for the card itself — runs through the normal
+> visual modules; every other entry (pierced `selector$` chains, nested
+> dicts, UIX `$$`/`&` keys) is preserved byte-identically in original key
+> order and listed read-only in Advanced CSS. This holds for top-level
+> cards, stack children and entities rows. Only *mixed-form* styling (a
+> plain style on one key plus a *different* dictionary on the other, or a
+> dictionary whose `.` isn't plain CSS) still freezes, behind a lock banner
+> (a lock note on a row). The Studio still never converts a string style
+> into a dictionary.
 
 ### Original finding (pre-v0.9.1, kept for history)
 
@@ -136,8 +162,10 @@ verbatim and only append. Do **not** silently flatten. See ROADMAP.
 
 | Variable | Where we emit it | Status | Action |
 |---|---|---|---|
-| `--mdc-icon-size` | Heading module (`.title ha-icon`) | **Deprecated in HA 2026.4+** (MDC → "Web Awesome" migration). Works in 2026.6. | Track HA's replacement var; migrate the heading module when finalised. |
-| `--paper-item-icon-active-color` | Accent color (generic cards) | Legacy "paper" variable; aging but still honoured. Harmless if ignored. | Low priority; keep for backward compat, plan to drop. |
+| `--mdc-icon-size` | Heading module (`.content ha-icon`; `.title ha-icon` before v0.10.0), tile/entity/sensor icon size | ~~Deprecated in HA 2026.4+~~ — **not borne out (v0.10.0 re-audit).** Still the live icon-size variable (`ha-svg-icon` reads `var(--mdc-icon-size, 24px)`); HA's own use grew 179 → 192 → 208 references (2026.8.0 → 2026.9.4 → 2026.10.0b0). | None — keep. (The original "track HA's replacement variable" action found no replacement.) |
+| `--ha-icon-size` | Heading module until v0.9.x, and the Icon size control (both a "forward-compat twin" of `--mdc-icon-size`) | **Inert — nothing in HA's frontend reads it** (0 uses at 2026.8.0, 2026.9.4 and 2026.10.0b0). | Dropped from the heading icon rule in v0.10.0 (older output carrying it is still recognised on open). The Icon size control still writes it next to `--mdc-icon-size` — harmless; a candidate for removal. |
+| `--ha-heading-card-{title,subtitle}-{font-size,color,font-weight}` | Heading module (v0.10.0) | Current — HA's public heading-card variables, present from 2026.8.0 through 2026.10.0b0 and honoured by card-mod and UIX alike. | None. |
+| `--paper-item-icon-active-color` | Accent color (generic cards) *(no longer emitted since v0.9.0-beta.3)* | Legacy "paper" variable; dead — 0 uses in HA 2026.8.0 → 2026.10.0b0. Still claimed when reading old configs. | None. |
 | `--state-icon-color` | Accent color, entity rows | Current, supported. | None. |
 | `--tile-color` | Accent color (tile cards) | Current (tile card var). | None. |
 | `--gauge-color` | Accent color (gauge) | Current. | None. |
@@ -188,6 +216,9 @@ next to `ha-button[slot=secondaryAction]`; the panel is hosted in
   `src/editor/cms-injector.ts`.
 
 **Verdict:** ✅ valid on HA 2026.6; single-point-of-failure documented.
+*(Re-verified through the real dialog in v0.10.0 on HA 2026.9.4 and
+2026.10.0b0: `hui-dialog-edit-card`, `hui-card-element-editor`, `hui-form-editor`
+and the `ha-button[slot=secondaryAction]` footer are unchanged — §11.)*
 
 ---
 
@@ -197,15 +228,15 @@ next to `ha-button[slot=secondaryAction]`; the panel is hosted in
 |---|---|
 | String-form output on card-mod 4.x | ✅ Compatible |
 | Jinja2 template surface | ✅ Compatible |
-| Injection point (HA 2026.6) | ✅ Valid |
-| `--mdc-icon-size` (heading) | ⚠️ Deprecated, works for now |
-| Dict / `$`-pierce round-trip | ⚠️ Lossy on save |
+| Injection point (HA 2026.6; re-verified 2026.9.4 / 2026.10.0b0, §11) | ✅ Valid |
+| `--mdc-icon-size` (heading) | ✅ Still live — not deprecated (§5, §11) |
+| Dict / `$`-pierce round-trip | ✅ Preserved verbatim (v0.9.1), editable (v0.10.0) |
 | Per-card icon selector coverage | ⚠️ Heuristic gap |
 | `--paper-item-icon-active-color` legacy | 🟡 Harmless, plan to drop |
-| UIX support (v7.6.1, see §9) | ✅ Compatible, verified live |
+| UIX support (v7.6.1 in §9; re-verified on 8.3.1, §11) | ✅ Compatible, verified live |
 | Reverse-compat warning: top-level card | ✅ Covered |
 | Reverse-compat warning: entities-row level | ✅ Covered (v0.6.0) |
-| Reverse-compat warning: dict-form / duplicate-entity-ID rows | ⚠️ Pre-existing gap, ROADMAP #23/#24 |
+| Reverse-compat warning: dict-form / duplicate-entity-ID rows | ✅ Resolved — dict-form rows (ROADMAP #23, v0.10.0) and duplicate IDs (#24, v0.9.0-beta.3) |
 
 ---
 
@@ -255,7 +286,9 @@ this one's a heads-up, not a "nothing happens" guarantee, since there's no
 fallback key to write to instead).
 
 **Known gaps, not yet covered — both pre-existing, not introduced by UIX
-support:** `_initEntityRowStyles` only recognises **string-form** row styles;
+support** *(both since resolved: dict-form rows are read back and editable
+as of v0.10.0 (ROADMAP #23); rows sharing an entity ID got positional keys in
+v0.9.0-beta.3 (#24))*: `_initEntityRowStyles` only recognises **string-form** row styles;
 a hand-authored dictionary/shadow-pierce-form row style isn't read back, and
 (more seriously) the next unrelated edit on that card silently clears it,
 same failure class as the card-level dict-form issue in §4 (ROADMAP #23).
@@ -274,16 +307,22 @@ being duplicated).
 
 ## 10. Action items (feed into ROADMAP)
 
-1. **[High] Heading module — migrate off `--mdc-icon-size`** once HA publishes
+1. ✅ **[High] Heading module — migrate off `--mdc-icon-size`** once HA publishes
    the Web Awesome icon-size replacement. Add a fallback chain in the interim.
-2. **[High] Protect dictionary-form `card_mod`** from lossy string flattening
-   (detect on open; preserve verbatim or go read-only).
+   — **Closed (v0.10.0 re-audit):** no replacement has appeared —
+   `--mdc-icon-size` is still the live variable (§5, §11). The interim
+   `--ha-icon-size` fallback turned out to be inert.
+2. ✅ **[High] Protect dictionary-form `card_mod`** from lossy string flattening
+   (detect on open; preserve verbatim or go read-only). — **Done (v0.9.1:
+   preserved verbatim; v0.10.0: editable).**
 3. **[Med] Per-card icon-color selectors** — verify which card types expose
-   `ha-state-icon`; emit the correct selector/variable per type.
+   `ha-state-icon`; emit the correct selector/variable per type. *(Glance was
+   re-probed in the v0.10 cycle with pierced selectors on both engines: not
+   achievable — documented limitation.)*
 4. ✅ **[Med] Per-row entities uix-only warning** (§9) — **Done (v0.6.0)**.
    ROADMAP #19.
-5. **[Med] Dict-form entities-row styles** (§9) — same fix as #2, at the row
-   level. ROADMAP #23.
+5. ✅ **[Med] Dict-form entities-row styles** (§9) — same fix as #2, at the row
+   level. ROADMAP #23. — **Done (v0.10.0).**
 5a. ✅ **[Med] Entities-row threshold default color silently discarded on
    parse** — **Fixed (v0.6.1)**. A distinct bug from #5 (string-form, not
    dict-form): `_parseEntityRowCss`'s value regex (`[^;}\n]+`) truncated
@@ -342,12 +381,39 @@ being duplicated).
    dialog and verifies the popover is genuinely clickable at its rendered
    position (piercing shadow roots via `elementFromPoint`), not just
    present in the DOM.
-6. **[Med] Duplicate-entity-ID rows cross-contaminate styling** (§9) — needs a
-   positional row key instead of entity-keyed. ROADMAP #24.
-7. **[Low] Phase out `--paper-item-icon-active-color`** in the accent module.
-8. **[Low] Pin/verify card-mod version** in docs (state "tested against card-mod
-   4.2.x") and add it to the compatibility table in the README.
+6. ✅ **[Med] Duplicate-entity-ID rows cross-contaminate styling** (§9) — needs a
+   positional row key instead of entity-keyed. ROADMAP #24. — **Done
+   (v0.9.0-beta.3).**
+7. ✅ **[Low] Phase out `--paper-item-icon-active-color`** in the accent module.
+   — **Done (v0.9.0-beta.3).**
+8. ✅ **[Low] Pin/verify card-mod version** in docs (state "tested against card-mod
+   4.2.x") and add it to the compatibility table in the README. — **Done**
+   (README compatibility table, refreshed every release).
 9. ✅ **[Housekeeping] Reconcile `docs/BUG_FIX_PLAN.md`** with the shipped
    `iconColorBlock()` — **Done (v0.6.2 repo cleanup)**. Confirmed the sensor
    `--paper-item-icon-color` path it described was never in the shipped
    generator; retired the file (ROADMAP #4).
+
+---
+
+## 11. v0.10.0 refresh (2026-10-03)
+
+Re-audited from upstream source and release notes, then re-verified live in
+the sandbox on **four** instances: **HA 2026.9.4** (current stable) and
+**HA 2026.10.0b0** (2026.10.0 releases 2026-10-07), each with **card-mod
+4.2.1** and with **UIX 8.3.1** — the full live-check suite, a functional UI
+check of every control, and a theme × viewport visual QA sweep. (Previous
+baseline: HA 2026.8.0 + card-mod 4.2.1 + UIX 8.0.0.)
+
+| Finding | Detail |
+|---|---|
+| Editor injection surface unchanged | `hui-dialog-edit-card`, `hui-card-element-editor`, `hui-element-editor`, `hui-form-editor`, `ha-dialog`/`ha-dialog-footer` and the `ha-button[slot=secondaryAction]` footer are functionally identical from HA 2026.8.0 to 2026.10.0b0 (a couple of CSS lines and imports differ). The `hui-form-editor` shim is still required — UIX has no `getConfigForm()` handling either. |
+| **Heading card markup changed in HA 2026.10** | The title is now `<h2 class="heading">` (`<h3>` for `heading_style: subtitle`) instead of `<p>`, so the `.title p` rule the Heading Style module wrote silently stopped matching (`.title ha-icon` and `.container` still matched). **Fixed in v0.10.0** — the module now writes HA's public `--ha-heading-card-*` variables (present on 2026.8.0 through 2026.10.0b0) plus `.content p, .content .heading` (font family) and `.content ha-icon` (icon), and also reaches Subtitle headings. Old `.title p` styles are adopted and migrated on save. |
+| Light card slider replaced (HA 2026.10) | `round-slider` → `ha-control-circular-slider`. The Font module's light selectors (`#info`, `.brightness`) are unchanged and the Studio emits no round-slider variable. |
+| `--mdc-icon-size` is live; `--ha-icon-size` is inert | Usage counts across HA's frontend at 2026.8.0 / 2026.9.4 / 2026.10.0b0: `--mdc-icon-size` 179 / 192 / 208; `--ha-icon-size` 0 / 0 / 0. The §5 "MDC deprecated in 2026.4+" expectation is not borne out; see §5. |
+| card-mod 4.2.1 is effectively unmaintained | Still the newest release (no commits on `master` since 2026-02-09; the only newer tag is a side-branch pre-release for HA 2026.4 dialogs). On HA ≥ 2026.8 it **hangs if the active theme defines `card-mod-*-yaml` variables** (its `yaml2json` bootstrap waits for a developer-tools element HA no longer defines; HA 2026.9 adds a second crash in the mock it builds) — upstream issues #606 / #617, open. Users on the default theme or a theme without those variables are unaffected. UIX is a drop-in replacement (and parses theme YAML with `js-yaml` directly since 8.1.0, so it does not hang). |
+| UIX 8.0.0 → 8.3.1 | 8.1.0 icon/entity-picture styling and per-entity overrides, 8.2.0 the UIX Broker, 8.3.0 Broker directives and lifecycle events, 8.3.1 Map spark fix for HA 2026.9. The styling contract is unchanged: `uix:` over `card_mod:` precedence, the `card_mod:` fallback, the config-flow abort on a `card-mod.js` resource. |
+| UIX 8.4 (beta) will require HA ≥ 2026.10 | Its `hacs.json` minimum was bumped on `dev` (8.4.0-beta.7 shipped 2026-10-03); 8.4.0 final will not install through HACS on older HA. UIX 8.x currently requires HA ≥ 2026.8.0. |
+| Visual-only shifts in HA 2026.9/2026.10 | `ha-card` header padding and line-height changed; entities rows render `secondary_info` through `state-display`. The `--ha-card-header-*` variables and the per-row selectors the Studio uses are still read. |
+
+Full detail and sources: `docs/ROADMAP.md` ("Engine watch").

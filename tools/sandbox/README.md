@@ -78,12 +78,19 @@ node dict_visual_check.mjs   # v0.10.0-beta.1: VISUAL render pass — every stan
 node state_props_check.mjs     # v0.9.0-beta.3: state-driven numeric properties — conditional border (3px⇄none), conditional blur+opacity (applied⇄none), icon size 40px per supported card (tile/entity/sensor/picture-glance) + 24px conditional fallback, panel round-trip of widthWhen/effectsWhen/sizePx, size control absent on light
 node legacy_adopt_check.mjs  # v0.8.1: legacy/hand-written CSS adoption (v0.3.x :host icon vars -> Icon Color, regenerate-on-edit removes the legacy line), conservative non-adoption, and the override-warning badge; run on the UIX rig it also covers card-mod-authored cards being rewritten under uix:
 node attr_palette_check.mjs  # v0.8.0-beta.2: attribute-based thresholds (state_attr Jinja renders + panel round-trip) and Color Palette Manager (custom colors + OFF-default override reaching fresh module state)
+node heading_check.mjs  # v0.10.0: Heading Style on HA 2026.9 AND 2026.10 (title became <h2 class="heading"> in 2026.10) — drives the REAL panel, renders the config it EMITS and measures size/colour/weight/family/icon/alignment for title- AND subtitle-style headings, plus a pre-v0.10 `.title p` config opened + saved (migrated and rendering); run it on every rig (STYLE_KEY / HA_URL / TOKENS_FILE)
+node release_qa.mjs  # v0.10.0 release QA: real-dialog visual QA — theme (light/dark) × viewport (360px phone → 1920px) × scenario (tile, entities, stack, heading, gauge, thermostat, button, dict, mixed, …) with real clicks; measures contrast, clipping, touch targets; screenshots + report.json under shots/qa/ (see below)
+node contact_sheet.mjs <out.png> <cols> <img...>  # tiles screenshots (e.g. release_qa output) into one labeled contact sheet for quick visual review
+node functional_ui_check.mjs  # functional UI check (all controls via real clicks)
 node ux_audit_shots.mjs  # screenshot-only: renders the consistency-pass UI states (heading module, entity rows + palette manager, threshold) into shots/ for visual review — no assertions
 node readme_shots.mjs  # screenshot-only: regenerates every README image (images/*.png) through the REAL edit dialog into shots/readme/ — review, then copy over the repo's images/
 node scan.mjs            # which card types mount cleanly standalone
 ```
 
-Environment overrides: `HA_URL`, `CHROME_BIN`, `HA_IMAGE`, `CARD_MOD_TAG`.
+Environment overrides: `HA_URL`, `CHROME_BIN`, `HA_IMAGE`, `CARD_MOD_TAG` — and,
+to run a second instance beside the default one (e.g. `HA_IMAGE=ghcr.io/home-assistant/home-assistant:beta`),
+`CFG` (config dir), `CONTAINER`, `HOST_PORT` and `TOKENS` (tokens file); point the
+harness at it with `HA_URL` / `TOKENS_FILE`.
 
 ---
 
@@ -192,6 +199,33 @@ run.sh
   color. See `docs/DEVELOPMENT.md`'s "Real card-mod silently drops a whole
   style block" note for the full story and why a fixed `setTimeout` isn't
   enough to reliably catch this class of bug (poll instead).
+- **`harness/heading_check.mjs`** — Heading Style across HA 2026.9 and 2026.10.
+  HA 2026.10 changed the heading title from `<p>` to `<h2 class="heading">`
+  (`<h3>` for `heading_style: subtitle`), which silently broke the old
+  `.title p` output. The check drives the real panel, renders the config it
+  *emits* and measures the result: a title-style heading (size, colour, weight,
+  family, icon size, icon colour, alignment), the same for a subtitle-style
+  heading, and a pre-v0.10 `.title p` config opened and saved in the panel
+  (migrated to the working shape, and rendering). Run it on every rig.
+- **`harness/release_qa.mjs`** — release-readiness visual QA through HA's REAL
+  card-edit dialog (storage dashboard + `?edit=1` + the card's Edit button,
+  then the injected Style button — real mouse clicks only). Per theme
+  (light/dark via `prefers-color-scheme`) × viewport (`phone360`, `phone390`,
+  `split700`, `tablet1024`, `desktop1440`, `wide1920`) × scenario card, it
+  enables and expands every module, then measures over every visible element
+  of the panel: WCAG contrast against the backgrounds actually painted behind
+  it, clipping/horizontal overflow, light native controls on a dark theme,
+  touch targets under 24×24px on phone viewports, and page/console errors. It
+  saves dialog-clipped screenshots (the dialog footer before Style is clicked,
+  scroll frames through the whole panel on the "full capture" viewports, a
+  colour-popover and a preview-picker hover shot), and on desktop-light clicks
+  HA's own Save and verifies the styling persisted and renders. Output:
+  `shots/qa/<cardmod|uix>/` (screenshots + `report.json`). Env: `QA_THEMES`,
+  `QA_VIEWPORTS`, `QA_SCENARIOS`, `QA_FULL`, `QA_OUT`; engine rig chosen by
+  `HA_URL` / `TOKENS_FILE` / `STYLE_KEY` like every other check.
+- **`harness/contact_sheet.mjs`** — no assertions: tiles a list of screenshots
+  into one labeled contact sheet (Chromium renders an `<img>` grid and
+  screenshots it), handy for eyeballing a whole `release_qa.mjs` run at once.
 
 ---
 
@@ -206,6 +240,14 @@ run.sh
 - **card-mod registers lazily**: `customElements.get('card-mod')` can read `false`
   until the first `card_mod` card renders. Don't gate on it; the resource 200 +
   observed effects confirm it's working.
+- **card-mod loaded as a dashboard resource applies later than it used to**
+  (HA 2026.9+): a styled card renders first and its `<card-mod>` child attaches
+  afterwards, well past a fixed 1.5s delay. Wait for the `<card-mod>` element to
+  attach to the styled cards instead of sleeping (`button_matrix.mjs` does).
+- **At ~360px wide the dashboard's card-edit footer collapses "Edit" into the ⋮
+  menu** (the footer shrinks to "− n + ⋮"). Anything that clicks the card's
+  "Edit" link on a phone-width viewport must fall back to ⋮ → Edit
+  (`release_qa.mjs` does).
 - **`dockerd` can get reaped** between steps in some sandboxes — `run.sh` restarts
   it; long sessions may need a re-check.
 - **The matrix measures the icon** for `icon_color`/`accent_color`. `—` means the
@@ -235,8 +277,9 @@ and verifies the same way: real render, real computed style.
 tools/sandbox/run-uix.sh
 ```
 
-Results land in `harness/uix-matrix.json`. Override `UIX_TAG` (default `v7.6.1`)
-and `HOST_PORT` (default `8124`) as needed.
+Results land in `harness/uix-matrix.json`. Override `UIX_TAG` (default `v8.3.1`)
+and `HOST_PORT` (default `8124`) as needed. Like `run.sh`, it also accepts `CFG`,
+`CONTAINER`, `HA_IMAGE` and `TOKENS` overrides.
 
 ### Why a separate instance, not just another resource on run.sh's rig
 
@@ -246,7 +289,11 @@ up if it detects any Lovelace resource URL containing the substring
 `checks.py`/`const.py` and reproduced live. So `config-uix/configuration.yaml`
 intentionally has no card-mod resource, and this runs as its own container
 (`ha-sandbox-uix`, host port `8124` by default) against `config-uix/`, entirely
-independent of `run.sh`'s `ha-sandbox` container and `config/`.
+independent of `run.sh`'s `ha-sandbox` container and `config/`. The two rigs use
+different containers, ports, config dirs and token files, so **they can run side
+by side** (card-mod and UIX can't share one HA instance — that limit is about
+the two *engines*, not the rigs). Extra instances of either — say a second one on the
+`:beta` HA image — work by overriding `CFG` / `CONTAINER` / `HOST_PORT` / `TOKENS`.
 
 ### How it's installed (headlessly)
 

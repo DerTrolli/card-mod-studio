@@ -43,6 +43,25 @@ entities:
         }
 ```
 
+## Dictionary-form rows (v0.10.0)
+
+A row whose style is written in card-mod's dictionary form (the `$`
+shadow-piercing syntax) is editable too: its `.` entry is read into the
+controls above and rewritten when you edit them, while every other entry in
+that row's dictionary is preserved exactly as written. See
+[Advanced CSS](Advanced-CSS#dictionary-form-styles-shadow-piercing) for how
+dictionary-form styles behave.
+
+A row that can't be rewritten faithfully — a plain style on one key plus a
+*different* dictionary on the other, or a dictionary whose `.` isn't plain
+CSS — shows a 🔒 lock note instead of controls, because edits there would be
+dropped. It's preserved as-is; edit it in YAML. Other rows on the same card
+stay editable.
+
+Hand-written row CSS from *both* `card_mod:` and `uix:` is kept through an
+edit, and a row rule aimed at part of the row (`state-badge`,
+`hui-generic-entity-row`, …) is never turned into a whole-row rule.
+
 ## Also available inside stacks
 
 An entities card nested in a vertical/horizontal stack or grid gets the same
@@ -51,7 +70,6 @@ Entity Rows section inside its child styling section — see
 
 ## Current limitations
 
-- Two rows referencing the **same entity ID** share one style slot.
-- Hand-written **dictionary-form** row styles (card-mod's `$`-piercing
-  syntax) aren't parsed back into the controls; they're preserved untouched
-  on save, just not editable visually.
+- A mixed-form row (see above) is preserved but not editable visually.
+- The pierced entries of a dictionary-form row (everything except its `.`
+  entry) are preserved verbatim but not editable visually.

@@ -289,18 +289,14 @@ async function openStyle(page, urlPath) {
     if (!ok) await page.waitForTimeout(700);
   }
   if (!ok) {
-    // Narrow viewports: HA collapses the card-options footer to "− n + ⋮" —
-    // "Edit" lives in the ⋮ overflow menu there (what a phone user taps).
-    const opened = await clickEl(page, `
+    // Narrow viewports: HA collapses the card-options footer to "− n + ⋮"
+    // (the ⋮ menu is icon-only and has no Edit entry) — on a phone you edit
+    // a card by tapping the card itself, so do that.
+    ok = await clickEl(page, `
       const opts = Q.find('hui-card-options')[0]; if (!opts) return null;
-      const btns = Q.deepAll(opts).filter((n) => n.tagName === 'HA-ICON-BUTTON' && Q.visible(n));
-      return btns[btns.length - 1] || null;`);
-    if (opened) {
-      await page.waitForTimeout(600);
-      ok = await clickEl(page, `
-        const items = Q.deepAll(document.body).filter((n) => Q.visible(n) && n.children.length === 0 && (n.textContent || '').trim().toLowerCase() === 'edit');
-        const t = items[0]; if (!t) return null;
-        return t.closest('ha-md-menu-item, ha-list-item, mwc-list-item, ha-dropdown-item, [role=menuitem]') || t;`);
+      return Q.deepAll(opts).find((n) => n.tagName === 'HA-CARD' && Q.visible(n)) || null;`);
+    if (ok) {
+      await page.waitForFunction(() => window.__qa.find('cms-tab-button').length > 0, { timeout: 8000 }).catch(() => { ok = false; });
     }
   }
   if (!ok) throw new Error('card Edit button not found');

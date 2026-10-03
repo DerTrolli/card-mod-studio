@@ -1,7 +1,8 @@
 ## Opening the panel
 
 1. Edit any card (pencil icon in dashboard edit mode)
-2. Click the **🎨 Style** button in the editor footer
+2. Click the **🎨 Style** button in the editor footer (icon-only on narrow
+   screens)
 3. The Card-Mod Studio panel opens in place of the card's normal config form
 
 ![The panel](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/02%20Card-Mod%20Studio.png)
@@ -12,7 +13,13 @@ The layout:
   and the style modules. Only modules that can actually do something on this
   card type are shown (see [Card Support](Card-Support)).
 - **Right column** — a live preview of the real card that re-renders on every
-  change. On narrow screens the preview stacks below the controls.
+  change, shown on your theme's own dashboard background. When the panel is
+  narrower than about 720px (phones, small windows, tablet split view) the
+  preview stacks below the controls instead.
+
+The panel follows your theme in light and dark mode (new text colors start
+from your theme's own text color, not a fixed light grey). Every collapsible
+section is keyboard-accessible: Tab to it, Enter or Space to open and close.
 
 Each module has a **toggle** (enables its output) and a collapsible body.
 A module that's off contributes nothing to the generated YAML.
@@ -63,3 +70,8 @@ rewritten in current syntax the moment you edit them. Anything it doesn't
 fully understand is preserved verbatim in [Advanced CSS](Advanced-CSS) —
 unrecognised styling is never reinterpreted or deleted, and if it overrides
 an enabled control, that control tells you so with a ⚠️ warning.
+
+Cards written in card-mod's **dictionary form** (the `$` shadow-piercing
+syntax) are editable too: the `.` entry — the CSS for the card itself — drives
+the normal controls, and every other entry is kept exactly as written. See
+[Advanced CSS](Advanced-CSS#dictionary-form-styles-shadow-piercing).

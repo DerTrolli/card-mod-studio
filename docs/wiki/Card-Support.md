@@ -22,7 +22,7 @@ Exceptions and specials:
 
 | Card type | Specifics |
 |---|---|
-| heading | Uses the dedicated **Heading Style** module (text/icon/alignment); Background/Border/Font hidden — a heading paints no card box |
+| heading | Uses the dedicated **Heading Style** module (text/icon/alignment, Title and Subtitle styles, HA 2026.9 and 2026.10); Background/Border/Font hidden — a heading paints no card box |
 | entities | Card-level Icon/Accent/Threshold hidden — use [per-row styling](Entities-Card-Per-Row-Styling); Font styles rows + title |
 | vertical-stack / horizontal-stack / grid | Per-child styling sections — see [Cards Inside Stacks](Styling-Cards-Inside-Stacks) |
 | glance | Icon Color hidden: the icon lives in a nested shadow root, colored inline from state — no reachable selector (measured) |
@@ -31,13 +31,17 @@ Exceptions and specials:
 | alarm-panel / media-control | Icon Color available (verified working) |
 | iframe / webpage / map | Only border/radius/filter apply (cross-origin / map-library content) |
 
-## Known limitations (v0.8.0)
+## Known limitations (v0.10.0)
 
-- **Gauge value number: size** can't change (HA auto-scales the SVG so the
-  number always fills the dial). Color works.
-- **Thermostat big temperature: size** can't change (hard-coded two shadow
-  roots deep, no hook). Weight and color work.
-- **Glance icons** can't be recolored (nested shadow root + inline state color).
+- **Gauge value number: size** can't change from the Font module yet (HA
+  auto-scales the SVG to fill the dial). Color works. A size control is
+  planned for v0.11.
+- **Thermostat big temperature: size** can't change from the Font module yet
+  (two shadow roots deep, no variable). Weight and color work. A size control
+  is planned for v0.11.
+- **Glance icons** can't be recolored (nested shadow root + inline state
+  color — probed with shadow-piercing styles on both engines too: they don't
+  reach it either). A documented limitation, not planned.
 - **Custom cards** (Mushroom, Bubble, …) have their own shadow-DOM layouts —
   card-box-level modules generally work; icon/text specifics may need
   [Advanced CSS](Advanced-CSS). Dedicated support is on the
@@ -48,5 +52,7 @@ Exceptions and specials:
 
 Most of the "can't reach it" entries share one root cause: the target lives
 in a nested shadow root that string-form card-mod/UIX styles can't pierce.
-Dictionary-form (`$`) style generation, which can, is the headline item for
-v0.9.
+Dictionary-form (`$`) styles can — v0.10.0 made hand-written ones fully
+editable and preserved, and the two size controls above are the first
+planned use of them for *generated* styles (v0.11). Glance is the exception:
+even pierced styles don't reach it.

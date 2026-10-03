@@ -11,7 +11,7 @@ This document explains how to set up a local development environment and test Ca
 | Node.js | 18 | 20 LTS recommended |
 | npm | 9 | Comes with Node |
 | Home Assistant | 2024.4.0 | Any install method works |
-| card-mod **or** UIX | card-mod 4.x / [UIX](https://uix.lf.technology/) 7.x | One of the two must be installed in HA — see [README's UIX section](../README.md#uix-support) |
+| card-mod **or** UIX | card-mod 4.x / [UIX](https://uix.lf.technology/) 7.x or 8.x (latest tested: 8.3.1) | One of the two must be installed in HA — see [README's UIX section](../README.md#uix-support) |
 
 ---
 
@@ -161,7 +161,12 @@ covered by Vitest (no jsdom/happy-dom in this project) — they're verified
 against a real Home Assistant + real card-mod/UIX instance in Docker instead.
 See [`tools/sandbox/README.md`](../tools/sandbox/README.md) — `run.sh` for
 card-mod, `run-uix.sh` for UIX. Both produce real computed-style measurements
-and screenshots, not simulated ones.
+and screenshots, not simulated ones. The two rigs are separate containers on
+separate ports and run side by side; the env overrides (`CFG`, `CONTAINER`,
+`HOST_PORT`, `TOKENS`) also allow extra instances, e.g. a second one on the
+HA `:beta` image. For release-readiness work, `release_qa.mjs` drives the real
+card-edit dialog per theme × viewport × scenario and measures contrast,
+clipping and touch targets (details in the sandbox README).
 
 ---
 
@@ -264,7 +269,32 @@ harness-side, no product code needed changing:
   to its `hui-graph-header-footer` only on hass UPDATES, so a
   probe-mounted card whose hass is assigned exactly once never hydrates
   its graph — re-assign `panel.hass = {...hass}` after mount (see
-  preview_picker_check).
+  preview_picker_check). (HA's source forwards `hass` to that footer on
+  `ll-upgrade` from 2026.9 on, so the workaround is redundant there — kept,
+  it is harmless.)
+
+### HA 2026.9 / 2026.10 sandbox/harness gotchas (v0.10.0 release QA)
+
+Found while re-verifying against HA 2026.9.4 and 2026.10.0b0 with card-mod
+4.2.1 and UIX 8.3.1 — again harness-side only:
+
+- **card-mod, loaded as a dashboard resource, applies later than before.**
+  It applies asynchronously after the cards first render, and on HA 2026.9
+  that settles well past the old fixed 1.5s sleep in `button_matrix.mjs`.
+  Wait for the `<card-mod>` element to attach on the styled cards instead of
+  sleeping (`button_matrix.mjs` now polls until every styled marker card has
+  one) — the same lesson as "Fresh-page probes race the engine's cold start"
+  further down.
+- **At ~360px the dashboard card-edit footer collapses "Edit" into the ⋮
+  menu.** On a phone-width viewport HA reduces the `hui-card-options` footer
+  to "− n + ⋮"; a harness that clicks the "Edit" link must fall back to
+  ⋮ → Edit (`release_qa.mjs`'s `openStyle` does exactly that, which is also
+  what a phone user taps).
+- **The two rigs run side by side.** `run.sh` and `run-uix.sh` use
+  different containers, ports, config dirs and token files, and accept
+  `CFG` / `CONTAINER` / `HOST_PORT` / `TOKENS` overrides — so a second
+  instance of either (for example on the `:beta` HA image) can run beside the
+  default one. `run-uix.sh` now defaults to UIX v8.3.1.
 
 ### hui-dialog-edit-card
 
@@ -414,11 +444,13 @@ future marker/metadata smuggled through generated CSS must avoid `{` and
 ### A raw `<hui-card>` test only applies style under the key the *installed engine* actually reads — get it wrong and everything "silently fails"
 
 `run.sh`'s sandbox has card-mod installed, not UIX. `run-uix.sh`'s has UIX,
-not card-mod (they can't coexist — UIX's own config flow aborts setup if it
-detects a `card-mod.js` resource). A raw `card.config = { ..., uix: { style
-} }` on `run.sh`'s rig is never read by anything — card-mod only looks at
-`card_mod:`. This produces exactly the same *symptom* as the JSON-braces
-bug above (icon never changes color, no error anywhere) for a completely
+not card-mod (the two *engines* can't share one HA instance — UIX's own
+config flow aborts setup if it detects a `card-mod.js` resource — but the
+two *rigs* are separate containers and run side by side). A raw
+`card.config = { ..., uix: { style } }` on `run.sh`'s rig is never read by
+anything — card-mod only looks at `card_mod:`. This produces exactly the
+same *symptom* as the JSON-braces bug above (icon never changes color, no
+error anywhere) for a completely
 unrelated reason, and it's easy to fall into while iterating quickly on a
 debug script, since `cms-panel` itself parses *either* key regardless of
 which engine is installed (that's it correctly supporting both card-mod

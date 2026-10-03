@@ -4,7 +4,7 @@
 
 | Module | Available | Notes |
 |---|---|---|
-| Font | ✅ | Title + mode label follow fully; the big number: **weight/color only** (see limits) |
+| Font | ✅ | Title + mode label follow fully; the big number: **weight/color only** for now (see limits) |
 | Visual Filters | ✅ | |
 | Accent Color | ✅ | Thermostat: recolors the circular slider + the heat/cool/auto/idle state colors together |
 | Icon Color | — hidden | No reachable standalone icon |
@@ -25,7 +25,9 @@
 
 ## Limits
 
-- **The big temperature number's size can't be changed** — hard-coded two
-  shadow roots deep with no variable or selector to reach it. **Weight and
-  color work.** (Fixable only with shadow-piercing styles — see
-  [What's Planned](Whats-Planned).)
+- **The big temperature number's size can't be changed from the Font module
+  yet** — it sits two shadow roots deep with no variable to reach it.
+  **Weight and color work.** A size control is **planned for v0.11**: the
+  number is reachable with a dictionary-form (`$` shadow-piercing) style, but
+  the Font module can't generate one yet (see
+  [What's Planned](Whats-Planned)).

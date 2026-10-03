@@ -1,6 +1,13 @@
 # Card × Setting Support Matrix (empirical)
 
 **Generated:** 2026-06-25 · **Against:** Home Assistant 2026.x + card-mod 4.2.1
+**Version note (v0.10.0, 2026-10-03):** the cells below were measured in
+2026-06 and have not been re-measured wholesale. The v0.10.0 release was
+live-verified on HA 2026.9.4 and HA 2026.10.0b0, each with card-mod 4.2.1 and
+with UIX 8.3.1 (full live-check suite + real-dialog visual QA) — see
+[COMPATIBILITY_AUDIT.md §11](COMPATIBILITY_AUDIT.md). The one HA 2026.10 change
+that affects this table's subject matter is the heading card's new markup
+(note under finding #2).
 **Method:** real cards rendered in a real HA instance, each `card_mod` setting
 applied by real card-mod, verdict = did the target element's **computed style**
 actually change vs baseline. Reproduce with [`tools/sandbox`](../tools/sandbox/README.md).
@@ -92,13 +99,25 @@ show Background (and Border) for headings — dead controls.
 → **Done:** `heading` added to `NO_BACKGROUND_TYPES` and a new `NO_BORDER_TYPES`.
 Heading styling stays available via the dedicated Heading Style module.
 
+> **HA 2026.10 note (v0.10.0):** HA 2026.10 changed the heading title from
+> `<p>` to `<h2 class="heading">` (`<h3>` for `heading_style: subtitle`), which
+> broke the `.title p` selector the Heading Style module used. The module now
+> drives size / color / weight through HA's `--ha-heading-card-*` variables on
+> `.container` (family via `.content p, .content .heading`, icon via
+> `.content ha-icon`), which work on HA 2026.9 and 2026.10 under both card-mod
+> and UIX, and it now also reaches Subtitle-style headings. The
+> background/border measurements above concern the card box and were not
+> re-measured.
+
 ### 3. `glance` icon color doesn't work ✔︎ verified (real dashboard)
 Glance renders its icon inside a nested `<state-badge>` shadow root, coloured
 inline from state; six candidate selectors (`ha-state-icon`, `state-badge`,
 `.entity`, `--state-icon-color`, `--paper-item-icon-color`, `--mdc-icon-color`) all
 left it unchanged, and so did a real-dashboard re-test.
-→ **Done:** `glance` added to `NO_ICON_COLOR_TYPES`. (A future option: emit
-card-mod's nested shadow-piercing syntax for glance.)
+→ **Done:** `glance` added to `NO_ICON_COLOR_TYPES`. (Update, v0.10 cycle:
+card-mod's nested shadow-piercing syntax was probed for glance on both engines
+and does not reach the icon either — HA colors it with an inline per-state
+style inside the badge's shadow root — so it stays a documented limitation.)
 
 ### 4. `alarm-panel` and `media-control` icon color *do* work, but were hidden ✔︎ verified
 Both went white→red in a real dashboard, yet both were in `NO_ICON_COLOR_TYPES`.
