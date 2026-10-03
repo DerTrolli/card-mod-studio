@@ -36,7 +36,18 @@ const run = async () => {
         if (x.shadowRoot) s.push(...x.shadowRoot.children); if (x.children) s.push(...x.children); } return o; };
     return all(document.querySelector('home-assistant'), 'hui-button-card').length >= n;
   }, cards.length, { timeout: 30000 }).catch(() => {});
-  await page.waitForTimeout(1500);
+  // card-mod loaded as a dashboard resource applies asynchronously after
+  // the cards first render; on HA 2026.9 that settles well past the old
+  // 1.5s budget, so wait until every marker card has its <card-mod> child.
+  await page.waitForFunction(() => {
+    const all = (root, tag) => { const o = []; const s = [root]; tag = tag.toLowerCase();
+      while (s.length) { const x = s.pop(); if (x.tagName && x.tagName.toLowerCase() === tag) o.push(x);
+        if (x.shadowRoot) s.push(...x.shadowRoot.children); if (x.children) s.push(...x.children); } return o; };
+    const styled = all(document.querySelector("home-assistant"), "hui-card")
+      .filter((c) => typeof c.config?.name === "string" && c.config.name.startsWith("CMS:") && c.config.name !== "CMS:baseline");
+    return styled.length > 0 && styled.every((c) => all(c, "card-mod").length > 0);
+  }, null, { timeout: 30000 }).catch(() => {});
+  await page.waitForTimeout(1000);
 
   const res = await page.evaluate(({ skeys, SETTINGS }) => {
     const all = (root, tag) => { const o = []; const s = [root]; tag = tag.toLowerCase();
