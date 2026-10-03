@@ -33,6 +33,9 @@ export class CmsTabButton extends LitElement {
       transition: background 0.15s ease, color 0.15s ease;
       background: transparent;
       color: var(--primary-color, #03a9f4);
+      /* Outlined while closed so it reads as a button (on phones it is
+         icon-only — a bare emoji looked decorative); filled while open. */
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-color, #03a9f4) 55%, transparent);
     }
 
     button:hover {
@@ -48,6 +51,7 @@ export class CmsTabButton extends LitElement {
     :host([active]) button {
       background: var(--primary-color, #03a9f4);
       color: var(--text-primary-color, #fff);
+      box-shadow: none;
     }
 
     :host([active]) button:hover {

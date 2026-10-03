@@ -49,7 +49,9 @@ HA colours its icon itself (lights always do), and that colour wins over
 any style — so without it a row icon colour would only show while the
 entity is off. The Studio adds it when you set a row's icon color and
 removes it again when you remove that color; rows whose icon color you
-don't touch are left exactly as they are.
+don't touch are left exactly as they are. A row colored before v0.10.0
+shows an **Always use this color** button under its icon color that adds
+it.
 
 ## Dictionary-form rows (v0.10.0)
 

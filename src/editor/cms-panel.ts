@@ -305,6 +305,13 @@ export class CmsPanel extends LitElement {
     return !NO_ICON_COLOR_TYPES.has(this.config?.type ?? '');
   }
 
+  /** A dict-form style the Studio can't rewrite faithfully (mixed-form, or
+   *  a `.` that isn't plain CSS) — the card-level modules are replaced by
+   *  the lock banner (see _renderModuleList). */
+  private get _isLocked(): boolean {
+    return hasDictFormStyle(this.config ?? {}) && !this._studioState?.dictSource;
+  }
+
   private get _isEntitiesCard(): boolean {
     return this.config?.type === 'entities';
   }
@@ -571,7 +578,9 @@ export class CmsPanel extends LitElement {
     .panel-body {
       flex: 1;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 280px;
+      /* Preview wide enough to show a card at roughly dashboard width
+         (280px truncated entity names) without starving the controls. */
+      grid-template-columns: minmax(0, 1fr) clamp(300px, 38%, 420px);
       overflow: hidden;
       min-height: 0;
     }
@@ -606,7 +615,7 @@ export class CmsPanel extends LitElement {
       overflow: visible;
     }
     .panel-body.narrow .preview-card-wrapper {
-      min-height: 160px;
+      min-height: 72px;
     }
 
     /* ---- Left column: modules ---- */
@@ -777,8 +786,10 @@ export class CmsPanel extends LitElement {
        --primary-background-color (what HA's own card-editor preview uses) —
        never a fixed dark slab, which looked broken on light themes and
        misjudged translucent card designs. */
+    /* Sized to the card (a short card used to sit at the top of a
+       full-height empty box); a tall card scrolls inside it. */
     .preview-card-wrapper {
-      flex: 1;
+      flex: 0 1 auto;
       overflow: auto;
       display: flex;
       flex-direction: column;
@@ -837,7 +848,7 @@ export class CmsPanel extends LitElement {
 
           ${this._studioState
             ? html`
-                ${this._renderPresetBar()}
+                ${this._isLocked ? nothing : this._renderPresetBar()}
                 <cms-palette-manager .hass=${this.hass}></cms-palette-manager>
                 ${this._renderModuleList(this._studioState)}
               `
@@ -869,6 +880,8 @@ export class CmsPanel extends LitElement {
       !!this.config &&
       !!this.hass &&
       !this._isContainerCard &&
+      // Locked card: no card-level modules to jump to (entities rows still are).
+      !(this._isLocked && !this._isEntitiesCard) &&
       Boolean(customElements.get('hui-card'))
     );
   }
@@ -1016,7 +1029,7 @@ export class CmsPanel extends LitElement {
         ${this._selectedPreset
           ? html`<button class="btn-preset-delete" title="Delete preset" @click=${this._deleteSelectedPreset}>×</button>`
           : nothing}
-        <button class="btn-preset-save" @click=${this._saveCurrentAsPreset}>💾 Save</button>
+        <button class="btn-preset-save" title="Save the current styling as a preset" @click=${this._saveCurrentAsPreset}>💾 Save preset</button>
       </div>
     `;
   }
@@ -1034,7 +1047,7 @@ export class CmsPanel extends LitElement {
     // CSS — so the save path preserves it verbatim and the card-level
     // modules would be dead controls: show the lock banner instead. Rows
     // stay editable on entities cards (separate row configs, own guard).
-    if (hasDictFormStyle(this.config ?? {}) && !this._studioState?.dictSource) {
+    if (this._isLocked) {
       return html`
         <div class="container-banner">
           ${hasUnsupportedDictRoot(this.config?.card_mod?.style) || hasUnsupportedDictRoot(this.config?.uix?.style)

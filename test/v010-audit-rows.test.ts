@@ -188,6 +188,12 @@ describe('row icon colour sets state_color: false (HA\'s inline on-state colour 
     expect(out.entities[0]).toEqual(row);
   });
 
+  it('"Always use this color" (iconWhileOn) adds it to an older row whose colour is unchanged', () => {
+    const row = { entity: 'light.a', card_mod: { style: ':host {\n  --state-icon-color: red;\n}' } };
+    const out = apply(cfg({ type: 'entities', entities: [row] }), (s) => ({ ...s, iconWhileOn: true }));
+    expect(out.entities[0]).toEqual({ ...row, state_color: false });
+  });
+
   it('removing the icon colour removes it again', () => {
     const row = { entity: 'light.a', state_color: false, card_mod: { style: ':host {\n  --state-icon-color: red;\n  color: blue;\n}' } };
     const out = apply(cfg({ type: 'entities', entities: [row] }), (s) => ({ ...s, iconColor: '' }));

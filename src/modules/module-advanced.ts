@@ -71,7 +71,7 @@ export class AdvancedModule extends LitElement {
           @keydown=${onHeaderKeydown}
         >
           <span class="module-chevron">${this.open ? '▼' : '▶'}</span>
-          <span class="module-title">⌨️ Advanced CSS</span>
+          <span class="module-title">📝 Advanced CSS</span>
         </div>
         ${this.open
           ? html`

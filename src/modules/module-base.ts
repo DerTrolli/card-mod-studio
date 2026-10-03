@@ -104,22 +104,25 @@ export const moduleStyles = [
     gap: 10px;
   }
 
-  /* Label + control. Wraps onto two lines (control under its label) once
-     the column gets too narrow for both — phones, stack children — instead
-     of squeezing or clipping the control. */
+  /* Label + control. Labels share one fixed-width column so every control
+     in a module starts at the same left edge (auto-width labels staggered
+     them row by row). Wraps onto two lines (control under its label) once
+     the column gets too narrow for both — stack children, very narrow
+     panels — instead of squeezing or clipping the control. */
   .control-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
     min-height: 36px;
-    gap: 6px 8px;
+    gap: 6px 10px;
   }
 
   .control-label {
     font-size: 12px;
+    line-height: 1.3;
     color: var(--secondary-text-color, #727272);
-    flex: 0 1 auto;
+    flex: 0 0 var(--cms-label-width, 108px);
+    min-width: 0;
   }
 
   .control-right {
@@ -128,13 +131,12 @@ export const moduleStyles = [
     gap: 8px;
     flex: 1 1 150px;
     min-width: 0;
-    justify-content: flex-end;
+    justify-content: flex-start;
   }
 
   ha-slider {
     flex: 1;
     min-width: 100px;
-    max-width: 160px;
   }
 
   .value-label {

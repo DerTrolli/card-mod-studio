@@ -281,7 +281,8 @@ export function rowStyleHasContent(rowStyle: EntitiesRowStyle | undefined): bool
  * HA's own per-row switch for that colouring.
  *
  * Touched only when this edit changes the row's icon colour: set (or
- * changed) → add it; removed → drop it. A row whose icon colour is unchanged
+ * changed) → add it; removed → drop it (`force`: the rows module's explicit
+ * "Always use this color" for an older row). A row whose icon colour is unchanged
  * keeps exactly what it had, so an unrelated edit never rewrites an older
  * or hand-written row, and a hand-set `state_color` on a row without an
  * icon colour is never touched.
@@ -290,6 +291,7 @@ function withRowStateColor(
   updated: EntitiesCardRow,
   previousStyle: unknown,
   newCss: string,
+  force = false,
 ): EntitiesCardRow {
   const iconDecl = (text: string): string | null => {
     const m = /--state-icon-color\s*:\s*([^;]*);/.exec(text);
@@ -297,7 +299,7 @@ function withRowStateColor(
   };
   const before = iconDecl(typeof previousStyle === 'string' ? previousStyle : JSON.stringify(previousStyle ?? '').replace(/\\n/g, '\n'));
   const after = iconDecl(newCss);
-  if (after === before) return updated;
+  if (after === before && !(force && after !== null)) return updated;
   if (after !== null) {
     return updated.state_color === false ? updated : { ...updated, state_color: false };
   }
@@ -352,7 +354,7 @@ export function applyEntityRowStyles(
       outputKey,
       rowStyle?.dictSource,
     ) as unknown as EntitiesCardRow;
-    return withRowStateColor(updated, currentStyle, rowCss);
+    return withRowStateColor(updated, currentStyle, rowCss, !!rowStyle?.iconWhileOn);
   });
 
   return { ...(config as unknown as object), entities: updatedRows } as unknown as CardModCardConfig;

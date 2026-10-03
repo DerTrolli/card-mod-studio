@@ -374,6 +374,11 @@ export interface EntitiesRowStyle {
    *  else is preserved verbatim and rebuilt around the regenerated `.` on
    *  save. Absent for plain string row styles. */
   dictSource?: DictSource;
+  /** One-shot request from the rows module ("Always use this color"): add
+   *  `state_color: false` to the row even though its icon colour didn't
+   *  change in this edit — for rows styled before v0.10.0 (see
+   *  applyEntityRowStyles). Never parsed from YAML. */
+  iconWhileOn?: true;
   /** Set when this row's styling can't be rewritten faithfully (mixed-form,
    *  or a dict whose `.` isn't a CSS string): the save path leaves the row
    *  untouched and the rows module shows a lock note instead of controls. */

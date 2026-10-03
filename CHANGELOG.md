@@ -141,6 +141,18 @@ Found by a dedicated audit (every item reproduced first, now covered by
 - Entity rows are labelled with the entity's friendly name ("Outside
   Temperature"), like HA does, instead of its object id
   (`outside_temperature`).
+- **Tidier layout.** Every control in a module starts at the same left
+  edge (labels share one column instead of pushing each control to a
+  different spot); sliders use the full width. The side-by-side preview is
+  wider, so entity names no longer get cut off ("Outside Te…"), and its box
+  fits the card instead of filling the whole column.
+- The **Style button** looks like a button before you open it (an outlined
+  pill — on phones it used to be a bare 🎨), the preset button says
+  **Save preset** (it sat right above HA's own Save), and the Visual
+  Filters / Border & Radius / Advanced CSS icons are visible on dark and
+  light themes (⬛ disappeared on dark cards).
+- A card the Studio can't edit (🔒 preserved as-is) no longer offers
+  presets or "click the preview" — neither could do anything there.
 
 ### Fixed — working alongside HA's card editor
 
@@ -165,7 +177,8 @@ Found by a dedicated audit (every item reproduced first, now covered by
   colour, so it only showed while the entity was off. Setting a row icon
   color now also sets HA's own `state_color: false` on that row (and
   removing the color removes it); rows you don't touch are left as they
-  are.
+  are — a row colored with an earlier version shows an **Always use this
+  color** button that adds it.
 
 ### Changed
 

@@ -96,6 +96,17 @@ export class EntitiesRowsModule extends LitElement {
         flex-direction: column;
         gap: 10px;
       }
+      .while-on {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+      }
+      .while-on-btn {
+        width: auto;
+        padding: 5px 10px;
+        border-style: solid;
+      }
       .mode-toggle {
         display: flex;
         border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
@@ -296,7 +307,7 @@ export class EntitiesRowsModule extends LitElement {
             : nothing}
           ${hasStyle ? html`<span class="style-dot" title="This row has styling"></span>` : nothing}
         </div>
-        ${isOpen ? (rowStyle.frozen ? this._renderFrozen() : this._renderBody(rowKey, rowStyle, conflicts)) : nothing}
+        ${isOpen ? (rowStyle.frozen ? this._renderFrozen() : this._renderBody(rowKey, rowStyle, conflicts, row.state_color === false)) : nothing}
       </div>
     `;
   }
@@ -313,7 +324,7 @@ export class EntitiesRowsModule extends LitElement {
     </div>`;
   }
 
-  private _renderBody(rowKey: string, rowStyle: EntitiesRowStyle, conflicts: string[] = []) {
+  private _renderBody(rowKey: string, rowStyle: EntitiesRowStyle, conflicts: string[] = [], stateColorOff = false) {
     const iconEnabled = !!(rowStyle.iconColor || rowStyle.iconMode === 'threshold');
     const iconIsThreshold = rowStyle.iconMode === 'threshold';
     const textEnabled = !!(rowStyle.textColor || rowStyle.textMode === 'threshold');
@@ -358,6 +369,16 @@ export class EntitiesRowsModule extends LitElement {
           : nothing}
         ${iconEnabled && iconIsThreshold
           ? this._renderRuleBuilder(rowKey, 'icon', rowStyle.iconRules ?? [], rowStyle.iconDefault ?? '#888888')
+          : nothing}
+        ${iconEnabled && !stateColorOff && !rowStyle.iconWhileOn
+          ? html`<div class="when-hint warn while-on">
+              While this entity is on, Home Assistant colors its icon itself
+              (lights always do), so this color only shows while it's off.
+              <button
+                class="btn-add while-on-btn"
+                @click=${(e: Event) => { e.stopPropagation(); this._updateRow(rowKey, { iconWhileOn: true }); }}
+              >Always use this color</button>
+            </div>`
           : nothing}
 
         <hr class="divider" />

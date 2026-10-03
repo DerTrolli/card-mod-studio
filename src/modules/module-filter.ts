@@ -71,7 +71,7 @@ export class FilterModule extends LitElement {
           @keydown=${onHeaderKeydown}
         >
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">🔲 Visual Filters</span>
+          <span class="module-title">🎚️ Visual Filters</span>
           ${renderOverrideBadge(this.overridden)}
           <ha-switch
             .checked=${this.state.enabled}

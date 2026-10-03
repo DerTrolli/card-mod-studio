@@ -67,7 +67,7 @@ export class BorderModule extends LitElement {
           @keydown=${onHeaderKeydown}
         >
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">⬛ Border & Radius</span>
+          <span class="module-title">📐 Border & Radius</span>
           ${renderOverrideBadge(this.overridden)}
           <ha-switch
             .checked=${this.state.enabled}
