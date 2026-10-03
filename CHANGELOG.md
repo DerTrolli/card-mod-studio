@@ -118,17 +118,18 @@ Found by a dedicated audit (every item reproduced first, now covered by
   phone a thermostat (or any card with a wide preview) used to push every
   module's right edge, toggles included, off-screen; rule rows, colour
   grids and control rows wrap instead of clipping their buttons;
-  scrolling past the end of the panel no longer drags HA's dialog along; the side-by-side preview only appears from
-  720px panel width; the Style button is icon-only on narrow screens so
-  HA's dialog footer fits; touch targets grow on touch screens (no target
-  under 24px anywhere in the panel).
+  scrolling past the end of the panel no longer drags HA's dialog along;
+  the side-by-side preview only appears from 720px panel width; the Style
+  button is icon-only on narrow screens so HA's dialog footer fits; touch
+  targets grow on touch screens (no target under 24px anywhere in the
+  panel).
 - Native inputs and selects follow the theme (no white boxes in dark
   mode) and use HA's font; scrollbars, dropdown lists and other
   browser-drawn parts follow HA's dark mode too (HA's own setting, not
-  the operating system's) and use HA's scrollbar colour; round colour inputs are actually round; the
-  selected colour swatch is visible on every colour (it disappeared on
-  blue/cyan); light swatches have an outline; swatches wrap as two even
-  rows on narrow screens.
+  the operating system's) and use HA's scrollbar colour; round colour
+  inputs are actually round; the selected colour swatch is visible on
+  every colour (it disappeared on blue/cyan); light swatches have an
+  outline; swatches wrap as two even rows on narrow screens.
 - Click-to-edit works on the whole preview of a tall card — on a long
   entities card the lower rows weren't clickable once the preview was
   scrolled.
@@ -189,13 +190,13 @@ Found by a dedicated audit (every item reproduced first, now covered by
   anywhere on the row (icon, name, state); it used to open no row at all,
   or the card-level Font module.
 - **Threshold Colors is no longer offered on heading cards**, where none of
-  its colors had any visible effect (use Heading Style's text color).
+  its colours had any visible effect (use Heading Style's text colour).
 - **Entity row icon colours now show while the entity is on.** HA colours
   an active entity's icon itself (lights always do), which beat the row
   colour, so it only showed while the entity was off. Setting a row icon
-  color now also sets HA's own `state_color: false` on that row (and
-  removing the color removes it); rows you don't touch are left as they
-  are — a row colored with an earlier version shows an **Always use this
+  colour now also sets HA's own `state_color: false` on that row (and
+  removing the colour removes it); rows you don't touch are left as they
+  are — a row coloured with an earlier version shows an **Always use this
   color** button that adds it.
 
 ### Changed
