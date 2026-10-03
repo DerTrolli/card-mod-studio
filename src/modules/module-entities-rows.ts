@@ -182,6 +182,7 @@ export class EntitiesRowsModule extends LitElement {
       }
       /* Rows whose styling can't be rewritten faithfully (mixed-form). */
       .frozen-note {
+        margin: 0;
         font-size: 12px;
         line-height: 1.5;
         color: var(--secondary-text-color, #727272);

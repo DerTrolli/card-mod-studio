@@ -27,6 +27,7 @@ import {
   hasUixOnlySelectorRow,
   hasStyleContent,
   hasDictFormStyle,
+  hasUnsupportedDictRoot,
 } from '../utils/style-compat.js';
 import {
   CONTAINER_CARD_TYPES,
@@ -958,13 +959,21 @@ export class CmsPanel extends LitElement {
     if (hasDictFormStyle(this.config ?? {}) && !this._studioState?.dictSource) {
       return html`
         <div class="container-banner">
-          <strong>🔒 Mixed-form styling — preserved as-is</strong>
-          This card carries a hand-written dictionary-form
-          (<code>$</code> shadow-piercing) style alongside a plain style on
-          the other engine key. The Studio can't rewrite that combination
-          faithfully, so nothing here will overwrite it — your styling is
-          preserved exactly as written. Consolidate to one key in YAML to
-          edit it visually.
+          ${hasUnsupportedDictRoot(this.config?.card_mod?.style) || hasUnsupportedDictRoot(this.config?.uix?.style)
+            ? html`<strong>🔒 Dictionary-form styling — preserved as-is</strong>
+                This card's dictionary-form (<code>$</code> shadow-piercing)
+                style has a <code>.</code> entry that isn't plain CSS, so the
+                Studio can't rebuild it faithfully. Nothing here will
+                overwrite it — your styling is preserved exactly as written.
+                Make <code>.</code> a plain CSS string in YAML to edit it
+                visually.`
+            : html`<strong>🔒 Mixed-form styling — preserved as-is</strong>
+                This card carries a hand-written dictionary-form
+                (<code>$</code> shadow-piercing) style alongside a different
+                style on the other engine key. The Studio can't rewrite that
+                combination faithfully, so nothing here will overwrite it —
+                your styling is preserved exactly as written. Consolidate to
+                one key in YAML to edit it visually.`}
           ${this._isEntitiesCard
             ? html`Per-row styling below still works as usual.`
             : nothing}

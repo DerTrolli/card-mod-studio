@@ -53,7 +53,7 @@ import {
 } from '../utils/card-caps.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
-import { hasDictFormStyle } from '../utils/style-compat.js';
+import { hasDictFormStyle, hasUnsupportedDictRoot } from '../utils/style-compat.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
 
 import '../modules/module-filter.js';
@@ -248,9 +248,14 @@ export class CmsChildCardSection extends LitElement {
       // Per-row styling stays editable, exactly like the top-level panel's
       // mixed-form gate (audit v0.10 #17).
       return html`<div class="child-note">
-        🔒 Mixed-form styling — this child has both a plain style and a
-        dictionary-form ($ shadow-piercing) style. The Studio can't edit
-        that combination, so it is preserved exactly as written.
+        ${hasUnsupportedDictRoot(c.card_mod?.style) || hasUnsupportedDictRoot(c.uix?.style)
+          ? html`🔒 This child's dictionary-form ($ shadow-piercing) style has a
+              <code>.</code> entry that isn't plain CSS, so the Studio can't
+              rebuild it — it is preserved exactly as written.`
+          : html`🔒 Mixed-form styling — this child has a dictionary-form
+              ($ shadow-piercing) style and a different style on the other
+              engine key. The Studio can't edit that combination, so it is
+              preserved exactly as written.`}
       </div>${c.type === 'entities'
         ? html`<div class="child-body"><cms-entities-rows-module
             .rows=${(c as unknown as { entities?: EntitiesCardRow[] }).entities ?? []}
