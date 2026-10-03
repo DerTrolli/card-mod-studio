@@ -992,15 +992,14 @@ export class CmsPanel extends LitElement {
       return this._renderContainerCard(s);
     }
 
-    // v0.9.1: a dictionary-form ($-pierce) style can't be edited yet — the
-    // save path preserves it verbatim (yaml-generator guard), so offering
-    // the card-level modules would be dead controls. Rows stay editable on
-    // entities cards: they're separate row configs with their own guard.
-    // v0.10: a dict-form ACTIVE style is editable — its `.` entry runs
+    // Dictionary-form styles are editable (v0.10): the `.` entry runs
     // through the normal module pipeline and every pierced entry is
-    // preserved byte-identically (dictSource carrier). Only the MIXED
-    // case (active string style + dict-form style on the other key) still
-    // freezes: that combination has no faithful single-key rewrite.
+    // preserved byte-identically (dictSource carrier). A dict style with
+    // NO carrier can't be rewritten faithfully — mixed-form (a dict plus a
+    // different style on the other key) or a dict whose `.` isn't plain
+    // CSS — so the save path preserves it verbatim and the card-level
+    // modules would be dead controls: show the lock banner instead. Rows
+    // stay editable on entities cards (separate row configs, own guard).
     if (hasDictFormStyle(this.config ?? {}) && !this._studioState?.dictSource) {
       return html`
         <div class="container-banner">
