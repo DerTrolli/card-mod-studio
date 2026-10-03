@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, ThresholdRule } from '../types/index.js';
-import { moduleStyles, renderOverrideHint } from './module-base.js';
+import { moduleStyles, renderOverrideHint, onHeaderKeydown } from './module-base.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
 import { findRowExtraCssConflicts } from '../utils/style-conflicts.js';
 import '../components/cms-color-picker.js';
@@ -29,7 +29,7 @@ export class EntitiesRowsModule extends LitElement {
     moduleStyles,
     css`
       .entity-section {
-        border: 1px solid var(--divider-color, #383838);
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-radius: 6px;
         overflow: hidden;
       }
@@ -37,120 +37,137 @@ export class EntitiesRowsModule extends LitElement {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 9px 12px;
-        background: rgba(255, 255, 255, 0.03);
+        min-height: 40px;
+        box-sizing: border-box;
+        padding: 6px 12px;
+        background: var(--cms-fill);
         cursor: pointer;
         user-select: none;
+        transition: background 0.15s ease;
       }
       .entity-header:hover {
-        background: rgba(255, 255, 255, 0.07);
+        background: var(--cms-fill-hover);
+      }
+      .entity-header:focus-visible {
+        outline: 2px solid var(--primary-color, #03a9f4);
+        outline-offset: -2px;
       }
       .entity-chevron {
-        font-size: 9px;
-        color: var(--secondary-text-color, #9e9e9e);
-        width: 12px;
+        font-size: 10px;
+        color: var(--secondary-text-color, #727272);
+        width: 14px;
         flex-shrink: 0;
       }
+      /* Name may shrink (ellipsis) so a long friendly name can't push the
+         entity id and the styled-dot out of a phone-width header. */
       .entity-name {
         font-size: 13px;
         font-weight: 500;
-        flex-shrink: 0;
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .entity-id {
         font-size: 11px;
-        color: var(--secondary-text-color, #9e9e9e);
+        color: var(--secondary-text-color, #727272);
         font-family: monospace;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        flex: 1;
+        flex: 1 1 0;
+        min-width: 40px;
       }
       .style-dot {
         width: 8px;
         height: 8px;
         border-radius: 50%;
-        background: var(--accent-color, #2196f3);
+        background: var(--primary-color, #03a9f4);
         flex-shrink: 0;
       }
       .entity-body {
         padding: 12px 14px;
-        border-top: 1px solid var(--divider-color, #383838);
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         display: flex;
         flex-direction: column;
         gap: 10px;
       }
       .mode-toggle {
         display: flex;
-        border: 1px solid var(--divider-color, #383838);
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-radius: 4px;
         overflow: hidden;
       }
       .mode-btn {
+        min-height: 28px;
         padding: 3px 10px;
-        font-size: 11px;
+        font-size: 12px;
         cursor: pointer;
         background: transparent;
-        color: var(--secondary-text-color, #9e9e9e);
+        color: var(--secondary-text-color, #727272);
         border: none;
       }
+      .mode-btn:hover:not(.active) {
+        background: var(--cms-fill-hover);
+      }
       .mode-btn.active {
-        background: rgba(33, 150, 243, 0.2);
-        color: #2196f3;
-      }
-      .color-section-label {
-        font-size: 12px;
-        color: var(--secondary-text-color, #9e9e9e);
+        background: var(--cms-tint-primary-hover);
+        color: var(--cms-ink-primary);
         font-weight: 500;
-        margin-bottom: 2px;
       }
-      /* Threshold rule styles */
+      /* Threshold rule rows — same look as the card-level Threshold module. */
       .rule {
         display: flex;
+        flex-wrap: wrap;
         gap: 6px;
         align-items: center;
         padding: 6px 8px;
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--cms-fill);
         border-radius: 4px;
       }
-      .rule select,
+      .rule select {
+        width: 64px;
+        flex: 0 0 auto;
+      }
       .rule input[type='number'] {
-        padding: 4px 6px;
-        font-size: 12px;
-        background: var(--card-background-color, #1c1c1c);
-        color: var(--primary-text-color, #e1e1e1);
-        border: 1px solid var(--divider-color, #383838);
-        border-radius: 4px;
+        flex: 1 1 64px;
+        width: auto;
+        min-width: 56px;
+        max-width: 110px;
       }
-      .rule input[type='number'] { width: 70px; }
-      .rule select { width: 60px; }
-      .rule button {
-        padding: 2px 8px;
+      .rule > button {
+        background: var(--cms-tint-error);
+        border: 1px solid var(--cms-line-error);
+        border-radius: 4px;
+        color: var(--cms-ink-error);
         cursor: pointer;
-        background: rgba(255, 0, 0, 0.15);
-        color: #ff6b6b;
-        border: 1px solid rgba(255, 0, 0, 0.3);
-        border-radius: 4px;
-        font-size: 14px;
+        font-size: 15px;
         line-height: 1;
+        min-width: 28px;
+        min-height: 28px;
+        padding: 2px 8px;
+        margin-left: auto;
       }
-      .rule button:hover { background: rgba(255, 0, 0, 0.25); }
+      .rule > button:hover { background: var(--cms-tint-error-hover); }
       .rule-label {
         font-size: 11px;
-        color: var(--secondary-text-color, #9e9e9e);
+        color: var(--secondary-text-color, #727272);
       }
-      /* Same metrics as the card-level Threshold module's .add-btn. */
+      /* Same look as the card-level Threshold module's .add-btn. */
       .add-rule-btn {
         margin-top: 4px;
-        padding: 6px 12px;
+        padding: 7px 12px;
         cursor: pointer;
-        background: rgba(33, 150, 243, 0.15);
-        color: #2196f3;
-        border: 1px solid rgba(33, 150, 243, 0.3);
+        background: var(--cms-tint-primary);
+        color: var(--cms-ink-primary);
+        border: 1px dashed var(--cms-line-primary);
         border-radius: 4px;
         font-size: 12px;
+        font-weight: 500;
         width: 100%;
       }
-      .add-rule-btn:hover { background: rgba(33, 150, 243, 0.25); }
+      .add-rule-btn:hover { background: var(--cms-tint-primary-hover); }
       .rules-container {
         display: flex;
         flex-direction: column;
@@ -159,8 +176,18 @@ export class EntitiesRowsModule extends LitElement {
       }
       .divider {
         border: none;
-        border-top: 1px solid var(--divider-color, #383838);
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         margin: 4px 0;
+      }
+      /* Rows whose styling can't be rewritten faithfully (mixed-form). */
+      .frozen-note {
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--secondary-text-color, #727272);
+      }
+      @media (pointer: coarse) {
+        .mode-btn { min-height: 36px; }
+        .rule > button { min-width: 36px; min-height: 36px; }
       }
     `,
   ];
@@ -246,14 +273,21 @@ export class EntitiesRowsModule extends LitElement {
 
     return html`
       <div class="entity-section">
-        <div class="entity-header" @click=${() => this._toggleRow(rowKey)}>
+        <div
+          class="entity-header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${isOpen ? 'true' : 'false'}
+          @click=${() => this._toggleRow(rowKey)}
+          @keydown=${onHeaderKeydown}
+        >
           <span class="entity-chevron">${isOpen ? '▼' : '▶'}</span>
           <span class="entity-name">${label}</span>
           <span class="entity-id">${id}</span>
           ${conflicts.length
             ? html`<span class="override-badge" title="Hand-written CSS on this row is overriding these controls">⚠️</span>`
             : nothing}
-          ${hasStyle ? html`<span class="style-dot"></span>` : nothing}
+          ${hasStyle ? html`<span class="style-dot" title="This row has styling"></span>` : nothing}
         </div>
         ${isOpen ? this._renderBody(rowKey, rowStyle, conflicts) : nothing}
       </div>

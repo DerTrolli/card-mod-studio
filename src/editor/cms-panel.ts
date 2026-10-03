@@ -51,6 +51,7 @@ import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
 import { generateCss } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
+import { cmsTokens } from '../modules/module-base.js';
 
 import '../modules/module-filter.js';
 import '../modules/module-icon-color.js';
@@ -99,11 +100,14 @@ export class CmsPanel extends LitElement {
     // Load from localStorage immediately (sync); HA sync happens when hass arrives
     void loadPresets(undefined).then((p) => { this._presets = p; });
     void initPaletteCache(this.hass);
-    // Width-responsive: the side preview is a fixed 280px, so below ~600px the
-    // controls get crushed. Observe our own width and stack the preview instead.
+    // Width-responsive: the side preview is a fixed 280px, so the controls
+    // column only stays comfortable (>= ~420px: dense rule rows, colour
+    // grids) when the panel is at least ~720px wide. Below that, stack the
+    // preview under the controls instead (600px left 600-720px panels —
+    // small windows, tablet split view — with clipped rule rows).
     this._resizeObserver = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width ?? 0;
-      if (w > 0) this._narrow = w < 600;
+      if (w > 0) this._narrow = w < 720;
     });
     this._resizeObserver.observe(this);
   }
@@ -456,16 +460,16 @@ export class CmsPanel extends LitElement {
   // Styles
   // ---------------------------------------------------------------------------
 
-  static override styles = css`
+  static override styles = [cmsTokens, css`
     :host {
       display: flex;
       flex-direction: column;
       position: absolute;
       inset: 0;
       z-index: 10;
-      background: var(--card-background-color, var(--ha-card-background, #1c1c1c));
+      background: var(--card-background-color, var(--ha-card-background, #fff));
       font-family: var(--primary-font-family, sans-serif);
-      color: var(--primary-text-color, #e1e1e1);
+      color: var(--primary-text-color, #212121);
       box-sizing: border-box;
       overflow: hidden;
     }
@@ -478,13 +482,13 @@ export class CmsPanel extends LitElement {
       align-items: center;
       gap: 8px;
       padding: 10px 16px;
-      border-bottom: 1px solid var(--divider-color, #383838);
+      border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
     }
 
     .header h2 { margin: 0; font-size: 16px; font-weight: 500; }
     .header .version {
       font-size: 11px;
-      color: var(--secondary-text-color, #9e9e9e);
+      color: var(--secondary-text-color, #727272);
       margin-left: auto;
     }
 
@@ -513,7 +517,7 @@ export class CmsPanel extends LitElement {
     }
     .panel-body.narrow .preview-col {
       border-left: none;
-      border-top: 1px solid var(--divider-color, #383838);
+      border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       overflow: visible;
     }
     .panel-body.narrow .preview-card-wrapper {
@@ -527,6 +531,9 @@ export class CmsPanel extends LitElement {
       padding: 10px 14px 16px;
       min-width: 0;
     }
+    .panel-body.narrow .modules-col {
+      padding: 10px 10px 16px;
+    }
 
     /* ---- Preset bar ---- */
 
@@ -536,118 +543,133 @@ export class CmsPanel extends LitElement {
       align-items: center;
       margin-bottom: 10px;
       padding-bottom: 10px;
-      border-bottom: 1px solid var(--divider-color, #383838);
+      border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
     }
 
     .preset-bar select {
       flex: 1;
       min-width: 0;
+      box-sizing: border-box;
+      min-height: 32px;
       padding: 5px 8px;
+      font: inherit;
       font-size: 12px;
-      background: var(--card-background-color, #1c1c1c);
-      color: var(--primary-text-color, #e1e1e1);
-      border: 1px solid var(--divider-color, #383838);
+      background: var(--card-background-color, #fff);
+      color: var(--primary-text-color, #212121);
+      border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-preset-save,
+    .btn-preset-delete,
+    .btn-banner-action {
+      box-sizing: border-box;
+      min-height: 32px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 4px;
+      white-space: nowrap;
     }
 
     .btn-preset-save {
-      padding: 5px 10px;
-      font-size: 12px;
-      cursor: pointer;
-      background: rgba(33, 150, 243, 0.15);
-      color: #2196f3;
-      border: 1px solid rgba(33, 150, 243, 0.3);
-      border-radius: 4px;
-      white-space: nowrap;
+      padding: 5px 12px;
+      background: var(--cms-tint-primary);
+      color: var(--cms-ink-primary);
+      border: 1px solid var(--cms-line-primary);
     }
 
-    .btn-preset-save:hover { background: rgba(33, 150, 243, 0.25); }
+    .btn-preset-save:hover { background: var(--cms-tint-primary-hover); }
 
     .btn-preset-delete {
+      min-width: 32px;
       padding: 5px 8px;
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1;
-      cursor: pointer;
-      background: rgba(255, 0, 0, 0.12);
-      color: #ff6b6b;
-      border: 1px solid rgba(255, 0, 0, 0.25);
-      border-radius: 4px;
+      background: var(--cms-tint-error);
+      color: var(--cms-ink-error);
+      border: 1px solid var(--cms-line-error);
     }
 
-    .btn-preset-delete:hover { background: rgba(255, 0, 0, 0.22); }
+    .btn-preset-delete:hover { background: var(--cms-tint-error-hover); }
 
-    /* ---- Banners ---- */
+    :is(.btn-preset-save, .btn-preset-delete, .btn-banner-action, .preset-bar select):focus-visible {
+      outline: 2px solid var(--primary-color, #03a9f4);
+      outline-offset: 2px;
+    }
+
+    /* ---- Banners ----
+       Semantic colour carries the border + tint; the text itself uses the
+       theme's own text colour so it's readable in light AND dark mode (the
+       old same-hue text measured under 2:1 on a light theme). */
+
+    .warning-banner,
+    .info-banner,
+    .container-banner {
+      font-size: 12px;
+      line-height: 1.5;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      color: var(--primary-text-color, #212121);
+    }
 
     .warning-banner {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: 8px;
       padding: 8px 12px;
-      border-radius: 8px;
-      background: rgba(255, 152, 0, 0.15);
-      border: 1px solid #ff9800;
-      color: #ff9800;
-      font-size: 12px;
-      margin-bottom: 10px;
+      background: var(--cms-tint-warning);
+      border: 1px solid var(--warning-color, #ffa600);
     }
 
     .btn-banner-action {
-      padding: 5px 10px;
-      font-size: 12px;
-      cursor: pointer;
-      background: rgba(255, 152, 0, 0.15);
-      color: #ff9800;
-      border: 1px solid rgba(255, 152, 0, 0.4);
-      border-radius: 4px;
-      white-space: nowrap;
+      padding: 5px 12px;
       margin-left: auto;
+      background: var(--card-background-color, #fff);
+      color: var(--primary-text-color, #212121);
+      border: 1px solid var(--warning-color, #ffa600);
     }
 
-    .btn-banner-action:hover { background: rgba(255, 152, 0, 0.28); }
+    .btn-banner-action:hover { background: var(--cms-tint-warning); }
 
     .info-banner {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 7px 12px;
-      border-radius: 8px;
-      background: rgba(33, 150, 243, 0.1);
-      border: 1px solid #2196F3;
-      color: #2196F3;
-      font-size: 12px;
-      margin-bottom: 10px;
+      padding: 8px 12px;
+      background: var(--cms-tint-primary);
+      border: 1px solid var(--cms-line-primary);
     }
 
     .no-config {
       padding: 24px 16px;
       text-align: center;
-      color: var(--secondary-text-color, #9e9e9e);
-      border: 2px dashed var(--divider-color, #383838);
+      color: var(--secondary-text-color, #727272);
+      border: 2px dashed var(--divider-color, rgba(0, 0, 0, 0.12));
       border-radius: 8px;
       font-size: 13px;
     }
 
     .container-banner {
       padding: 10px 14px;
-      border-radius: 8px;
-      background: rgba(156, 39, 176, 0.12);
-      border: 1px solid #9c27b0;
-      color: #ce93d8;
-      font-size: 12px;
-      line-height: 1.5;
-      margin-bottom: 10px;
+      background: color-mix(in srgb, #9c27b0 9%, transparent);
+      border: 1px solid color-mix(in srgb, #9c27b0 55%, transparent);
+      border-left: 4px solid #9c27b0;
     }
 
     .container-banner strong {
       display: block;
       margin-bottom: 4px;
-      color: #e1bee7;
+      font-weight: 600;
     }
 
     /* ---- Right column: preview ---- */
 
     .preview-col {
-      border-left: 1px solid var(--divider-color, #383838);
+      border-left: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       padding: 10px 12px;
       overflow: hidden;
       display: flex;
@@ -658,19 +680,25 @@ export class CmsPanel extends LitElement {
     .preview-col-label {
       flex-shrink: 0;
       font-size: 11px;
-      color: var(--secondary-text-color, #9e9e9e);
+      color: var(--secondary-text-color, #727272);
       font-weight: 500;
       text-transform: uppercase;
       letter-spacing: 0.06em;
     }
 
+    /* The preview sits on the dashboard background the card will really
+       live on: the theme's --lovelace-background when it sets one, else
+       --primary-background-color (what HA's own card-editor preview uses) —
+       never a fixed dark slab, which looked broken on light themes and
+       misjudged translucent card designs. */
     .preview-card-wrapper {
       flex: 1;
       overflow: auto;
       display: flex;
       flex-direction: column;
       align-items: stretch;
-      background: var(--lovelace-background, #111111);
+      background: var(--lovelace-background, var(--primary-background-color, #fafafa));
+      border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       border-radius: 8px;
       padding: 12px;
       min-height: 0;
@@ -682,8 +710,8 @@ export class CmsPanel extends LitElement {
 
     .preview-hint {
       flex-shrink: 0;
-      font-size: 10px;
-      color: var(--secondary-text-color, #9e9e9e);
+      font-size: 11px;
+      color: var(--secondary-text-color, #727272);
       line-height: 1.4;
     }
 
@@ -693,11 +721,11 @@ export class CmsPanel extends LitElement {
 
     .preview-unavailable {
       font-size: 11px;
-      color: var(--secondary-text-color, #9e9e9e);
+      color: var(--secondary-text-color, #727272);
       text-align: center;
       margin: auto;
     }
-  `;
+  `];
 
   // ---------------------------------------------------------------------------
   // Render
@@ -707,7 +735,7 @@ export class CmsPanel extends LitElement {
     const hasPreview = !!(this.config && this.hass);
     return html`
       <div class="header">
-        <span>🎨</span>
+        <span aria-hidden="true">🎨</span>
         <h2>Card-Mod Studio</h2>
         <span class="version">v${VERSION}</span>
       </div>

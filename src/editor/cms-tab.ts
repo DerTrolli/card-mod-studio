@@ -22,26 +22,32 @@ export class CmsTabButton extends LitElement {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 12px;
+      min-height: 36px;
+      padding: 6px 14px;
       border: none;
-      border-radius: 20px;
+      border-radius: 18px;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 14px;
       font-family: var(--primary-font-family, sans-serif);
       font-weight: 500;
       transition: background 0.15s ease, color 0.15s ease;
       background: transparent;
-      color: var(--secondary-text-color, #727272);
+      color: var(--primary-color, #03a9f4);
     }
 
     button:hover {
-      background: var(--secondary-background-color, #f5f5f5);
-      color: var(--primary-text-color, #212121);
+      background: color-mix(in srgb, var(--primary-color, #03a9f4) 10%, transparent);
     }
 
+    button:focus-visible {
+      outline: 2px solid var(--primary-color, #03a9f4);
+      outline-offset: 2px;
+    }
+
+    /* Active = filled, the same treatment as HA's own primary button. */
     :host([active]) button {
       background: var(--primary-color, #03a9f4);
-      color: #fff;
+      color: var(--text-primary-color, #fff);
     }
 
     :host([active]) button:hover {
@@ -51,6 +57,18 @@ export class CmsTabButton extends LitElement {
     .icon {
       font-size: 16px;
       line-height: 1;
+    }
+
+    /* Phones: HA's dialog footer is already full (code-editor toggle,
+       Cancel, Save) — the labelled pill squeezed "Show code editor" onto
+       three lines. Icon-only there; the accessible name stays "Style". */
+    @media (max-width: 500px) {
+      button {
+        padding: 6px 10px;
+      }
+      .label {
+        display: none;
+      }
     }
   `;
 
@@ -70,10 +88,11 @@ export class CmsTabButton extends LitElement {
       <button
         @click=${this._handleClick}
         title="${this.active ? 'Close Card-Mod Studio' : 'Open Card-Mod Studio style editor'}"
+        aria-label="Style"
         aria-pressed="${this.active}"
       >
-        <span class="icon">🎨</span>
-        Style
+        <span class="icon" aria-hidden="true">🎨</span>
+        <span class="label">Style</span>
       </button>
     `;
   }

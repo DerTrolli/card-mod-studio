@@ -18,7 +18,7 @@ import {
   type CustomColor,
 } from '../utils/palette-storage.js';
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
-import { moduleStyles } from '../modules/module-base.js';
+import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
 
 export class CmsPaletteManager extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
@@ -39,74 +39,80 @@ export class CmsPaletteManager extends LitElement {
       .color-row input[type='text'] {
         flex: 1;
         min-width: 0;
-        padding: 4px 6px;
-        font-size: 12px;
-        background: var(--card-background-color, #1c1c1c);
-        color: var(--primary-text-color, #e1e1e1);
-        border: 1px solid var(--divider-color, #383838);
-        border-radius: 4px;
       }
       .color-row .del-btn {
-        padding: 2px 8px;
-        cursor: pointer;
-        background: rgba(255, 0, 0, 0.15);
-        color: #ff6b6b;
-        border: 1px solid rgba(255, 0, 0, 0.3);
+        background: var(--cms-tint-error);
+        border: 1px solid var(--cms-line-error);
         border-radius: 4px;
-        font-size: 14px;
+        color: var(--cms-ink-error);
+        cursor: pointer;
+        font-size: 15px;
         line-height: 1;
+        min-width: 28px;
+        min-height: 28px;
+        padding: 2px 8px;
+        flex-shrink: 0;
       }
       .color-row .del-btn:hover {
-        background: rgba(255, 0, 0, 0.25);
+        background: var(--cms-tint-error-hover);
       }
       .add-btn {
         margin-top: 4px;
-        padding: 6px 12px;
+        padding: 7px 12px;
         cursor: pointer;
-        background: rgba(33, 150, 243, 0.15);
-        color: #2196f3;
-        border: 1px solid rgba(33, 150, 243, 0.3);
+        background: var(--cms-tint-primary);
+        color: var(--cms-ink-primary);
+        border: 1px dashed var(--cms-line-primary);
         border-radius: 4px;
         font-size: 12px;
+        font-weight: 500;
         width: 100%;
       }
       .add-btn:hover {
-        background: rgba(33, 150, 243, 0.25);
+        background: var(--cms-tint-primary-hover);
       }
       .reset-btn {
-        padding: 2px 8px;
+        min-height: 28px;
+        padding: 2px 10px;
         cursor: pointer;
-        background: rgba(255, 255, 255, 0.06);
-        color: var(--secondary-text-color, #9e9e9e);
-        border: 1px solid var(--divider-color, #383838);
+        background: var(--cms-fill);
+        color: var(--secondary-text-color, #727272);
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-radius: 4px;
-        font-size: 11px;
+        font-size: 12px;
       }
       .reset-btn:hover {
-        background: rgba(255, 255, 255, 0.12);
-        color: var(--primary-text-color, #e1e1e1);
+        background: var(--cms-fill-hover);
+        color: var(--primary-text-color, #212121);
+      }
+      @media (pointer: coarse) {
+        .color-row .del-btn,
+        .reset-btn {
+          min-width: 36px;
+          min-height: 36px;
+        }
       }
       .section-label {
         font-size: 11px;
-        color: var(--secondary-text-color, #9e9e9e);
+        color: var(--secondary-text-color, #727272);
         margin: 10px 0 6px;
         display: block;
       }
       .hint {
         font-size: 11px;
-        color: var(--secondary-text-color, #9e9e9e);
+        color: var(--secondary-text-color, #727272);
         margin-top: 8px;
       }
       .header-summary {
         font-size: 11px;
-        color: var(--secondary-text-color, #9e9e9e);
+        color: var(--secondary-text-color, #727272);
       }
       .default-label {
         flex: 1;
         font-size: 12px;
       }
       .default-builtin {
-        color: var(--secondary-text-color, #9e9e9e);
+        color: var(--secondary-text-color, #727272);
       }
     `,
   ];
@@ -163,7 +169,14 @@ export class CmsPaletteManager extends LitElement {
     const hasContent = palette.colors.length > 0 || !!palette.defaults.onColor || !!palette.defaults.offColor;
     return html`
       <div class="module">
-        <div class="module-header" @click=${() => (this._open = !this._open)}>
+        <div
+          class="module-header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${this._open ? 'true' : 'false'}
+          @click=${() => (this._open = !this._open)}
+          @keydown=${onHeaderKeydown}
+        >
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🖌️ My Color Palette</span>
           ${hasContent && !this._open
@@ -195,7 +208,7 @@ export class CmsPaletteManager extends LitElement {
                 placeholder="Name"
                 @change=${(e: Event) => this._updateColor(c.id, { name: (e.target as HTMLInputElement).value })}
               />
-              <button class="del-btn" title="Delete color" @click=${() => this._deleteColor(c.id)}>×</button>
+              <button class="del-btn" title="Delete color" aria-label="Delete color" @click=${() => this._deleteColor(c.id)}>×</button>
             </div>
           `,
         )}

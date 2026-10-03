@@ -51,7 +51,7 @@ import {
   ICON_SIZE_TYPES,
   isStateAware,
 } from '../utils/card-caps.js';
-import { moduleStyles } from '../modules/module-base.js';
+import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import { hasDictFormStyle } from '../utils/style-compat.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
@@ -90,26 +90,38 @@ export class CmsChildCardSection extends LitElement {
         display: block;
       }
       .child-section {
-        border: 1px solid var(--divider-color, #383838);
-        border-radius: 6px;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 8px;
         margin-bottom: 8px;
-        background: rgba(255, 255, 255, 0.02);
+        overflow: hidden;
       }
       .child-header {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 10px 12px;
+        min-height: 44px;
+        box-sizing: border-box;
+        padding: 6px 12px;
+        background: var(--cms-fill);
         cursor: pointer;
         user-select: none;
+        transition: background 0.15s ease;
+      }
+      .child-header:hover {
+        background: var(--cms-fill-hover);
+      }
+      .child-header:focus-visible {
+        outline: 2px solid var(--primary-color, #03a9f4);
+        outline-offset: -2px;
       }
       .child-title {
-        font-weight: 600;
+        font-weight: 500;
         font-size: 13px;
+        flex-shrink: 0;
       }
       .child-sub {
         font-size: 11px;
-        color: var(--secondary-text-color, #9e9e9e);
+        color: var(--secondary-text-color, #727272);
         font-family: monospace;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -123,17 +135,20 @@ export class CmsChildCardSection extends LitElement {
         width: 8px;
         height: 8px;
         border-radius: 50%;
-        background: var(--accent-color, #2196f3);
+        background: var(--primary-color, #03a9f4);
         flex-shrink: 0;
       }
+      /* Tight side padding: modules nested in a child already carry their
+         own border + padding, and every pixel counts at phone width. */
       .child-body {
-        padding: 4px 8px 8px;
-        border-top: 1px solid var(--divider-color, #383838);
+        padding: 10px 6px 0;
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       }
       .child-note {
         font-size: 12px;
-        color: var(--secondary-text-color, #9e9e9e);
-        padding: 8px 12px;
+        line-height: 1.5;
+        color: var(--secondary-text-color, #727272);
+        padding: 8px 12px 12px;
       }
     `,
   ];
@@ -192,7 +207,14 @@ export class CmsChildCardSection extends LitElement {
 
     return html`
       <div class="child-section">
-        <div class="child-header" @click=${() => (this._open = !this._open)}>
+        <div
+          class="child-header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${this._open ? 'true' : 'false'}
+          @click=${() => (this._open = !this._open)}
+          @keydown=${onHeaderKeydown}
+        >
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="child-title">${label}</span>
           <span class="child-sub">${sub}</span>

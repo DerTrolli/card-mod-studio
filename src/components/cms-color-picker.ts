@@ -81,30 +81,107 @@ export function previewHexFor(value: string): string {
  * created in _ensurePortal — see that method's doc comment for why the
  * popover can't just be a normal child of this element's own shadow DOM.
  */
+/** Splits swatches into rows of `size` — see .preset-group. */
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Swatch / custom-input styles, shared by the inline picker and the portal
+ * popover (see _ensurePortal) so both look identical. Colours derive from
+ * HA's theme variables so light, dark and custom themes all read well:
+ * - every swatch carries a faint inset outline (yellow/white/light swatches
+ *   otherwise vanish on a light card);
+ * - "selected" is a two-ring halo in the theme's own text colour, which
+ *   stays visible on any swatch (a primary-coloured ring disappeared on the
+ *   blue/cyan presets) and differs from hover (a slight lift).
+ */
+const swatchStyles = css`
+  .container { display: flex; flex-direction: column; gap: 8px; }
+  /* Swatches come in groups of 5 that never break internally, so a row
+     that doesn't fit wraps as two even rows (5 + 5) instead of 8 + 2. */
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+  .preset-group { display: flex; gap: 6px; }
+  .preset {
+    box-sizing: border-box;
+    width: 26px;
+    height: 26px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-text-color, #212121) 22%, transparent);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+  .preset:hover:not(.selected) { transform: scale(1.12); }
+  .preset.selected {
+    box-shadow:
+      0 0 0 2px var(--card-background-color, #fff),
+      0 0 0 4px var(--primary-text-color, #212121);
+  }
+  .preset:focus-visible,
+  .swatch-trigger:focus-visible,
+  .custom input:focus-visible {
+    outline: 2px solid var(--primary-color, #03a9f4);
+    outline-offset: 2px;
+  }
+  .custom { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+  .custom input[type="color"] {
+    -webkit-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    width: 34px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-text-color, #212121) 22%, transparent);
+  }
+  .custom input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+  .custom input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 6px; }
+  .custom input[type="color"]::-moz-color-swatch { border: 0; border-radius: 6px; }
+  .custom input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    height: 28px;
+    padding: 4px 8px;
+    font: inherit;
+    font-size: 12px;
+    color: var(--primary-text-color, #212121);
+    background: var(--card-background-color, #fff);
+    border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+    border-radius: 4px;
+  }
+`;
+
+/**
+ * Popover-only styles, used in the portal shadow root created in
+ * _ensurePortal — see that method's doc comment for why the popover can't
+ * just be a normal child of this element's own shadow DOM. The border is a
+ * text-colour mix rather than --divider-color, which is nearly invisible
+ * against the dialog surface in dark mode.
+ */
 const popoverStyles = css`
   .popover {
     position: fixed;
     z-index: 999999;
-    background: var(--card-background-color, #1c1c1c);
-    border: 1px solid var(--divider-color, #383838);
+    background: var(--card-background-color, #fff);
+    color: var(--primary-text-color, #212121);
+    font-family: var(--primary-font-family, sans-serif);
+    border: 1px solid color-mix(in srgb, var(--primary-text-color, #212121) 25%, transparent);
     border-radius: 8px;
     padding: 10px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-    width: 200px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    box-sizing: border-box;
+    width: 208px;
   }
-  .container { display: flex; flex-direction: column; gap: 8px; }
-  .presets { display: flex; flex-wrap: wrap; gap: 4px; }
-  .preset {
-    width: 24px; height: 24px;
-    border-radius: 4px;
-    border: 2px solid transparent;
-    cursor: pointer;
-  }
-  .preset:hover { border-color: var(--primary-color, #03a9f4); }
-  .preset.selected { border-color: var(--primary-color, #03a9f4); }
-  .custom { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-  .custom input[type="color"] { width: 32px; height: 24px; padding: 0; border: none; }
-  .custom input[type="text"] { flex: 1; padding: 4px; font-size: 12px; }
 `;
 
 @customElement('cms-color-picker')
@@ -130,31 +207,22 @@ export class CmsColorPicker extends LitElement {
     }
   };
 
-  static styles = css`
-    :host { display: block; }
-    .container { display: flex; flex-direction: column; gap: 8px; }
-    .presets { display: flex; flex-wrap: wrap; gap: 4px; }
-    .preset {
-      width: 24px; height: 24px;
-      border-radius: 4px;
-      border: 2px solid transparent;
-      cursor: pointer;
-    }
-    .preset:hover { border-color: var(--primary-color, #03a9f4); }
-    .preset.selected { border-color: var(--primary-color, #03a9f4); }
-    .custom { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-    .custom input[type="color"] { width: 32px; height: 24px; padding: 0; border: none; }
-    .custom input[type="text"] { flex: 1; padding: 4px; font-size: 12px; }
-
-    .swatch-trigger {
-      width: 32px;
-      height: 24px;
-      padding: 0;
-      border: 1px solid var(--divider-color, #383838);
-      border-radius: 4px;
-      cursor: pointer;
-    }
-  `;
+  static styles = [
+    swatchStyles,
+    css`
+      :host { display: block; }
+      .swatch-trigger {
+        box-sizing: border-box;
+        width: 34px;
+        height: 26px;
+        padding: 0;
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-text-color, #212121) 22%, transparent);
+      }
+    `,
+  ];
 
   private _paletteChangedHandler = () => {
     this.requestUpdate();
@@ -179,9 +247,13 @@ export class CmsColorPicker extends LitElement {
 
     return html`
       <button
+        type="button"
         class="swatch-trigger"
         style="background: ${previewHexFor(this.value)}"
         title="${this.value}"
+        aria-label="Color ${this.value} — change"
+        aria-haspopup="dialog"
+        aria-expanded="${this._popoverOpen}"
         @click=${this._toggleCompactPopover}
       ></button>
     `;
@@ -200,30 +272,36 @@ export class CmsColorPicker extends LitElement {
     return html`
       <div class="container">
         <div class="presets">
-          ${HA_COLOR_PRESETS.map(p => html`
-            <div
+          ${chunk(HA_COLOR_PRESETS, 5).map(group => html`<div class="preset-group">${group.map(p => html`
+            <button
+              type="button"
               class="preset ${this.value === p.variable ? 'selected' : ''}"
               style="background: ${p.hex}"
               title="${p.name} (${p.variable})"
+              aria-label="${p.name}"
+              aria-pressed="${this.value === p.variable}"
               @click=${() => this._selectPreset(p)}
-            ></div>
-          `)}
+            ></button>
+          `)}</div>`)}
         </div>
         ${customColors.length > 0
           ? html`<div class="presets" title="My colors">
-              ${customColors.map(c => html`
-                <div
+              ${chunk(customColors, 5).map(group => html`<div class="preset-group">${group.map(c => html`
+                <button
+                  type="button"
                   class="preset ${this.value === c.hex ? 'selected' : ''}"
                   style="background: ${c.hex}"
                   title="${c.name || c.hex}"
+                  aria-label="${c.name || c.hex}"
+                  aria-pressed="${this.value === c.hex}"
                   @click=${() => this._selectCustom(c.hex)}
-                ></div>
-              `)}
+                ></button>
+              `)}</div>`)}
             </div>`
           : nothing}
         <div class="custom">
-          <input type="color" .value=${this._toHex(this.value)} @input=${this._onColorInput} />
-          <input type="text" .value=${this.value} @change=${this._onTextChange} placeholder="Color or var(--name)" />
+          <input type="color" aria-label="Pick a custom color" .value=${this._toHex(this.value)} @input=${this._onColorInput} />
+          <input type="text" aria-label="Color value" .value=${this.value} @change=${this._onTextChange} placeholder="Color or var(--name)" />
         </div>
       </div>
     `;
@@ -274,7 +352,7 @@ export class CmsColorPicker extends LitElement {
     if (!this._portalShadow || !this._popoverPos) return;
     litRender(
       html`
-        <style>${popoverStyles}</style>
+        <style>${String(swatchStyles) + String(popoverStyles)}</style>
         <div
           class="popover"
           style="top: ${this._popoverPos.top}px; left: ${this._popoverPos.left}px;"
@@ -317,7 +395,7 @@ export class CmsColorPicker extends LitElement {
     const relTop = rect.top - bounds.top;
     const relBottom = rect.bottom - bounds.top;
 
-    // 200px popover width (see .popover) — keep it within bounds
+    // 208px border-box popover width (see .popover) — keep it within bounds
     // horizontally if the trigger sits near either edge, common in a dense
     // rule row.
     const left = Math.max(8, Math.min(relLeft, bounds.width - 216));
@@ -333,6 +411,19 @@ export class CmsColorPicker extends LitElement {
     this._popoverOpen = true;
     this._ensurePortal();
     this._renderPortalContent();
+    // Re-place using the popover's REAL height: "My colors" rows make it
+    // taller than the estimate, which pushed it past the dialog's bottom
+    // edge (clipped) for triggers low in the panel.
+    const realHeight = (this._portalShadow?.querySelector('.popover') as HTMLElement | null)?.offsetHeight ?? 0;
+    if (realHeight > 0) {
+      const fitted = relBottom + realHeight + 4 <= bounds.height
+        ? relBottom + 4
+        : Math.max(8, relTop - realHeight - 4);
+      if (fitted !== top) {
+        this._popoverPos = { top: fitted, left };
+        this._renderPortalContent();
+      }
+    }
     // Capture phase so this fires before the click that opened it finishes
     // bubbling — otherwise it would immediately close itself.
     document.addEventListener('click', this._outsideClickHandler, true);

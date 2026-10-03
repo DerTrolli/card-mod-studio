@@ -1,8 +1,8 @@
-import { LitElement, html, css, nothing } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { AnimationModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ANIMATION } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint } from './module-base.js';
+import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
 
@@ -42,20 +42,7 @@ export class AnimationModule extends LitElement {
   @state() private _open = false;
   @state() private _speedS = DEFAULT_ANIMATION.speedS;
 
-  static override styles = [
-    moduleStyles,
-    css`
-      input[type='number'] {
-        width: 80px;
-        padding: 4px 6px;
-        font-size: 12px;
-        background: var(--card-background-color, #1c1c1c);
-        color: var(--primary-text-color, #e1e1e1);
-        border: 1px solid var(--divider-color, #383838);
-        border-radius: 4px;
-      }
-    `,
-  ];
+  static override styles = [moduleStyles];
 
   override firstUpdated() {
     this._open = this.state.enabled;
@@ -95,7 +82,14 @@ export class AnimationModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div class="module-header" @click=${this._toggleOpen}>
+        <div
+          class="module-header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${this._open ? 'true' : 'false'}
+          @click=${this._toggleOpen}
+          @keydown=${onHeaderKeydown}
+        >
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">✨ Animation</span>
           ${renderOverrideBadge(this.overridden)}
@@ -213,7 +207,7 @@ export class AnimationModule extends LitElement {
                   .hass=${this.hass}
                   .value=${this.state.customEntity ?? ''}
                   .includeDomains=${TOGGLE_DOMAINS}
-                  label="Controlling entity"
+                  label=""
                   placeholder="input_boolean.my_entity"
                   @value-changed=${(e: CustomEvent<{ value: string }>) =>
                     this._emit({ customEntity: e.detail.value.trim() })}
@@ -291,7 +285,7 @@ export class AnimationModule extends LitElement {
           <cms-entity-picker
             .hass=${this.hass}
             .value=${this.state.valueEntity ?? ''}
-            label="Entity the value is read from"
+            label=""
             placeholder="sensor.temperature"
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
               this._emit({ valueEntity: e.detail.value.trim(), valueAttribute: '' })}

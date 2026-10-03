@@ -7,6 +7,7 @@ import {
   renderOverrideBadge,
   renderOverrideHint,
   renderCondition,
+  onHeaderKeydown,
 } from './module-base.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
@@ -63,7 +64,14 @@ export class IconColorModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div class="module-header" @click=${this._toggleOpen}>
+        <div
+          class="module-header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${this._open ? 'true' : 'false'}
+          @click=${this._toggleOpen}
+          @keydown=${onHeaderKeydown}
+        >
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🎨 Icon Color</span>
           ${renderOverrideBadge(this.overridden)}
@@ -134,13 +142,13 @@ export class IconColorModule extends LitElement {
                     .value=${this.state.entityId ?? ''}
                     .includeDomains=${mode === 'light' ? ['light'] : TOGGLE_DOMAINS}
                     .placeholder=${this.stateAware ? this.cardEntity : 'binary_sensor.example'}
-                    label="Entity (default: this card's entity)"
+                    label=""
                     @value-changed=${(e: CustomEvent<{ value: string }>) =>
                       this._emit({ entityId: e.detail.value.trim() })}
                   ></cms-entity-picker>
                 </div>
               </div>
-              <div class="when-hint" style=${ownEntityUseless ? 'color:var(--warning-color,#ffa600)' : ''}>
+              <div class="when-hint ${ownEntityUseless ? 'warn' : ''}">
                 ${this.state.entityId
                   ? `Uses ${this.state.entityId}'s on/off state, not this card's own entity.`
                   : ownEntityUseless

@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { AccentColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ACCENT_COLOR } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint } from './module-base.js';
+import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
@@ -56,7 +56,14 @@ export class AccentColorModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div class="module-header" @click=${this._toggleOpen}>
+        <div
+          class="module-header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${this._open ? 'true' : 'false'}
+          @click=${this._toggleOpen}
+          @keydown=${onHeaderKeydown}
+        >
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🌈 Accent Color</span>
           ${renderOverrideBadge(this.overridden)}
@@ -118,13 +125,13 @@ export class AccentColorModule extends LitElement {
                     .value=${this.state.entityId ?? ''}
                     .includeDomains=${TOGGLE_DOMAINS}
                     .placeholder=${this.stateAware ? this.cardEntity : 'binary_sensor.example'}
-                    label="Entity (default: this card's entity)"
+                    label=""
                     @value-changed=${(e: CustomEvent<{ value: string }>) =>
                       this._emit({ entityId: e.detail.value.trim() })}
                   ></cms-entity-picker>
                 </div>
               </div>
-              <div class="when-hint" style=${ownEntityUseless ? 'color:var(--warning-color,#ffa600)' : ''}>
+              <div class="when-hint ${ownEntityUseless ? 'warn' : ''}">
                 ${this.state.entityId
                   ? `Uses ${this.state.entityId}'s on/off state, not this card's own entity.`
                   : ownEntityUseless

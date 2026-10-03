@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { FontModuleState } from '../types/index.js';
 import { DEFAULT_FONT } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint } from './module-base.js';
+import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
 import '../components/cms-color-picker.js';
 
 /** Preset font-family values shown in the dropdown. '' = leave the theme's
@@ -62,7 +62,14 @@ export class FontModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div class="module-header" @click=${this._toggleOpen}>
+        <div
+          class="module-header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${this._open ? 'true' : 'false'}
+          @click=${this._toggleOpen}
+          @keydown=${onHeaderKeydown}
+        >
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🔠 Font</span>
           ${renderOverrideBadge(this.overridden)}

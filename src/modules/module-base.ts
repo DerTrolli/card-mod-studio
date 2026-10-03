@@ -8,13 +8,49 @@ import type { HomeAssistant, StyleCondition } from '../types/index.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
 
-export const moduleStyles = css`
+/**
+ * Theme-aware design tokens shared by every module (and re-declared on
+ * cms-panel's :host). All derive from HA's own theme variables via
+ * color-mix(), so they adapt to light mode, dark mode and custom themes:
+ *
+ * - `--cms-ink-*`: text in a semantic colour, pulled toward the theme's
+ *   text colour so it keeps >= 4.5:1 contrast on its own tint in BOTH
+ *   modes (raw #2196f3 / #ff9800 / #ff6b6b text on a 12-15% tint of itself
+ *   measured 1.7-2.8:1 on light themes).
+ * - `--cms-tint-*`: soft semantic fills.
+ * - `--cms-fill` / `--cms-fill-hover`: neutral overlays (a white-alpha
+ *   overlay is invisible on a light card).
+ * If color-mix() is unsupported the declarations using these become
+ * invalid at computed-value time and fall back to inherited / transparent
+ * values, which stay readable.
+ */
+export const cmsTokens = css`
+  :host {
+    --cms-ink-primary: color-mix(in srgb, var(--primary-color, #03a9f4) 50%, var(--primary-text-color, #212121));
+    --cms-ink-error: color-mix(in srgb, var(--error-color, #db4437) 62%, var(--primary-text-color, #212121));
+    --cms-ink-warning: color-mix(in srgb, var(--warning-color, #ffa600) 40%, var(--primary-text-color, #212121));
+    --cms-tint-primary: color-mix(in srgb, var(--primary-color, #03a9f4) 13%, transparent);
+    --cms-tint-primary-hover: color-mix(in srgb, var(--primary-color, #03a9f4) 22%, transparent);
+    --cms-tint-error: color-mix(in srgb, var(--error-color, #db4437) 11%, transparent);
+    --cms-tint-error-hover: color-mix(in srgb, var(--error-color, #db4437) 20%, transparent);
+    --cms-tint-warning: color-mix(in srgb, var(--warning-color, #ffa600) 13%, transparent);
+    --cms-line-primary: color-mix(in srgb, var(--primary-color, #03a9f4) 45%, transparent);
+    --cms-line-error: color-mix(in srgb, var(--error-color, #db4437) 40%, transparent);
+    --cms-fill: color-mix(in srgb, var(--primary-text-color, #212121) 4%, transparent);
+    --cms-fill-hover: color-mix(in srgb, var(--primary-text-color, #212121) 8%, transparent);
+    --cms-outline: color-mix(in srgb, var(--primary-text-color, #212121) 22%, transparent);
+  }
+`;
+
+export const moduleStyles = [
+  cmsTokens,
+  css`
   :host {
     display: block;
   }
 
   .module {
-    border: 1px solid var(--divider-color, #383838);
+    border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
     border-radius: 8px;
     overflow: hidden;
     margin-bottom: 12px;
@@ -24,23 +60,30 @@ export const moduleStyles = css`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 14px;
-    background: rgba(255, 255, 255, 0.04);
+    gap: 6px;
+    min-height: 44px;
+    box-sizing: border-box;
+    padding: 6px 14px;
+    background: var(--cms-fill);
     cursor: pointer;
     user-select: none;
     transition: background 0.15s ease;
   }
 
   .module-header:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--cms-fill-hover);
+  }
+
+  .module-header:focus-visible {
+    outline: 2px solid var(--primary-color, #03a9f4);
+    outline-offset: -2px;
   }
 
   .module-chevron {
-    font-size: 9px;
-    color: var(--secondary-text-color, #9e9e9e);
+    font-size: 10px;
+    color: var(--secondary-text-color, #727272);
     width: 14px;
     flex-shrink: 0;
-    transition: transform 0.15s ease;
   }
 
   .module-title {
@@ -50,35 +93,41 @@ export const moduleStyles = css`
     font-size: 13px;
     font-weight: 500;
     flex: 1;
+    min-width: 0;
   }
 
   .module-body {
     padding: 12px 14px;
-    border-top: 1px solid var(--divider-color, #383838);
+    border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
     display: flex;
     flex-direction: column;
     gap: 10px;
   }
 
+  /* Label + control. Wraps onto two lines (control under its label) once
+     the column gets too narrow for both — phones, stack children — instead
+     of squeezing or clipping the control. */
   .control-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     min-height: 36px;
-    gap: 8px;
+    gap: 6px 8px;
   }
 
   .control-label {
     font-size: 12px;
-    color: var(--secondary-text-color, #9e9e9e);
-    flex-shrink: 0;
+    color: var(--secondary-text-color, #727272);
+    flex: 0 1 auto;
   }
 
   .control-right {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex: 1;
+    flex: 1 1 150px;
+    min-width: 0;
     justify-content: flex-end;
   }
 
@@ -90,55 +139,119 @@ export const moduleStyles = css`
 
   .value-label {
     font-size: 11px;
-    color: var(--secondary-text-color, #9e9e9e);
+    color: var(--secondary-text-color, #727272);
     min-width: 36px;
     text-align: right;
     font-variant-numeric: tabular-nums;
   }
 
+  /* Native colour inputs: Chromium/Firefox draw their own rectangular swatch
+     inside the box — strip it so the round control is actually round. */
   input[type='color'] {
+    -webkit-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    border: 2px solid var(--divider-color, #383838);
+    border: 0;
+    box-shadow: inset 0 0 0 1px var(--cms-outline);
     cursor: pointer;
     padding: 0;
     background: none;
     flex-shrink: 0;
+    overflow: hidden;
   }
+  input[type='color']::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type='color']::-webkit-color-swatch { border: 0; border-radius: 50%; }
+  input[type='color']::-moz-color-swatch { border: 0; border-radius: 50%; }
 
   .color-label {
     font-size: 11px;
-    color: var(--secondary-text-color, #9e9e9e);
+    color: var(--secondary-text-color, #727272);
     font-family: monospace;
   }
 
-  .sub-label {
-    font-size: 11px;
-    color: var(--secondary-text-color, #9e9e9e);
-    margin-bottom: 4px;
-  }
-
-  ha-select {
-    width: 100%;
-  }
-
-  select {
-    background: var(--card-background-color, #1c1c1c);
-    color: var(--primary-text-color, #e1e1e1);
-    border: 1px solid var(--divider-color, #383838);
+  /* Native form controls — styled explicitly (theme colours, HA font) so
+     none of them renders as an OS-default white box on a dark theme. */
+  select,
+  input[type='text'],
+  input[type='number'] {
+    box-sizing: border-box;
+    min-height: 32px;
+    font: inherit;
+    font-size: 12px;
+    background: var(--card-background-color, #fff);
+    color: var(--primary-text-color, #212121);
+    border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
     border-radius: 4px;
     padding: 6px 8px;
-    font-size: 12px;
+  }
+  select {
     cursor: pointer;
     width: 100%;
+  }
+  input[type='text'] {
+    width: 100%;
+  }
+  input[type='number'] {
+    width: 84px;
+    min-width: 0;
+  }
+  select:focus-visible,
+  input[type='text']:focus-visible,
+  input[type='number']:focus-visible {
+    outline: 2px solid var(--primary-color, #03a9f4);
+    outline-offset: 1px;
+  }
+  button {
+    font-family: inherit;
+  }
+  button:focus-visible {
+    outline: 2px solid var(--primary-color, #03a9f4);
+    outline-offset: 2px;
+  }
+
+  /* Shared action buttons ("+ Add …" / delete). */
+  .btn-add {
+    background: var(--cms-tint-primary);
+    border: 1px dashed var(--cms-line-primary);
+    border-radius: 4px;
+    color: var(--cms-ink-primary);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 7px;
+    width: 100%;
+  }
+  .btn-add:hover {
+    background: var(--cms-tint-primary-hover);
+  }
+  .btn-danger {
+    background: var(--cms-tint-error);
+    border: 1px solid var(--cms-line-error);
+    border-radius: 4px;
+    color: var(--cms-ink-error);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 4px 8px;
+    flex-shrink: 0;
+  }
+  .btn-danger:hover {
+    background: var(--cms-tint-error-hover);
   }
 
   /* Shared "Apply when" hint + custom-entity input (see renderWhen). */
   .when-hint {
     font-size: 11px;
     line-height: 1.4;
-    color: var(--secondary-text-color, #9e9e9e);
+    color: var(--secondary-text-color, #727272);
+  }
+  .when-hint.warn {
+    color: var(--cms-ink-warning);
   }
 
   /* "Custom CSS is overriding this control" — see style-conflicts.ts. */
@@ -151,17 +264,45 @@ export const moduleStyles = css`
   .override-hint {
     font-size: 11px;
     line-height: 1.5;
-    color: var(--warning-color, #ffa600);
-    background: rgba(255, 166, 0, 0.08);
-    border: 1px solid rgba(255, 166, 0, 0.3);
+    color: var(--primary-text-color, #212121);
+    background: var(--cms-tint-warning);
+    border: 1px solid var(--warning-color, #ffa600);
     border-radius: 4px;
     padding: 6px 8px;
   }
   .override-hint code {
-    font-size: 10px;
+    font-size: 11px;
   }
 
-`;
+  /* Touch screens: grow the small controls to comfortable tap targets. */
+  @media (pointer: coarse) {
+    select,
+    input[type='text'],
+    input[type='number'] {
+      min-height: 38px;
+    }
+    .btn-danger {
+      min-width: 36px;
+      min-height: 36px;
+    }
+  }
+`,
+];
+
+/**
+ * Keyboard support for the collapsible headers (module / child / row):
+ * they're `role="button" tabindex="0"` divs, so Enter / Space must toggle
+ * them like a click. Key events coming from a control INSIDE the header
+ * (its enable switch) are left alone, so flipping the switch with the
+ * keyboard doesn't also fold the module.
+ */
+export function onHeaderKeydown(e: KeyboardEvent): void {
+  if (e.target !== e.currentTarget) return;
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).click();
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Shared conditional ("Apply when") control
@@ -249,7 +390,7 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
                 .hass=${o.hass}
                 .value=${o.customEntity ?? ''}
                 .includeDomains=${TOGGLE_DOMAINS}
-                label="Controlling entity"
+                label=""
                 placeholder="input_boolean.my_entity"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>
                   o.onCustomEntity?.(e.detail.value.trim())}
@@ -405,7 +546,7 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
                 .hass=${o.hass}
                 .value=${c?.customEntity ?? ''}
                 .includeDomains=${TOGGLE_DOMAINS}
-                label="Controlling entity"
+                label=""
                 placeholder="input_boolean.my_entity"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>
                   change({ customEntity: e.detail.value.trim() })}
@@ -422,7 +563,7 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
               <cms-entity-picker
                 .hass=${o.hass}
                 .value=${c?.valueEntity ?? ''}
-                label="Entity the value is read from"
+                label=""
                 placeholder="sensor.temperature"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>
                   change({ valueEntity: e.detail.value.trim(), valueAttribute: '' })}

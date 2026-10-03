@@ -62,13 +62,13 @@ export class CmsPreviewPicker extends LitElement {
       cursor: pointer;
     }
 
-    /* Highlight box — module-base-ish accents: 2px pink/accent border with a
-       faint fill. */
+    /* Highlight box: theme accent border with a faint fill of the same
+       hue (derived, so it can't clash with the border colour). */
     .hl {
       position: absolute;
       pointer-events: none;
-      border: 2px solid var(--accent-color, #ff4081);
-      background: rgba(255, 64, 129, 0.08);
+      border: 2px solid var(--accent-color, #ff9800);
+      background: color-mix(in srgb, var(--accent-color, #ff9800) 10%, transparent);
       border-radius: 4px;
       box-sizing: border-box;
       z-index: 1;
@@ -77,18 +77,27 @@ export class CmsPreviewPicker extends LitElement {
     /* The label sits OUTSIDE the box (above it, or below when the box
        touches the top edge) — most targets (icons!) are far smaller than
        the pill, so an inside-pinned label truncates to nothing (caught in
-       visual review). */
+       visual review). Theme-inverse colours (text colour as background)
+       read at >= 13:1 in light AND dark mode, on any card underneath; white
+       on the accent colour measured ~2:1. Never wider than the preview:
+       long row labels ellipsize, and updated() shifts it left to fit. */
     .hl-label {
       position: absolute;
+      z-index: 2;
       white-space: nowrap;
-      padding: 2px 7px;
+      max-width: calc(100% - 4px);
+      box-sizing: border-box;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 2px 8px;
       border-radius: 10px;
-      background: var(--accent-color, #ff4081);
-      color: #fff;
-      font-size: 10px;
+      background: var(--primary-text-color, #212121);
+      color: var(--card-background-color, #fff);
+      font-size: 11px;
       font-weight: 500;
       line-height: 1.4;
       font-family: var(--primary-font-family, sans-serif);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     }
   `;
 
@@ -287,6 +296,16 @@ export class CmsPreviewPicker extends LitElement {
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+
+  /** Keep the label inside the preview: render() places it at the target's
+   *  left edge, which overflows (scrollbar flicker + clipping) for targets
+   *  on the right half of the card — shift it left by the overhang. */
+  override updated() {
+    const label = this.shadowRoot?.querySelector('.hl-label') as HTMLElement | null;
+    if (!label) return;
+    const overhang = label.offsetLeft + label.offsetWidth - (this.clientWidth - 2);
+    if (overhang > 0) label.style.left = `${Math.max(0, label.offsetLeft - overhang)}px`;
+  }
 
   override render() {
     return html`

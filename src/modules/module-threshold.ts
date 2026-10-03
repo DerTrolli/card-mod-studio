@@ -3,7 +3,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { property, state } from 'lit/decorators.js';
 import type { ThresholdModuleState, ThresholdProperty, ThresholdRule, ColorStop, HomeAssistant } from '../types/index.js';
 import { DEFAULT_THRESHOLD } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint } from './module-base.js';
+import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
 import { sortThresholdRules } from '../generator/css-generator.js';
 import { previewHexFor } from '../components/cms-color-picker.js';
 import { NO_ICON_COLOR_TYPES } from '../utils/card-caps.js';
@@ -45,90 +45,105 @@ export class ThresholdModule extends LitElement {
   static override styles = [
     moduleStyles,
     css`
-      .rule {
+      /* Rule / fade-point rows wrap instead of clipping their delete button
+         on phones and inside stack children. */
+      .rule,
+      .stop {
         display: flex;
+        flex-wrap: wrap;
         gap: 6px;
         align-items: center;
         margin-bottom: 8px;
         padding: 8px;
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--cms-fill);
         border-radius: 4px;
-      }
-      .rule select,
-      .rule input[type='number'] {
-        padding: 4px 6px;
-        font-size: 12px;
-        background: var(--card-background-color, #1c1c1c);
-        color: var(--primary-text-color, #e1e1e1);
-        border: 1px solid var(--divider-color, #383838);
-        border-radius: 4px;
-      }
-      .rule input[type='number'] {
-        width: 70px;
       }
       .rule select {
-        width: 60px;
+        width: 64px;
+        flex: 0 0 auto;
       }
-      .rule button {
-        padding: 2px 8px;
-        cursor: pointer;
-        background: rgba(255, 0, 0, 0.15);
-        color: #ff6b6b;
-        border: 1px solid rgba(255, 0, 0, 0.3);
+      .rule input[type='number'],
+      .stop input[type='number'] {
+        flex: 1 1 64px;
+        width: auto;
+        min-width: 56px;
+        max-width: 110px;
+      }
+      .rule > button,
+      .stop > button {
+        background: var(--cms-tint-error);
+        border: 1px solid var(--cms-line-error);
         border-radius: 4px;
-        font-size: 14px;
+        color: var(--cms-ink-error);
+        cursor: pointer;
+        font-size: 15px;
         line-height: 1;
+        min-width: 28px;
+        min-height: 28px;
+        padding: 2px 8px;
+        margin-left: auto;
       }
-      .rule button:hover {
-        background: rgba(255, 0, 0, 0.25);
+      .rule > button:hover:not(:disabled),
+      .stop > button:hover:not(:disabled) {
+        background: var(--cms-tint-error-hover);
+      }
+      .stop > button:disabled {
+        opacity: 0.4;
+        cursor: default;
       }
       .rule-label {
         font-size: 11px;
-        color: var(--secondary-text-color, #9e9e9e);
+        color: var(--secondary-text-color, #727272);
       }
       .add-btn {
-        margin-top: 8px;
-        padding: 6px 12px;
+        margin-top: 4px;
+        padding: 7px 12px;
         cursor: pointer;
-        background: rgba(33, 150, 243, 0.15);
-        color: #2196f3;
-        border: 1px solid rgba(33, 150, 243, 0.3);
+        background: var(--cms-tint-primary);
+        color: var(--cms-ink-primary);
+        border: 1px dashed var(--cms-line-primary);
         border-radius: 4px;
         font-size: 12px;
+        font-weight: 500;
         width: 100%;
       }
       .add-btn:hover {
-        background: rgba(33, 150, 243, 0.25);
+        background: var(--cms-tint-primary-hover);
       }
       .property-checks {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 4px 14px;
       }
       .property-check {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
+        min-height: 28px;
         font-size: 12px;
         cursor: pointer;
       }
       .property-check input {
+        width: 16px;
+        height: 16px;
+        margin: 0;
         cursor: pointer;
+        accent-color: var(--primary-color, #03a9f4);
       }
       .rules-container {
         margin-top: 12px;
       }
       .rules-label {
         font-size: 11px;
-        color: var(--secondary-text-color, #9e9e9e);
+        color: var(--secondary-text-color, #727272);
         margin-bottom: 8px;
         display: block;
       }
       .legend {
         margin-top: 12px;
         padding: 10px;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid var(--divider-color, #383838);
+        background: var(--cms-fill);
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-radius: 6px;
         display: flex;
         flex-direction: column;
@@ -137,7 +152,7 @@ export class ThresholdModule extends LitElement {
       .legend-title {
         font-size: 11px;
         font-weight: 600;
-        color: var(--secondary-text-color, #9e9e9e);
+        color: var(--secondary-text-color, #727272);
         margin-bottom: 2px;
       }
       .legend-row {
@@ -148,52 +163,35 @@ export class ThresholdModule extends LitElement {
         font-size: 12px;
       }
       .legend-cond {
-        color: var(--primary-text-color, #e1e1e1);
+        color: var(--primary-text-color, #212121);
         font-variant-numeric: tabular-nums;
       }
       .legend-sw {
         width: 26px;
         height: 16px;
         border-radius: 3px;
-        border: 1px solid var(--divider-color, #383838);
+        box-shadow: inset 0 0 0 1px var(--cms-outline);
         flex-shrink: 0;
-      }
-      .stop {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-        margin-bottom: 8px;
-        padding: 8px;
-        background: rgba(255, 255, 255, 0.03);
-        border-radius: 4px;
-      }
-      .stop input[type='number'] {
-        width: 80px;
-        padding: 4px 6px;
-        font-size: 12px;
-        background: var(--card-background-color, #1c1c1c);
-        color: var(--primary-text-color, #e1e1e1);
-        border: 1px solid var(--divider-color, #383838);
-        border-radius: 4px;
       }
       .stop-move {
         display: flex;
         flex-direction: column;
-        gap: 1px;
+        gap: 2px;
       }
       .move-btn {
-        padding: 0 4px;
+        min-width: 26px;
+        padding: 1px 6px;
         cursor: pointer;
-        background: rgba(255, 255, 255, 0.06);
-        color: var(--secondary-text-color, #9e9e9e);
-        border: 1px solid var(--divider-color, #383838);
+        background: var(--cms-fill);
+        color: var(--secondary-text-color, #727272);
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-radius: 3px;
-        font-size: 9px;
+        font-size: 10px;
         line-height: 1.4;
       }
       .move-btn:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.12);
-        color: var(--primary-text-color, #e1e1e1);
+        background: var(--cms-fill-hover);
+        color: var(--primary-text-color, #212121);
       }
       .move-btn:disabled {
         opacity: 0.3;
@@ -202,16 +200,28 @@ export class ThresholdModule extends LitElement {
       .gradient-bar {
         height: 20px;
         border-radius: 4px;
-        border: 1px solid var(--divider-color, #383838);
+        box-shadow: inset 0 0 0 1px var(--cms-outline);
         margin-bottom: 6px;
       }
       .gradient-labels {
         display: flex;
         justify-content: space-between;
-        font-size: 10px;
-        color: var(--secondary-text-color, #9e9e9e);
+        font-size: 11px;
+        color: var(--secondary-text-color, #727272);
         font-variant-numeric: tabular-nums;
         margin-bottom: 12px;
+      }
+      @media (pointer: coarse) {
+        .move-btn {
+          min-width: 34px;
+          min-height: 22px;
+          font-size: 11px;
+        }
+        .rule > button,
+        .stop > button {
+          min-width: 36px;
+          min-height: 36px;
+        }
       }
     `,
   ];
@@ -260,7 +270,14 @@ export class ThresholdModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div class="module-header" @click=${this._toggleOpen}>
+        <div
+          class="module-header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${this._open ? 'true' : 'false'}
+          @click=${this._toggleOpen}
+          @keydown=${onHeaderKeydown}
+        >
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🎯 Threshold Colors</span>
           ${renderOverrideBadge(this.overridden)}
@@ -305,15 +322,17 @@ export class ThresholdModule extends LitElement {
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         <div class="control-row">
           <span class="control-label">Entity</span>
+          <div class="control-right">
+            <cms-entity-picker
+              .hass=${this.hass}
+              .value=${this.state.entityId}
+              .placeholder=${this.cardEntity || 'sensor.temperature'}
+              label=""
+              @value-changed=${(e: CustomEvent<{ value: string }>) =>
+                this._emit({ entityId: e.detail.value.trim(), attribute: '' })}
+            ></cms-entity-picker>
+          </div>
         </div>
-        <cms-entity-picker
-          .hass=${this.hass}
-          .value=${this.state.entityId}
-          .placeholder=${this.cardEntity || 'sensor.temperature'}
-          label="Entity these rules read from"
-          @value-changed=${(e: CustomEvent<{ value: string }>) =>
-            this._emit({ entityId: e.detail.value.trim(), attribute: '' })}
-        ></cms-entity-picker>
 
         ${this._renderAttributeSelect()}
 
@@ -553,7 +572,7 @@ export class ThresholdModule extends LitElement {
           .value=${rule.color}
           @color-changed=${(e: CustomEvent) => this._onRuleColorChange(index, e.detail.value)}
         ></cms-color-picker>
-        <button @click=${() => this._removeRule(index)}>×</button>
+        <button aria-label="Remove rule" title="Remove rule" @click=${() => this._removeRule(index)}>×</button>
       </div>
     `;
   }
@@ -568,12 +587,14 @@ export class ThresholdModule extends LitElement {
             @click=${() => this._swapStop(sortedIndex, -1)}
             ?disabled=${sortedIndex === 0}
             title="Swap with the point above"
+            aria-label="Move point up"
           >▲</button>
           <button
             class="move-btn"
             @click=${() => this._swapStop(sortedIndex, 1)}
             ?disabled=${sortedIndex === sortedCount - 1}
             title="Swap with the point below"
+            aria-label="Move point down"
           >▼</button>
         </div>
         <span class="rule-label">At value</span>
@@ -593,6 +614,7 @@ export class ThresholdModule extends LitElement {
           @click=${() => this._removeStop(index)}
           ?disabled=${this.state.colorStops.length <= 2}
           title=${this.state.colorStops.length <= 2 ? 'At least 2 points are required' : 'Remove point'}
+          aria-label="Remove point"
         >×</button>
       </div>
     `;

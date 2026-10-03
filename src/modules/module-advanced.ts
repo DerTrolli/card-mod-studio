@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { property } from 'lit/decorators.js';
 import type { AdvancedModuleState, PiercedEntry } from '../types/index.js';
-import { moduleStyles } from './module-base.js';
+import { moduleStyles, onHeaderKeydown } from './module-base.js';
 
 export class AdvancedModule extends LitElement {
   @property({ attribute: false }) state: AdvancedModuleState = { rawCss: '' };
@@ -16,8 +16,8 @@ export class AdvancedModule extends LitElement {
     moduleStyles,
     css`
       .editor-wrap {
-        padding: 0 14px 12px;
-        border-top: 1px solid var(--divider-color, #383838);
+        padding: 12px 14px;
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       }
       ha-code-editor {
         display: block;
@@ -25,12 +25,13 @@ export class AdvancedModule extends LitElement {
       }
       .hint {
         font-size: 11px;
-        color: var(--secondary-text-color, #9e9e9e);
+        line-height: 1.5;
+        color: var(--secondary-text-color, #727272);
         margin: 6px 0 0;
       }
       .pierced {
         margin-top: 10px;
-        border-top: 1px dashed var(--divider-color, #383838);
+        border-top: 1px dashed var(--divider-color, rgba(0, 0, 0, 0.12));
         padding-top: 8px;
       }
       .pierced pre {
@@ -38,11 +39,12 @@ export class AdvancedModule extends LitElement {
         padding: 6px 8px;
         font-size: 11px;
         line-height: 1.5;
-        background: var(--secondary-background-color, #1c1c1c);
+        color: var(--primary-text-color, #212121);
+        background: var(--cms-fill);
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-radius: 6px;
         overflow-x: auto;
         white-space: pre-wrap;
-        opacity: 0.85;
       }
     `,
   ];
@@ -60,9 +62,13 @@ export class AdvancedModule extends LitElement {
       <div class="module">
         <div
           class="module-header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${this.open ? 'true' : 'false'}
           @click=${() => {
             this.open = !this.open;
           }}
+          @keydown=${onHeaderKeydown}
         >
           <span class="module-chevron">${this.open ? '▼' : '▶'}</span>
           <span class="module-title">⌨️ Advanced CSS</span>
