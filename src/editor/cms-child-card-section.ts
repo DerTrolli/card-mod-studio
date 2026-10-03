@@ -258,6 +258,7 @@ export class CmsChildCardSection extends LitElement {
               preserved exactly as written.`}
       </div>${c.type === 'entities'
         ? html`<div class="child-body"><cms-entities-rows-module
+            .hass=${this.hass}
             .rows=${(c as unknown as { entities?: EntitiesCardRow[] }).entities ?? []}
             .styles=${this._entityRowStyles}
             @styles-changed=${this._onRowStylesChanged}
@@ -389,6 +390,7 @@ export class CmsChildCardSection extends LitElement {
 
         ${isEntities
           ? html`<cms-entities-rows-module
+              .hass=${this.hass}
               .rows=${(c as unknown as { entities?: EntitiesCardRow[] }).entities ?? []}
               .styles=${this._entityRowStyles}
               @styles-changed=${this._onRowStylesChanged}

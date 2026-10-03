@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, ThresholdRule } from '../types/index.js';
+import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, HomeAssistant, ThresholdRule } from '../types/index.js';
 import { moduleStyles, renderOverrideHint, onHeaderKeydown } from './module-base.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
 import { findRowExtraCssConflicts } from '../utils/style-conflicts.js';
@@ -22,6 +22,8 @@ export class EntitiesRowsModule extends LitElement {
    *  studio-state.ts. Two rows may share an entity_id (valid entities-card
    *  YAML) and must keep independent style slots (ROADMAP #24). */
   @property({ attribute: false }) styles: EntitiesRowStyles = {};
+  /** Only used for row labels (friendly names); rows render without it. */
+  @property({ attribute: false }) hass?: HomeAssistant;
 
   /** Open sections, by the same positional row key as `styles`. */
   @state() private _openRows = new Set<string>();
@@ -257,7 +259,10 @@ export class EntitiesRowsModule extends LitElement {
   private _renderRow(row: EntitiesCardRow & { entity: string }, index: number, occurrence: number) {
     const rowKey = String(index);
     const id = row.entity;
-    const baseLabel = row.name || id.split('.')[1] || id;
+    // Same precedence as HA's own row: explicit `name:`, then the entity's
+    // friendly name, then the object id as a last resort.
+    const friendly = this.hass?.states?.[id]?.attributes?.friendly_name;
+    const baseLabel = row.name || (typeof friendly === 'string' && friendly) || id.split('.')[1] || id;
     const label = occurrence > 1 ? `${baseLabel} (${occurrence})` : baseLabel;
     const isOpen = this._openRows.has(rowKey);
     const rowStyle = this.styles[rowKey] ?? { iconColor: '', textColor: '' };

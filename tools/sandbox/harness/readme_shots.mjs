@@ -262,7 +262,7 @@ async function annotate(page, anns) {
       } else if (side === 'insideRight') {
         // Label sits at the right end INSIDE the row (for full-width rows
         // whose visible content ends mid-row); arrow points left at it.
-        lx = r.right - dRect.left - lw - 10; ly = r.top - dRect.top + r.height / 2 - lh / 2;
+        lx = r.right - dRect.left - lw - 10 + (a.shiftX ?? 0); ly = r.top - dRect.top + r.height / 2 - lh / 2;
         tx = lx - GAP; ty = ly + lh / 2;
       } else { // bottom
         tx = r.left - dRect.left + Math.min(r.width / 2, 160); ty = r.bottom - dRect.top + 4;
@@ -436,12 +436,24 @@ const run = async () => {
     await new Promise((r) => setTimeout(r, 400));
   }, { allByTagSrc });
   {
+    // The label hangs below the module — hide the modules after it so the
+    // crop doesn't show a half-covered "Border & Radius" header.
+    const setNextModulesVisibility = (v) => page.evaluate(({ allByTagSrc, v }) => {
+      const all = new Function('root', 'tag', allByTagSrc);
+      const panel = all(document.body, 'cms-panel').filter((x) => x.isConnected && x.getBoundingClientRect().width > 0).pop();
+      for (const sel of ['cms-animation-module', 'cms-border-module', 'cms-advanced-module']) {
+        const el = panel.shadowRoot.querySelector(sel);
+        if (el) el.style.visibility = v;
+      }
+    }, { allByTagSrc, v });
+    await setNextModulesVisibility('hidden');
     const content = await panelElementRect(page, 'cms-background-module');
     const ann = await annotate(page, [
-      { find: { module: 'cms-background-module', sel: '.control-row', text: 'Apply when' }, label: 'Only while the entity is ON / OFF', side: 'bottom', shiftX: -140 },
+      { find: { module: 'cms-background-module', sel: 'select', text: 'Only while entity is ON' }, label: 'Only while the entity is ON / OFF', side: 'bottom', shiftX: -40 },
     ]);
     await shot(page, union(content, ann ? pad(ann, 12) : null), '04 Background Color.png');
     await clearAnnotations(page);
+    await setNextModulesVisibility('');
   }
 
   // --- 07: Threshold — Fade mode + attribute source ---
@@ -519,7 +531,9 @@ const run = async () => {
     const all = new Function('root', 'tag', allByTagSrc);
     const panel = all(document.body, 'cms-panel').filter((x) => x.isConnected && x.getBoundingClientRect().width > 0).pop();
     const rows = panel.shadowRoot.querySelector('cms-entities-rows-module');
-    rows._openRows = new Set(['sensor.outside_temperature']);
+    // Row state is keyed by POSITION since the duplicate-row fix (#24):
+    // sensor.outside_temperature is row 0 of this card.
+    rows._openRows = new Set(['0']);
     await rows.updateComplete;
     await new Promise((r) => setTimeout(r, 300));
   }, { allByTagSrc });
@@ -537,7 +551,7 @@ const run = async () => {
     const panel = all(document.body, 'cms-panel').filter((x) => x.isConnected && x.getBoundingClientRect().width > 0).pop();
     panel._entityRowStyles = {
       ...panel._entityRowStyles,
-      'sensor.outside_temperature': {
+      '0': {
         iconColor: '',
         textColor: '',
         iconMode: 'threshold',
@@ -559,7 +573,7 @@ const run = async () => {
   {
     const content = await panelElementRect(page, 'cms-entities-rows-module');
     const ann = await annotate(page, [
-      { find: { module: 'cms-entities-rows-module', sel: '.rule' }, label: 'Value-based rules for just this row', side: 'insideRight' },
+      { find: { module: 'cms-entities-rows-module', sel: '.rule' }, label: 'Value-based rules for just this row', side: 'insideRight', shiftX: -56 },
       { find: { module: 'cms-entities-rows-module', sel: 'ha-slider' }, label: 'Per-row font override', side: 'left' },
     ]);
     await shot(page, union(content, ann ? pad(ann, 12) : null), '06 Entities Card Modifications.png');

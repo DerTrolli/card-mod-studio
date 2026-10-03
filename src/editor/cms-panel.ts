@@ -1127,6 +1127,7 @@ export class CmsPanel extends LitElement {
   private _renderEntityRowsModule() {
     return this.config?.type === 'entities'
       ? html`<cms-entities-rows-module
+            .hass=${this.hass}
             .rows=${(this.config as unknown as { entities?: EntitiesCardRow[] }).entities ?? []}
             .styles=${this._entityRowStyles}
             @styles-changed=${this._onEntityRowStylesChanged}
