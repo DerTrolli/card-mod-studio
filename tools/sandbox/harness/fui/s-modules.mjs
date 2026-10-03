@@ -200,6 +200,18 @@ async function filterSection(T) {
   await expectPage(T, 'preview: <= 1000 holds → effects on', P_CARD, 0, (v) => v?.filter === FXV);
   await choose(reacts, 'always');
   await expectCfg(T, 'Reacts to Always → unconditional again', has(T, `filter: ${FX};`));
+
+  // transition speed on a non-tile card (scopes the tile result above)
+  await openEditor(T, 'fui-filter-sensor', [{ type: 'sensor', entity: 'sensor.outside_temperature' }]);
+  await openStudio(T);
+  const m2 = mod(T, 'cms-filter-module');
+  await enable(m2);
+  await setSlider(T, rowOf(T, m2, 'Brightness').locator('ha-slider'), 50);
+  await setSlider(T, rowOf(T, m2, 'Transition speed').locator('ha-slider'), 1000);
+  await expectCfg(T, 'sensor card: brightness 50 + transition 1000ms', has(T, 'filter: brightness(50%);', 'transition: filter 1000ms ease;'));
+  await expectPage(T, 'sensor card preview: filter + 1s filter transition applied', P_CARD, 0, (v) => v?.filter === 'brightness(0.5)' && v.transDur === '1s' && v.transProp === 'filter');
+  const opts2 = await rowOf(T, m2, 'Reacts to').locator('select option').evaluateAll((os) => os.map((o) => o.value));
+  T.check('non-state card (sensor): "Reacts to" hides the ON/OFF options', JSON.stringify(opts2) === JSON.stringify(['always', 'custom', 'value']), JSON.stringify(opts2));
 }
 
 // ---------------------------------------------------------------------------

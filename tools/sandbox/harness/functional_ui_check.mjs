@@ -83,7 +83,7 @@ const run = async () => {
   await browser.close();
   const file = `functional-ui-check-${RIG}.json`;
   mkdirSync(shotsDir, { recursive: true });
-  writeFileSync(resolve(shotsDir, 'notes.json'), JSON.stringify({ rig: RIG, haVersion: meta.version, key: env.KEY, seconds: Math.round((Date.now() - t0) / 1000), notes: T.notes, pageErrors: T.pageErrors }, null, 2));
+  writeFileSync(resolve(shotsDir, 'notes.json'), JSON.stringify({ rig: RIG, haVersion: meta.version, key: env.KEY, seconds: Math.round((Date.now() - t0) / 1000), notes: T.notes, dialogs: T.dialogs, pageErrors: T.pageErrors }, null, 2));
   finish(writeFileSync, resolve, HARNESS, file, results);
 };
 

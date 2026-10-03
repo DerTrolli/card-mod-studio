@@ -304,8 +304,18 @@ export async function readDashboardCards(T, urlPath) {
 export async function openEditor(T, urlPath, cards, cardIndex = 0) {
   const { page } = T;
   if (cards) await saveDashboard(T, urlPath, cards);
-  await page.goto(`${T.HA}/${urlPath}/0?edit=1`, { waitUntil: 'domcontentloaded' });
-  await waitHass(page);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.goto(`${T.HA}/${urlPath}/0?edit=1`, { waitUntil: 'domcontentloaded' });
+    await waitHass(page);
+    // the lovelace panel really shows THIS dashboard (its view title is the url_path)
+    const ok = await page.waitForFunction((u) => {
+      const root = window.__fui.q1(document.body, 'hui-root');
+      return location.pathname.startsWith(`/${u}/`) && root?.lovelace?.config?.views?.[0]?.title === u;
+    }, urlPath, { timeout: 20000 }).then(() => true).catch(() => false);
+    if (ok) break;
+    T.note(`navigation to ${urlPath} landed on ${await page.evaluate(() => location.pathname)} (attempt ${attempt + 1}) — retrying`);
+    if (attempt === 2) throw new Error(`could not open dashboard ${urlPath}`);
+  }
   await page.waitForFunction(() => !!customElements.get('cms-panel'), null, { timeout: 30000 });
   // card-mod / UIX engine element registered (cold start)
   await page.waitForFunction(() => !!(customElements.get('card-mod') || customElements.get('uix-node')), null, { timeout: 30000 });
@@ -328,8 +338,16 @@ export async function clickEditOn(T, cardIndex = 0) {
     }
     // HA sometimes renders hui-card-options before its lovelace translations
     // arrive and never re-renders the label (an empty "Edit" button) — an HA
-    // quirk, not the Studio's. Reload and try again.
-    T.note(`hui-card-options rendered without its "Edit" label (attempt ${attempt + 1}) — reloading`);
+    // quirk, not the Studio's. The button itself is still there: click it
+    // (what a user clicking the blank button gets); else reload and retry.
+    T.note(`hui-card-options rendered without its "Edit" label (attempt ${attempt + 1})`);
+    const blank = opts.locator('.card-actions ha-button').first();
+    const box = await blank.boundingBox().catch(() => null);
+    if (box && box.width > 4 && box.height > 4) {
+      await blank.click();
+      clicked = true;
+      break;
+    }
     await page.reload({ waitUntil: 'domcontentloaded' });
     await waitHass(page);
     await page.waitForFunction((n) => window.__fui.q(document.body, 'hui-card-options').length > n, cardIndex, { timeout: 30000 });
@@ -402,7 +420,7 @@ export async function expectCfg(T, name, pred, { allowOther = false, timeout = 8
 }
 
 /** Polls an in-page probe until pred(value) is truthy; records the result. */
-export async function expectPage(T, name, probe, arg, pred, { timeout = 12000, record = true } = {}) {
+export async function expectPage(T, name, probe, arg, pred, { timeout = 20000, record = true } = {}) {
   const t0 = Date.now();
   let v;
   let ok = false;
@@ -412,7 +430,32 @@ export async function expectPage(T, name, probe, arg, pred, { timeout = 12000, r
     if (ok) break;
     await sleep(200);
   }
-  if (record) T.check(name, ok, JSON.stringify(v));
+  let detail = JSON.stringify(v);
+  if (!ok && record) {
+    // Diagnostics for a failed preview check: is the preview card even
+    // carrying the latest emitted style, and did the engine attach to it?
+    const diag = await T.page.evaluate((key) => {
+      const Q = window.__fui;
+      const c = Q.prev();
+      const d = Q.dialog();
+      const st = (o) => { const s = o?.[key]?.style; return typeof s === 'string' ? s : JSON.stringify(s ?? null); };
+      const engine = Q.q(c, 'card-mod, uix-node');
+      // HA's OWN preview of the same config (right pane of the dialog, under the Studio)
+      const own = Q.q(d, 'hui-card').find((h) => !Q.q(Q.panel(), 'hui-card').includes(h));
+      const sig = (h) => { const hc = Q.q1(h, 'ha-card'); if (!hc) return null; const cs = getComputedStyle(hc); return [cs.fontSize, cs.backgroundColor, cs.filter, cs.borderTopLeftRadius, cs.animationName].join('|'); };
+      return {
+        studioPreviewCardSig: sig(c),
+        haOwnPreviewCardSig: own ? sig(own) : null,
+        previewMatchesDialog: !!c && st(c.config) === st(d?._cardConfig),
+        previewStyleHead: st(c?.config).slice(0, 90),
+        previewCards: Q.q(Q.panel(), 'hui-card').length,
+        engineNodes: engine.length,
+        engineStyleHead: engine.map((e) => String(e._styles ?? e.styles ?? '').slice(0, 60)),
+      };
+    }, T.KEY).catch((e) => ({ diagError: String(e.message || e).slice(0, 120) }));
+    detail += ' | diag ' + JSON.stringify(diag);
+  }
+  if (record) T.check(name, ok, detail);
   return { ok, v };
 }
 

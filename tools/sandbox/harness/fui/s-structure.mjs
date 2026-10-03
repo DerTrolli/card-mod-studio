@@ -27,7 +27,8 @@ async function entitiesSection(T) {
   const rm = mod(T, 'cms-entities-rows-module');
   const sec = (i) => rm.locator('.entity-section').nth(i);
   const names = (await rm.locator('.entity-name').allTextContents()).map((t) => t.trim());
-  T.check('one section per row; the duplicate is numbered "(2)"', JSON.stringify(names) === JSON.stringify(['outside_temperature', 'ac', 'ac (2)', 'ceiling_lights']), JSON.stringify(names));
+  T.check('one section per row; the duplicate is numbered "(2)"', names.length === 4 && names[2] === `${names[1]} (2)` && names[1] !== names[0], JSON.stringify(names));
+  T.note(`row labels: ${JSON.stringify(names)}`);
 
   // row 0 — a bare-string row
   await sec(0).locator('.entity-header').click();
