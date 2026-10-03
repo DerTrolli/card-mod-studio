@@ -62,3 +62,5 @@ harness/preview-picker-check.json
 harness/animation-pack-check.json
 harness/heading-check-*.json
 harness/*.tmp.mjs
+harness/functional-ui-check-*.json
+harness/dbg*.png
