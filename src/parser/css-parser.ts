@@ -162,7 +162,7 @@ function analyzeJinja(value: string): JinjaAnalysis {
  * its scope wraps blocks the recognisers can't reason about, so the whole
  * style must be preserved as-is (audit v0.10 #1).
  */
-function splitIntoBlocks(css: string): {
+function splitIntoBlocks(css: string, allRules = false): {
   blocks: Array<{ selector: string; declarationBlock: string }>;
   keyframes: string[];
   tailStart: number | null;
@@ -211,7 +211,10 @@ function splitIntoBlocks(css: string): {
       // the counter negative and desync all following blocks (audit D1).
       if (depth > 0) depth--;
       if (depth === 0 && blockStart !== -1) {
-        if (tailStart === null) {
+        // allRules: keep collecting plain rules past the tail start (for
+        // read-only analysis — see parseAllRules), never anything else.
+        const inHead = tailStart === null;
+        if (inHead || allRules) {
           const selector = css.slice(selectorStart, blockStart - 1).trim();
           const declarationBlock = css.slice(blockStart, i).trim();
 
@@ -220,12 +223,12 @@ function splitIntoBlocks(css: string): {
             // (mapAdvanced re-emits them first). Every other @-rule's
             // position matters to the cascade, so it starts the tail.
             if (/^@(?:-[a-z]+-)?keyframes\b/i.test(selector)) {
-              keyframes.push(css.slice(selectorStart, i + 1).trim());
-            } else {
+              if (inHead) keyframes.push(css.slice(selectorStart, i + 1).trim());
+            } else if (inHead) {
               tailStart = selectorStart;
             }
           } else if (!selector || /[{}]/.test(declarationBlock) || STATEMENT_OR_COMMENT_RE.test(declarationBlock)) {
-            if (selector || declarationBlock) tailStart = selectorStart;
+            if (inHead && (selector || declarationBlock)) tailStart = selectorStart;
           } else if (declarationBlock) {
             blocks.push({ selector, declarationBlock });
           }
@@ -447,4 +450,24 @@ export function parseCssDetailed(css: string): { targets: CssTarget[]; passthrou
   const tailCss = tailStart === null ? '' : restoreJinja(cleaned.slice(tailStart), map).trim();
 
   return { targets: coalesceBySelector(targets), passthroughCss, tailCss };
+}
+
+/**
+ * Every plain top-level `selector { declarations }` rule — INCLUDING the
+ * ones after the verbatim tail starts — coalesced like parseCss. For
+ * read-only analysis (the "custom CSS is overriding this control"
+ * warnings), never for claiming: claims must stay within the head.
+ */
+export function parseAllRules(css: string): CssTarget[] {
+  if (!css || !css.trim()) return [];
+  const { cleaned, map } = extractJinja(css);
+  const { blocks } = splitIntoBlocks(cleaned, true);
+  return coalesceBySelector(
+    blocks
+      .map(({ selector, declarationBlock }) => ({
+        selector: restoreJinja(selector, map),
+        properties: parseDeclarations(declarationBlock, map),
+      }))
+      .filter((target) => target.properties.length > 0),
+  );
 }

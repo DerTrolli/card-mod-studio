@@ -7,7 +7,8 @@
  * and in cascade order.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { parseCssDetailed } from '../src/parser/css-parser.js';
+import { parseCssDetailed, parseAllRules } from '../src/parser/css-parser.js';
+import { findAdvancedCssConflicts } from '../src/utils/style-conflicts.js';
 import { buildMergedStudioState } from '../src/editor/studio-state.js';
 import { installEngines, restoreEngines, cfg, saveStringStyle, openEditSave, enableBorderRadius } from './v010-audit-helpers.js';
 
@@ -110,6 +111,14 @@ describe('audit #3 — order-sensitive @-blocks keep their cascade position', ()
     expect(saveStringStyle(t1)).toContain("{{ 'ha-card { background: blue; }' if is_state('light.a', 'on') else '' }}");
     const t2 = 'ha-card {\n  color: red;\n}\nha-state-icon {\n  color: blue;';
     expect(saveStringStyle(t2)).toContain('ha-state-icon {\n  color: blue;');
+  });
+
+  it('override warnings still see a rule that sits after an @media (parseAllRules)', () => {
+    installEngines(['card-mod']);
+    const s = buildMergedStudioState(cfg({ type: 'tile', entity: 'light.a', card_mod: { style: 'ha-card {\n  border-radius: 12px;\n}' } }));
+    const raw = '@media (max-width: 600px) {\n  ha-card { padding: 0; }\n}\nha-card {\n  border-radius: 3px;\n}';
+    expect(findAdvancedCssConflicts(raw, s).border).toEqual(['ha-card { border-radius }']);
+    expect(parseAllRules(raw).map((t) => t.selector)).toEqual(['ha-card']);
   });
 
   it('parseCssDetailed exposes the claimable head and the verbatim tail separately', () => {
