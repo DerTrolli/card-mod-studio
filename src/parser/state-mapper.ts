@@ -1575,10 +1575,12 @@ export function mergeEntityRowStyles(primary: EntitiesRowStyle, secondary: Entit
     ...(primary.fontWeight ?? secondary.fontWeight
       ? { fontWeight: primary.fontWeight ?? secondary.fontWeight }
       : {}),
-    // Same whole-or-nothing choice as mergeStudioStates' rawCss: unstructured
-    // CSS can't be merged declaration-by-declaration safely.
+    // Same rule as mergeStudioStates' rawCss (mergeRawCss): both sides'
+    // unrecognised row CSS is kept — the old whole-or-nothing pick deleted
+    // the secondary key's on ANY row edit, since the save clears that key
+    // (audit v0.10 #5).
     ...(primary.extraCss || secondary.extraCss
-      ? { extraCss: primary.extraCss || secondary.extraCss }
+      ? { extraCss: mergeRawCss(primary.extraCss ?? '', secondary.extraCss ?? '') }
       : {}),
     // Same rule as mergeStudioStates: the dict carrier always follows the
     // PRIMARY (active-key) style — a secondary dict never merges (the

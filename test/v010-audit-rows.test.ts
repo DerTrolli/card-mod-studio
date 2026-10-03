@@ -71,3 +71,90 @@ describe('audit #15 — @-block-only row styles are preserved verbatim (no corru
     expect(editOtherRow(twoRows({ entity: 'light.a', card_mod: { style: s } })).entities[0].card_mod?.style).toBe(s);
   });
 });
+
+describe('audit #5 — row merge keeps BOTH keys\' unrecognised row CSS', () => {
+  it('card_mod + uix with different extra row CSS → an edit to another row keeps both', () => {
+    const out = editOtherRow(twoRows({
+      entity: 'light.a',
+      card_mod: { style: ':host {\n  --foo: 1px;\n}' },
+      uix: { style: ':host {\n  --bar: 2px;\n}' },
+    }));
+    const row0 = JSON.stringify(out.entities[0]);
+    expect(row0).toContain('--foo: 1px');
+    expect(row0).toContain('--bar: 2px');
+  });
+
+  it('identical extra CSS under both keys is kept once', () => {
+    const out = editOtherRow(twoRows({ entity: 'light.a', card_mod: { style: ':host {\n  --foo: 1px;\n}' }, uix: { style: ':host {\n  --foo: 1px;\n}' } }));
+    expect(out.entities[0].card_mod?.style).toBe(':host {\n  --foo: 1px;\n}');
+    expect(out.entities[0].uix).toBeUndefined();
+  });
+});
+
+describe('audit #6 (rows) — a dict that is the row\'s only style is editable', () => {
+  it('card-mod active, row has ONLY a uix dict → parsed and consolidated into card_mod', () => {
+    installEngines(['card-mod', 'uix']);
+    const config = cfg({ type: 'entities', entities: [{ entity: 'light.a', uix: { style: { '.': ':host {\n  color: red;\n}', 'div$': 'x { y: z; }' } } }] });
+    const styles = initEntityRowStyles(config);
+    expect(styles[rowStyleKey(0)].textColor).toBe('red');
+    const out = applyEntityRowStyles(config, { [rowStyleKey(0)]: { ...styles[rowStyleKey(0)], textColor: 'blue' } }) as unknown as Rows;
+    expect(out.entities[0].card_mod?.style).toEqual({ '.': ':host {\n  color: blue;\n}', 'div$': 'x { y: z; }' });
+    expect(out.entities[0].uix).toBeUndefined();
+  });
+
+  it('a uix row dict with $$ keys stays under uix', () => {
+    installEngines(['card-mod', 'uix']);
+    const config = cfg({ type: 'entities', entities: [{ entity: 'light.a', uix: { style: { '.': ':host {\n  color: red;\n}', '$$ state-badge': 'color: red;' } } }] });
+    const styles = initEntityRowStyles(config);
+    const out = applyEntityRowStyles(config, { [rowStyleKey(0)]: { ...styles[rowStyleKey(0)], textColor: 'blue' } }) as unknown as Rows;
+    expect(out.entities[0].uix?.style).toEqual({ '.': ':host {\n  color: blue;\n}', '$$ state-badge': 'color: red;' });
+    expect(out.entities[0].card_mod).toBeUndefined();
+  });
+
+  it('the same dict under both keys is one editable dict', () => {
+    installEngines(['card-mod']);
+    const d = { '.': ':host {\n  color: red;\n}', 'div$': 'x {}' };
+    const config = cfg({ type: 'entities', entities: [{ entity: 'light.a', card_mod: { style: d }, uix: { style: { ...d } } }] });
+    const st = initEntityRowStyles(config)[rowStyleKey(0)];
+    expect(st.frozen).toBeUndefined();
+    expect(st.dictSource).toBeDefined();
+  });
+});
+
+describe('audit #9 — rows that can\'t be rewritten are marked frozen and left untouched', () => {
+  it.each([
+    ['mixed-form (string + dict across keys)', { card_mod: { style: ':host { color: red; }' }, uix: { style: { 'div$': 'x' } } }],
+    ['different dicts under both keys', { card_mod: { style: { 'a$': '1' } }, uix: { style: { 'b$': '2' } } }],
+    ['a `.` that is not a CSS string', { card_mod: { style: { '.': { 'x$': 'y' } } } }],
+  ])('%s', (_label, keys) => {
+    installEngines(['card-mod']);
+    const row = { entity: 'light.a', ...keys };
+    const config = cfg({ type: 'entities', entities: [row] });
+    const styles = initEntityRowStyles(config);
+    expect(styles[rowStyleKey(0)].frozen).toBe(true);
+    const out = applyEntityRowStyles(config, { [rowStyleKey(0)]: { ...styles[rowStyleKey(0)], textColor: 'blue' } }) as unknown as Rows;
+    expect(out.entities[0]).toBe(row);
+  });
+
+  it('control: an empty `{}` row dict is NOT frozen (audit #14) — the edit is saved', () => {
+    installEngines(['card-mod']);
+    const config = cfg({ type: 'entities', entities: [{ entity: 'light.a', card_mod: { style: ':host { color: red; }' }, uix: { style: {} } }] });
+    const styles = initEntityRowStyles(config);
+    expect(styles[rowStyleKey(0)].frozen).toBeUndefined();
+    const out = applyEntityRowStyles(config, { [rowStyleKey(0)]: { ...styles[rowStyleKey(0)], textColor: 'blue' } }) as unknown as Rows;
+    expect(out.entities[0].card_mod?.style).toBe(':host {\n  color: blue;\n}');
+    expect(out.entities[0].uix).toBeUndefined();
+  });
+});
+
+describe('audit #20 — a null entry in entities: no longer crashes', () => {
+  it('init + apply skip it and keep it in place', () => {
+    installEngines(['card-mod']);
+    const config = cfg({ type: 'entities', entities: [null, { entity: 'light.a' }, 'sensor.b'] });
+    const styles = initEntityRowStyles(config);
+    expect(Object.keys(styles)).toEqual([rowStyleKey(1), rowStyleKey(2)]);
+    const out = applyEntityRowStyles(config, { ...styles, [rowStyleKey(1)]: { iconColor: 'red', textColor: '' } }) as unknown as Rows;
+    expect(out.entities[0]).toBeNull();
+    expect(out.entities[2]).toBe('sensor.b');
+  });
+});

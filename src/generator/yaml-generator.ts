@@ -73,6 +73,8 @@ function applyDictStyle(
     const at = dictSource.rootIndex === null ? 0 : Math.min(dictSource.rootIndex, list.length);
     list.splice(at, 0, ['.', trimmed]);
   }
+  // A uix: dict using UIX-only features stays under uix: (audit v0.10 #6).
+  const key = dictSource.pinKey ?? outputKey;
 
   const next: CardModCardConfig = { ...existingConfig };
 
@@ -81,6 +83,7 @@ function applyDictStyle(
     const cleanedCardMod = clearCardModStyle(next);
     if (cleanedCardMod === undefined) delete next.card_mod;
     else next.card_mod = cleanedCardMod;
+    if (keepsHandAuthoredUixStyle(next, key)) return next;
     const cleanedUix = clearUixStyle(next);
     if (cleanedUix === undefined) delete next.uix;
     else next.uix = cleanedUix;
@@ -88,18 +91,30 @@ function applyDictStyle(
   }
 
   const style = Object.fromEntries(list) as Record<string, string>;
-  if (outputKey === 'uix') {
+  if (key === 'uix') {
     next.uix = { ...existingConfig.uix, style };
     const cleanedCardMod = clearCardModStyle(next);
     if (cleanedCardMod === undefined) delete next.card_mod;
     else next.card_mod = cleanedCardMod;
   } else {
     next.card_mod = { ...existingConfig.card_mod, style };
+    // Same guard as the string path: a macro/billet/theme-driven uix.style
+    // is hand-authored content the Studio never parsed — never cleared
+    // (audit v0.10 #4).
+    if (keepsHandAuthoredUixStyle(next, key)) return next;
     const cleanedUix = clearUixStyle(next);
     if (cleanedUix === undefined) delete next.uix;
     else next.uix = cleanedUix;
   }
   return next;
+}
+
+/** True when the card's uix.style must survive a save that targets the
+ *  OTHER key: it uses UIX-only features (macros/billets/theme, `$$`/`&`
+ *  dict keys) the Studio skipped on open, so it's not "redundant" — and the
+ *  panel's coexist banner promises it keeps rendering (audit v0.10 #4). */
+function keepsHandAuthoredUixStyle(config: CardModCardConfig, writtenKey: StyleOutputKey): boolean {
+  return writtenKey !== 'uix' && config.uix?.style !== undefined && usesUixOnlyFeaturesInBlock(config.uix);
 }
 
 /**
@@ -114,6 +129,9 @@ function applyDictStyle(
  *   winning: a stale card_mod.style reactivates via UIX's own fallback once
  *   uix.style is gone, and a stale uix.style keeps outranking a freshly
  *   card_mod-cleared card since UIX always prefers uix over card_mod.
+ *   Exception: with card_mod as the target, a uix.style using UIX-only
+ *   features (macros/billets/theme) is kept — the Studio never parsed it
+ *   (same guard as below; audit v0.10 #4).
  * - Otherwise, `css` is written to the active (outputKey) key, and the
  *   *other* key's .style is cleared — not synced. The caller is expected to
  *   have already merged any settings that only existed under the other key
@@ -171,6 +189,10 @@ export function applyCardModStyle(
       result.card_mod = cleanedCardMod;
     }
 
+    // …except a macro/billet/theme-driven uix.style when card_mod is the
+    // target: the Studio never showed it, so "clear" can't mean it (audit
+    // v0.10 #4).
+    if (keepsHandAuthoredUixStyle(result, outputKey)) return result;
     const cleanedUix = clearUixStyle(result);
     if (cleanedUix === undefined) {
       delete result.uix;

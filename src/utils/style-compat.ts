@@ -38,7 +38,27 @@ export function hasDictFormStyle(source: {
   uix?: { style?: unknown };
   card_mod?: { style?: unknown };
 }): boolean {
-  return isDictForm(source.card_mod?.style) || isDictForm(source.uix?.style);
+  // An EMPTY dict (`style: {}`) is no content at all — counting it froze
+  // the card and silently dropped every edit (audit v0.10 #14).
+  const dictWithContent = (s: unknown) => isDictForm(s) && hasStyleContent(s as StyleValue);
+  return dictWithContent(source.card_mod?.style) || dictWithContent(source.uix?.style);
+}
+
+/** A dict whose `.` entry isn't a CSS string (a nested dict, null, a
+ *  number) can't be rebuilt around a regenerated root — such a style is
+ *  preserved untouched, like mixed-form (audit v0.10 #16). */
+export function hasUnsupportedDictRoot(style: unknown): boolean {
+  return (
+    isDictForm(style) &&
+    Object.prototype.hasOwnProperty.call(style, '.') &&
+    typeof (style as Record<string, unknown>)['.'] !== 'string'
+  );
+}
+
+/** Structural equality of two style values (same dict, or a copy of it —
+ *  what "Copy to card_mod" produces). */
+export function sameStyleValue(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 /** A style value counts as "real" content only if it has something in it — an
