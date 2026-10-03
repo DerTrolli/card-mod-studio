@@ -37,24 +37,46 @@ import type { CssTarget, CssProperty } from '../types/index.js';
 
 const PLACEHOLDER_PREFIX = '__CMS_J';
 const PLACEHOLDER_SUFFIX = '__';
+/** Jinja STATEMENT ({% … %}) and COMMENT ({# … #}) placeholders. Their braces
+ *  used to drive the block splitter: a `{% endif %}` was silently dropped and
+ *  a top-level `{% if %}` wrapper vanished (audit v0.10 #1). */
+const STATEMENT_PREFIX = '__CMS_S';
+const COMMENT_PREFIX = '__CMS_C';
+const STATEMENT_OR_COMMENT_RE = /__CMS_[SC]\d+__/;
+const STATEMENT_RE = /__CMS_S\d+__/;
+const COMMENT_RE = /__CMS_C\d+__/;
 
-/** Replaces every {{ … }} span with a stable placeholder token. */
+/** Replaces every {{ … }}, {% … %} and {# … #} span with a stable placeholder token. */
 function extractJinja(
   css: string,
 ): { cleaned: string; map: Map<string, string> } {
   const map = new Map<string, string>();
   let index = 0;
 
-  // Non-greedy match between {{ and }} — handles single-line and multi-line.
-  // The 's' flag makes '.' match newlines so multi-line templates are captured.
-  const cleaned = css.replace(/\{\{[\s\S]*?\}\}/g, (match) => {
-    const key = `${PLACEHOLDER_PREFIX}${index}${PLACEHOLDER_SUFFIX}`;
+  // Non-greedy match between the delimiters — handles single-line and
+  // multi-line templates ([\s\S] matches newlines).
+  const cleaned = css.replace(/\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}|\{#[\s\S]*?#\}/g, (match) => {
+    const prefix =
+      match[1] === '{' ? PLACEHOLDER_PREFIX : match[1] === '%' ? STATEMENT_PREFIX : COMMENT_PREFIX;
+    const key = `${prefix}${index}${PLACEHOLDER_SUFFIX}`;
     map.set(key, match);
     index++;
     return key;
   });
 
   return { cleaned, map };
+}
+
+/**
+ * True when `css` is a bare declaration list (no selector blocks, no Jinja
+ * statements/comments) — the only shape the entities-row recogniser may
+ * wrap in a synthetic `:host { }`. Anything else (an @-block-only style,
+ * Jinja statements, stray braces) must be preserved verbatim instead
+ * (audit v0.10 #15: wrapping an @media-only row style wrote corrupt CSS).
+ */
+export function isBareDeclarations(css: string): boolean {
+  const { cleaned } = extractJinja(css);
+  return cleaned.trim() !== '' && !/[{}]/.test(cleaned) && !STATEMENT_OR_COMMENT_RE.test(cleaned);
 }
 
 /** Restores placeholder tokens to their original Jinja2 strings. */
@@ -109,8 +131,9 @@ function analyzeJinja(value: string): JinjaAnalysis {
   }
 
   // Contains Jinja2 but doesn't match our known patterns — flag it but
-  // preserve the raw value; the Advanced editor will show it.
-  if (trimmed.includes('{{')) {
+  // preserve the raw value; the Advanced editor will show it. A `{% … %}`
+  // statement inside a value is never a plain literal either.
+  if (trimmed.includes('{{') || trimmed.includes('{%')) {
     return { hasCondition: true };
   }
 
@@ -123,16 +146,32 @@ function analyzeJinja(value: string): JinjaAnalysis {
 
 /**
  * Splits the outer CSS text (with Jinja2 already replaced by placeholders)
- * into an array of { selector, declarationBlock } pairs.
+ * into its CLAIMABLE head — plain `selector { declarations }` rules plus
+ * order-insensitive @keyframes — and the start of its verbatim TAIL.
  *
- * We track brace depth to correctly handle @-rules that contain their own
- * blocks (e.g. @keyframes). Those are skipped as unparseable at this level.
+ * The tail starts at the first construct the recognisers can't model in
+ * place: an order-sensitive @-block (@media, @supports, …), a rule whose
+ * body holds nested braces (CSS nesting, a nested @media) or Jinja
+ * statements/comments, a top-level Jinja comment, or unparseable trailing
+ * text. Everything from there on is re-emitted byte-for-byte AFTER the
+ * claimable rules, so its cascade order is preserved (audit v0.10 #3/#12:
+ * @media overrides used to be hoisted above the rules they override, and
+ * nested rules lost a closing brace).
+ *
+ * `verbatim` is set when a Jinja STATEMENT ({% … %}) sits at top level —
+ * its scope wraps blocks the recognisers can't reason about, so the whole
+ * style must be preserved as-is (audit v0.10 #1).
  */
-function splitIntoBlocks(
-  css: string,
-): { blocks: Array<{ selector: string; declarationBlock: string }>; atBlocks: string[] } {
+function splitIntoBlocks(css: string): {
+  blocks: Array<{ selector: string; declarationBlock: string }>;
+  keyframes: string[];
+  tailStart: number | null;
+  verbatim: boolean;
+} {
+  const VERBATIM = { blocks: [], keyframes: [], tailStart: 0, verbatim: true };
   const blocks: Array<{ selector: string; declarationBlock: string }> = [];
-  const atBlocks: string[] = [];
+  const keyframes: string[] = [];
+  let tailStart: number | null = null;
 
   let depth = 0;
   let blockStart = -1;
@@ -162,6 +201,9 @@ function splitIntoBlocks(
       if (depth === 0) {
         // Top-level opening brace — everything before it is the selector.
         blockStart = i + 1;
+        const prelude = css.slice(selectorStart, i);
+        if (STATEMENT_RE.test(prelude)) return VERBATIM;
+        if (tailStart === null && COMMENT_RE.test(prelude)) tailStart = selectorStart;
       }
       depth++;
     } else if (ch === '}') {
@@ -169,16 +211,22 @@ function splitIntoBlocks(
       // the counter negative and desync all following blocks (audit D1).
       if (depth > 0) depth--;
       if (depth === 0 && blockStart !== -1) {
-        const selector = css.slice(selectorStart, blockStart - 1).trim();
-        const declarationBlock = css.slice(blockStart, i).trim();
+        if (tailStart === null) {
+          const selector = css.slice(selectorStart, blockStart - 1).trim();
+          const declarationBlock = css.slice(blockStart, i).trim();
 
-        if (selector && declarationBlock) {
           if (selector.startsWith('@')) {
-            // @-rules (@keyframes, @media, ...) can't be modelled as
-            // selector+declarations — captured verbatim so mapAdvanced can
-            // preserve them instead of silently deleting them on save.
-            atBlocks.push(css.slice(selectorStart, i + 1).trim());
-          } else {
+            // @keyframes are order-insensitive — they float with the head
+            // (mapAdvanced re-emits them first). Every other @-rule's
+            // position matters to the cascade, so it starts the tail.
+            if (/^@(?:-[a-z]+-)?keyframes\b/i.test(selector)) {
+              keyframes.push(css.slice(selectorStart, i + 1).trim());
+            } else {
+              tailStart = selectorStart;
+            }
+          } else if (!selector || /[{}]/.test(declarationBlock) || STATEMENT_OR_COMMENT_RE.test(declarationBlock)) {
+            if (selector || declarationBlock) tailStart = selectorStart;
+          } else if (declarationBlock) {
             blocks.push({ selector, declarationBlock });
           }
         }
@@ -189,7 +237,13 @@ function splitIntoBlocks(
     }
   }
 
-  return { blocks, atBlocks };
+  // Text after the last complete block — an unclosed block, a top-level
+  // {{ … }} emitting CSS, a trailing comment — used to be dropped silently.
+  const trailing = css.slice(selectorStart);
+  if (STATEMENT_RE.test(trailing)) return VERBATIM;
+  if (tailStart === null && trailing.trim()) tailStart = selectorStart;
+
+  return { blocks, keyframes, tailStart, verbatim: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -275,6 +329,7 @@ function parseDeclarations(
 
     const existingIndex = indexByProperty.get(propertyName);
     if (existingIndex !== undefined) {
+      if (!overridesInCascade(properties[existingIndex], entry)) continue;
       properties[existingIndex] = entry;
     } else {
       indexByProperty.set(propertyName, properties.length);
@@ -321,11 +376,18 @@ function coalesceBySelector(targets: CssTarget[]): CssTarget[] {
     for (const prop of target.properties) {
       const i = existing.properties.findIndex((p) => p.property === prop.property);
       if (i === -1) existing.properties.push(prop);
-      else existing.properties[i] = prop;
+      else if (overridesInCascade(existing.properties[i], prop)) existing.properties[i] = prop;
     }
   }
 
   return order.map((key) => bySelector.get(key)!);
+}
+
+/** Whether a LATER declaration of the same property (same selector) wins
+ *  over an earlier one: always, unless only the earlier one is !important —
+ *  importance beats source order (audit v0.10 #19). */
+function overridesInCascade(earlier: CssProperty, later: CssProperty): boolean {
+  return !earlier.important || !!later.important;
 }
 
 /**
@@ -342,19 +404,24 @@ export function parseCss(css: string): CssTarget[] {
 }
 
 /**
- * Like parseCss, but also returns the top-level @-rule blocks (@keyframes,
- * @media, ...) verbatim. These can't be modelled as CssTargets, but they
- * must survive a parse→regenerate round-trip — mapAdvanced appends them to
- * Advanced CSS so a hand-authored @keyframes isn't deleted on the first
- * save. The studio's own animation keyframes (`@keyframes cms-*`) are
- * excluded: the animation module regenerates those from its own state, so
- * passing them through as well would emit them twice.
+ * Like parseCss, but also returns what can't be modelled as CssTargets,
+ * verbatim, so it survives a parse→regenerate round-trip (mapAdvanced
+ * re-emits both in Advanced CSS):
+ * - `passthroughCss`: hand-authored @keyframes from the claimable head
+ *   (order-insensitive). The studio's own animation keyframes
+ *   (`@keyframes cms-*`) are excluded: the animation module regenerates
+ *   those from its own state, so passing them through as well would emit
+ *   them twice.
+ * - `tailCss`: everything from the first order-sensitive construct on
+ *   (see splitIntoBlocks), byte-for-byte — or the WHOLE style when a Jinja
+ *   statement sits at top level.
  */
-export function parseCssDetailed(css: string): { targets: CssTarget[]; passthroughCss: string } {
-  if (!css || !css.trim()) return { targets: [], passthroughCss: '' };
+export function parseCssDetailed(css: string): { targets: CssTarget[]; passthroughCss: string; tailCss: string } {
+  if (!css || !css.trim()) return { targets: [], passthroughCss: '', tailCss: '' };
 
   const { cleaned, map } = extractJinja(css);
-  const { blocks, atBlocks } = splitIntoBlocks(cleaned);
+  const { blocks, keyframes, tailStart, verbatim } = splitIntoBlocks(cleaned);
+  if (verbatim) return { targets: [], passthroughCss: '', tailCss: css.trim() };
 
   const targets = blocks
     .map(({ selector, declarationBlock }) => {
@@ -370,10 +437,14 @@ export function parseCssDetailed(css: string): { targets: CssTarget[]; passthrou
     })
     .filter((target) => target.properties.length > 0);
 
-  const passthroughCss = atBlocks
+  const passthroughCss = keyframes
     .map((block) => restoreJinja(block, map))
     .filter((block) => !/^@keyframes\s+cms-/.test(block))
     .join('\n\n');
 
-  return { targets: coalesceBySelector(targets), passthroughCss };
+  // Placeholders map 1:1 back to their source text, so this is the
+  // original tail byte-for-byte.
+  const tailCss = tailStart === null ? '' : restoreJinja(cleaned.slice(tailStart), map).trim();
+
+  return { targets: coalesceBySelector(targets), passthroughCss, tailCss };
 }

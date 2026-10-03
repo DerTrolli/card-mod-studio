@@ -33,7 +33,7 @@ import type {
   EntitiesRowStyle,
   StyleCondition,
 } from '../types/index.js';
-import { parseCss, parseCssDetailed } from './css-parser.js';
+import { parseCss, parseCssDetailed, isBareDeclarations } from './css-parser.js';
 import { GRADIENT_MARKER_PROPERTY, ANIMATION_TIMING, decodeGradientStops, headerFontSize, valueFontSize } from '../generator/css-generator.js';
 import { NO_ICON_COLOR_TYPES, ICON_SIZE_TYPES } from '../utils/card-caps.js';
 
@@ -1422,10 +1422,17 @@ export function parseThresholdJinja(value: string): {
 export function parseEntityRowCss(css: string): EntitiesRowStyle {
   const style: EntitiesRowStyle = { iconColor: '', textColor: '' };
 
-  const detailed = parseCssDetailed(css);
-  let targets = detailed.targets;
-  if (targets.length === 0) targets = parseCss(`:host{${css}}`);
-  const [target, ...otherTargets] = targets;
+  // The synthetic `:host` wrapper is only for a BARE declaration list — an
+  // @-block-only style (or Jinja statements) wrapped in `:host{…}` wrote
+  // corrupt CSS back on every other save (audit v0.10 #15).
+  const detailed = isBareDeclarations(css)
+    ? { targets: parseCss(`:host{${css}}`), passthroughCss: '', tailCss: '' }
+    : parseCssDetailed(css);
+  const targets = detailed.targets;
+  // Only the row's own `:host` rule is recognised. A rule scoped to a
+  // sub-element (state-badge, hui-generic-entity-row, …) used to be read as
+  // if it were :host and rewritten as a whole-row rule (audit v0.10 #7).
+  const target = targets.find((t) => t.selector.trim().toLowerCase() === ':host');
   const properties = target?.properties ?? [];
   const consumed = new Set<string>();
   const valueOf = (...names: string[]): string => {
@@ -1495,21 +1502,16 @@ export function parseEntityRowCss(css: string): EntitiesRowStyle {
   // Without this, any unrelated panel edit rewrites the row and deletes it.
   const extraParts: string[] = [];
   if (detailed.passthroughCss) extraParts.push(detailed.passthroughCss);
-  if (target) {
-    const leftover = properties.filter((p) => !consumed.has(p.property));
+  for (const t of targets) {
+    const leftover = t === target ? properties.filter((p) => !consumed.has(p.property)) : t.properties;
     if (leftover.length > 0) {
       const decls = leftover
         .map((p) => `  ${p.property}: ${p.value}${p.important ? ' !important' : ''};`)
         .join('\n');
-      extraParts.push(`${target.selector} {\n${decls}\n}`);
+      extraParts.push(`${t.selector} {\n${decls}\n}`);
     }
   }
-  for (const t of otherTargets) {
-    const decls = t.properties
-      .map((p) => `  ${p.property}: ${p.value}${p.important ? ' !important' : ''};`)
-      .join('\n');
-    extraParts.push(`${t.selector} {\n${decls}\n}`);
-  }
+  if (detailed.tailCss) extraParts.push(detailed.tailCss);
   if (extraParts.length > 0) style.extraCss = extraParts.join('\n\n');
 
   return style;
@@ -1722,6 +1724,11 @@ function mapAdvanced(
       parts.push(`${target.selector} {\n${decls}\n}`);
     }
   }
+
+  // Order-sensitive remainder (@media overrides, nested rules, Jinja
+  // statements) — byte-for-byte and LAST, exactly where it sat relative to
+  // everything above (audit v0.10 #3).
+  if (parsed.tailCss) parts.push(parsed.tailCss);
 
   return { rawCss: parts.join('\n\n') };
 }

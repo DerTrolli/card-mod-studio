@@ -89,8 +89,8 @@ function parseStyleString(css: string): CardModStyleState {
   if (!trimmed) return emptyState();
 
   try {
-    const { targets, passthroughCss } = parseCssDetailed(trimmed);
-    return { targets, rawCss: trimmed, passthroughCss };
+    const { targets, passthroughCss, tailCss } = parseCssDetailed(trimmed);
+    return { targets, rawCss: trimmed, passthroughCss, tailCss };
   } catch {
     // Parsing failed — preserve the raw CSS so it appears in the Advanced tab.
     return { targets: [], rawCss: trimmed };

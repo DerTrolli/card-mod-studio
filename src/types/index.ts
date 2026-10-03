@@ -140,6 +140,9 @@ export interface CardModStyleState {
   /** Valid-but-unmodelable blocks (@keyframes, @media, ...) preserved
    *  verbatim — mapAdvanced re-emits them so they survive a save. */
   passthroughCss?: string;
+  /** Order-sensitive remainder (@media, nested rules, Jinja statements, …)
+   *  preserved byte-for-byte and re-emitted LAST — see parseCssDetailed. */
+  tailCss?: string;
   /** Dictionary-form only (v0.10 — see docs/V0.10_PLAN.md §4.1). */
   dictSource?: DictSource;
 }
