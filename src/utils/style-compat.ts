@@ -164,3 +164,18 @@ export function hasUixOnlyRow(config: CardModCardConfig): boolean {
   if (!Array.isArray(rows)) return false;
   return rows.some((row) => row && typeof row === 'object' && isUixOnlyRowStyle(row as EntitiesCardRow));
 }
+
+/** True when an at-risk (uix-only) row's dict style uses UIX-only `$$`/`&`
+ *  keys — card-mod can't run it under any key, so the "Copy to card_mod"
+ *  offer must not be made for it (audit v0.10 #18). */
+export function hasUixOnlySelectorRow(config: CardModCardConfig): boolean {
+  const rows = (config as unknown as { entities?: unknown }).entities;
+  if (!Array.isArray(rows)) return false;
+  return rows.some(
+    (row) =>
+      row &&
+      typeof row === 'object' &&
+      isUixOnlyRowStyle(row as EntitiesCardRow) &&
+      dictUsesUixOnlySelectors((row as EntitiesCardRow).uix?.style),
+  );
+}

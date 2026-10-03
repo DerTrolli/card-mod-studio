@@ -202,7 +202,7 @@ export class EntitiesRowsModule extends LitElement {
         row: typeof r === 'string' ? ({ entity: r } as EntitiesCardRow) : r,
         index,
       }))
-      .filter((x): x is { row: EntitiesCardRow & { entity: string }; index: number } => !!x.row.entity);
+      .filter((x): x is { row: EntitiesCardRow & { entity: string }; index: number } => !!x.row?.entity);
     if (!entityRows.length) return nothing;
 
     // Duplicate-entity rows are valid YAML and hold independent styles —
@@ -255,9 +255,21 @@ export class EntitiesRowsModule extends LitElement {
             : nothing}
           ${hasStyle ? html`<span class="style-dot"></span>` : nothing}
         </div>
-        ${isOpen ? this._renderBody(rowKey, rowStyle, conflicts) : nothing}
+        ${isOpen ? (rowStyle.frozen ? this._renderFrozen() : this._renderBody(rowKey, rowStyle, conflicts)) : nothing}
       </div>
     `;
+  }
+
+  /** A row the save path leaves untouched (EntitiesRowStyle.frozen) gets a
+   *  lock note instead of controls whose edits would be silently dropped
+   *  (audit v0.10 #9). */
+  private _renderFrozen() {
+    return html`<div class="entity-body">
+      <p class="when-hint frozen-note">
+        🔒 This row's styling mixes a plain style and a dictionary-form style (or its
+        <code>.</code> entry isn't plain CSS) — preserved as-is; edit it in YAML.
+      </p>
+    </div>`;
   }
 
   private _renderBody(rowKey: string, rowStyle: EntitiesRowStyle, conflicts: string[] = []) {
