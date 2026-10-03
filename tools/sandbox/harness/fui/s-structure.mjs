@@ -1,9 +1,10 @@
 // Structural sections: entities rows, stack children, presets, palette,
 // preview picker, dict-form / mixed-form cards, uix-only compat banners.
 import {
-  sleep, openEditor, clickEditOn, openStudio, mod, isOpen, expand, enable, setSwitch, choose, setSlider, typeInto,
-  pickSwatch, pickCompact, expectCfg, expectPage, pollPage, getCfg, styleStr, styleOf, rowOf, btn, resolveRgb, sameRgb,
-  entityState, panelLoc, dialogButton, readDashboardCards, viewDashboard, waitHass, shot, saveDashboard, waitDialogClosed,
+  sleep, openEditor, clickEditOn, openStudio, mod, isOpen, expand, enable, setSwitch, choose, setSlider,
+  typeInto, pickSwatch, pickCompact, expectCfg, expectPage, pollPage, getCfg, styleStr, styleOf, rowOf, btn,
+  resolveRgb, sameRgb, entityState, panelLoc, dialogButton, readDashboardCards, viewDashboard,
+  waitDialogClosed,
 } from './lib.mjs';
 import { P_CARD, P_ROWS, P_PANEL, P_GAUGE } from './probes.mjs';
 import { cancelDialog } from './s-core.mjs';

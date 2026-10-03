@@ -300,6 +300,51 @@ export async function readDashboardCards(T, urlPath) {
   return cfg.views[0].cards;
 }
 
+/**
+ * Environment readiness, not a product interaction: under concurrent load
+ * the style engine (card-mod / UIX) occasionally (~1-3 % of page loads)
+ * styles NO card created after the page load — the Studio's preview and
+ * HA's own dialog preview alike (see the expectPage diagnostics). It also
+ * happens with the Studio script blocked (CDP Network.setBlockedURLs, HTTP
+ * cache left on), so it isn't the Studio's. Mount a throw-away canary card
+ * and wait until the engine styles it; reload if it never does (logged as
+ * a note), so a stuck engine can't be misreported as a Studio bug.
+ */
+export async function engineReady(T, attempts = 2) {
+  const { page } = T;
+  for (let i = 0; i < attempts; i++) {
+    const t0 = Date.now();
+    const ok = await page.evaluate(async (key) => {
+      await customElements.whenDefined('hui-card');
+      const ha = document.querySelector('home-assistant');
+      const host = document.createElement('div');
+      host.style.cssText = 'position:fixed;left:-3000px;top:0;width:300px;';
+      ha.shadowRoot.appendChild(host);
+      const card = document.createElement('hui-card');
+      card.hass = ha.hass;
+      card.config = { type: 'tile', entity: 'light.ceiling_lights', [key]: { style: 'ha-card {\n  outline: 3px solid rgb(1, 2, 3);\n}' } };
+      host.appendChild(card);
+      let styled = false;
+      for (let k = 0; k < 75 && !styled; k++) {
+        await new Promise((r) => setTimeout(r, 200));
+        const hc = window.__fui.q1(card, 'ha-card');
+        styled = !!hc && getComputedStyle(hc).outlineColor === 'rgb(1, 2, 3)';
+      }
+      host.remove();
+      return styled;
+    }, T.KEY);
+    if (ok) {
+      if (Date.now() - t0 > 3000) T.note(`style engine needed ${Date.now() - t0}ms to style a canary card`);
+      return true;
+    }
+    T.note(`style engine never styled a canary card within 15s (attempt ${i + 1}) — reloading`);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await waitHass(page);
+    await page.waitForFunction(() => window.__fui.q(document.body, 'hui-card-options').length > 0, null, { timeout: 30000 });
+  }
+  return false;
+}
+
 /** Fresh dashboard → edit mode → the card's own Edit button (real click). */
 export async function openEditor(T, urlPath, cards, cardIndex = 0) {
   const { page } = T;
@@ -321,6 +366,7 @@ export async function openEditor(T, urlPath, cards, cardIndex = 0) {
   await page.waitForFunction(() => !!(customElements.get('card-mod') || customElements.get('uix-node')), null, { timeout: 30000 });
   const opts = page.locator('hui-card-options');
   await page.waitForFunction((n) => window.__fui.q(document.body, 'hui-card-options').length >= n, cards ? cards.length : 1, { timeout: 30000 });
+  await engineReady(T);
   await clickEditOn(T, cardIndex);
   return opts;
 }

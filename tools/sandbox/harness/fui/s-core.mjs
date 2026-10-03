@@ -2,9 +2,9 @@
 // HA's Save / Cancel end to end (dashboard config read back over WS, the
 // saved card rendered on the real dashboard).
 import {
-  sleep, openEditor, clickEditOn, openStudio, styleBtn, panelVisible, mod, enable, expand, setSlider, choose, pickSwatch,
-  expectCfg, expectPage, getCfg, styleStr, waitCfg, rowOf, dialogButton, readDashboardCards, resolveRgb, sameRgb, waitHass,
-  saveDashboard, shot, viewDashboard, pollPage, waitDialogClosed,
+  sleep, openEditor, clickEditOn, openStudio, styleBtn, panelVisible, mod, enable, expand, setSlider, choose,
+  pickSwatch, expectCfg, expectPage, getCfg, styleStr, waitCfg, rowOf, dialogButton, readDashboardCards,
+  resolveRgb, sameRgb, waitHass, saveDashboard, viewDashboard, pollPage, waitDialogClosed,
 } from './lib.mjs';
 import { P_CARD, P_HIT, P_PANEL } from './probes.mjs';
 

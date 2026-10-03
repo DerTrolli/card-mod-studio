@@ -1,8 +1,8 @@
 // Module sections: every control of every visual module, real input only.
 import {
-  sleep, openEditor, openStudio, mod, isOpen, expand, enable, setSwitch, switchOn, choose, setSlider,
-  typeInto, pickSwatch, pickText, pickCompact, pickEntity, expectCfg, expectPage, pollPage, styleStr,
-  resolveRgb, entityState, sameRgb, rowOf, btn, shot, getCfg, panelLoc,
+  sleep, openEditor, openStudio, mod, isOpen, expand, enable, setSwitch, choose, setSlider, typeInto,
+  pickSwatch, pickText, pickCompact, pickEntity, expectCfg, expectPage, styleStr, resolveRgb, entityState,
+  sameRgb, rowOf, btn, shot, getCfg,
 } from './lib.mjs';
 import { P_CARD, P_EL, P_HEADING, P_GAUGE, P_PANEL } from './probes.mjs';
 
@@ -524,6 +524,22 @@ async function thresholdSection(T) {
   await expectPage(T, `preview: edited fade colour at ${hum}`, P_CARD, 0, (v) => sameRgb(v?.iconColor, fadeExpected(stops, hum)));
   await choose(rowOf(T, m, 'Value mode').locator('select'), 'switch');
   await expectCfg(T, 'back to Step mode keeps the step rules', has(T, `> 80 else 'var(--blue-color)'`));
+
+  // gauge: no icon → Icon Color hidden, accent labelled as the dial, enabled fresh on accent
+  await openEditor(T, 'fui-threshold-gauge', [{ type: 'gauge', entity: ENT, min: 0, max: 100 }]);
+  await openStudio(T);
+  const g = mod(T, 'cms-threshold-module');
+  await enable(g);
+  const gprops = (await g.locator('label.property-check').allTextContents()).map((t) => t.trim());
+  T.check('gauge: Apply-to hides Icon Color and names the dial "Gauge / Accent Color"', !gprops.includes('Icon Color') && gprops.includes('Gauge / Accent Color'), JSON.stringify(gprops));
+  T.check('gauge: enabling fresh pre-selects the dial colour', await g.locator('label.property-check').filter({ hasText: 'Gauge / Accent Color' }).locator('input').isChecked());
+  await btn(g, '+ Add Rule').click();
+  const gr = g.locator('.rule').first();
+  await choose(gr.locator('select'), '>');
+  await typeInto(gr.locator('input[type="number"]'), '10');
+  await pickCompact(T, gr.locator('cms-color-picker'), 'Red');
+  await expectCfg(T, 'gauge: rule drives the ha-gauge !important block', has(T, `ha-gauge {\n  --gauge-color: {{ 'var(--red-color)' if states('${ENT}') | float(0) > 10 else '#888888' }} !important;`));
+  await expectPage(T, `gauge preview: dial follows the rule (${hum} > 10 → red)`, P_GAUGE, null, (v) => sameRgb(v?.stroke, hum > 10 ? red : 'rgb(136, 136, 136)'));
 }
 
 // ---------------------------------------------------------------------------
@@ -689,6 +705,12 @@ async function headingSection(T) {
   const hidden = ['cms-font-module', 'cms-background-module', 'cms-border-module', 'cms-animation-module', 'cms-icon-color-module', 'cms-accent-color-module'];
   T.check('heading: Heading Style shown; Font/Background/Border/Animation/Icon/Accent hidden', want.every((t) => pv.modules.includes(t)) && hidden.every((t) => !pv.modules.includes(t)), JSON.stringify(pv.modules));
   const base = await T.page.evaluate(P_HEADING);
+  {
+    const th = mod(T, 'cms-threshold-module');
+    await expand(th);
+    const hp = (await th.locator('label.property-check').allTextContents()).map((t) => t.trim());
+    T.note(`heading card: Threshold module is offered with Apply-to = ${JSON.stringify(hp)} (Background/Border modules are hidden on heading as "no visual effect")`);
+  }
   const m = mod(T, 'cms-heading-style-module');
   await enable(m);
   await expectCfg(T, 'enable → HA heading variables on .container', has(T, '.container {', '--ha-heading-card-title-font-size: 24px;', '--ha-heading-card-subtitle-font-size: 24px;', '.content ha-icon {'));
