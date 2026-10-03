@@ -15,7 +15,14 @@ import type {
   StudioState,
 } from '../types/index.js';
 import { parseStyleValue, splitDictStyle } from '../parser/yaml-parser.js';
-import { mapToStudioState, mergeStudioStates, parseEntityRowCss, mergeEntityRowStyles } from '../parser/state-mapper.js';
+import {
+  mapToStudioState,
+  mergeStudioStates,
+  parseEntityRowCss,
+  mergeEntityRowStyles,
+  DEFAULT_ICON_COLOR,
+  DEFAULT_ACCENT_COLOR,
+} from '../parser/state-mapper.js';
 import { generateCss, buildThresholdJinja, FONT_WEIGHT_VALUE } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
 import {
@@ -52,6 +59,36 @@ function applyPaletteDefaults(state: StudioState): StudioState {
       ...next.accentColor,
       ...(onColor ? { color: onColor, colorOn: onColor } : {}),
       ...(offColor ? { colorOff: offColor } : {}),
+    };
+  }
+  return next;
+}
+
+/**
+ * Re-applies the palette's ON/OFF defaults after the palette changed while
+ * the panel is open (applyPaletteDefaults only runs when the state is
+ * built, so new defaults used to take effect only after reopening the
+ * dialog). Same rule: modules that aren't enabled get the palette colour,
+ * or the built-in one when that default was cleared; enabled modules are
+ * never touched.
+ */
+export function refreshPaletteDefaults(state: StudioState): StudioState {
+  const { onColor, offColor } = getCachedPalette().defaults;
+  const next = { ...state };
+  if (!next.iconColor.enabled) {
+    next.iconColor = {
+      ...next.iconColor,
+      color: onColor || DEFAULT_ICON_COLOR.color,
+      colorOn: onColor || DEFAULT_ICON_COLOR.colorOn,
+      colorOff: offColor || DEFAULT_ICON_COLOR.colorOff,
+    };
+  }
+  if (!next.accentColor.enabled) {
+    next.accentColor = {
+      ...next.accentColor,
+      color: onColor || DEFAULT_ACCENT_COLOR.color,
+      colorOn: onColor || DEFAULT_ACCENT_COLOR.colorOn,
+      colorOff: offColor || DEFAULT_ACCENT_COLOR.colorOff,
     };
   }
   return next;

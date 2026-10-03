@@ -8,7 +8,8 @@
 // actionability checks, mouse clicks on visible controls, keyboard typing,
 // selectOption on the real <select>s, ha-slider via a track click + arrow
 // keys, HA's own entity picker via click + type + click on the list entry,
-// window.prompt via page.on('dialog'). Internal state is only ever READ.
+// the preset bar's inline name field (any native dialog is recorded in
+// notes.json). Internal state is only ever READ.
 //
 // One rig per run, chosen like every other check:
 //   HA_URL=http://127.0.0.1:8124 TOKENS_FILE=tokens-uix.json STYLE_KEY=uix node functional_ui_check.mjs

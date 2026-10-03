@@ -49,6 +49,14 @@ export const NO_BORDER_TYPES = new Set([
   'heading',
 ]);
 
+// Threshold Colors writes icon/accent/background/text/border colour —
+// none of which shows on a heading card (measured on a real dashboard:
+// title colour, background and border all unchanged; Heading Style has its
+// own colour controls). Entities cards hide it too, for per-row thresholds.
+export const NO_THRESHOLD_TYPES = new Set([
+  'heading',
+]);
+
 export const NO_ICON_COLOR_TYPES = new Set([
   'gauge', 'history-graph', 'statistics-graph', 'statistic',
   'energy-distribution', 'energy-usage-graph',

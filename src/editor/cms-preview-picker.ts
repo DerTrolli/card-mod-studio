@@ -234,7 +234,11 @@ export class CmsPreviewPicker extends LitElement {
 
     const target: PickEventDetail = { ...match.target };
     if (target.module === 'cms-entities-rows-module') {
-      const rowEl = chain.find((el) => ENTITY_ROW_TAG_RE.test(el.tagName.toLowerCase()));
+      // Outermost match (chain runs innermost → card): the row element
+      // itself, not the hui-generic-entity-row HA nests inside every row,
+      // which _collectRows never descends into (rows don't nest) — so the
+      // inner match resolved to index -1 and no row ever opened.
+      const rowEl = [...chain].reverse().find((el) => ENTITY_ROW_TAG_RE.test(el.tagName.toLowerCase()));
       const rowIndex = rowEl ? this._resolveRowIndex(rowEl, cardEl) : -1;
       if (rowIndex !== -1) {
         target.rowIndex = rowIndex;

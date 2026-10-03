@@ -65,6 +65,20 @@ describe('generateCss — empty state', () => {
 // ---------------------------------------------------------------------------
 
 describe('generateCss — filter', () => {
+  it('tile: the filter transition is !important (the tile\'s own stylesheet overrides a plain one) and round-trips', () => {
+    const state = makeState({ filter: { ...DEFAULT_FILTER, enabled: true, brightness: 150, transitionMs: 600 } });
+    const tile = generateCss(state, 'tile');
+    expect(tile).toContain('transition: filter 600ms ease !important;');
+    expect(generateCss(state, 'sensor')).toContain('transition: filter 600ms ease;');
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'tile', card_mod: { style: tile } }));
+    expect(reparsed.filter.transitionMs).toBe(600);
+    expect(reparsed.advanced.rawCss).toBe('');
+    expect(generateCss(reparsed, 'tile')).toBe(tile);
+    // a hand-written transition in Advanced CSS keeps winning
+    const withRaw = makeState({ ...state, advanced: { rawCss: 'ha-card {\n  transition: all 1s;\n}' } });
+    expect(generateCss(withRaw, 'tile')).toContain('transition: filter 600ms ease;');
+  });
+
   it('emits grayscale-when-off conditional', () => {
     const css = generateCss(
       makeState({ filter: { ...DEFAULT_FILTER, enabled: true, grayscale: true, grayscaleWhen: 'off' } }),

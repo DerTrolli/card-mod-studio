@@ -162,6 +162,12 @@ Found by a dedicated audit (every item reproduced first, now covered by
 - HA's "Show code editor" button no longer greys out after switching on a
   module that doesn't change anything yet (e.g. Visual Filters at its
   defaults).
+- Clearing all text in **Advanced CSS** no longer collapses the editor
+  mid-edit — the next keystrokes used to land on the page and open HA's
+  quick bar over the dialog. The "some existing styles weren't recognised"
+  note now only appears for CSS the card already had, not for CSS you type.
+- **Presets are named in the panel** instead of a browser pop-up, which
+  doesn't work reliably in the Home Assistant app.
 
 ### Fixed — modules
 
@@ -172,6 +178,18 @@ Found by a dedicated audit (every item reproduced first, now covered by
   takes over now says so instead of looking broken.
 - **Font on a gauge in dark mode**: with the default (theme) text colour,
   the gauge's value turned black — unreadable on a dark card.
+- **Font family "Custom…"** (Font and Heading Style) now shows its text
+  field — choosing it did nothing, so a custom family could only be typed
+  in YAML.
+- **Visual Filters "Transition speed" works on tile cards** (the tile's own
+  styles overrode it, so filter changes snapped instead of fading).
+- **My Color Palette** ON/OFF defaults apply as soon as you change them,
+  not only after reopening the editor.
+- **Click-to-edit on an entities card opens the row you clicked** —
+  anywhere on the row (icon, name, state); it used to open no row at all,
+  or the card-level Font module.
+- **Threshold Colors is no longer offered on heading cards**, where none of
+  its colors had any visible effect (use Heading Style's text color).
 - **Entity row icon colours now show while the entity is on.** HA colours
   an active entity's icon itself (lights always do), which beat the row
   colour, so it only showed while the entity was off. Setting a row icon

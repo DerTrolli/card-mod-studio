@@ -118,7 +118,8 @@ describe('audit #11 — filter transition claimed only in the generator\'s exact
   it('control: `filter 500ms ease` and `filter 1s` are claimed (regenerated in ms)', () => {
     expect(stateOf(`ha-card {\n  filter: ${gray};\n  transition: filter 500ms ease;\n}`).filter.transitionMs).toBe(500);
     const out = saveStringStyle(`ha-card {\n  filter: ${gray};\n  transition: filter 1s;\n}`, noEdit);
-    expect(out).toContain('transition: filter 1000ms ease;');
+    // (tile: !important — the tile's own stylesheet overrides a plain one)
+    expect(out).toContain('transition: filter 1000ms ease !important;');
     expect(out.match(/transition:/g)).toHaveLength(1);
   });
 });

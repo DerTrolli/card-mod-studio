@@ -28,6 +28,9 @@ export class FontModule extends LitElement {
 
   @state() private _open = false;
   @state() private _fontSize = DEFAULT_FONT.fontSize;
+  /** "Custom…" chosen but nothing typed yet — picking it changes no state,
+   *  so without this the text field never appeared. */
+  @state() private _customPicked = false;
 
   static override styles = [moduleStyles];
 
@@ -39,6 +42,9 @@ export class FontModule extends LitElement {
     if (changed.has('state')) {
       const prev = changed.get('state') as FontModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;
+      // A family arriving from outside (typed, preset, reopen) decides
+      // what the select shows again.
+      if (prev && prev.fontFamily !== this.state.fontFamily) this._customPicked = false;
       this._fontSize = this.state.fontSize;
     }
   }
@@ -56,7 +62,7 @@ export class FontModule extends LitElement {
   }
 
   private get _isCustomFamily(): boolean {
-    return !FONT_FAMILY_PRESETS.some((p) => p.value === this.state.fontFamily);
+    return this._customPicked || !FONT_FAMILY_PRESETS.some((p) => p.value === this.state.fontFamily);
   }
 
   override render() {
@@ -136,6 +142,7 @@ export class FontModule extends LitElement {
               .value=${isCustom ? 'custom' : family}
               @change=${(e: Event) => {
                 const v = (e.target as HTMLSelectElement).value;
+                this._customPicked = v === 'custom';
                 if (v !== 'custom') this._emit({ fontFamily: v });
               }}
             >

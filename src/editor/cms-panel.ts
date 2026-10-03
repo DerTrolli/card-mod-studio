@@ -37,10 +37,11 @@ import {
   NO_BORDER_TYPES,
   NO_ICON_COLOR_TYPES,
   NO_FONT_TYPES,
+  NO_THRESHOLD_TYPES,
   ICON_SIZE_TYPES,
   isStateAware,
 } from '../utils/card-caps.js';
-import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles } from './studio-state.js';
+import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles, refreshPaletteDefaults } from './studio-state.js';
 import './cms-child-card-section.js';
 import './cms-preview-picker.js';
 import type { PickEventDetail } from './cms-preview-picker.js';
@@ -48,7 +49,7 @@ import { loadPresets, savePresets } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
 import { filterPresetStateForCardType } from '../utils/preset-caps.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
-import { initPaletteCache } from '../utils/palette-storage.js';
+import { initPaletteCache, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
 import { generateCss, thresholdOwnedProperties } from '../generator/css-generator.js';
@@ -100,7 +101,16 @@ export class CmsPanel extends LitElement {
   @state() private _previewKey = 0;
   @state() private _presets: StylePreset[] = [];
   @state() private _selectedPreset = '';
+  /** Inline "name this preset" field is showing (replaces window.prompt —
+   *  unstyled, outside HA's UI, and not reliably available in the HA
+   *  Companion app's web views). */
+  @state() private _namingPreset = false;
+  @state() private _presetName = '';
   @state() private _entityRowStyles: EntitiesRowStyles = {};
+  /** The card arrived with CSS the modules didn't adopt (now in Advanced
+   *  CSS) — drives the "weren't recognised" note, which must not appear
+   *  just because the user types their own CSS. */
+  @state() private _loadedRawCss = false;
   /** True when the panel is too narrow for the side-by-side preview. */
   @state() private _narrow = false;
 
@@ -117,11 +127,12 @@ export class CmsPanel extends LitElement {
     // Load from localStorage immediately (sync); HA sync happens when hass arrives
     void loadPresets(undefined).then((p) => { this._presets = p; });
     void initPaletteCache(this.hass);
-    // Width-responsive: the side preview is a fixed 280px, so the controls
+    // Width-responsive: the side preview takes 300–420px, so the controls
     // column only stays comfortable (>= ~420px: dense rule rows, colour
     // grids) when the panel is at least ~720px wide. Below that, stack the
     // preview under the controls instead (600px left 600-720px panels —
     // small windows, tablet split view — with clipped rule rows).
+    window.addEventListener(PALETTE_CHANGED_EVENT, this._onPaletteChanged);
     this._resizeObserver = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width ?? 0;
       if (w > 0) this._narrow = w < 720;
@@ -129,8 +140,15 @@ export class CmsPanel extends LitElement {
     this._resizeObserver.observe(this);
   }
 
+  /** Palette ON/OFF defaults edited in this session apply to modules that
+   *  aren't on yet — no config change (they emit nothing until enabled). */
+  private _onPaletteChanged = () => {
+    if (this._studioState) this._studioState = refreshPaletteDefaults(this._studioState);
+  };
+
   override disconnectedCallback() {
     super.disconnectedCallback();
+    window.removeEventListener(PALETTE_CHANGED_EVENT, this._onPaletteChanged);
     this._resizeObserver?.disconnect();
     this._resizeObserver = undefined;
   }
@@ -169,6 +187,7 @@ export class CmsPanel extends LitElement {
     if (!this._echoGuard.shouldRebuild(JSON.stringify(this.config))) return;
 
     this._studioState = this._buildMergedState(this.config);
+    this._loadedRawCss = !!this._studioState.advanced.rawCss.trim();
     this._initEntityRowStyles();
   }
 
@@ -468,11 +487,40 @@ export class CmsPanel extends LitElement {
   // Preset management
   // ---------------------------------------------------------------------------
 
+  private _startNamingPreset() {
+    this._presetName = '';
+    this._namingPreset = true;
+    void this.updateComplete.then(() => {
+      (this.shadowRoot?.querySelector('.preset-name') as HTMLInputElement | null)?.focus();
+    });
+  }
+
+  private _cancelNamingPreset() {
+    this._namingPreset = false;
+    this._presetName = '';
+  }
+
+  private _onPresetNameKeydown(e: KeyboardEvent) {
+    // Keep Enter/Escape inside the field — Escape would otherwise close
+    // HA's whole card-edit dialog.
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      this._saveCurrentAsPreset();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      this._cancelNamingPreset();
+    }
+  }
+
+  /** Saves the current styling under the name typed into the preset bar. */
   private _saveCurrentAsPreset() {
     if (!this._studioState) return;
-    const name = window.prompt('Preset name:');
-    if (!name?.trim()) return;
-    const trimmed = name.trim();
+    const trimmed = this._presetName.trim();
+    if (!trimmed) return;
+    this._namingPreset = false;
+    this._presetName = '';
     // A dict card's carrier (its pierced entries) belongs to THAT card — a
     // preset must never carry it (audit v0.10 #8).
     const { dictSource: _cardDict, ...presetState } = this._studioState;
@@ -676,6 +724,39 @@ export class CmsPanel extends LitElement {
     }
 
     .btn-preset-save:hover { background: var(--cms-tint-primary-hover); }
+    .btn-preset-save:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    .preset-bar .preset-name {
+      flex: 1;
+      min-width: 0;
+      box-sizing: border-box;
+      min-height: 32px;
+      padding: 5px 8px;
+      font: inherit;
+      font-size: 12px;
+      background: var(--card-background-color, #fff);
+      color: var(--primary-text-color, #212121);
+      border: 1px solid var(--cms-line-primary);
+      border-radius: 4px;
+    }
+
+    .btn-preset-cancel {
+      box-sizing: border-box;
+      min-height: 32px;
+      padding: 5px 10px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--primary-text-color, #212121);
+      border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+    }
+    .btn-preset-cancel:hover { background: var(--cms-fill-hover); }
 
     .btn-preset-delete {
       min-width: 32px;
@@ -689,7 +770,7 @@ export class CmsPanel extends LitElement {
 
     .btn-preset-delete:hover { background: var(--cms-tint-error-hover); }
 
-    :is(.btn-preset-save, .btn-preset-delete, .btn-banner-action, .preset-bar select):focus-visible {
+    :is(.btn-preset-save, .btn-preset-delete, .btn-preset-cancel, .btn-banner-action, .preset-bar select, .preset-name):focus-visible {
       outline: 2px solid var(--primary-color, #03a9f4);
       outline-offset: 2px;
     }
@@ -1018,6 +1099,27 @@ export class CmsPanel extends LitElement {
   }
 
   private _renderPresetBar() {
+    if (this._namingPreset) {
+      return html`
+        <div class="preset-bar">
+          <input
+            class="preset-name"
+            type="text"
+            aria-label="Preset name"
+            placeholder="Preset name"
+            .value=${this._presetName}
+            @input=${(e: Event) => { this._presetName = (e.target as HTMLInputElement).value; }}
+            @keydown=${this._onPresetNameKeydown}
+          />
+          <button
+            class="btn-preset-save"
+            ?disabled=${!this._presetName.trim()}
+            @click=${this._saveCurrentAsPreset}
+          >💾 Save</button>
+          <button class="btn-preset-cancel" @click=${this._cancelNamingPreset}>Cancel</button>
+        </div>
+      `;
+    }
     return html`
       <div class="preset-bar">
         <select .value=${this._selectedPreset} @change=${this._onPresetSelect}>
@@ -1029,7 +1131,7 @@ export class CmsPanel extends LitElement {
         ${this._selectedPreset
           ? html`<button class="btn-preset-delete" title="Delete preset" @click=${this._deleteSelectedPreset}>×</button>`
           : nothing}
-        <button class="btn-preset-save" title="Save the current styling as a preset" @click=${this._saveCurrentAsPreset}>💾 Save preset</button>
+        <button class="btn-preset-save" title="Save the current styling as a preset" @click=${this._startNamingPreset}>💾 Save preset</button>
       </div>
     `;
   }
@@ -1080,7 +1182,7 @@ export class CmsPanel extends LitElement {
     const showBorder = this._showBorder;
     const showHeadingStyle = this._showHeadingStyle;
     const showFont = this._showFont;
-    const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
+    const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
     // "Custom CSS is overriding this control" warnings (style-conflicts.ts)
     const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s);
     const thresholdOwned = thresholdOwnedProperties(s.threshold);
@@ -1148,7 +1250,7 @@ export class CmsPanel extends LitElement {
           ></cms-icon-color-module>`
         : nothing}
 
-      ${!this._isEntitiesCard
+      ${!this._isEntitiesCard && !NO_THRESHOLD_TYPES.has(this.config?.type ?? '')
         ? html`<cms-threshold-module
               .overridden=${!!conflicts.threshold}
               .overriddenDetail=${(conflicts.threshold ?? []).join(", ")}
@@ -1198,7 +1300,7 @@ export class CmsPanel extends LitElement {
       <cms-advanced-module
         .state=${s.advanced}
         .pierced=${s.dictSource?.entries ?? []}
-        ?open=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
+        .autoOpen=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
 
@@ -1230,7 +1332,7 @@ export class CmsPanel extends LitElement {
 
   private _renderContainerCard(s: StudioState) {
     const cardType = this.config?.type ?? 'layout';
-    const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
+    const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
     const childCards = STYLABLE_CHILDREN_CARD_TYPES.has(cardType)
       ? ((this.config as unknown as { cards?: CardModCardConfig[] }).cards ?? [])
       : null;
@@ -1275,7 +1377,7 @@ export class CmsPanel extends LitElement {
       <cms-advanced-module
         .state=${s.advanced}
         .pierced=${s.dictSource?.entries ?? []}
-        ?open=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
+        .autoOpen=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
     `;

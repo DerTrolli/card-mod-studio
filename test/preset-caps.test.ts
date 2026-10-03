@@ -57,8 +57,9 @@ describe('filterPresetStateForCardType', () => {
     const filtered = filterPresetStateForCardType(preset, 'heading');
     expect(filtered.filter).toEqual(preset.filter);
     expect(filtered.advanced).toEqual(preset.advanced);
-    // threshold is only hidden on entities cards — heading keeps it
-    expect(filtered.threshold).toEqual(preset.threshold);
+    // threshold is hidden on heading too (none of its outputs shows there)
+    expect(filtered.threshold.enabled).toBe(false);
+    expect(filtered.threshold.rules).toEqual([]);
   });
 
   it('tile preset onto tile: unchanged (deep-equal), and the input is never mutated', () => {

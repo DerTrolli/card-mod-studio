@@ -135,7 +135,8 @@ async function filterSection(T) {
   T.check('grayscale "Apply when" offers Always / ON / OFF / another entity', JSON.stringify(opts) === JSON.stringify(['always', 'on', 'off', 'custom']), JSON.stringify(opts));
   await expectPage(T, `preview: grayscale-when-OFF follows the light (${lightOn ? 'on → none' : 'off → gray'})`, P_CARD, 0, (v) => (lightOn ? v?.filter === 'none' : v?.filter?.includes('grayscale(1)')));
   await choose(applyWhen, 'always');
-  await expectCfg(T, 'Apply when Always → filter: grayscale(100%)', has(T, 'filter: grayscale(100%);', 'transition: filter 300ms ease;'));
+  // tile: the transition is !important (the tile's own stylesheet overrides a plain one)
+  await expectCfg(T, 'Apply when Always → filter: grayscale(100%)', has(T, 'filter: grayscale(100%);', 'transition: filter 300ms ease !important;'));
   await expectPage(T, 'preview: grayscale applied', P_CARD, 0, (v) => v?.filter === 'grayscale(1)');
   await choose(applyWhen, 'on');
   await expectCfg(T, 'Apply when ON → is_state(config.entity, on)', has(T, "if is_state(config.entity, 'on') else 'none'"));
@@ -162,7 +163,7 @@ async function filterSection(T) {
   await expectCfg(T, 'Opacity 50 → opacity(50%) added', has(T, 'filter: brightness(150%) blur(4px) opacity(50%);'));
   await expectPage(T, 'preview: brightness+blur+opacity all applied', P_CARD, 0, (v) => v?.filter === 'brightness(1.5) blur(4px) opacity(0.5)');
   await setSlider(T, rowOf(T, m, 'Transition speed').locator('ha-slider'), 600);
-  await expectCfg(T, 'Transition speed 600 → transition: filter 600ms ease', has(T, 'transition: filter 600ms ease;'));
+  await expectCfg(T, 'Transition speed 600 → transition: filter 600ms ease !important (tile)', has(T, 'transition: filter 600ms ease !important;'));
   await expectPage(T, 'preview: transition-duration 0.6s on filter', P_CARD, 0, (v) => v?.transDur === '0.6s' && v.transProp === 'filter');
 
   // ---- "Reacts to" (effects condition) ----
@@ -701,16 +702,13 @@ async function headingSection(T) {
   await openEditor(T, 'fui-heading', cards, 0);
   await openStudio(T);
   const pv = await T.page.evaluate(P_PANEL);
-  const want = ['cms-heading-style-module', 'cms-filter-module', 'cms-threshold-module', 'cms-advanced-module'];
-  const hidden = ['cms-font-module', 'cms-background-module', 'cms-border-module', 'cms-animation-module', 'cms-icon-color-module', 'cms-accent-color-module'];
-  T.check('heading: Heading Style shown; Font/Background/Border/Animation/Icon/Accent hidden', want.every((t) => pv.modules.includes(t)) && hidden.every((t) => !pv.modules.includes(t)), JSON.stringify(pv.modules));
+  const want = ['cms-heading-style-module', 'cms-filter-module', 'cms-advanced-module'];
+  // Threshold is hidden too (v0.10.0): none of its colours reaches a heading
+  // (measured on a real dashboard — no box for background/border, and the
+  // title has its own colour variable).
+  const hidden = ['cms-font-module', 'cms-background-module', 'cms-border-module', 'cms-animation-module', 'cms-icon-color-module', 'cms-accent-color-module', 'cms-threshold-module'];
+  T.check('heading: Heading Style shown; Font/Background/Border/Animation/Icon/Accent/Threshold hidden', want.every((t) => pv.modules.includes(t)) && hidden.every((t) => !pv.modules.includes(t)), JSON.stringify(pv.modules));
   const base = await T.page.evaluate(P_HEADING);
-  {
-    const th = mod(T, 'cms-threshold-module');
-    await expand(th);
-    const hp = (await th.locator('label.property-check').allTextContents()).map((t) => t.trim());
-    T.note(`heading card: Threshold module is offered with Apply-to = ${JSON.stringify(hp)} (Background/Border modules are hidden on heading as "no visual effect")`);
-  }
   const m = mod(T, 'cms-heading-style-module');
   await enable(m);
   await expectCfg(T, 'enable → HA heading variables on .container', has(T, '.container {', '--ha-heading-card-title-font-size: 24px;', '--ha-heading-card-subtitle-font-size: 24px;', '.content ha-icon {'));

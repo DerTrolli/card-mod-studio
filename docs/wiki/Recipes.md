@@ -67,7 +67,7 @@ values and [attributes](Threshold-Colors#the-value-source)).
 
 1. Define your colors once in **🖌️ My Color Palette** — they appear as
    swatches in every picker
-2. Style one card the way you like → **💾 Save** as a preset
+2. Style one card the way you like → **💾 Save preset**
 3. Open each other card → **📋 Load preset…** — done
 4. Optional: set the palette's **ON / OFF defaults** so every newly-enabled
    module starts on-brand

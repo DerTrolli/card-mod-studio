@@ -23,6 +23,7 @@ type PanelT = {
   _emitConfigChanged(): void;
   _copyUixStyleToCardMod(): void;
   _saveCurrentAsPreset(): void;
+  _presetName: string;
   _onPresetSelect(e: Event): void;
   _renderModuleList(s: StudioState): unknown;
   _renderCompatBanner(): unknown;
@@ -85,15 +86,11 @@ describe('audit #8 — presets on dict-form cards', () => {
   });
 
   it('saving a preset never stores the card\'s dict carrier', () => {
-    (globalThis as { window?: unknown }).window = { prompt: () => 'mine' };
-    try {
-      const { p } = makePanel(DICT_CARD);
-      p._saveCurrentAsPreset();
-      expect(p._presets.at(-1)!.name).toBe('mine');
-      expect(p._presets.at(-1)!.state.dictSource).toBeUndefined();
-    } finally {
-      delete (globalThis as { window?: unknown }).window;
-    }
+    const { p } = makePanel(DICT_CARD);
+    p._presetName = '  mine ';
+    p._saveCurrentAsPreset();
+    expect(p._presets.at(-1)!.name).toBe('mine');
+    expect(p._presets.at(-1)!.state.dictSource).toBeUndefined();
   });
 
   it('a preset carrying a stale carrier (pre-fix in-memory preset) never restores old pierced entries', () => {

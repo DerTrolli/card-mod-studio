@@ -180,10 +180,19 @@ async function presetsSection(T) {
   await expectCfg(T, 'source card styled (bg, animation, icon, radius)', has(T, 'background: var(--red-color);', 'cms-pulse', 'color: var(--pink-color) !important;', 'border-radius: 20px;'));
 
   const presetSel = panelLoc(T).locator('.preset-bar select');
-  T.promptAnswer = NAME;
+  // "Save preset" swaps the bar for an inline name field (no window.prompt —
+  // unreliable in the Companion app). Escape cancels without closing HA's dialog.
   await panelLoc(T).locator('.btn-preset-save').click();
+  const nameField = panelLoc(T).locator('.preset-bar .preset-name');
+  T.check('💾 Save preset shows an inline name field (focused), Save disabled while empty', (await nameField.isVisible()) && (await nameField.evaluate((e) => e.getRootNode().activeElement === e)) && (await panelLoc(T).locator('.preset-bar .btn-preset-save').isDisabled()));
+  await nameField.press('Escape');
+  T.check('Escape cancels naming — the dropdown is back and HA\'s dialog stays open', (await presetSel.isVisible()) && !!(await T.page.evaluate(() => window.__fui.dialog())));
+  await panelLoc(T).locator('.btn-preset-save').click();
+  await nameField.fill(NAME);
+  await nameField.press('Enter');
   await presetSel.locator(`option[value="${NAME}"]`).waitFor({ state: 'attached', timeout: 5000 }).catch(() => {});
-  T.check('💾 Save asks for a name (window.prompt) and adds the preset to the dropdown', (await presetSel.locator(`option[value="${NAME}"]`).count()) === 1, JSON.stringify(T.dialogs.slice(-2)));
+  T.check('typing a name + Enter adds the preset to the dropdown', (await presetSel.locator(`option[value="${NAME}"]`).count()) === 1);
+  T.check('no native browser dialog was used', !T.dialogs.some((d) => d.type === 'prompt'), JSON.stringify(T.dialogs.slice(-2)));
   T.check('the new preset is selected, with a delete (×) button', (await presetSel.evaluate((s) => s.value)) === NAME && (await panelLoc(T).locator('.btn-preset-delete').count()) === 1);
   let stored = await T.ws.call({ type: 'frontend/get_user_data', key: 'cms_presets' });
   T.check('preset synced to HA per-user storage', (stored?.value || []).some((p) => p.name === NAME));

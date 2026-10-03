@@ -14,7 +14,7 @@
  *   - headingStyle  → only on 'heading' cards
  *   - iconColor     → hidden on 'entities' and NO_ICON_COLOR_TYPES
  *   - accentColor   → hidden on 'heading' and 'entities'
- *   - threshold     → hidden on 'entities'
+ *   - threshold     → hidden on 'entities' and NO_THRESHOLD_TYPES
  *   - background    → hidden per NO_BACKGROUND_TYPES
  *   - animation     → hidden per NO_ANIMATION_TYPES
  *   - border        → hidden per NO_BORDER_TYPES
@@ -39,6 +39,7 @@ import {
   NO_BORDER_TYPES,
   NO_FONT_TYPES,
   NO_ICON_COLOR_TYPES,
+  NO_THRESHOLD_TYPES,
 } from './card-caps.js';
 
 /** DEFAULT_THRESHOLD carries arrays — copy them so a later in-place edit of
@@ -71,7 +72,7 @@ export function filterPresetStateForCardType(
   if (!isHeading) next.headingStyle = { ...DEFAULT_HEADING_STYLE };
   if (isEntities || NO_ICON_COLOR_TYPES.has(type)) next.iconColor = { ...DEFAULT_ICON_COLOR };
   if (isHeading || isEntities) next.accentColor = { ...DEFAULT_ACCENT_COLOR };
-  if (isEntities) next.threshold = freshThreshold();
+  if (isEntities || NO_THRESHOLD_TYPES.has(type)) next.threshold = freshThreshold();
   if (NO_BACKGROUND_TYPES.has(type)) next.background = { ...DEFAULT_BACKGROUND };
   if (NO_ANIMATION_TYPES.has(type)) next.animation = { ...DEFAULT_ANIMATION };
   if (NO_BORDER_TYPES.has(type)) next.border = { ...DEFAULT_BORDER };

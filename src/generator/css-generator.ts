@@ -125,7 +125,7 @@ export function conditionExpr(c: StyleCondition | undefined): string | null {
   return `${src} ${c.valueOperator} ${c.valueThreshold}`;
 }
 
-function filterDecls(s: FilterModuleState): string[] {
+function filterDecls(s: FilterModuleState, cardType?: string, rawCss = ''): string[] {
   if (!s.enabled) return [];
 
   const decls: string[] = [];
@@ -188,7 +188,14 @@ function filterDecls(s: FilterModuleState): string[] {
   }
 
   if (decls.length > 0) {
-    decls.push(`transition: filter ${s.transitionMs}ms ease;`);
+    // The tile card's own stylesheet sets `ha-card { transition: … }` and,
+    // being adopted after card-mod's/UIX's injected <style>, wins a plain
+    // declaration — filter changes snapped instead of fading (measured: the
+    // only one of 10 card types affected). Same mechanism as the button
+    // card's font size. Not when Advanced CSS sets a transition itself:
+    // hand-written CSS must keep winning, as it does everywhere else.
+    const important = cardType === 'tile' && !/(^|[\s;{])transition\s*:/.test(rawCss);
+    decls.push(`transition: filter ${s.transitionMs}ms ease${important ? ' !important' : ''};`);
   }
 
   return decls;
@@ -958,7 +965,7 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // ha-card block
   const haCardDecls = [
     ...(thresholdProps.has('accent-color') ? [] : accentColorDecls(state.accentColor, cardType)),
-    ...filterDecls(state.filter),
+    ...filterDecls(state.filter, cardType, state.advanced.rawCss),
     ...(thresholdProps.has('background') ? [] : backgroundDecls(state.background)),
     ...borderDecls(state.border, thresholdProps.has('border-color')),
     ...animDecls,

@@ -112,7 +112,7 @@ describe('mapElementToTarget', () => {
     });
   });
 
-  it('maps generic-entity-row text to Font (walked before the row tag)', () => {
+  it('maps row text on an entities card to that row (its section holds the row\'s text colour + font)', () => {
     const chain = [
       el('div', ['info', 'text-content']),
       el('hui-generic-entity-row'),
@@ -121,9 +121,12 @@ describe('mapElementToTarget', () => {
       el('hui-card'),
     ];
     expect(mapElementToTarget(chain, 'entities')).toEqual({
-      module: 'cms-font-module',
-      label: 'Font',
+      module: 'cms-entities-rows-module',
+      label: 'Entity Rows',
     });
+    // highlight = the OUTERMOST row element (the row itself), not HA's
+    // inner hui-generic-entity-row
+    expect(mapElementToMatch(chain, 'entities')?.index).toBe(2);
   });
 
   it('maps the button card name (bare span) and state (span.state) to Font', () => {

@@ -7,8 +7,8 @@ which reshapes what's offered.
 |---|---|---|
 | **Heading Style** | ✅ | The dedicated module: text size, weight, font family (incl. Custom…), text color, icon size, icon color, alignment — for **Title and Subtitle** headings |
 | Visual Filters | ✅ | |
-| Threshold Colors | ✅ / limited | Only the *Text Color* property is meaningful here (no card box for background/border); the heading text inherits it in most themes |
 | Font | — hidden | Heading Style covers the same text with more control |
+| Threshold Colors | — hidden (v0.10.0) | None of its colors reaches a heading: no card box for background/border, and the title has its own color variable rather than inheriting the card's text color (measured on HA 2026.9 and 2026.10). Use Heading Style's text color |
 | Background | — hidden | No painted box — verified to have zero visual effect |
 | Border & Radius | — hidden | Same reason |
 | Icon Color / Accent | — hidden | Heading Style's icon color replaces them |

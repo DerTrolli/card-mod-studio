@@ -40,7 +40,14 @@ import type {
   EntitiesCardRow,
   EntitiesRowStyles,
 } from '../types/index.js';
-import { buildMergedStudioState, applyStudioState, initEntityRowStyles, applyEntityRowStyles } from './studio-state.js';
+import {
+  buildMergedStudioState,
+  applyStudioState,
+  initEntityRowStyles,
+  applyEntityRowStyles,
+  refreshPaletteDefaults,
+} from './studio-state.js';
+import { PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
 import {
   CONTAINER_CARD_TYPES,
   NO_ANIMATION_TYPES,
@@ -48,6 +55,7 @@ import {
   NO_BORDER_TYPES,
   NO_ICON_COLOR_TYPES,
   NO_FONT_TYPES,
+  NO_THRESHOLD_TYPES,
   ICON_SIZE_TYPES,
   isStateAware,
 } from '../utils/card-caps.js';
@@ -77,6 +85,8 @@ export class CmsChildCardSection extends LitElement {
   @state() private _studioState: StudioState | null = null;
   @state() private _entityRowStyles: EntitiesRowStyles = {};
   @state() private _open = false;
+  /** See CmsPanel._loadedRawCss. */
+  @state() private _loadedRawCss = false;
 
   /** Mirror of cms-panel's own-echo dedup guard: when the panel reflects
    *  our own emitted child config back down, don't rebuild state mid-edit.
@@ -154,6 +164,21 @@ export class CmsChildCardSection extends LitElement {
     `,
   ];
 
+  override connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener(PALETTE_CHANGED_EVENT, this._onPaletteChanged);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener(PALETTE_CHANGED_EVENT, this._onPaletteChanged);
+  }
+
+  /** See CmsPanel._onPaletteChanged. */
+  private _onPaletteChanged = () => {
+    if (this._studioState) this._studioState = refreshPaletteDefaults(this._studioState);
+  };
+
   override willUpdate(changed: Map<PropertyKey, unknown>) {
     if (changed.has('childConfig')) {
       if (!this.childConfig) {
@@ -164,6 +189,7 @@ export class CmsChildCardSection extends LitElement {
       }
       if (this._echoGuard.shouldRebuild(JSON.stringify(this.childConfig))) {
         this._studioState = buildMergedStudioState(this.childConfig, this.hass);
+        this._loadedRawCss = !!this._studioState.advanced.rawCss.trim();
         this._entityRowStyles = initEntityRowStyles(this.childConfig, this.hass);
       }
     }
@@ -272,7 +298,7 @@ export class CmsChildCardSection extends LitElement {
     const stateAware = isStateAware(cardType, entity, this.hass);
     const showHeading = cardType === 'heading';
     const isEntities = cardType === 'entities';
-    const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
+    const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
     const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s);
     const thresholdOwned = thresholdOwnedProperties(s.threshold);
 
@@ -337,7 +363,7 @@ export class CmsChildCardSection extends LitElement {
             ></cms-icon-color-module>`
           : nothing}
 
-        ${!isEntities
+        ${!isEntities && !NO_THRESHOLD_TYPES.has(cardType)
           ? html`<cms-threshold-module
               .overridden=${!!conflicts.threshold}
               .overriddenDetail=${(conflicts.threshold ?? []).join(", ")}
@@ -390,7 +416,7 @@ export class CmsChildCardSection extends LitElement {
         <cms-advanced-module
           .state=${s.advanced}
           .pierced=${s.dictSource?.entries ?? []}
-          ?open=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
+          .autoOpen=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
           @state-changed=${(e: CustomEvent<AdvancedModuleState>) => this._emitChanged({ advanced: e.detail })}
         ></cms-advanced-module>
 

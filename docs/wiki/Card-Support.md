@@ -22,7 +22,7 @@ Exceptions and specials:
 
 | Card type | Specifics |
 |---|---|
-| heading | Uses the dedicated **Heading Style** module (text/icon/alignment, Title and Subtitle styles, HA 2026.9 and 2026.10); Background/Border/Font hidden — a heading paints no card box |
+| heading | Uses the dedicated **Heading Style** module (text/icon/alignment, Title and Subtitle styles, HA 2026.9 and 2026.10); Background/Border/Font/Threshold hidden — a heading paints no card box, and its title has its own color variable |
 | entities | Card-level Icon/Accent/Threshold hidden — use [per-row styling](Entities-Card-Per-Row-Styling); Font styles rows + title |
 | vertical-stack / horizontal-stack / grid | Per-child styling sections — see [Cards Inside Stacks](Styling-Cards-Inside-Stacks) |
 | glance | Icon Color hidden: the icon lives in a nested shadow root, colored inline from state — no reachable selector (measured) |

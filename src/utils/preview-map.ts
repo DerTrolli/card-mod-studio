@@ -235,6 +235,18 @@ export function mapElementToMatch(
   if (!chain.length) return null;
   const ctx = buildContext(chain, cardType);
 
+  // Entities card: anywhere inside a row — icon, name, state, toggle — is
+  // that row (its section holds the row's icon/text colour and font). The
+  // OUTERMOST row element is the row itself; HA nests a
+  // hui-generic-entity-row inside every row, which the same pattern matches.
+  if (cardType === 'entities') {
+    for (let i = chain.length - 1; i >= 0; i--) {
+      if (ENTITY_ROW_TAG_RE.test(chain[i].tag)) {
+        return { target: { module: 'cms-entities-rows-module', label: 'Entity Rows' }, index: i };
+      }
+    }
+  }
+
   for (let i = 0; i < chain.length; i++) {
     const el = chain[i];
     for (const rule of RULES) {

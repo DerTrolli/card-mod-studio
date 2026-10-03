@@ -5,8 +5,14 @@ import { moduleStyles, onHeaderKeydown } from './module-base.js';
 
 export class AdvancedModule extends LitElement {
   @property({ attribute: false }) state: AdvancedModuleState = { rawCss: '' };
-  /** When true the editor is expanded; false collapses it. */
+  /** When true the editor is expanded; false collapses it. Toggled by the
+   *  header and by the preview picker. */
   @property({ type: Boolean }) open = false;
+  /** Opens the module whenever it turns true (the card arrived with CSS to
+   *  show) — but never closes it. Bound to `open` directly, clearing the
+   *  editor's text collapsed it mid-edit and dropped focus to the page, so
+   *  the next keystrokes hit HA's keyboard shortcuts instead. */
+  @property({ attribute: false }) autoOpen = false;
   /** Dict-form cards (v0.10): preserved shadow-piercing entries, shown
    *  read-only — the Studio guarantees they survive every edit verbatim
    *  but doesn't offer visual editing for them yet. */
@@ -48,6 +54,10 @@ export class AdvancedModule extends LitElement {
       }
     `,
   ];
+
+  override willUpdate(changed: Map<PropertyKey, unknown>) {
+    if (changed.has('autoOpen') && this.autoOpen) this.open = true;
+  }
 
   private _onValueChanged(e: CustomEvent<{ value: string }>) {
     this.dispatchEvent(
