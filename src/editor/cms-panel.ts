@@ -643,6 +643,10 @@ export class CmsPanel extends LitElement {
       grid-template-columns: minmax(0, 1fr);
       overflow-y: auto;
       overflow-x: hidden;
+      /* Module label column (module-base .control-label) — narrower on
+         phones so the controls beside it keep enough room. Inherits into
+         the modules' shadow roots. */
+      --cms-label-width: 96px;
     }
     /* Scrolling past the end of the panel must not chain into HA's dialog
        behind it (on phones that slid our header under the dialog title).

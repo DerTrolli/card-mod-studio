@@ -107,15 +107,23 @@ export class EntitiesRowsModule extends LitElement {
         padding: 5px 10px;
         border-style: solid;
       }
+      /* Static/Threshold + its switch: on the narrowest phones the pair
+         wraps (switch under the toggle) instead of the toggle shrinking
+         and its buttons spilling out of it. */
+      .entity-body .control-right {
+        flex-wrap: wrap;
+        row-gap: 6px;
+      }
       .mode-toggle {
         display: flex;
+        flex-shrink: 0;
         border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-radius: 4px;
         overflow: hidden;
       }
       .mode-btn {
         min-height: 28px;
-        padding: 3px 10px;
+        padding: 3px 8px;
         font-size: 12px;
         cursor: pointer;
         background: transparent;

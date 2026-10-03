@@ -158,6 +158,10 @@ const swatchStyles = css`
   .custom input[type="color"]::-moz-color-swatch { border: 0; border-radius: 6px; }
   .custom input[type="text"] {
     flex: 1;
+    /* width 0: grow into the row, never size it — an input's intrinsic
+       ~20ch width made the whole picker ~215px wide minimum and pushed it
+       past the module edge on 360px phones. */
+    width: 0;
     min-width: 0;
     box-sizing: border-box;
     height: 28px;
