@@ -245,11 +245,19 @@ export class CmsChildCardSection extends LitElement {
     // still freezes: there's no faithful single-key rewrite for it, so the
     // save path preserves both keys untouched (same gate as cms-panel).
     if (hasDictFormStyle(c) && !s.dictSource) {
+      // Per-row styling stays editable, exactly like the top-level panel's
+      // mixed-form gate (audit v0.10 #17).
       return html`<div class="child-note">
         🔒 Mixed-form styling — this child has both a plain style and a
         dictionary-form ($ shadow-piercing) style. The Studio can't edit
         that combination, so it is preserved exactly as written.
-      </div>`;
+      </div>${c.type === 'entities'
+        ? html`<div class="child-body"><cms-entities-rows-module
+            .rows=${(c as unknown as { entities?: EntitiesCardRow[] }).entities ?? []}
+            .styles=${this._entityRowStyles}
+            @styles-changed=${this._onRowStylesChanged}
+          ></cms-entities-rows-module></div>`
+        : nothing}`;
     }
 
     const cardType = c.type ?? '';

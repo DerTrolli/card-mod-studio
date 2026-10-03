@@ -24,6 +24,7 @@ import {
   usesUixOnlyFeatures,
   usesUixMacroBlockFeatures,
   hasUixOnlyRow,
+  hasUixOnlySelectorRow,
   hasStyleContent,
   hasDictFormStyle,
 } from '../utils/style-compat.js';
@@ -185,7 +186,9 @@ export class CmsPanel extends LitElement {
   }
 
   private get _uixOnlyUsesMacros(): boolean {
-    return !!this.config && usesUixOnlyFeatures(this.config);
+    // Rows count too: a row's uix dict with `$$`/`&` keys can't run under
+    // card_mod either, so no "Copy to card_mod" offer (audit v0.10 #18).
+    return !!this.config && (usesUixOnlyFeatures(this.config) || hasUixOnlySelectorRow(this.config));
   }
 
   /**
@@ -245,16 +248,18 @@ export class CmsPanel extends LitElement {
     if (!this.config) return;
     let next: CardModCardConfig = { ...this.config };
 
+    // Spread the existing card_mod: its class:/debug: siblings must survive
+    // the copy (audit v0.10 #13).
     if (hasStyleContent(this.config.uix?.style) && !hasStyleContent(this.config.card_mod?.style)) {
-      next = { ...next, card_mod: { style: this.config.uix!.style! } };
+      next = { ...next, card_mod: { ...this.config.card_mod, style: this.config.uix!.style! } };
     }
 
     if (this.config.type === 'entities') {
       const rows = (this.config as unknown as { entities?: EntitiesCardRow[] }).entities;
       if (rows?.length) {
         const updatedRows = rows.map((row) =>
-          hasStyleContent(row.uix?.style) && !hasStyleContent(row.card_mod?.style)
-            ? { ...row, card_mod: { style: row.uix!.style! } }
+          row && typeof row === 'object' && hasStyleContent(row.uix?.style) && !hasStyleContent(row.card_mod?.style)
+            ? { ...row, card_mod: { ...row.card_mod, style: row.uix!.style! } }
             : row,
         );
         next = { ...(next as unknown as object), entities: updatedRows } as unknown as CardModCardConfig;
@@ -413,9 +418,12 @@ export class CmsPanel extends LitElement {
     const name = window.prompt('Preset name:');
     if (!name?.trim()) return;
     const trimmed = name.trim();
+    // A dict card's carrier (its pierced entries) belongs to THAT card — a
+    // preset must never carry it (audit v0.10 #8).
+    const { dictSource: _cardDict, ...presetState } = this._studioState;
     const updated = [
       ...this._presets.filter((p) => p.name !== trimmed),
-      { name: trimmed, state: { ...this._studioState } },
+      { name: trimmed, state: presetState },
     ];
     this._presets = updated;
     this._selectedPreset = trimmed;
@@ -434,17 +442,26 @@ export class CmsPanel extends LitElement {
     // the thing that wipes it.
     const currentAdvanced = this._studioState?.advanced;
     const presetHasAdvanced = !!preset.state.advanced?.rawCss?.trim();
+    // The dict carrier always comes from THIS card: a stored preset has
+    // none (the save then froze and the panel flipped to "Mixed-form"), and
+    // an in-session one could carry stale/foreign pierced entries (audit
+    // v0.10 #8).
+    const currentDictSource = this._studioState?.dictSource;
+    const { dictSource: _presetDict, ...presetState } = preset.state;
     // Reset any module THIS card type's panel hides back to its disabled
     // default — a preset saved on a different card type must not smuggle in
     // styling (e.g. tile animation onto a heading card) that the hidden
     // module offers no control to ever disable. See preset-caps.ts.
-    this._studioState = filterPresetStateForCardType(
-      {
-        ...preset.state,
-        ...(presetHasAdvanced || !currentAdvanced ? {} : { advanced: currentAdvanced }),
-      },
-      this.config?.type,
-    );
+    this._studioState = {
+      ...filterPresetStateForCardType(
+        {
+          ...presetState,
+          ...(presetHasAdvanced || !currentAdvanced ? {} : { advanced: currentAdvanced }),
+        },
+        this.config?.type,
+      ),
+      ...(currentDictSource ? { dictSource: currentDictSource } : {}),
+    };
     this._emitConfigChanged();
   }
 
@@ -811,7 +828,7 @@ export class CmsPanel extends LitElement {
   private _rowEntityIds(): Array<string | undefined> {
     if (this.config?.type !== 'entities') return [];
     const rows = (this.config as unknown as { entities?: Array<EntitiesCardRow | string> }).entities ?? [];
-    return rows.map((r) => (typeof r === 'string' ? r : r.entity));
+    return rows.map((r) => (typeof r === 'string' ? r : r?.entity));
   }
 
   /** Click-to-edit: scroll to the picked module, open it, flash it. */

@@ -18,7 +18,15 @@ import { parseStyleValue, splitDictStyle } from '../parser/yaml-parser.js';
 import { mapToStudioState, mergeStudioStates, parseEntityRowCss, mergeEntityRowStyles } from '../parser/state-mapper.js';
 import { generateCss, buildThresholdJinja, FONT_WEIGHT_VALUE } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
-import { hasStyleContent, usesUixOnlyFeatures, resolveStyle, isDictForm } from '../utils/style-compat.js';
+import {
+  hasStyleContent,
+  usesUixOnlyFeatures,
+  resolveStyle,
+  isDictForm,
+  sameStyleValue,
+  hasUnsupportedDictRoot,
+  dictUsesUixOnlySelectors,
+} from '../utils/style-compat.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
 
 /**
@@ -75,12 +83,27 @@ export function buildMergedStudioState(
 
   const primaryState = mapToStudioState(parseStyleValue(primaryStyle), config.type);
 
-  // v0.10: a dict-form SECONDARY can never be consolidated into the active
-  // key — folding its `.` into the regenerated css would still drop its
-  // pierced entries when the save path clears the other key. Strip the
-  // primary's dict carrier too, so the panel gate and the save path both
-  // fall back to the mixed-form freeze (both keys preserved verbatim).
   if (isDictForm(secondaryStyle) && hasStyleContent(secondaryStyle)) {
+    // v0.10: a dict-form SECONDARY that is the card's ONLY style is simply
+    // the effective style — parsed with its carrier and, on save,
+    // consolidated into the active key like a string would be, unless it's
+    // a uix: dict using UIX-only features, which stays under uix: (audit
+    // v0.10 #6 — it used to be frozen behind a false "Mixed-form" banner).
+    if (!hasStyleContent(primaryStyle)) {
+      const effective = mapToStudioState(parseStyleValue(secondaryStyle), config.type);
+      const pin = outputKey === 'card_mod' && usesUixOnlyFeatures(config);
+      return applyPaletteDefaults(
+        pin && effective.dictSource ? { ...effective, dictSource: { ...effective.dictSource, pinKey: 'uix' } } : effective,
+      );
+    }
+    // The same dict under both keys (what "Copy to card_mod" produces) is
+    // one dict: the active key's, the duplicate cleared on save.
+    if (sameStyleValue(primaryStyle, secondaryStyle)) return applyPaletteDefaults(primaryState);
+    // Otherwise it can never be consolidated into the active key — folding
+    // its `.` into the regenerated css would still drop its pierced entries
+    // when the save path clears the other key. Strip the primary's dict
+    // carrier too, so the panel gate and the save path both fall back to
+    // the mixed-form freeze (both keys preserved verbatim).
     const { dictSource: _mixed, ...frozen } = primaryState;
     return applyPaletteDefaults(frozen);
   }
@@ -118,11 +141,13 @@ export function applyStudioState(
 /** Parses one row style value — string or dict-form. A dict row's `.` entry
  *  runs through the normal row recogniser; everything else rides in the
  *  dictSource carrier, exactly like the card-level parseDictForm. */
-function parseRowStyleValue(style: unknown): EntitiesRowStyle {
-  if (typeof style === 'string') return parseEntityRowCss(style);
-  if (style && typeof style === 'object') {
+function parseRowStyleValue(style: unknown, entity?: string): EntitiesRowStyle {
+  if (typeof style === 'string') return parseEntityRowCss(style, entity);
+  if (style && typeof style === 'object' && hasStyleContent(style as Record<string, string>)) {
+    // A `.` that isn't a CSS string can't be rebuilt — frozen (audit v0.10 #16).
+    if (hasUnsupportedDictRoot(style)) return { ...parseEntityRowCss(''), frozen: true };
     const { rootCss, dictSource } = splitDictStyle(style as Record<string, unknown>);
-    return { ...parseEntityRowCss(rootCss), dictSource };
+    return { ...parseEntityRowCss(rootCss, entity), dictSource };
   }
   return parseEntityRowCss('');
 }
@@ -130,8 +155,11 @@ function parseRowStyleValue(style: unknown): EntitiesRowStyle {
 /** Row-level counterpart to buildMergedStudioState — rows have no
  *  macros/billets concept, so there's no secondary-key guard to check.
  *  The dict rules mirror the card level: a dict-form PRIMARY is editable
- *  (carrier attached); a dict-form SECONDARY makes the row mixed-form —
- *  carrier stripped so applyEntityRowStyles freezes it. */
+ *  (carrier attached); a dict-form SECONDARY is the effective style when
+ *  the primary is empty, one dict when identical to the primary, and
+ *  otherwise makes the row mixed-form — marked `frozen` so
+ *  applyEntityRowStyles leaves it untouched and the rows module shows a
+ *  lock note instead of dead controls (audit v0.10 #9). */
 export function buildMergedRowStyle(
   row: EntitiesCardRow,
   hass?: HomeAssistant,
@@ -140,14 +168,22 @@ export function buildMergedRowStyle(
   const primaryStyle = outputKey === 'uix' ? row.uix?.style : row.card_mod?.style;
   const secondaryStyle = outputKey === 'uix' ? row.card_mod?.style : row.uix?.style;
 
-  const primaryRowStyle = parseRowStyleValue(primaryStyle);
+  const primaryRowStyle = parseRowStyleValue(primaryStyle, row.entity);
   if (isDictForm(secondaryStyle) && hasStyleContent(secondaryStyle)) {
+    if (!hasStyleContent(primaryStyle)) {
+      const effective = parseRowStyleValue(secondaryStyle, row.entity);
+      // A uix: row dict with `$$`/`&` keys can't move to card_mod (audit v0.10 #6).
+      return outputKey === 'card_mod' && effective.dictSource && dictUsesUixOnlySelectors(secondaryStyle)
+        ? { ...effective, dictSource: { ...effective.dictSource, pinKey: 'uix' } }
+        : effective;
+    }
+    if (sameStyleValue(primaryStyle, secondaryStyle)) return primaryRowStyle;
     const { dictSource: _mixed, ...frozen } = primaryRowStyle;
-    return frozen;
+    return { ...frozen, frozen: true };
   }
-  if (!hasStyleContent(secondaryStyle)) return primaryRowStyle;
+  if (!hasStyleContent(secondaryStyle) || primaryRowStyle.frozen) return primaryRowStyle;
 
-  const secondaryRowStyle = parseEntityRowCss(typeof secondaryStyle === 'string' ? secondaryStyle : '');
+  const secondaryRowStyle = parseEntityRowCss(typeof secondaryStyle === 'string' ? secondaryStyle : '', row.entity);
   return mergeEntityRowStyles(primaryRowStyle, secondaryRowStyle);
 }
 
@@ -158,7 +194,10 @@ export function buildMergedRowStyle(
 export type EntitiesRowLike = EntitiesCardRow | string;
 
 export function rowEntityId(row: EntitiesRowLike): string | undefined {
-  return typeof row === 'string' ? row : row.entity;
+  // A null/non-object entry (hand-edited YAML) has no entity — it used to
+  // throw and break the whole panel (audit v0.10 #20).
+  if (typeof row === 'string') return row;
+  return row && typeof row === 'object' ? row.entity : undefined;
 }
 
 /** The row-style map key for the row at `index` — POSITIONAL, not
@@ -267,8 +306,9 @@ export function applyEntityRowStyles(
     // entries verbatim. Without a carrier (mixed-form, or a style map that
     // predates the dict), rewriting would destroy the dict — leave the row
     // completely untouched instead.
+    if (rowStyle?.frozen) return row;
     const currentStyle = resolveStyle(row as unknown as CardModCardConfig);
-    if (isDictForm(currentStyle) && !rowStyle?.dictSource) return row;
+    if (isDictForm(currentStyle) && hasStyleContent(currentStyle) && !rowStyle?.dictSource) return row;
     const rowCss = hasContent ? generateEntityRowCss(rowStyle!, entityId) : '';
     return applyCardModStyle(
       rowCss,

@@ -131,6 +131,11 @@ export interface DictSource {
   entries: PiercedEntry[];
   /** Index (into the ORIGINAL key order) where `.` sat; null = absent. */
   rootIndex: number | null;
+  /** Write the rebuilt dict back under THIS key instead of the active
+   *  engine's: a `uix:` dict that is the card's only style and uses
+   *  UIX-only features (`$$`/`&` keys, macros/billets/theme) can't move to
+   *  `card_mod:` (audit v0.10 #6). */
+  pinKey?: 'card_mod' | 'uix';
 }
 
 export interface CardModStyleState {
@@ -140,6 +145,9 @@ export interface CardModStyleState {
   /** Valid-but-unmodelable blocks (@keyframes, @media, ...) preserved
    *  verbatim — mapAdvanced re-emits them so they survive a save. */
   passthroughCss?: string;
+  /** Order-sensitive remainder (@media, nested rules, Jinja statements, …)
+   *  preserved byte-for-byte and re-emitted LAST — see parseCssDetailed. */
+  tailCss?: string;
   /** Dictionary-form only (v0.10 — see docs/V0.10_PLAN.md §4.1). */
   dictSource?: DictSource;
 }
@@ -366,6 +374,10 @@ export interface EntitiesRowStyle {
    *  else is preserved verbatim and rebuilt around the regenerated `.` on
    *  save. Absent for plain string row styles. */
   dictSource?: DictSource;
+  /** Set when this row's styling can't be rewritten faithfully (mixed-form,
+   *  or a dict whose `.` isn't a CSS string): the save path leaves the row
+   *  untouched and the rows module shows a lock note instead of controls. */
+  frozen?: true;
 }
 
 export type EntitiesRowStyles = Record<string, EntitiesRowStyle>;

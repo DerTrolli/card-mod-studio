@@ -15,7 +15,7 @@
  * by property name/selector class rather than exact value analysis.
  */
 
-import { parseCss } from '../parser/css-parser.js';
+import { parseCss, parseAllRules } from '../parser/css-parser.js';
 import type { StudioState, EntitiesRowStyle } from '../types/index.js';
 
 export type ConflictableModule =
@@ -111,7 +111,9 @@ export function findAdvancedCssConflicts(rawCss: string, state: StudioState): Mo
 
   let targets;
   try {
-    targets = parseCss(trimmed);
+    // All rules, incl. those after an @media/nested block (parseAllRules) —
+    // the claimable-head split must not hide an override from the warning.
+    targets = parseAllRules(trimmed);
   } catch {
     return {};
   }
@@ -156,7 +158,7 @@ export function findRowExtraCssConflicts(style: EntitiesRowStyle): string[] {
 
   let targets;
   try {
-    targets = parseCss(extra.includes('{') ? extra : `:host{${extra}}`);
+    targets = extra.includes('{') ? parseAllRules(extra) : parseCss(`:host{${extra}}`);
   } catch {
     return [];
   }

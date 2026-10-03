@@ -31,7 +31,7 @@ import type {
   DictSource,
 } from '../types/index.js';
 import { parseCssDetailed } from './css-parser.js';
-import { resolveStyle, type StyleValue } from '../utils/style-compat.js';
+import { resolveStyle, hasUnsupportedDictRoot, type StyleValue } from '../utils/style-compat.js';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -89,8 +89,8 @@ function parseStyleString(css: string): CardModStyleState {
   if (!trimmed) return emptyState();
 
   try {
-    const { targets, passthroughCss } = parseCssDetailed(trimmed);
-    return { targets, rawCss: trimmed, passthroughCss };
+    const { targets, passthroughCss, tailCss } = parseCssDetailed(trimmed);
+    return { targets, rawCss: trimmed, passthroughCss, tailCss };
   } catch {
     // Parsing failed — preserve the raw CSS so it appears in the Advanced tab.
     return { targets: [], rawCss: trimmed };
@@ -112,6 +112,10 @@ function parseStyleString(css: string): CardModStyleState {
  * declaration blocks — and corrupted or deleted such styles on save.)
  */
 function parseDictForm(dict: Record<string, unknown>): CardModStyleState {
+  // `style: {}` is no style at all (audit v0.10 #14). A `.` that isn't a
+  // CSS string can't be rebuilt around a regenerated root — no carrier, so
+  // the save path preserves the dict untouched (audit v0.10 #16).
+  if (Object.keys(dict).length === 0 || hasUnsupportedDictRoot(dict)) return emptyState();
   const { rootCss, dictSource } = splitDictStyle(dict);
   const base = rootCss ? parseStyleString(rootCss) : emptyState();
   return { ...base, dictSource };

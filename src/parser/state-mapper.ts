@@ -33,8 +33,8 @@ import type {
   EntitiesRowStyle,
   StyleCondition,
 } from '../types/index.js';
-import { parseCss, parseCssDetailed } from './css-parser.js';
-import { GRADIENT_MARKER_PROPERTY, ANIMATION_TIMING, decodeGradientStops, headerFontSize, valueFontSize } from '../generator/css-generator.js';
+import { parseCss, parseCssDetailed, isBareDeclarations } from './css-parser.js';
+import { GRADIENT_MARKER_PROPERTY, ANIMATION_TIMING, decodeGradientStops, headerFontSize, valueFontSize, buildThresholdJinja, sortThresholdRules } from '../generator/css-generator.js';
 import { NO_ICON_COLOR_TYPES, ICON_SIZE_TYPES } from '../utils/card-caps.js';
 
 // ---------------------------------------------------------------------------
@@ -675,17 +675,15 @@ function mapFilter(haCard: CssTarget | null, claimed: Set<string>): FilterModule
   // hand-written `transition: all …` was claimed and NARROWED to
   // `transition: filter …` on save (audit W2). An `all` transition now
   // stays verbatim in Advanced CSS (it keeps winning — emitted last).
+  // …and only the exact single-transition shape the generator emits
+  // (`filter <duration> [ease]`): a list (`filter 300ms, transform 1s`), a
+  // custom easing or a delay used to be claimed and dropped (audit v0.10 #11).
   if (transitionProp && state.enabled) {
-    if (/^filter[\s,]/.test(transitionProp.value.trim())) {
-      const msMatch = transitionProp.value.match(/(\d+)ms/);
-      const sMatch = transitionProp.value.match(/(\d*\.?\d+)s(?:\s|$|,)/);
-      if (msMatch) {
-        state.transitionMs = parseInt(msMatch[1], 10);
-        claimed.add(claimKey(haCard.selector, 'transition'));
-      } else if (sMatch) {
-        state.transitionMs = Math.round(parseFloat(sMatch[1]) * 1000);
-        claimed.add(claimKey(haCard.selector, 'transition'));
-      }
+    const m = transitionProp.value.trim().match(/^filter\s+(\d+(?:\.\d+)?)(ms|s)(?:\s+ease)?$/);
+    const ms = m ? parseFloat(m[1]) * (m[2] === 's' ? 1000 : 1) : NaN;
+    if (Number.isFinite(ms) && Math.abs(ms - Math.round(ms)) < 1e-6) {
+      state.transitionMs = Math.round(ms);
+      claimed.add(claimKey(haCard.selector, 'transition'));
     }
   }
 
@@ -1076,8 +1074,11 @@ function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModule
   }
 
   if (borderProp && !borderProp.hasCondition) {
+    // `solid` only — the module has no style setting and the generator
+    // always emits solid, so dashed/dotted/none/… used to be rewritten to a
+    // (visible!) solid border on the next save (audit v0.10 #10).
     const match = borderProp.value.match(
-      /^(\d+)px\s+(solid|dashed|dotted|double|groove|ridge|inset|outset|none)\s+(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)$/i,
+      /^(\d+)px\s+(solid)\s+(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)$/i,
     );
     if (match) {
       state.enabled = true;
@@ -1384,16 +1385,25 @@ export function parseThresholdJinja(value: string): {
   // chain, reading rule 2's color as the default.
   const DEFAULT_RE = /else\s+'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)'\s*[)}]/;
 
+  // The value must be exactly ONE {{ … }} expression — anything around it
+  // (a `url()` after it, a second template) can't be regenerated.
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('{{') || !trimmed.endsWith('}}') || trimmed.indexOf('{{', 2) !== -1) return null;
+
   const rules: ThresholdRule[] = [];
   let entityId = '';
   let attribute: string | undefined;
   let idx = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = RULE_RE.exec(value)) !== null) {
+  while ((match = RULE_RE.exec(trimmed)) !== null) {
     const [, color, stateEntity, attrEntity, attrName, operator, numStr] = match;
-    entityId = stateEntity ?? attrEntity;
-    if (attrName) attribute = attrName;
+    const ruleEntity = stateEntity ?? attrEntity;
+    // Every rule must read the SAME source — rules on two entities used
+    // to be silently rebound to the last one (audit v0.10 #2).
+    if (idx > 0 && (ruleEntity !== entityId || attrName !== attribute)) return null;
+    entityId = ruleEntity;
+    attribute = attrName;
     rules.push({
       id: String(idx++),
       operator: operator as ThresholdRule['operator'],
@@ -1404,10 +1414,30 @@ export function parseThresholdJinja(value: string): {
 
   if (rules.length === 0 || !entityId) return null;
 
-  const defaultMatch = DEFAULT_RE.exec(value);
-  const defaultColor = defaultMatch ? defaultMatch[1] : DEFAULT_THRESHOLD.defaultColor;
+  // A literal default is required — a non-literal else (another entity's
+  // state, a template) used to be replaced by #888888 (audit v0.10 #2).
+  const defaultMatch = DEFAULT_RE.exec(trimmed);
+  if (!defaultMatch) return null;
+  const defaultColor = defaultMatch[1];
+
+  // Claim only what the generator reproduces: same rule ORDER (the
+  // generator sorts, which changes first-match semantics of a hand-written
+  // chain) and the exact expression, modulo whitespace and redundant
+  // parentheses. Extra logic (`and is_state(…)`, arithmetic) used to be
+  // silently dropped on regenerate (audit v0.10 #2).
+  if (sortThresholdRules(rules).some((r, i) => r !== rules[i])) return null;
+  if (!sameThresholdExpression(trimmed, buildThresholdJinja(rules, defaultColor, entityId, attribute))) return null;
 
   return { entityId, attribute, rules, defaultColor };
+}
+
+/** Whitespace-insensitive comparison that also accepts the flat (unparenthesised)
+ *  spelling of the generator's right-nested `else (…)` chain — Jinja's
+ *  conditional expression is right-associative, so both mean the same. */
+function sameThresholdExpression(a: string, b: string): boolean {
+  const norm = (s: string) => s.replace(/\s+/g, '');
+  const flat = (s: string) => norm(s).replace(/else\(/g, 'else').replace(/\)+\}\}$/, '}}');
+  return norm(a) === norm(b) || flat(a) === flat(b);
 }
 
 /**
@@ -1419,13 +1449,20 @@ export function parseThresholdJinja(value: string): {
  * value capture like `[^;}\n]+` truncates at the first "}" — fatal for any
  * {{ ... }} threshold expression, which always ends in "}}".
  */
-export function parseEntityRowCss(css: string): EntitiesRowStyle {
+export function parseEntityRowCss(css: string, rowEntity?: string): EntitiesRowStyle {
   const style: EntitiesRowStyle = { iconColor: '', textColor: '' };
 
-  const detailed = parseCssDetailed(css);
-  let targets = detailed.targets;
-  if (targets.length === 0) targets = parseCss(`:host{${css}}`);
-  const [target, ...otherTargets] = targets;
+  // The synthetic `:host` wrapper is only for a BARE declaration list — an
+  // @-block-only style (or Jinja statements) wrapped in `:host{…}` wrote
+  // corrupt CSS back on every other save (audit v0.10 #15).
+  const detailed = isBareDeclarations(css)
+    ? { targets: parseCss(`:host{${css}}`), passthroughCss: '', tailCss: '' }
+    : parseCssDetailed(css);
+  const targets = detailed.targets;
+  // Only the row's own `:host` rule is recognised. A rule scoped to a
+  // sub-element (state-badge, hui-generic-entity-row, …) used to be read as
+  // if it were :host and rewritten as a whole-row rule (audit v0.10 #7).
+  const target = targets.find((t) => t.selector.trim().toLowerCase() === ':host');
   const properties = target?.properties ?? [];
   const consumed = new Set<string>();
   const valueOf = (...names: string[]): string => {
@@ -1444,8 +1481,10 @@ export function parseEntityRowCss(css: string): EntitiesRowStyle {
     const parsed = parseThresholdJinja(iconVal);
     // Rows have no attribute-threshold UI — an attribute-form expression
     // would silently lose its state_attr() source on regeneration, so it
-    // falls through to the row's extraCss passthrough instead.
-    if (parsed && !parsed.attribute) {
+    // falls through to the row's extraCss passthrough instead. Same for a
+    // threshold on ANOTHER entity: the row generator always reads the row's
+    // own entity (audit v0.10 #2).
+    if (parsed && !parsed.attribute && (!rowEntity || parsed.entityId === rowEntity)) {
       style.iconMode = 'threshold';
       style.iconRules = parsed.rules;
       style.iconDefault = parsed.defaultColor;
@@ -1462,7 +1501,7 @@ export function parseEntityRowCss(css: string): EntitiesRowStyle {
   const textVal = valueOf('color');
   if (textVal.includes('float(0)')) {
     const parsed = parseThresholdJinja(textVal);
-    if (parsed && !parsed.attribute) {
+    if (parsed && !parsed.attribute && (!rowEntity || parsed.entityId === rowEntity)) {
       style.textMode = 'threshold';
       style.textRules = parsed.rules;
       style.textDefault = parsed.defaultColor;
@@ -1495,21 +1534,16 @@ export function parseEntityRowCss(css: string): EntitiesRowStyle {
   // Without this, any unrelated panel edit rewrites the row and deletes it.
   const extraParts: string[] = [];
   if (detailed.passthroughCss) extraParts.push(detailed.passthroughCss);
-  if (target) {
-    const leftover = properties.filter((p) => !consumed.has(p.property));
+  for (const t of targets) {
+    const leftover = t === target ? properties.filter((p) => !consumed.has(p.property)) : t.properties;
     if (leftover.length > 0) {
       const decls = leftover
         .map((p) => `  ${p.property}: ${p.value}${p.important ? ' !important' : ''};`)
         .join('\n');
-      extraParts.push(`${target.selector} {\n${decls}\n}`);
+      extraParts.push(`${t.selector} {\n${decls}\n}`);
     }
   }
-  for (const t of otherTargets) {
-    const decls = t.properties
-      .map((p) => `  ${p.property}: ${p.value}${p.important ? ' !important' : ''};`)
-      .join('\n');
-    extraParts.push(`${t.selector} {\n${decls}\n}`);
-  }
+  if (detailed.tailCss) extraParts.push(detailed.tailCss);
   if (extraParts.length > 0) style.extraCss = extraParts.join('\n\n');
 
   return style;
@@ -1541,10 +1575,12 @@ export function mergeEntityRowStyles(primary: EntitiesRowStyle, secondary: Entit
     ...(primary.fontWeight ?? secondary.fontWeight
       ? { fontWeight: primary.fontWeight ?? secondary.fontWeight }
       : {}),
-    // Same whole-or-nothing choice as mergeStudioStates' rawCss: unstructured
-    // CSS can't be merged declaration-by-declaration safely.
+    // Same rule as mergeStudioStates' rawCss (mergeRawCss): both sides'
+    // unrecognised row CSS is kept — the old whole-or-nothing pick deleted
+    // the secondary key's on ANY row edit, since the save clears that key
+    // (audit v0.10 #5).
     ...(primary.extraCss || secondary.extraCss
-      ? { extraCss: primary.extraCss || secondary.extraCss }
+      ? { extraCss: mergeRawCss(primary.extraCss ?? '', secondary.extraCss ?? '') }
       : {}),
     // Same rule as mergeStudioStates: the dict carrier always follows the
     // PRIMARY (active-key) style — a secondary dict never merges (the
@@ -1646,7 +1682,13 @@ function mapThreshold(
 
   for (const { target, cssProperty, thresholdProperty } of candidates) {
     const prop = findProp(target, cssProperty)!;
-    const parsed = parseThresholdJinja(prop.value);
+    // The border shorthand is `Npx solid {{ … }}` (thresholdPropertyBlock);
+    // any other prefix/style can't be regenerated, so it isn't claimed.
+    const borderMatch = cssProperty === 'border'
+      ? prop.value.trim().match(/^\d+px\s+solid\s+(\{\{[\s\S]*\}\})$/)
+      : null;
+    if (cssProperty === 'border' && !borderMatch) continue;
+    const parsed = parseThresholdJinja(borderMatch ? borderMatch[1] : prop.value);
     if (!parsed) continue;
     if (base && !sameThreshold(base, parsed)) continue;
 
@@ -1722,6 +1764,11 @@ function mapAdvanced(
       parts.push(`${target.selector} {\n${decls}\n}`);
     }
   }
+
+  // Order-sensitive remainder (@media overrides, nested rules, Jinja
+  // statements) — byte-for-byte and LAST, exactly where it sat relative to
+  // everything above (audit v0.10 #3).
+  if (parsed.tailCss) parts.push(parsed.tailCss);
 
   return { rawCss: parts.join('\n\n') };
 }
