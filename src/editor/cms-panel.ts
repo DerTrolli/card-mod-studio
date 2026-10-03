@@ -747,6 +747,11 @@ export class CmsPanel extends LitElement {
       line-height: 1.4;
     }
 
+    .preview-stage {
+      position: relative;
+      flex-shrink: 0;
+    }
+
     .preview-card-wrapper hui-card {
       width: 100%;
     }
@@ -823,18 +828,24 @@ export class CmsPanel extends LitElement {
     const previewConfig = this._previewConfig ?? this.config;
     // The picker re-queries its parent for `hui-card` on every hit-test, so
     // keyed() swapping the card element out from under it is harmless.
+    // The stage (not the scrolling wrapper) is the picker's positioning
+    // box, so its inset:0 overlay spans the card's FULL height — against the
+    // scroll container it only covered the first screenful of a tall
+    // preview (lower entity rows weren't pickable).
     return html`
-      ${keyed(
-        this._previewKey,
-        html`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`,
-      )}
-      ${this._pickerActive
-        ? html`<cms-preview-picker
-            .cardType=${this.config.type ?? ''}
-            .rows=${this._rowEntityIds()}
-            @cms-pick=${this._onPreviewPick}
-          ></cms-preview-picker>`
-        : nothing}
+      <div class="preview-stage">
+        ${keyed(
+          this._previewKey,
+          html`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`,
+        )}
+        ${this._pickerActive
+          ? html`<cms-preview-picker
+              .cardType=${this.config.type ?? ''}
+              .rows=${this._rowEntityIds()}
+              @cms-pick=${this._onPreviewPick}
+            ></cms-preview-picker>`
+          : nothing}
+      </div>
     `;
   }
 
