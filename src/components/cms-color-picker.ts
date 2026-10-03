@@ -61,6 +61,16 @@ export function previewHexFor(value: string): string {
   const preset = HA_COLOR_PRESETS.find((p) => p.variable === value);
   if (preset) return preset.hex;
   if (/^#[0-9a-fA-F]{3,8}$/.test(value)) return value;
+  // Any other var(--x) — e.g. the theme-aware var(--primary-text-color)
+  // default — resolves against the live theme (HA sets its theme variables
+  // on <html>), so the swatch shows what the card will actually get.
+  const varRef = value.trim().match(/^var\(\s*(--[\w-]+)\s*(?:,\s*([^)]+))?\)$/);
+  if (varRef) {
+    const resolved =
+      getComputedStyle(document.documentElement).getPropertyValue(varRef[1]).trim() || varRef[2]?.trim() || '';
+    if (!resolved || resolved.startsWith('var(')) return '#888888';
+    value = resolved;
+  }
   try {
     const canvas = document.createElement('canvas');
     canvas.width = 1;
@@ -462,12 +472,10 @@ export class CmsColorPicker extends LitElement {
   }
 
   private _toHex(val: string): string {
-    // If it's a var(), return a fallback color for the picker
-    if (val.startsWith('var(')) {
-      const preset = HA_COLOR_PRESETS.find(p => p.variable === val);
-      return preset?.hex || '#888888';
-    }
-    return val;
+    // <input type="color"> only takes #rrggbb: resolve var()s and named
+    // colours through previewHexFor (theme-aware), then drop any alpha.
+    if (/^#[0-9a-fA-F]{6}$/.test(val)) return val;
+    return previewHexFor(val).slice(0, 7);
   }
 
   private _emit() {

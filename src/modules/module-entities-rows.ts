@@ -4,6 +4,7 @@ import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, ThresholdRul
 import { moduleStyles, renderOverrideHint, onHeaderKeydown } from './module-base.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
 import { findRowExtraCssConflicts } from '../utils/style-conflicts.js';
+import { THEME_TEXT_COLOR } from '../parser/state-mapper.js';
 import '../components/cms-color-picker.js';
 
 /** The color a freshly-enabled row icon/color control starts from — the
@@ -376,7 +377,7 @@ export class EntitiesRowsModule extends LitElement {
               @change=${(e: Event) => {
                 const on = (e.target as HTMLInputElement).checked;
                 this._updateRow(rowKey, on
-                  ? { textColor: '#e1e1e1', textMode: 'static' }
+                  ? { textColor: THEME_TEXT_COLOR, textMode: 'static' }
                   : { textColor: '', textMode: undefined, textRules: undefined, textDefault: undefined });
               }}
             ></ha-switch>
@@ -526,7 +527,7 @@ export class EntitiesRowsModule extends LitElement {
     } else {
       this._updateRow(rowKey, {
         textMode: mode,
-        textColor: mode === 'static' ? (current.textColor || '#e1e1e1') : '',
+        textColor: mode === 'static' ? (current.textColor || THEME_TEXT_COLOR) : '',
         textRules: mode === 'threshold' ? (current.textRules ?? []) : undefined,
         textDefault: mode === 'threshold' ? (current.textDefault ?? '#888888') : undefined,
       });

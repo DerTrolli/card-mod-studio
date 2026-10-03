@@ -212,7 +212,11 @@ function fallbackTarget(cardType: string): PickTarget {
 function buildContext(chain: PickChainElement[], cardType: string): ChainContext {
   return {
     cardType,
-    titleIndex: chain.findIndex((el) => el.classes.includes('title')),
+    // Heading cards: `.content.title`, or `.content.subtitle` for
+    // `heading_style: subtitle` — both are the Heading Style module's.
+    titleIndex: chain.findIndex(
+      (el) => el.classes.includes('title') || (cardType === 'heading' && el.classes.includes('subtitle')),
+    ),
     genericRowIndex: chain.findIndex((el) => el.tag === 'hui-generic-entity-row'),
   };
 }

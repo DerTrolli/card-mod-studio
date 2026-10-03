@@ -64,7 +64,14 @@ const RULES: Rule[] = [
     '--ha-card-header-font-size', '--ha-card-header-color', '--ha-card-header-font-family',
     '--ha-font-size-l', '--ha-font-weight-medium', '--primary-text-color',
   ] },
+  // Heading: the pre-v0.10 `.title p` / `.title ha-icon` shape and the
+  // current one (HA's heading variables on .container, `.content` rules).
   { module: 'headingStyle', selector: '.title', props: ['font-size', 'font-weight', 'font-family', 'color', '--mdc-icon-size', '--ha-icon-size'] },
+  { module: 'headingStyle', selector: '.content', props: ['font-size', 'font-weight', 'font-family', 'color', '--mdc-icon-size'] },
+  { module: 'headingStyle', selector: '', props: [
+    '--ha-heading-card-title-font-size', '--ha-heading-card-title-color', '--ha-heading-card-title-font-weight',
+    '--ha-heading-card-subtitle-font-size', '--ha-heading-card-subtitle-color', '--ha-heading-card-subtitle-font-weight',
+  ] },
   { module: 'border', selector: 'ha-card', props: ['border', 'border-radius', 'border-width', 'border-color'] },
   { module: 'filter', selector: 'ha-card', props: ['filter', '-webkit-filter'] },
   { module: 'animation', selector: 'ha-card', props: ['animation', 'animation-name'] },

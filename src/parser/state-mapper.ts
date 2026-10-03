@@ -34,7 +34,17 @@ import type {
   StyleCondition,
 } from '../types/index.js';
 import { parseCss, parseCssDetailed, isBareDeclarations } from './css-parser.js';
-import { GRADIENT_MARKER_PROPERTY, ANIMATION_TIMING, decodeGradientStops, headerFontSize, valueFontSize, buildThresholdJinja, sortThresholdRules } from '../generator/css-generator.js';
+import {
+  GRADIENT_MARKER_PROPERTY,
+  ANIMATION_TIMING,
+  decodeGradientStops,
+  headerFontSize,
+  valueFontSize,
+  buildThresholdJinja,
+  sortThresholdRules,
+  HEADING_FAMILY_SELECTOR,
+  HEADING_ICON_SELECTOR,
+} from '../generator/css-generator.js';
 import { NO_ICON_COLOR_TYPES, ICON_SIZE_TYPES } from '../utils/card-caps.js';
 
 // ---------------------------------------------------------------------------
@@ -96,14 +106,19 @@ export const DEFAULT_BORDER: BorderModuleState = {
   borderColor: '#03a9f4',
 };
 
+/** Default text colour for freshly enabled text modules: the THEME's text
+ *  colour, so turning a module on changes nothing until a colour is picked.
+ *  (Was #e1e1e1 — near-invisible light grey on light themes.) */
+export const THEME_TEXT_COLOR = 'var(--primary-text-color)';
+
 export const DEFAULT_HEADING_STYLE: HeadingStyleModuleState = {
   enabled: false,
   fontSize: 24,
-  textColor: '#e1e1e1',
+  textColor: THEME_TEXT_COLOR,
   fontWeight: 'normal',
   fontFamily: '',
   iconSize: 24,
-  iconColor: '#e1e1e1',
+  iconColor: THEME_TEXT_COLOR,
   alignment: 'left',
 };
 
@@ -112,7 +127,7 @@ export const DEFAULT_FONT: FontModuleState = {
   fontSize: 16,
   fontFamily: '',
   fontWeight: 'normal',
-  color: '#e1e1e1',
+  color: THEME_TEXT_COLOR,
 };
 
 export const DEFAULT_THRESHOLD: ThresholdModuleState = {
@@ -408,8 +423,14 @@ export function mapToStudioState(parsed: CardModStyleState, cardType?: string): 
   const hostTarget = findTarget(parsed.targets, ':host');
   const haGauge = findTarget(parsed.targets, 'ha-gauge');
   const haTileIcon = findTarget(parsed.targets, 'ha-tile-icon');
+  // Heading card: the v0.10 shape (HA's --ha-heading-card-* variables on
+  // .container, `.content` selectors) and the pre-v0.10 one (`.title p` /
+  // `.title ha-icon`, dead since HA 2026.10) — both recognised, so an old
+  // config is adopted and rewritten in the working shape on save.
   const titleP = findTarget(parsed.targets, '.title p');
-  const titleIcon = findTarget(parsed.targets, '.title ha-icon');
+  const headingIcon =
+    findTargetNormalized(parsed.targets, HEADING_ICON_SELECTOR) ?? findTarget(parsed.targets, '.title ha-icon');
+  const headingFamily = findTargetNormalized(parsed.targets, HEADING_FAMILY_SELECTOR);
   const container = findTarget(parsed.targets, '.container');
 
   const claimed = new Set<string>();
@@ -421,7 +442,7 @@ export function mapToStudioState(parsed: CardModStyleState, cardType?: string): 
     background: mapBackground(haCard, claimed),
     animation: mapAnimation(haCard, claimed),
     border: mapBorder(haCard, claimed),
-    headingStyle: mapHeadingStyle(titleP, titleIcon, container, claimed),
+    headingStyle: mapHeadingStyle(titleP, headingIcon, container, headingFamily, claimed),
     font: mapFont(parsed.targets, haCard, claimed),
     threshold: mapThreshold(haCard, haStateIcon, haGauge, hostTarget, cardType, claimed),
     advanced: mapAdvanced(parsed, claimed),
@@ -492,6 +513,15 @@ function mergeRawCss(primary: string, secondary: string): string {
 function findTarget(targets: CssTarget[], selector: string): CssTarget | null {
   const norm = selector.trim().toLowerCase();
   return targets.find((t) => t.selector.trim().toLowerCase() === norm) ?? null;
+}
+
+/** Like findTarget, but insensitive to whitespace around/after commas and
+ *  between compound parts — for multi-selector rules the generator writes
+ *  one-per-line (`a,\nb`) that a hand edit may re-flow (`a, b`). */
+function findTargetNormalized(targets: CssTarget[], selector: string): CssTarget | null {
+  const norm = (sel: string) => sel.trim().toLowerCase().replace(/\s*,\s*/g, ',').replace(/\s+/g, ' ');
+  const want = norm(selector);
+  return targets.find((t) => norm(t.selector) === want) ?? null;
 }
 
 function findProp(target: CssTarget, property: string): CssProperty | null {
@@ -1135,11 +1165,57 @@ function mapHeadingStyle(
   titleP: CssTarget | null,
   titleIcon: CssTarget | null,
   container: CssTarget | null,
+  family: CssTarget | null,
   claimed: Set<string>,
 ): HeadingStyleModuleState {
-  if (!titleP && !titleIcon && !container) return { ...DEFAULT_HEADING_STYLE };
+  if (!titleP && !titleIcon && !container && !family) return { ...DEFAULT_HEADING_STYLE };
 
   const state: HeadingStyleModuleState = { ...DEFAULT_HEADING_STYLE };
+
+  // v0.10 shape: HA's own heading variables on .container. The title set is
+  // the source of truth; each subtitle twin is claimed only when it carries
+  // the same value (that's what the generator writes) — a hand-written,
+  // different subtitle value stays in Advanced CSS untouched.
+  if (container) {
+    const plain = (name: string) => {
+      const p = findProp(container, name);
+      return p && !p.hasCondition && !p.important && p.value.trim() ? p.value.trim() : null;
+    };
+    const claimWithTwin = (aspect: string) => {
+      claimed.add(claimKey(container.selector, `--ha-heading-card-title-${aspect}`));
+      const title = plain(`--ha-heading-card-title-${aspect}`);
+      if (title !== null && plain(`--ha-heading-card-subtitle-${aspect}`) === title) {
+        claimed.add(claimKey(container.selector, `--ha-heading-card-subtitle-${aspect}`));
+      }
+    };
+    const size = plain('--ha-heading-card-title-font-size')?.match(/^(\d+(?:\.\d+)?)px$/);
+    if (size) {
+      state.enabled = true;
+      state.fontSize = parseFloat(size[1]);
+      claimWithTwin('font-size');
+    }
+    const color = plain('--ha-heading-card-title-color');
+    if (color) {
+      state.enabled = true;
+      state.textColor = color;
+      claimWithTwin('color');
+    }
+    const weight = plain('--ha-heading-card-title-font-weight');
+    if (weight && FONT_WEIGHT_FROM_VALUE[weight]) {
+      state.enabled = true;
+      state.fontWeight = FONT_WEIGHT_FROM_VALUE[weight];
+      claimWithTwin('font-weight');
+    }
+  }
+
+  if (family) {
+    const familyProp = findProp(family, 'font-family');
+    if (familyProp && !familyProp.hasCondition && familyProp.value.trim()) {
+      state.enabled = true;
+      state.fontFamily = familyProp.value.trim();
+      claimed.add(claimKey(family.selector, 'font-family'));
+    }
+  }
 
   if (titleP) {
     const fontSizeProp = findProp(titleP, 'font-size');

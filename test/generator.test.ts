@@ -445,7 +445,11 @@ describe('generateCss — heading style', () => {
     expect(css).toBe('');
   });
 
-  it('emits .title p with font-size and color', () => {
+  // HA 2026.10 replaced the heading title's <p> with <h2 class="heading">;
+  // `.title p` stopped matching and a `.heading` selector can't set
+  // size/weight. HA's own --ha-heading-card-* variables work on 2026.9 and
+  // 2026.10 (verified live) — for title AND subtitle headings.
+  it('emits HA heading variables (size / color / weight) for title and subtitle', () => {
     const css = generateCss(
       makeState({
         headingStyle: {
@@ -453,17 +457,30 @@ describe('generateCss — heading style', () => {
           enabled: true,
           fontSize: 28,
           textColor: '#ff0000',
+          fontWeight: 'bold',
           alignment: 'center',
         },
       }),
     );
-    expect(css).toContain('.title p');
-    expect(css).toContain('font-size: 28px;');
-    expect(css).toContain('color: #ff0000 !important;');
-    // text-align is NOT emitted — justify-content handles alignment
+    expect(css).not.toContain('.title p');
+    for (const kind of ['title', 'subtitle']) {
+      expect(css).toContain(`--ha-heading-card-${kind}-font-size: 28px;`);
+      expect(css).toContain(`--ha-heading-card-${kind}-color: #ff0000;`);
+      expect(css).toContain(`--ha-heading-card-${kind}-font-weight: bold;`);
+    }
+    expect(css).toContain('justify-content: center !important;');
+    // no family set → no family rule
+    expect(css).not.toContain('font-family');
   });
 
-  it('emits .title ha-icon with --mdc-icon-size and color', () => {
+  it('emits a font-family rule covering the old <p> and the new .heading', () => {
+    const css = generateCss(
+      makeState({ headingStyle: { ...DEFAULT_HEADING_STYLE, enabled: true, fontFamily: 'monospace' } }),
+    );
+    expect(css).toContain('.content p,\n.content .heading {\n  font-family: monospace;\n}');
+  });
+
+  it('emits .content ha-icon with --mdc-icon-size and color', () => {
     const css = generateCss(
       makeState({
         headingStyle: {
@@ -474,10 +491,15 @@ describe('generateCss — heading style', () => {
         },
       }),
     );
-    expect(css).toContain('.title ha-icon');
-    expect(css).toContain('--mdc-icon-size: 32px;');
-    expect(css).toContain('--ha-icon-size: 32px;'); // forward-compat fallback
-    expect(css).toContain('color: #00ff00 !important;');
+    expect(css).toContain('.content ha-icon {\n  --mdc-icon-size: 32px;\n  color: #00ff00 !important;\n}');
+    // the inert --ha-icon-size twin is no longer emitted (HA never read it)
+    expect(css).not.toContain('--ha-icon-size');
+  });
+
+  it('defaults to the theme text colour (no near-white text on light themes)', () => {
+    const css = generateCss(makeState({ headingStyle: { ...DEFAULT_HEADING_STYLE, enabled: true } }));
+    expect(css).toContain('--ha-heading-card-title-color: var(--primary-text-color);');
+    expect(css).not.toContain('#e1e1e1');
   });
 
   it('emits .container with justify-content for alignment=right', () => {
@@ -1569,7 +1591,7 @@ describe('round-trip', () => {
     expect(generated).not.toContain('var(--red-color)');
   });
 
-  it('heading style round-trips with no rawCss', () => {
+  it('legacy heading style (.title p / .title ha-icon) is adopted and migrated to the HA 2026.10-safe shape', () => {
     const original =
       '.container {\n  justify-content: center;\n}\n\n.title p {\n  font-size: 28px;\n  color: #ff0000;\n  text-align: center;\n}\n\n.title ha-icon {\n  --mdc-icon-size: 32px;\n  color: #00ff00;\n}';
     const parsed = parseCardModConfig({ type: 'heading', card_mod: { style: original } });
@@ -1584,11 +1606,60 @@ describe('round-trip', () => {
     expect(state.advanced.rawCss).toBe('');
 
     const generated = generateCss(state);
-    expect(generated).toContain('font-size: 28px;');
-    expect(generated).toContain('color: #ff0000 !important;');
-    expect(generated).toContain('--mdc-icon-size: 32px;');
-    expect(generated).toContain('color: #00ff00 !important;');
+    expect(generated).not.toContain('.title p');
+    expect(generated).toContain('--ha-heading-card-title-font-size: 28px;');
+    expect(generated).toContain('--ha-heading-card-title-color: #ff0000;');
+    expect(generated).toContain('.content ha-icon {\n  --mdc-icon-size: 32px;\n  color: #00ff00 !important;\n}');
     expect(generated).toContain('justify-content: center !important;');
+  });
+
+  it('pre-v0.10 output with the --ha-icon-size twin is still fully claimed', () => {
+    const original =
+      '.container {\n  justify-content: flex-start !important;\n}\n\n.title p {\n  font-size: 24px;\n  color: #e1e1e1 !important;\n  font-weight: normal;\n}\n\n.title ha-icon {\n  --mdc-icon-size: 24px;\n  --ha-icon-size: 24px;\n  color: #e1e1e1 !important;\n}';
+    const state = mapToStudioState(parseCardModConfig({ type: 'heading', card_mod: { style: original } }));
+    expect(state.headingStyle.enabled).toBe(true);
+    expect(state.headingStyle.textColor).toBe('#e1e1e1');
+    expect(state.advanced.rawCss).toBe('');
+  });
+
+  it('the v0.10 heading shape round-trips byte-stably (incl. family)', () => {
+    const state = makeState({
+      headingStyle: {
+        ...DEFAULT_HEADING_STYLE,
+        enabled: true,
+        fontSize: 22,
+        textColor: 'var(--red-color)',
+        fontWeight: 'medium',
+        fontFamily: "'Courier New', monospace",
+        iconSize: 30,
+        iconColor: '#123456',
+        alignment: 'right',
+      },
+    });
+    const css1 = generateCss(state);
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'heading', card_mod: { style: css1 } }), 'heading');
+    expect(reparsed.advanced.rawCss).toBe('');
+    expect(reparsed.headingStyle).toMatchObject({
+      enabled: true, fontSize: 22, textColor: 'var(--red-color)', fontWeight: 'medium',
+      fontFamily: "'Courier New', monospace", iconSize: 30, iconColor: '#123456', alignment: 'right',
+    });
+    expect(generateCss(reparsed, 'heading')).toBe(css1);
+  });
+
+  it('a hand-written DIFFERENT subtitle variable stays in Advanced CSS', () => {
+    const css =
+      '.container {\n  --ha-heading-card-title-font-size: 20px;\n  --ha-heading-card-subtitle-font-size: 12px;\n}';
+    const state = mapToStudioState(parseCardModConfig({ type: 'heading', card_mod: { style: css } }), 'heading');
+    expect(state.headingStyle.fontSize).toBe(20);
+    expect(state.advanced.rawCss).toContain('--ha-heading-card-subtitle-font-size: 12px');
+    expect(state.advanced.rawCss).not.toContain('--ha-heading-card-title-font-size');
+  });
+
+  it('a re-flowed family selector (".content p, .content .heading") is still recognised', () => {
+    const css = '.content p, .content .heading {\n  font-family: serif;\n}';
+    const state = mapToStudioState(parseCardModConfig({ type: 'heading', card_mod: { style: css } }), 'heading');
+    expect(state.headingStyle.fontFamily).toBe('serif');
+    expect(state.advanced.rawCss).toBe('');
   });
 });
 

@@ -392,6 +392,25 @@ function animationDecls(s: AnimationModuleState): string[] {
   return decls;
 }
 
+/**
+ * Heading card. HA 2026.10 replaced the title's `<p>` with
+ * `<h2 class="heading">` (`<h3>` for `heading_style: subtitle`) whose font
+ * properties inherit from HA's public `--ha-heading-card-{title,subtitle}-*`
+ * variables: the old `.title p` selector stopped matching, and even a
+ * `.heading` selector can't set size/weight there (HA's `inherit` wins).
+ * The variables work on 2026.9 AND 2026.10 alike (verified live, card-mod
+ * and UIX), so size / colour / weight go through them — for both heading
+ * styles, which also makes the module work on "Subtitle" headings (it never
+ * reached them before). Font family has no variable: a selector list
+ * covering the old `<p>` and the new `.heading` sets it on both versions.
+ * `.content` wraps the icon + text in either style.
+ *
+ * The pre-v0.10 shape (`.title p` / `.title ha-icon`) is still recognised
+ * by mapHeadingStyle, so opening an old config and saving migrates it.
+ */
+export const HEADING_FAMILY_SELECTOR = '.content p,\n.content .heading';
+export const HEADING_ICON_SELECTOR = '.content ha-icon';
+
 function headingStyleBlocks(s: HeadingStyleModuleState): string {
   if (!s.enabled) return '';
 
@@ -400,29 +419,29 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
     center: 'center',
     right: 'flex-end',
   };
-
-  const titlePDecls = [
-    `font-size: ${s.fontSize}px;`,
-    `color: ${s.textColor} !important;`,
-    `font-weight: ${FONT_WEIGHT_VALUE[s.fontWeight ?? 'normal']};`,
-    ...(s.fontFamily?.trim() ? [`font-family: ${s.fontFamily.trim()};`] : []),
-  ];
-  const titleP = `.title p {\n${titlePDecls.map((d) => `  ${d}`).join('\n')}\n}`;
-
-  // --mdc-icon-size is the var the heading icon honours today, but MDC custom
-  // properties are deprecated in HA (2026.4+). Emit --ha-icon-size alongside it
-  // as a forward-compatible fallback so sizing survives the MDC removal.
-  const iconDecls = [
-    `--mdc-icon-size: ${s.iconSize}px;`,
-    `--ha-icon-size: ${s.iconSize}px;`,
-    `color: ${s.iconColor} !important;`,
-  ];
-  const titleIcon = `.title ha-icon {\n${iconDecls.map((d) => `  ${d}`).join('\n')}\n}`;
-
   const alignVal = alignMap[s.alignment] ?? 'flex-start';
-  const container = `.container {\n  justify-content: ${alignVal} !important;\n}`;
+  const weight = FONT_WEIGHT_VALUE[s.fontWeight ?? 'normal'];
 
-  return [container, titleP, titleIcon].join('\n\n');
+  const containerDecls = [
+    `justify-content: ${alignVal} !important;`,
+    ...(['title', 'subtitle'] as const).flatMap((kind) => [
+      `--ha-heading-card-${kind}-font-size: ${s.fontSize}px;`,
+      `--ha-heading-card-${kind}-color: ${s.textColor};`,
+      `--ha-heading-card-${kind}-font-weight: ${weight};`,
+    ]),
+  ];
+  const container = `.container {\n${containerDecls.map((d) => `  ${d}`).join('\n')}\n}`;
+
+  const family = s.fontFamily?.trim()
+    ? `${HEADING_FAMILY_SELECTOR} {\n  font-family: ${s.fontFamily.trim()};\n}`
+    : '';
+
+  // --mdc-icon-size is what ha-icon honours (still, as of HA 2026.10 —
+  // HA's own usage grew); the pre-v0.10 `--ha-icon-size` twin was inert and
+  // is no longer emitted (still recognised when reading older configs).
+  const icon = `${HEADING_ICON_SELECTOR} {\n  --mdc-icon-size: ${s.iconSize}px;\n  color: ${s.iconColor} !important;\n}`;
+
+  return [container, family, icon].filter(Boolean).join('\n\n');
 }
 
 /** CSS value per Font-module weight name. Exported for the parser's
