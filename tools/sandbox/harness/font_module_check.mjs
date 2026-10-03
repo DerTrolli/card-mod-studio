@@ -390,7 +390,11 @@ const run = async () => {
       if (n.shadowRoot) s.push(...n.shadowRoot.children);
       if (n.children) s.push(...n.children);
     }
-    const btn = o.find((el) => (el.textContent || '').trim().toLowerCase() === 'edit' && el.children.length === 0);
+    const btn = o.find((el) => (el.textContent || '').trim().toLowerCase() === 'edit' && el.children.length === 0)
+      // HA sometimes renders hui-card-options before its translations arrive
+      // and never re-renders the label (HA race, also without the Studio) —
+      // the blank first button of .card-actions is still the Edit button.
+      || o.find((el) => el.tagName === 'HA-BUTTON' && el.closest('.card-actions') && el.getBoundingClientRect().width > 4);
     if (!btn) return null;
     const clickable = btn.closest('mwc-button, ha-button, button') || btn;
     const r = clickable.getBoundingClientRect();
