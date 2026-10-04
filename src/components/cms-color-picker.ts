@@ -32,6 +32,20 @@ function findModalDialogAncestor(start: Element): HTMLDialogElement | null {
   return null;
 }
 
+/**
+ * Where a portal stays clickable while an older (pre-Web-Awesome, e.g. HA
+ * 2026.2) MDC-style dialog is open: that dialog registers itself with the
+ * `blocking-elements` polyfill, which marks everything outside the top
+ * blocking element `inert` — document.body children, the dialog's siblings,
+ * and anything appended there later. Inside it (its shadow root) is the only
+ * interactive place. null when no such dialog is open (current HA uses a
+ * native modal <dialog> instead — see findModalDialogAncestor).
+ */
+function blockingElementRoot(): Node | null {
+  const top = (document as Document & { $blockingElements?: { top?: Element | null } }).$blockingElements?.top;
+  return top ? (top.shadowRoot ?? top) : null;
+}
+
 export interface ColorPreset {
   name: string;
   variable: string;  // e.g., 'var(--red-color)'
@@ -348,10 +362,18 @@ export class CmsColorPicker extends LitElement {
    * dialog is now deliberately the portal's containing block, position is
    * computed relative to the dialog's own rect instead of the viewport's
    * (see _toggleCompactPopover), which is correct *because of* #1, not in
-   * spite of it. Falls back to document.body (viewport-relative) when
-   * there's no dialog ancestor, e.g. this component used standalone.
+   * spite of it.
    *
-   * Confirmed empirically against a live HA instance for both problems.
+   * Without a native modal <dialog> (HA before the Web Awesome dialogs,
+   * e.g. 2026.2: an MDC-style ha-dialog) the portal goes into that
+   * dialog's shadow root (blockingElementRoot): while it's open everything
+   * outside it is `inert`, so a body-level popover was visible but couldn't
+   * be clicked — choosing a colour did nothing. Whatever containing block
+   * that gives the popover is corrected for after the first render
+   * (_correctPortalOffset). document.body is the last resort, for this
+   * component used outside HA.
+   *
+   * Confirmed empirically against live HA instances (2026.2 and 2026.9).
    */
   private _ensurePortal(): ShadowRoot {
     if (!this._portalShadow) {
@@ -359,7 +381,7 @@ export class CmsColorPicker extends LitElement {
       // The portal sits outside the panel, so it can't inherit the panel's
       // dark color-scheme (native colour input / text field) — copy it.
       this._portalHost.style.colorScheme = getComputedStyle(this).colorScheme;
-      (this._containingDialog ?? document.body).appendChild(this._portalHost);
+      (this._containingDialog ?? blockingElementRoot() ?? document.body).appendChild(this._portalHost);
       this._portalShadow = this._portalHost.attachShadow({ mode: 'open' });
     }
     return this._portalShadow;
@@ -389,6 +411,21 @@ export class CmsColorPicker extends LitElement {
     this._portalHost = null;
     this._portalShadow = null;
     this._containingDialog = null;
+  }
+
+  /** The popover's position is computed against `bounds` (the native
+   *  dialog, else the viewport); a portal container with its own
+   *  containing block (a transformed ancestor inside an older MDC dialog)
+   *  would shift it — measure where it really landed and shift it back. */
+  private _correctPortalOffset(bounds: DOMRect) {
+    const pop = this._portalShadow?.querySelector('.popover') as HTMLElement | null;
+    if (!pop || !this._popoverPos) return;
+    const r = pop.getBoundingClientRect();
+    const dx = r.left - (bounds.left + this._popoverPos.left);
+    const dy = r.top - (bounds.top + this._popoverPos.top);
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    this._popoverPos = { left: this._popoverPos.left - dx, top: this._popoverPos.top - dy };
+    this._renderPortalContent();
   }
 
   private _toggleCompactPopover(e: Event) {
@@ -441,6 +478,7 @@ export class CmsColorPicker extends LitElement {
         this._renderPortalContent();
       }
     }
+    this._correctPortalOffset(bounds);
     // Capture phase so this fires before the click that opened it finishes
     // bubbling — otherwise it would immediately close itself.
     document.addEventListener('click', this._outsideClickHandler, true);

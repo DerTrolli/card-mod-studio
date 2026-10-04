@@ -2,7 +2,7 @@
 import {
   sleep, openEditor, openStudio, mod, isOpen, expand, enable, setSwitch, choose, setSlider, typeInto,
   pickSwatch, pickText, pickCompact, pickEntity, expectCfg, expectPage, styleStr, resolveRgb, entityState,
-  sameRgb, rowOf, btn, shot, getCfg,
+  sameRgb, rowOf, btn, shot, getCfg, panelLoc,
 } from './lib.mjs';
 import { P_CARD, P_EL, P_HEADING, P_GAUGE, P_PANEL } from './probes.mjs';
 
@@ -268,15 +268,16 @@ async function accentSection(T) {
   const teal = await resolveRgb(T, 'var(--teal-color)');
   await expectPage(T, 'needle gauge preview: needle filled teal', P_GAUGE, null, (v) => sameRgb(v?.needleFill, teal));
 
-  // light card
+  // light card: nothing on it reads the accent colour (module_effect_audit,
+  // v0.10.0) — the module isn't offered there, nor Threshold's Accent option.
   await openEditor(T, 'fui-accent-light', [{ type: 'light', entity: 'light.ceiling_lights' }]);
   await openStudio(T);
-  m = mod(T, 'cms-accent-color-module');
-  await enable(m);
-  await pickSwatch(rowOf(T, m, 'Color').locator('cms-color-picker'), 'Pink');
-  await expectCfg(T, 'light card: --accent-color + --state-icon-color', has(T, '--accent-color: var(--pink-color);', '--state-icon-color: var(--pink-color);'));
-  const pink = await resolveRgb(T, 'var(--pink-color)');
-  await expectPage(T, 'light card preview: --accent-color set on ha-card (no documented visible consumer)', P_CARD, 0, (v) => sameRgb(v?.accent, pink));
+  T.check('light card: Accent Color not offered (no visible effect there)', (await panelLoc(T).locator('cms-accent-color-module').count()) === 0);
+  const thr = mod(T, 'cms-threshold-module');
+  await enable(thr);
+  await expand(thr);
+  const opts = await thr.locator('label.property-check').allTextContents();
+  T.check('light card: Threshold offers no Accent option', !opts.some((t) => /accent/i.test(t)), JSON.stringify(opts.map((t) => t.trim())));
 }
 
 // ---------------------------------------------------------------------------

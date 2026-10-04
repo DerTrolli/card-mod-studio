@@ -169,6 +169,10 @@ Found by a dedicated audit (every item reproduced first, now covered by
   note now only appears for CSS the card already had, not for CSS you type.
 - **Presets are named in the panel** instead of a browser pop-up, which
   doesn't work reliably in the Home Assistant app.
+- **Colour pop-ups work on older Home Assistant versions** (e.g. 2026.2,
+  before HA's current dialogs): the swatch pop-up of compact colour pickers
+  (threshold rules, entity rows) showed but couldn't be clicked — HA made
+  everything outside its dialog inert.
 
 ### Fixed — modules
 
