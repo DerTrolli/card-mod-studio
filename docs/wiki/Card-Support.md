@@ -9,9 +9,11 @@ Sensor/Entity, Entities, Glance, Heading, Markdown, Graphs & Data, Picture,
 Media & Alarm, Containers, iframe/map) — each lists all available options
 on that card, its quirks, and its limits.
 
-Everything below is **measured against real rendered cards** (the project
-maintains a Docker + Playwright rig that renders each card with real
-card-mod/UIX and checks computed styles), not guessed from source. Details:
+Everything below is **measured against real rendered cards**, not guessed
+from source: for v0.10.0 every module was switched on, one at a time, on
+every built-in card type with card-mod and with UIX, and the rendered card
+was compared pixel-by-pixel — a control that changed nothing visible was
+hidden (`tools/sandbox/harness/module_effect_audit.mjs`). Details:
 [CARD_SUPPORT_MATRIX.md](https://github.com/DerTrolli/card-mod-studio/blob/main/docs/CARD_SUPPORT_MATRIX.md).
 
 ## The reliable foundation
@@ -26,7 +28,12 @@ Exceptions and specials:
 | entities | Card-level Icon/Accent/Threshold hidden — use [per-row styling](Entities-Card-Per-Row-Styling); Font styles rows + title |
 | vertical-stack / horizontal-stack / grid | Per-child styling sections — see [Cards Inside Stacks](Styling-Cards-Inside-Stacks) |
 | glance | Icon Color hidden: the icon lives in a nested shadow root, colored inline from state — no reachable selector (measured) |
-| gauge / thermostat / humidifier / weather / graphs | Icon Color hidden (no `ha-state-icon` to color); Accent works on the meaningful target (gauge dial, etc.) |
+| gauge / thermostat / humidifier / weather / graphs | Icon Color hidden (no `ha-state-icon` to color); Accent works on the meaningful target (gauge dial, thermostat slider, history/statistic graphs) |
+| Accent Color | Hidden wherever nothing on the card reads the accent colour: button, light, glance, markdown, humidifier, alarm-panel, area, picture cards, map, iframe, todo-list, logbook, statistics-graph, weather-forecast |
+| Font text color | Hidden where the card colours its own text (alarm-panel, media-control, area, picture-entity, picture-elements, statistics-graph, todo-list, logbook) — size/weight/family still offered |
+| Threshold Colors | Its "Apply to" list only offers the colours the matching module offers on that card |
+| area | Icon Color hidden (the area icon doesn't take it); everything card-box-level works |
+| entity-filter | Treated as a container: a style on the filter reaches nothing — Advanced CSS only; style its inner `card:` in YAML |
 | light | Icon Color gains "Match the light's color" mode |
 | alarm-panel / media-control | Icon Color available (verified working) |
 | iframe / webpage / map | Only border/radius/filter apply (cross-origin / map-library content) |

@@ -5,7 +5,7 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.10.0] — 2026-10-03
+## [0.10.0] — 2026-10-04
 
 The "Piercing + polish" release — the v0.10 cycle consolidated (beta.1,
 field-tested since 2026-08-17) plus a full release-readiness pass:
@@ -191,6 +191,20 @@ Found by a dedicated audit (every item reproduced first, now covered by
   or the card-level Font module.
 - **Threshold Colors is no longer offered on heading cards**, where none of
   its colours had any visible effect (use Heading Style's text colour).
+- **No more controls that do nothing.** Every module was switched on, one
+  at a time, on every built-in card type — with card-mod and with UIX — and
+  the rendered card compared pixel by pixel. What changed nothing is now
+  hidden on that card: Accent Color on cards that never use the accent
+  colour (button, light, glance, markdown, humidifier, alarm panel, area,
+  picture cards, map, iframe, to-do list, logbook, statistics graph,
+  weather), Font's text colour where the card colours its own text, Icon
+  Color on area and picture-elements cards, Font on plain picture cards.
+  Threshold Colors' "Apply to" list now offers exactly the colours the
+  matching modules offer on that card, and presets drop what a card hides.
+  An `entity-filter` card is treated as a container — a style on the filter
+  itself never reached the card it shows.
+- **Threshold Colors → Text Color now works on tile cards** (the tile's
+  text uses its own colour variables; Font already handled them).
 - **Entity row icon colours now show while the entity is on.** HA colours
   an active entity's icon itself (lights always do), which beat the row
   colour, so it only showed while the entity was off. Setting a row icon

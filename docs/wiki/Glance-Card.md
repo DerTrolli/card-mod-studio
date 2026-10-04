@@ -6,9 +6,9 @@
 |---|---|---|
 | Font | ✅ | Entity names/states, **plus the card title** |
 | Visual Filters | ✅ | |
-| Accent Color | ✅ | Generic variables — limited visible effect on this card |
+| Accent Color | — hidden | Nothing on a glance card reads the accent colour (measured, v0.10.0) |
 | Icon Color | — hidden | See below — genuinely unreachable |
-| Threshold Colors | ✅ | Background/text-color properties work; icon color doesn't (same reason) |
+| Threshold Colors | ✅ | Background / Text / Border Color (Icon and Accent aren't offered — same reasons) |
 | Background | ✅ | |
 | Animation | ✅ | |
 | Border & Radius | ✅ | |

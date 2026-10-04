@@ -6,7 +6,7 @@
 |---|---|---|
 | Font | ✅ | Title + mode label follow fully; the big number: **weight/color only** for now (see limits) |
 | Visual Filters | ✅ | |
-| Accent Color | ✅ | Thermostat: recolors the circular slider + the heat/cool/auto/idle state colors together |
+| Accent Color | thermostat only | Recolors the circular slider + the heat/cool/auto/idle state colors together. Hidden on humidifier: its slider keeps HA's state colour (measured, v0.10.0) |
 | Icon Color | — hidden | No reachable standalone icon |
 | Threshold Colors | ✅ | e.g. slider color driven by `current_temperature` (use **Value read from: Attribute**) |
 | Background | ✅ | |
@@ -18,8 +18,8 @@
 
 - **Thermostat accent** sets the whole family of climate state variables
   (`--state-climate-heat/cool/auto/idle-color`) plus the circular slider
-  color, so the card looks coherent instead of half-recolored. Humidifier
-  uses the generic accent variables — coverage is more basic there.
+  color, so the card looks coherent instead of half-recolored. (Humidifier
+  offers no Accent: nothing on that card reads it.)
 - A classic recipe: Threshold Colors → Accent, **Value read from:
   Attribute → current_temperature**, Fade blue→red.
 

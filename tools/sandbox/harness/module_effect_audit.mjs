@@ -61,7 +61,7 @@ const CARDS = {
   picture: { image: IMG },
   'picture-elements': { image: IMG, elements: [{ type: 'state-icon', entity: L, style: { top: '50%', left: '50%' } }] },
   'picture-entity': { entity: 'camera.demo_camera' },
-  'picture-glance': { camera_image: 'camera.demo_camera', entities: [L] },
+  'picture-glance': { title: 'Garden', camera_image: 'camera.demo_camera', entities: [L] },
   sensor: { entity: T, graph: 'line' },
   statistic: { entity: T, stat_type: 'mean', period: { calendar: { period: 'day' } } },
   'statistics-graph': { entities: [T], chart_type: 'line' },
@@ -270,12 +270,13 @@ const run = async () => {
       if (!base) { row.error = 'preview did not render'; results.push(row); console.log(type, 'NO PREVIEW'); continue; }
       const thrOffered = row.shown.includes('cms-threshold-module') ? await page.evaluate(() => window.__audit.thresholdOptions()) : [];
       row.thresholdOffers = thrOffered;
+      const fontColorShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-font-module')?.allowColor !== false);
       const initial = await page.evaluate(() => window.__audit.state());
       const cases = [
         ...Object.entries(MODULES).map(([mod, f]) => ({ mod, label: mod.replace(/^cms-|-module$/g, ''), slice: f(initial), shown: row.shown.includes(mod) })),
         ...THRESHOLD_PROPS.map((p) => ({ mod: 'cms-threshold-module', label: `threshold:${p}`, slice: threshold(initial, p, entity), shown: row.shown.includes('cms-threshold-module') && thrOffered.includes(p) })),
         // Font's colour picker on its own: Font already on at defaults, then only the colour changes.
-        { mod: 'cms-font-module', label: 'font:color', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, color: RED } }, shown: row.shown.includes('cms-font-module') },
+        { mod: 'cms-font-module', label: 'font:color', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, color: RED } }, shown: row.shown.includes('cms-font-module') && fontColorShown },
       ];
       for (const c of cases) {
         let cBase = base;

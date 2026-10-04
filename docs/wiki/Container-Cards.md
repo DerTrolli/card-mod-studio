@@ -1,5 +1,5 @@
 `vertical-stack`, `horizontal-stack`, `grid` — plus the not-yet-covered
-`conditional` and `sections`.
+`conditional`, `entity-filter` and `sections`.
 
 ## Stacks & grid
 
@@ -16,4 +16,5 @@ At the container level itself, only [Advanced CSS](Advanced-CSS) is offered
 |---|---|
 | `conditional` | Uses a single `card:` instead of `cards:` — per-child styling planned ([What's Planned](Whats-Planned)); style the inner card standalone for now |
 | `sections` view containers | Edited through a different HA dialog — same plan |
+| `entity-filter` | Renders its own inner `card:` — a style on the filter itself reaches nothing, so only Advanced CSS is offered (v0.10.0, measured). Style it by adding `card_mod:`/`uix:` to its `card:` in YAML |
 | A stack **inside** a stack | No recursion yet — open the inner stack as its own card |

@@ -89,7 +89,7 @@ export const NO_ICON_COLOR_TYPES = new Set([
 export const NO_ACCENT_TYPES = new Set([
   'alarm-panel', 'area', 'button', 'glance', 'humidifier', 'iframe', 'light',
   'map', 'markdown', 'picture', 'picture-elements', 'picture-entity',
-  'statistics-graph', 'todo-list', 'weather-forecast', 'logbook',
+  'statistics-graph', 'todo-list', 'weather-forecast', 'logbook', 'picture-glance',
 ]);
 
 /**
@@ -99,7 +99,7 @@ export const NO_ACCENT_TYPES = new Set([
  */
 export const NO_TEXT_COLOR_TYPES = new Set([
   'alarm-panel', 'area', 'media-control', 'picture-elements', 'statistics-graph',
-  'todo-list',
+  'todo-list', 'logbook', 'picture-entity',
 ]);
 
 /**

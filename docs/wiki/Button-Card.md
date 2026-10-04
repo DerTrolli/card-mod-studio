@@ -7,9 +7,9 @@
 |---|---|---|
 | Font | ✅ | The label — size needed special handling internally (`!important`), done automatically |
 | Visual Filters | ✅ | |
-| Accent Color | ✅ | Generic accent variables |
+| Accent Color | — hidden | The button card never reads the accent colour — switching it on changed nothing (measured, v0.10.0) |
 | Icon Color | ✅ | Plain or ON/OFF conditional |
-| Threshold Colors | ✅ | |
+| Threshold Colors | ✅ | Icon / Background / Text / Border Color |
 | Background | ✅ | |
 | Animation | ✅ | Pulse/blink on a doorbell button, etc. |
 | Border & Radius | ✅ | |
