@@ -563,9 +563,9 @@ function fontCompanionBlocks(
       ...(color ? [`  color: ${color} !important;`] : []),
     ];
     blocks.push(`.title {\n${titleDecls.join('\n')}\n}`);
-    // Before HA 2026.6 the gauge's name was a div.name (2026.2 and 2025.9
-    // checked live); current HA has no .name in the gauge, so this is inert
-    // there.
+    // On older HA the gauge's name is a div.name (checked live on 2026.2 and
+    // 2025.9; 2026.6+ uses p.title); current HA has no .name in the gauge, so
+    // this is inert there.
     if (cardType === 'gauge') blocks.push(`.name {\n${titleDecls.join('\n')}\n}`);
   }
 

@@ -1,11 +1,10 @@
 // Reproduces the exact user-reported scenario, inside HA's *real* card-edit
 // dialog (not a synthetic mount): a `button` card (whose own entity has no
 // on/off state) should still let you pick "Different for ON/OFF" on Icon
-// Color / Accent Color and bind it to a *different*, toggleable entity —
+// Color and bind it to a *different*, toggleable entity (Accent Color is
+// hidden on button cards since v0.10.0) —
 // plus checks the entity-picker isn't visually overflowing its row (real
-// layout only exists inside the real dialog — see harness-utils note below)
-// and that Accent Color no longer shows the "--accent-color" CSS-variable
-// exposition text.
+// layout only exists inside the real dialog — see harness-utils note below).
 //
 // Uses the real dialog (not document.body/`<home-assistant>` synthetic
 // mounts) for two independent reasons that would each individually break a
@@ -237,10 +236,12 @@ const run = async () => {
   record('Picking a different (toggleable) entity sets entityId and reaches emitted CSS', iconEntitySet.entityIdInState === 'binary_sensor.preheat_active' && iconEntitySet.emittedUsesCustomEntity, JSON.stringify(iconEntitySet));
 
   // ---------------------------------------------------------------------
-  // Accent Color: same conditional-mode-available check, plus the
-  // "--accent-color" text should be gone.
+  // Accent Color: hidden on a button card since v0.10.0 — the module-effect
+  // audit (module_effect_audit.mjs) found it changes nothing visible there.
+  // Its conditional mode + "Controlled by" picker are covered on cards that
+  // use the accent (functional_ui_check's accent section).
   // ---------------------------------------------------------------------
-  const accentCheck = await page.evaluate(async () => {
+  const accentOffered = await page.evaluate(() => {
     const all = (root, tag) => {
       const o = []; const s = [root]; tag = tag.toLowerCase();
       while (s.length) {
@@ -251,34 +252,9 @@ const run = async () => {
       }
       return o;
     };
-    const panel = all(document.body, 'cms-panel')[0];
-    const mod = all(document.body, 'cms-accent-color-module')[0];
-    await mod.updateComplete;
-    mod.shadowRoot.querySelector('.module-header').click();
-    await mod.updateComplete;
-    const bodyText = mod.shadowRoot.querySelector('.module-body')?.textContent ?? '';
-    const select = mod.shadowRoot.querySelector('select');
-    const hasConditionalOption = select ? [...select.options].some((o) => o.value === 'conditional') : false;
-    select.value = 'conditional';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-    await mod.updateComplete;
-    await panel.updateComplete;
-    await mod.updateComplete;
-    const picker = mod.shadowRoot.querySelector('cms-entity-picker');
-    await picker?.updateComplete;
-    const realPicker = picker?.shadowRoot?.querySelector('ha-entity-picker');
-    return {
-      mentionsAccentColorVar: bodyText.includes('--accent-color'),
-      hasConditionalOption,
-      pickerExists: !!picker,
-      usesRealPicker: !!realPicker,
-      modeAfterSelect: mod.state.mode,
-    };
+    return all(document.body, 'cms-accent-color-module').length > 0;
   });
-  record('Accent Color no longer shows the "--accent-color" CSS-variable text', !accentCheck.mentionsAccentColorVar, JSON.stringify(accentCheck));
-  record("Accent Color offers \"Different for ON/OFF\" regardless of the card entity's state-awareness", accentCheck.hasConditionalOption, JSON.stringify(accentCheck));
-  record('Accent Color shows the real ha-entity-picker once conditional mode is selected', accentCheck.usesRealPicker, JSON.stringify(accentCheck));
-  await page.screenshot({ path: resolve(SHOTS, 'button-binding-02-accent-color-conditional.png') });
+  record('Accent Color is not offered on a button card (no visible effect there)', !accentOffered, JSON.stringify({ accentOffered }));
 
   // ---------------------------------------------------------------------
   // Threshold's entity field — the original reported "way too wide, goes

@@ -417,3 +417,44 @@ baseline: HA 2026.8.0 + card-mod 4.2.1 + UIX 8.0.0.)
 | Visual-only shifts in HA 2026.9/2026.10 | `ha-card` header padding and line-height changed; entities rows render `secondary_info` through `state-display`. The `--ha-card-header-*` variables and the per-row selectors the Studio uses are still read. |
 
 Full detail and sources: `docs/ROADMAP.md` ("Engine watch").
+
+---
+
+## 12. Older Home Assistant quick checks (2026-10-04)
+
+Quick checks (not the full release suite) on four older HA versions, card-mod
+only (UIX 8.x requires HA ≥ 2026.8), each in its own Docker rig
+(`tools/sandbox` images pinned to the version):
+
+| HA | card-mod | Scripted live checks¹ | Functional (real dialog) | Visual (light/dark × desktop/phone) | Verdict |
+|---|---|---|---|---|---|
+| 2026.6.4 | 4.2.1 | 30/30 | 397/397 | 20/20 clean | ✅ works |
+| 2026.2.3 | 4.2.1 | 30/30 | 397/397 | 20/20 clean | ✅ works |
+| 2025.9.4 | 3.4.5 | 30/30 | 392/397 — the 5 misses are Font on a tile's text (known gap, below) | VISUAL | 🟡 works, one gap |
+| 2025.3.4 | 3.4.5 | 30/30² | — | — | ❌ Style button never appears |
+
+¹ `compat_check`, `heading_check`, `dict_visual_check`, `state_props_check`.
+² These mount the panel directly; in the real card editor the button has no
+injection point (the footer has no `ha-button[slot=secondaryAction]`).
+
+Found and fixed on the way (all versions benefit):
+
+- **Colour pop-ups couldn't be clicked on 2026.2** — HA's MDC-style
+  `ha-dialog` registers with the blocking-elements polyfill, which makes
+  everything outside it `inert`; the pop-up portal now goes into the
+  blocking element's shadow root (`blockingElementRoot()` in
+  `cms-color-picker.ts`) with an offset correction for its containing block.
+- **Escape** closed the whole editor (2026.9) or nothing (2025.9/2026.2) —
+  now closes just the pop-up.
+- **Gauge name** is `div.name` on 2026.2 and 2025.9 (`p.title` from 2026.6):
+  Font now emits a `.name` block for gauges too (inert on current HA).
+
+Known gap on 2025.9: `ha-tile-info` reads hard-coded
+`var(--primary-text-color)` / `var(--ha-font-size-m)` — the
+`--ha-tile-info-*` variables Font writes (present on 2026.2+) don't exist
+yet, so Font doesn't reach a tile's name/state text there. Other tile
+styling and Font on other cards work. The harness gained 2025.x fallbacks
+for the Material `ha-slider` and the vaadin entity-picker overlay; HA
+frontend errors unrelated to the Studio (`recovery_mode` of null) were
+ignored. `hacs.json` minimum set to **2025.9.0**.
+

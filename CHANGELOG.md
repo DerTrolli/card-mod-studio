@@ -187,7 +187,7 @@ Found by a dedicated audit (every item reproduced first, now covered by
 - **Font on a gauge in dark mode**: with the default (theme) text colour,
   the gauge's value turned black — unreadable on a dark card.
 - **Font on a gauge reaches the gauge's name on older Home Assistant**
-  (before 2026.6, where the name is a different element).
+  (2026.2 and older, where the name is a different element).
 - **Font family "Custom…"** (Font and Heading Style) now shows its text
   field — choosing it did nothing, so a custom family could only be typed
   in YAML.
@@ -236,6 +236,13 @@ Found by a dedicated audit (every item reproduced first, now covered by
 
 ### Compatibility notes
 
+- **Minimum Home Assistant is now 2025.9** (`hacs.json` said 2024.4, which
+  was never true). Fully tested: HA 2026.9.4 and 2026.10.0b0 with card-mod
+  4.2.1 and with UIX 8.3.1. Partially tested (quick checks): HA 2026.6.4
+  and 2026.2.3 with card-mod 4.2.1 — every functional check passes — and
+  HA 2025.9.4 with card-mod 3.4.5, where everything works except Font on a
+  tile card's name/state text. On HA 2025.3 the Style button doesn't
+  appear. Details: README → Compatibility.
 - **card-mod 4.2.1** (still the newest release) works, but is
   effectively unmaintained: on HA ≥ 2026.8 it hangs if your *theme*
   defines `card-mod-*-yaml` variables (card-mod issues #606/#617). UIX is

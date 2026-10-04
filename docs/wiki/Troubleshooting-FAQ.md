@@ -1,6 +1,8 @@
 ## The Style button doesn't appear
 
 1. Hard-refresh the browser (Ctrl+Shift+R) — stale bundle is the usual cause.
+   Also check your HA version: Card-Mod Studio needs **2025.9 or newer**
+   (older card editors have no spot for the button).
    With a manual install, also bump the `?v=` in the resource URL.
 2. Check the resource exists: **Settings → Dashboards → ⋮ → Resources**
    (HACS installs it automatically; type must be *JavaScript Module*).

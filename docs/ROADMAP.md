@@ -85,7 +85,24 @@ list and [`docs/V0.10_PLAN.md`](V0.10_PLAN.md) for the original plan.
   `state_color: false`); an unfinished Threshold no longer silently disables
   Background/Accent; the gauge value no longer turns black in dark mode;
   HA's YAML editor stays in sync with Studio edits; "Show code editor" no
-  longer greys out after a no-op edit.
+  longer greys out after a no-op edit; Escape closes just a colour pop-up
+  (not the whole editor).
+- **No controls that do nothing** — a module-effect audit
+  (`tools/sandbox/harness/module_effect_audit.mjs`) switched every module on,
+  one at a time, on 31 built-in card types with card-mod and with UIX and
+  compared the rendered card pixel by pixel. Every control that changed
+  nothing is now hidden on that card (Accent Color on 17 card types, Font's
+  text colour on 6, Icon Color on area/picture-elements, Font on plain
+  picture cards), Threshold's "Apply to" list follows the same rules, and
+  Threshold → Text Color now reaches tile text and card titles. Result: 0
+  dead controls on either engine (table in `docs/CARD_SUPPORT_MATRIX.md`).
+- **Older Home Assistant versions** — quick checks on HA 2026.6.4 and
+  2026.2.3 (card-mod 4.2.1: all 397 functional checks pass, visual pass
+  clean) and 2025.9.4 (card-mod 3.4.5: works, except Font on a tile's text);
+  HA 2025.3 doesn't show the Style button. `hacs.json` now says HA ≥ 2025.9.0
+  (it claimed 2024.4.0). Found and fixed along the way: colour pop-ups
+  couldn't be clicked on HA 2026.2 and older, and Font missed the gauge name
+  there. README "Compatibility" lists fully vs. partially tested versions.
 - **Engine re-verification** — see "Engine watch" below: card-mod 4.2.1 is
   effectively unmaintained and hangs on HA ≥ 2026.8 for themes that define
   `card-mod-*-yaml` variables; UIX 8.1–8.3 re-verified (the `uix:`/`card_mod:`

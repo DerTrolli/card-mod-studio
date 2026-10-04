@@ -1,6 +1,16 @@
 ## Requirements
 
-- Home Assistant **2024.4.0 or newer** (v0.10.0 is verified live on 2026.9.4 and 2026.10.0b0)
+- Home Assistant **2025.9 or newer**, 2026.2 or newer recommended:
+  - **Fully tested** on 2026.9.4 and 2026.10.0b0, with card-mod 4.2.1 and
+    with UIX 8.3.1 (every control, every card type, light/dark, phone to
+    desktop).
+  - **Partially tested** (quick checks) on 2026.6.4 and 2026.2.3 with
+    card-mod 4.2.1 — all controls pass — and on 2025.9.4 with card-mod
+    3.4.5, where everything works except that Font doesn't change a *tile*
+    card's name/state text.
+  - Older than 2025.9 isn't supported: HA's older card editor has no spot
+    for the Style button (checked on 2025.3), and HACS won't offer the
+    plugin there.
 - **card-mod** or **UIX** installed and working — Card-Mod Studio *generates*
   the YAML; one of those two engines *applies* it. Without an engine, styles
   are saved but nothing renders (the panel shows a warning banner in that case).

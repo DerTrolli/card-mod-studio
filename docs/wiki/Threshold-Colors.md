@@ -20,9 +20,13 @@ Tick any combination of target properties; they all follow the same rules:
 | Icon Color | The card's main icon |
 | Accent Color | The card's accent (tile tint, gauge dial/needle, graph line) |
 | Background | The whole card background |
-| Text Color | The card's text |
+| Text Color | The card's text (on tile cards the name/state text, on chart and list cards the title) |
 | Border Color | A card border (width slider appears when selected) |
 
+The list only offers the colours that actually show on the current card —
+the same rules that hide a module elsewhere (e.g. no Accent Color on a
+button or light card, no Text Color on an alarm panel). See
+[Card Support](Card-Support).
 While Threshold drives a property, the corresponding static module for that
 property steps aside automatically — no fighting declarations.
 

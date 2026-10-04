@@ -22,8 +22,8 @@ this, it just works:
 | light | Name/state text and the brightness % |
 | button | The label |
 | sensor / entity | Name, unit, **and the big value** (value at 1.75× your size — its native ratio) |
-| tile | Name and state text (via the tile's own font variables) |
-| gauge | The title; the value number follows **color** (size: see limits) |
+| tile | Name and state text (via the tile's own font variables — HA 2026.2+; on HA 2025.9 these variables don't exist yet, so the tile text keeps its size/colour) |
+| gauge | The title (also on older HA, where it's a different element); the value number follows **color** (size: see limits) |
 | thermostat | The title and mode label; the big number follows **weight/color** (size: see limits) |
 
 ### Known limits (for now)
@@ -44,8 +44,12 @@ logic, and the gauge's SVG text needs a scale-based control design). See
 
 ### Not offered on
 
-`heading` (it has the dedicated module below), and `iframe`/`webpage`/`map`
-(no HA-templated text to style).
+`heading` (it has the dedicated module below), `iframe`/`webpage`/`map`
+(no HA-templated text to style), and plain `picture` cards (no text).
+
+**Text color** is hidden (size/weight/family stay) where the card colours
+its own text and a colour set here would never show: alarm-panel,
+media-control, area, picture-entity, picture-glance and picture-elements.
 
 ## The Heading Style module
 

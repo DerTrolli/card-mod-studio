@@ -28,7 +28,7 @@ Exceptions and specials:
 | entities | Card-level Icon/Accent/Threshold hidden — use [per-row styling](Entities-Card-Per-Row-Styling); Font styles rows + title |
 | vertical-stack / horizontal-stack / grid | Per-child styling sections — see [Cards Inside Stacks](Styling-Cards-Inside-Stacks) |
 | glance | Icon Color hidden: the icon lives in a nested shadow root, colored inline from state — no reachable selector (measured) |
-| gauge / thermostat / humidifier / weather / graphs | Icon Color hidden (no `ha-state-icon` to color); Accent works on the meaningful target (gauge dial, thermostat slider, history/statistic graphs) |
+| gauge / thermostat / humidifier / weather / graphs | Icon Color hidden (no `ha-state-icon` to color); Accent works on the meaningful target where there is one (gauge dial, thermostat slider, history-graph lines, statistic card) and is hidden on humidifier, weather and statistics-graph (see below) |
 | Accent Color | Hidden wherever nothing on the card reads the accent colour: button, light, glance, markdown, humidifier, alarm-panel, area, picture cards, map, iframe, todo-list, logbook, statistics-graph, weather-forecast |
 | Font text color | Hidden where the card colours its own text (alarm-panel, media-control, area, picture-entity, picture-glance, picture-elements) — size/weight/family still offered. On chart cards it colours the title (graph labels are drawn by the chart) |
 | Threshold Colors | Its "Apply to" list only offers the colours the matching module offers on that card |

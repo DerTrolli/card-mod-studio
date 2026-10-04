@@ -207,7 +207,7 @@ Every module was checked on every built-in card type, with card-mod and with UIX
 
 ## Requirements
 
-- Home Assistant 2026.2 or newer recommended (tested on 2026.9 and 2026.10 — see [Compatibility](#compatibility))
+- Home Assistant **2025.9 or newer** — fully tested on 2026.9 and 2026.10, 2026.2 or newer recommended (see [Compatibility](#compatibility))
 - [card-mod](https://github.com/thomasloven/lovelace-card-mod) or [UIX](https://uix.lf.technology/) must be installed and working
 - HACS (for installation)
 
@@ -252,17 +252,18 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 
 ## Compatibility
 
-| HA Version | Status |
-|---|---|
-| 2026.9 – 2026.10 | ✅ Tested — v0.10.0 is live-verified on **2026.9.4** (current stable) and **2026.10.0b0** (2026.10.0 releases 2026-10-07) |
-| 2026.2 – 2026.8 | Expected compatible (earlier v0.x releases were live-verified on 2026.7–2026.8) |
-| Older | Not tested — the current engines need a recent HA themselves (card-mod 4.2.x: ≥ 2026.2, UIX 8.x: ≥ 2026.8) |
+| HA Version | Engine | Status |
+|---|---|---|
+| 2026.9 – 2026.10 | card-mod 4.2.1, UIX 8.3.1 | ✅ **Fully tested** — v0.10.0 is live-verified on **2026.9.4** (current stable) and **2026.10.0b0** (2026.10.0 releases 2026-10-07), each with card-mod and with UIX: every control in the real card editor, every module on every built-in card type, light and dark mode, six screen sizes from phone to desktop |
+| 2026.2 – 2026.8 | card-mod 4.2.1 | 🟡 **Partially tested** — quick checks on **2026.2.3** and **2026.6.4**: every module's controls in the real card editor (397/397 checks each), the scripted live checks, and a light/dark × desktop/phone visual pass (all clean). UIX 8.x itself needs HA ≥ 2026.8, so UIX was only tested on the versions above |
+| 2025.9 – 2026.1 | card-mod 3.4.5 | 🟡 **Partially tested** — quick checks on **2025.9.4**: the Style button, live preview, colour pickers, entity pickers, presets and saving work, and the scripted live checks pass. Known gap: on tile cards the Font module doesn't change the tile's name/state text there (HA added the tile text variables Studio uses after 2025.9) — everything else on the tile, and Font on other cards, works |
+| Older than 2025.9 | — | ❌ **Not supported** — on 2025.3 the Style button doesn't appear (HA's older card-editor dialog), so HACS only offers Card-Mod Studio from 2025.9 |
 
 Card-mod compatibility follows card-mod's own compatibility table. See [card-mod releases](https://github.com/thomasloven/lovelace-card-mod/releases).
 
 | Engine | Version tested | Status |
 |---|---|---|
-| card-mod | 4.2.1 | ✅ Tested on HA 2026.9.4 and 2026.10.0b0 (4.2.1 is still the newest card-mod release, but it is effectively unmaintained — see the caveat below), see [`docs/COMPATIBILITY_AUDIT.md`](docs/COMPATIBILITY_AUDIT.md) |
+| card-mod | 4.2.1 (3.4.5 on HA before 2026.2) | ✅ Fully tested on HA 2026.9.4 and 2026.10.0b0; quick-checked on 2026.6.4 and 2026.2.3 (4.2.1) and 2025.9.4 (3.4.5 — card-mod 4.2.1 needs HA ≥ 2026.2). 4.2.1 is still the newest card-mod release, but it is effectively unmaintained — see the caveat below. See [`docs/COMPATIBILITY_AUDIT.md`](docs/COMPATIBILITY_AUDIT.md) |
 | UIX | 8.3.1 | ✅ Tested against a real running integration in Docker on HA 2026.9.4 and 2026.10.0b0 (note: UIX 8.x itself requires HA ≥ 2026.8.0, and UIX 8.4, currently in beta, will require HA ≥ 2026.10; the `uix:`/`card_mod:` styling contract is unchanged from 7.x), see [`docs/COMPATIBILITY_AUDIT.md` §9](docs/COMPATIBILITY_AUDIT.md) and [`tools/sandbox/run-uix.sh`](tools/sandbox/run-uix.sh) |
 
 > **card-mod caveat — consider UIX:** card-mod 4.2.1 still works with Card-Mod Studio on the HA versions above, but it is effectively unmaintained: on HA ≥ 2026.8 it hangs if your active *theme* defines `card-mod-*-yaml` variables ([card-mod #606](https://github.com/thomasloven/lovelace-card-mod/issues/606), [#617](https://github.com/thomasloven/lovelace-card-mod/issues/617)). If your theme does, [UIX](https://uix.lf.technology/) is a drop-in replacement for card-mod, and Card-Mod Studio supports both equally.
@@ -401,7 +402,7 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 20 | Click-to-edit preview picker (hover-highlight any element, jump to its control) + 4 new animation presets + value-conditional animations ("pulse while sensor.x > 30") | ✅ v0.9.0 |
 | 21 | Correctness release — dict-form data-loss guard + full-codebase audit (14 reproduced bugs fixed, ~2,900 fuzzed round-trips) | ✅ v0.9.1 |
 | 22 | Dict-form (`$` shadow-piercing) styles editable — `.` entry through the full module pipeline, every pierced entry preserved byte-identically (cards, stack children, entities rows) | ✅ v0.10.0 |
-| 23 | Release polish — light/dark/phone-ready editor UI, HA 2026.10 heading compatibility (Heading Style on HA's `--ha-heading-card-*` variables, Subtitle headings), hand-written-CSS audit (20 reproduced bugs fixed), real-dialog functional + visual QA of every control (entity-row icon colours while on, HA YAML-editor sync, and more), re-verified on HA 2026.9.4/2026.10.0b0 with card-mod 4.2.1 and UIX 8.3.1 | ✅ v0.10.0 |
+| 23 | Release polish — light/dark/phone-ready editor UI, HA 2026.10 heading compatibility (Heading Style on HA's `--ha-heading-card-*` variables, Subtitle headings), hand-written-CSS audit (20 reproduced bugs fixed), real-dialog functional + visual QA of every control (entity-row icon colours while on, HA YAML-editor sync, and more), a per-card audit that hides every control without a visible effect, re-verified on HA 2026.9.4/2026.10.0b0 with card-mod 4.2.1 and UIX 8.3.1, quick-checked back to HA 2025.9 | ✅ v0.10.0 |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

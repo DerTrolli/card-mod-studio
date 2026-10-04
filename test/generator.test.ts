@@ -659,7 +659,7 @@ describe('generateCss — font', () => {
     expect(css).toContain('--primary-text-color: #ff0000;');
   });
 
-  it('gauge: also targets the pre-2026.6 div.name, and it round-trips without leftovers', () => {
+  it('gauge: also targets the older-HA div.name, and it round-trips without leftovers', () => {
     const state = makeState({ font: { ...DEFAULT_FONT, enabled: true, fontSize: 20, fontWeight: 'bold', color: '#ff0000' } });
     const css = generateCss(state, 'gauge');
     expect(css).toContain('.name {\n  font-size: 20px !important;\n  font-weight: bold !important;\n  color: #ff0000 !important;\n}');

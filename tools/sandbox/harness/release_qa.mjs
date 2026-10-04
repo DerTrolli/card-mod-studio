@@ -447,8 +447,9 @@ const run = async () => {
                   const d = window.__qa.dialogRect();
                   return { found: true, onScreen: r.left >= d.x - 0.5 && r.top >= d.y - 0.5 && r.right <= d.x + d.width + 0.5 && r.bottom <= d.y + d.height + 0.5, rect: [r.left, r.top, r.right, r.bottom].map(Math.round), dialog: [d.x, d.y, d.x + d.width, d.y + d.height].map(Math.round) };
                 });
+                // Escape closes just the popover (no outside click: at (5,5)
+                // older HA's phone dialog has its close button)
                 await page.keyboard.press('Escape').catch(() => {});
-                await page.mouse.click(5, 5).catch(() => {});
                 await page.waitForTimeout(300);
               }
               // preview-picker hover label
