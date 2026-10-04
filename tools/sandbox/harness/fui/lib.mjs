@@ -571,6 +571,7 @@ export async function choose(sel, value) {
  *  fine-tune with the arrow keys until aria-valuenow reads the target —
  *  what a careful user does. */
 export async function setSlider(T, slider, target) {
+  if (await slider.locator('#slider').count() === 0) return setSliderLegacy(T, slider, target);
   const knob = slider.locator('#slider');
   await knob.scrollIntoViewIfNeeded();
   const meta = await knob.evaluate((k) => ({
@@ -590,6 +591,29 @@ export async function setSlider(T, slider, target) {
     // keep focus on the slider (a re-render may have dropped it)
     const focused = await knob.evaluate((k) => k.getRootNode().activeElement === k);
     if (!focused) await knob.focus();
+    await T.page.keyboard.press(now < target ? 'ArrowRight' : 'ArrowLeft');
+    await sleep(40);
+  }
+  throw new Error(`slider never reached ${target}`);
+}
+
+/** Pre-Web-Awesome ha-slider (HA 2025.x, Material md-slider): a native
+ *  <input type=range> in its shadow root — same click-then-arrow-keys idea. */
+async function setSliderLegacy(T, slider, target) {
+  const input = slider.locator('input[type="range"]').first();
+  await slider.scrollIntoViewIfNeeded();
+  const meta = await input.evaluate((i) => ({ min: Number(i.min), max: Number(i.max), now: Number(i.value) }));
+  const box = await slider.boundingBox();
+  if (!box) throw new Error('slider not visible');
+  if (meta.now !== target) {
+    const frac = Math.max(0, Math.min(1, (target - meta.min) / (meta.max - meta.min || 1)));
+    await T.page.mouse.click(box.x + 4 + frac * (box.width - 8), box.y + box.height / 2);
+  }
+  for (let i = 0; i < 80; i++) {
+    const now = await input.evaluate((el) => Number(el.value));
+    if (now === target) return;
+    const focused = await input.evaluate((el) => el.getRootNode().activeElement === el);
+    if (!focused) await input.focus();
     await T.page.keyboard.press(now < target ? 'ArrowRight' : 'ArrowLeft');
     await sleep(40);
   }
@@ -668,7 +692,19 @@ export async function pickEntity(T, cmsPicker, entityId) {
       return { x: r.left + r.width / 2, y: r.top + r.height / 2, text: norm(t.textContent) };
     }, { friendly });
   }
-  if (!target) throw new Error(`entity ${entityId} (${friendly}) not offered by the picker`);
+  if (!target) {
+    // Older HA (2025.x) lists the results in a virtualized vaadin overlay the
+    // geometry check above doesn't see — choose the first result by keyboard
+    // and let the caller's config assertion verify it.
+    const listed = await page.evaluate(() => {
+      const walk = (r, o = []) => { for (const e of r.querySelectorAll('*')) { o.push(e); if (e.shadowRoot) walk(e.shadowRoot, o); } return o; };
+      return walk(document).some((n) => n.tagName === 'VAADIN-COMBO-BOX-OVERLAY' && n.opened);
+    });
+    if (!listed) throw new Error(`entity ${entityId} (${friendly}) not offered by the picker`);
+    await page.keyboard.press('ArrowDown'); await sleep(150);
+    await page.keyboard.press('Enter'); await sleep(300);
+    return friendly;
+  }
   await page.mouse.click(target.x, target.y);
   await sleep(300);
   return target.text;

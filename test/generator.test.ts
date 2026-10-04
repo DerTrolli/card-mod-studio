@@ -659,6 +659,17 @@ describe('generateCss — font', () => {
     expect(css).toContain('--primary-text-color: #ff0000;');
   });
 
+  it('gauge: also targets the pre-2026.6 div.name, and it round-trips without leftovers', () => {
+    const state = makeState({ font: { ...DEFAULT_FONT, enabled: true, fontSize: 20, fontWeight: 'bold', color: '#ff0000' } });
+    const css = generateCss(state, 'gauge');
+    expect(css).toContain('.name {\n  font-size: 20px !important;\n  font-weight: bold !important;\n  color: #ff0000 !important;\n}');
+    const reparsed = mapToStudioState(parseCardModConfig({ type: 'gauge', card_mod: { style: css } }));
+    expect(reparsed.advanced.rawCss).toBe('');
+    expect(generateCss(reparsed, 'gauge')).toBe(css);
+    // thermostat titles were always .title — no .name block there
+    expect(generateCss(state, 'thermostat')).not.toContain('.name {');
+  });
+
   it('gauge: the theme-default text colour emits no self-referencing --primary-text-color (value text went black in dark mode)', () => {
     const state = makeState({ font: { ...DEFAULT_FONT, enabled: true, fontSize: 20 } });
     expect(state.font.color).toBe('var(--primary-text-color)');

@@ -235,6 +235,18 @@ export class CmsColorPicker extends LitElement {
     }
   };
 
+  /** Escape closes just the popover. Without this the key reached the
+   *  card-edit dialog instead: current HA closed the whole editor, older
+   *  (MDC-dialog) HA ignored it and left the popover open. Window capture
+   *  runs before either dialog's own key handling. */
+  private _escapeHandler = (e: KeyboardEvent) => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    this._closePopover();
+    (this.shadowRoot?.querySelector('.swatch-trigger') as HTMLElement | null)?.focus();
+  };
+
   static styles = [
     swatchStyles,
     css`
@@ -407,6 +419,7 @@ export class CmsColorPicker extends LitElement {
 
   private _destroyPortal() {
     document.removeEventListener('click', this._outsideClickHandler, true);
+    window.removeEventListener('keydown', this._escapeHandler, true);
     this._portalHost?.remove();
     this._portalHost = null;
     this._portalShadow = null;
@@ -482,6 +495,7 @@ export class CmsColorPicker extends LitElement {
     // Capture phase so this fires before the click that opened it finishes
     // bubbling — otherwise it would immediately close itself.
     document.addEventListener('click', this._outsideClickHandler, true);
+    window.addEventListener('keydown', this._escapeHandler, true);
   }
 
   private _closePopover() {

@@ -149,7 +149,8 @@ async function styleButtonSection(T) {
   const cfg2 = await getCfg(T);
   T.check('second card: dialog config is the second card', cfg2?.entity === 'switch.decorative_lights', JSON.stringify(cfg2));
   T.check('second card: no Font leaked from the cancelled first card', !(await mod(T, 'cms-font-module').locator('.module-header ha-switch').evaluate((e) => e.checked)));
-  const name2 = await T.page.evaluate(() => window.__fui.txt(window.__fui.q1(window.__fui.prev(), 'ha-tile-info')));
+  // light-DOM slots on current HA, the tile-info's own shadow root before 2026
+  const name2 = await T.page.evaluate(() => { const i = window.__fui.q1(window.__fui.prev(), 'ha-tile-info'); return window.__fui.txt(i) || window.__fui.txt(i?.shadowRoot); });
   T.check('second card: preview shows the second card', /Decorative/i.test(name2 || ''), name2);
   await cancelDialog(T);
 }

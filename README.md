@@ -54,13 +54,13 @@ If you switch back from UIX to card-mod-only, card-mod never reads `uix:` at all
 
 ### Icon Color & Accent Color
 
-Set a static color for the card's icon or accent, choose separate colors for when the entity is **on** vs **off**, or — for light entities — let the icon automatically reflect the light's actual `rgb_color` attribute.
+Set a static color for the card's icon or accent, choose separate colors for when the entity is **on** vs **off**, or — on light cards — let the icon automatically reflect the light's actual `rgb_color` attribute.
 
 The on/off condition doesn't have to come from the card's own entity: a **"Controlled by"** picker lets any toggleable entity drive the colors — e.g. a button card's icon reflecting a separate status sensor.
 
 On tile, entity, sensor, and picture-glance cards the module also offers an **icon size** slider — static, or reacting to a state/value condition with a fallback size (icon grows while the alarm is armed). It's only offered where the size variables verifiably reach the main state icon.
 
-The Accent Color override targets the correct CSS variable per card type: `--tile-color` for tile cards, `--gauge-color` for gauges (including needle mode), and `--state-icon-color` for everything else.
+The Accent Color override targets the correct CSS variable per card type: `--tile-color` for tile cards, `--gauge-color` for gauges (including needle mode), and `--state-icon-color` for everything else. It's only offered on cards that actually use the accent colour (see [Card-type awareness](#card-type-awareness)).
 
 ![Icon and accent color controls](images/03%20Accent%20and%20Icon%20Color.png)
 
@@ -198,6 +198,10 @@ The panel adapts to the card type so you never see irrelevant controls:
 - **Entities cards** — hides card-level Icon Color, Accent Color, and Threshold modules (use per-row styling instead)
 - **Data-viz / media cards** — hides Animation and Icon Color where they have no effect
 - **Picture / iframe cards** — hides Background and Font modules
+- **Accent Color** is only offered where a card actually draws with the accent colour (tile, gauge, entity, sensor, thermostat, media, calendar, history graph, …) — not on button, light, glance, markdown, picture and similar cards; **Font's text colour** is hidden where a card colours its own text
+- **Threshold Colors** offers exactly the colours the matching modules offer on that card
+
+Every module was checked on every built-in card type, with card-mod and with UIX, by switching it on and comparing the rendered card pixel by pixel — anything that changed nothing is hidden on that card (full table: [`docs/CARD_SUPPORT_MATRIX.md`](docs/CARD_SUPPORT_MATRIX.md)).
 
 ---
 

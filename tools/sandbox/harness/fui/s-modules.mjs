@@ -106,7 +106,7 @@ async function fontSection(T) {
     { what: 'title 1.5× = 33px purple bold', arg: { within: 'hui-entities-card', sel: '.card-header', props: ['fontSize', 'fontWeight', 'color'] }, ok: (v, p) => v?.fontSize === '33px' && v.fontWeight === '700' && sameRgb(v.color, p) },
   ]);
   await fontOn(T, 'gauge card', { type: 'gauge', entity: 'sensor.outside_humidity', min: 0, max: 100 }, [
-    { what: 'title 22px / 700 / purple', arg: { within: 'hui-gauge-card', sel: '.title', props: ['fontSize', 'fontWeight', 'color'] }, ok: (v, p) => v?.fontSize === '22px' && v.fontWeight === '700' && sameRgb(v.color, p) },
+    { what: 'title 22px / 700 / purple', arg: { within: 'hui-gauge-card', sel: '.title, .name', props: ['fontSize', 'fontWeight', 'color'] }, ok: (v, p) => v?.fontSize === '22px' && v.fontWeight === '700' && sameRgb(v.color, p) },
     { what: 'SVG value text recoloured purple (fill)', arg: { within: 'hui-gauge-card', sel: '.value-text', props: ['fill'] }, ok: (v, p) => sameRgb(v?.fill, p) },
   ]);
   await fontOn(T, 'thermostat card', { type: 'thermostat', entity: 'climate.heatpump' }, [
@@ -455,7 +455,18 @@ async function thresholdSection(T) {
   await expectCfg(T, 'second rule > 80 green, sorted first (highest > first)', has(T, `{{ 'var(--green-color)' if states('${ENT}') | float(0) > 80 else ('var(--red-color)' if states('${ENT}') | float(0) > 50 else '#888888') }}`));
   const legend = (await m.locator('.legend .legend-cond').allTextContents()).map((t) => t.trim().replace(/\s+/g, ' '));
   T.check('Result legend lists rules in evaluation order + default', JSON.stringify(legend) === JSON.stringify(['If value > 80', 'else if value > 50', 'otherwise (default)']), JSON.stringify(legend));
-  await pickCompact(T, rowOf(T, m, 'Default color').locator('cms-color-picker'), 'Blue');
+  // Escape closes just the popover — not the whole card editor (current HA)
+  // and not ignored (older MDC-dialog HA).
+  const defPicker = rowOf(T, m, 'Default color').locator('cms-color-picker');
+  await defPicker.locator('.swatch-trigger').first().click();
+  const openPop = T.page.locator('div.popover').filter({ visible: true }).first();
+  await openPop.waitFor({ state: 'visible', timeout: 5000 });
+  await T.page.keyboard.press('Escape');
+  await openPop.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+  await sleep(600);
+  T.check('Escape in a colour popover closes only the popover (Studio stays open)',
+    !(await openPop.isVisible().catch(() => false)) && await panelLoc(T).isVisible().catch(() => false));
+  await pickCompact(T, defPicker, 'Blue');
   await expectCfg(T, 'Default color via compact popover → var(--blue-color)', has(T, `else 'var(--blue-color)')`));
   T.check('Default color label shows the value', (await rowOf(T, m, 'Default color').locator('.color-label').textContent()).trim() === 'var(--blue-color)');
   await rule0.locator('button[aria-label="Remove rule"]').click();

@@ -42,7 +42,9 @@ const CARDS = [
     entity: 'sensor.outside_temperature',
     card_mod: { style: 'ha-card {\n  --accent-color: #03a9f4;\n  --tile-color: #03a9f4 !important;\n  border: 2px solid #03a9f4;\n}' },
   },
-  { type: 'light', entity: 'light.ceiling_lights' },
+  // Accent Color is hidden on light cards (no visible effect there), so the
+  // Icon + Accent shot uses a tile of the same light.
+  { type: 'tile', entity: 'light.ceiling_lights' },
   {
     type: 'entities',
     title: 'Climate',
@@ -62,7 +64,7 @@ const CARDS = [
   },
 ];
 
-async function openEditDialog(page, innerCardTag) {
+async function openEditDialog(page, innerCardTag, entity = null) {
   await page.goto(`${HA}/${DASHBOARD}/0`, { waitUntil: 'domcontentloaded' });
   await waitForHassReady(page);
   await page.waitForFunction(({ allByTagSrc }) => {
@@ -98,14 +100,14 @@ async function openEditDialog(page, innerCardTag) {
   await page.mouse.click(editDashboardItem.x, editDashboardItem.y);
   await page.waitForTimeout(1200);
 
-  const editLink = await page.evaluate(({ allByTagSrc, innerCardTag }) => {
+  const editLink = await page.evaluate(({ allByTagSrc, innerCardTag, entity }) => {
     const all = new Function('root', 'tag', allByTagSrc);
     const huiRoot = all(document.querySelector('home-assistant'), 'hui-root')[0];
     // Identify the wanted card by the card element it renders — index-based
     // selection is unreliable (shadow-DOM walk order != dashboard order).
     const cardOptions = all(huiRoot, 'hui-card-options').find(
       (co) =>
-        all(co, innerCardTag).length > 0 &&
+        all(co, innerCardTag).some((c) => !entity || c._config?.entity === entity) &&
         // the stack card contains a tile and an entities card of its own —
         // only match the stack when the stack is what's asked for
         (innerCardTag === 'hui-vertical-stack-card' || all(co, 'hui-vertical-stack-card').length === 0),
@@ -123,7 +125,7 @@ async function openEditDialog(page, innerCardTag) {
     const clickable = btn.closest('mwc-button, ha-button, button') || btn;
     const r = clickable.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  }, { allByTagSrc, innerCardTag });
+  }, { allByTagSrc, innerCardTag, entity });
   if (!editLink) throw new Error(`Card ${innerCardTag} Edit link not found`);
   await page.mouse.click(editLink.x, editLink.y);
   await page.waitForTimeout(1200);
@@ -364,7 +366,7 @@ const run = async () => {
   }, { urlPath: DASHBOARD, cards: CARDS });
 
   // --- 01: the Style button in the editor footer ---
-  await openEditDialog(page, 'hui-tile-card');
+  await openEditDialog(page, 'hui-tile-card', 'sensor.outside_temperature');
   {
     const ann = await annotate(page, [
       { find: { global: 'cms-tab-button' }, label: 'Opens the Card-Mod Studio panel', side: 'top', shiftX: 280 },
@@ -388,7 +390,7 @@ const run = async () => {
   }
 
   // --- 03: Icon + Accent Color, conditional mode with "Controlled by" ---
-  await openEditDialog(page, 'hui-light-card');
+  await openEditDialog(page, 'hui-tile-card', 'light.ceiling_lights');
   await clickStyleTab(page);
   await page.evaluate(async ({ allByTagSrc }) => {
     const all = new Function('root', 'tag', allByTagSrc);
@@ -396,7 +398,7 @@ const run = async () => {
     panel._studioState = {
       ...panel._studioState,
       accentColor: { ...panel._studioState.accentColor, enabled: true, mode: 'conditional', colorOn: '#ffb300', colorOff: '#455a64' },
-      iconColor: { ...panel._studioState.iconColor, enabled: true, mode: 'light', colorOff: '#6b6b6b' },
+      iconColor: { ...panel._studioState.iconColor, enabled: true, mode: 'conditional', colorOn: '#ffd54f', colorOff: '#6b6b6b' },
     };
     await panel.updateComplete;
     for (const sel of ['cms-accent-color-module', 'cms-icon-color-module']) {

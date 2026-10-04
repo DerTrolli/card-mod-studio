@@ -173,6 +173,9 @@ Found by a dedicated audit (every item reproduced first, now covered by
   before HA's current dialogs): the swatch pop-up of compact colour pickers
   (threshold rules, entity rows) showed but couldn't be clicked — HA made
   everything outside its dialog inert.
+- **Escape closes just the colour pop-up.** It used to close the whole card
+  editor on current HA (and did nothing on older versions); focus now
+  returns to the colour swatch.
 
 ### Fixed — modules
 
@@ -183,6 +186,8 @@ Found by a dedicated audit (every item reproduced first, now covered by
   takes over now says so instead of looking broken.
 - **Font on a gauge in dark mode**: with the default (theme) text colour,
   the gauge's value turned black — unreadable on a dark card.
+- **Font on a gauge reaches the gauge's name on older Home Assistant**
+  (before 2026.6, where the name is a different element).
 - **Font family "Custom…"** (Font and Heading Style) now shows its text
   field — choosing it did nothing, so a custom family could only be typed
   in YAML.
