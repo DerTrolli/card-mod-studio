@@ -877,7 +877,11 @@ function thresholdPropertyBlock(
     case 'background':
       return `ha-card {\n${marker}  background: ${jinja};\n}`;
     case 'text-color':
-      return `ha-card {\n${marker}  color: ${jinja};\n}`;
+      // tile text reads its own --ha-tile-info-* colours, not ha-card's
+      // colour (same companions the Font module writes).
+      return cardType === 'tile'
+        ? `ha-card {\n${marker}  color: ${jinja};\n  --ha-tile-info-primary-color: ${jinja};\n  --ha-tile-info-secondary-color: ${jinja};\n}`
+        : `ha-card {\n${marker}  color: ${jinja};\n}`;
     case 'accent-color': {
       // Same card-type companion variables as the Accent Color module —
       // --accent-color alone is invisible on tile/thermostat/button/gauge.

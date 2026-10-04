@@ -6,7 +6,7 @@ import { DEFAULT_THRESHOLD } from '../parser/state-mapper.js';
 import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
 import { sortThresholdRules } from '../generator/css-generator.js';
 import { previewHexFor } from '../components/cms-color-picker.js';
-import { NO_ICON_COLOR_TYPES } from '../utils/card-caps.js';
+import { thresholdPropertyAllowed } from '../utils/card-caps.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
@@ -19,10 +19,9 @@ const PROPERTY_OPTIONS: Array<{ value: ThresholdProperty; label: string }> = [
   { value: 'border-color', label: 'Border Color' },
 ];
 
-/** Card types with no reachable ha-state-icon — offering the Icon Color
- *  threshold property there is a dead control generating CSS that matches
- *  nothing. Shared with the panel's module gating via card-caps.ts. */
-const NO_ICON_PROPERTY_TYPES = NO_ICON_COLOR_TYPES;
+/** Default property order when the module is first switched on: the first
+ *  one this card type supports (a gauge prefers its dial). */
+const DEFAULT_PROPERTY_ORDER: ThresholdProperty[] = ['icon-color', 'background', 'text-color', 'accent-color', 'border-color'];
 
 export class ThresholdModule extends LitElement {
   @property({ attribute: false }) state: ThresholdModuleState = {
@@ -247,18 +246,21 @@ export class ThresholdModule extends LitElement {
     if (changes.enabled && !newState.entityId && this.cardEntity) {
       newState.entityId = this.cardEntity;
     }
-    // Enabling fresh on a card with no reachable icon: the default
-    // 'icon-color' property would generate CSS matching nothing there —
-    // start from the property that's actually visible instead (the dial
-    // color on a gauge, the card background elsewhere).
+    // Enabling fresh on a card where the default 'icon-color' does nothing
+    // (no reachable icon): start from a property that's actually visible —
+    // the dial on a gauge, else the first one this card type supports.
     if (
+      this.cardType &&
       changes.enabled &&
-      NO_ICON_PROPERTY_TYPES.has(this.cardType) &&
       newState.rules.length === 0 &&
       newState.properties.length === 1 &&
-      newState.properties[0] === 'icon-color'
+      newState.properties[0] === 'icon-color' &&
+      !thresholdPropertyAllowed('icon-color', this.cardType)
     ) {
-      newState.properties = [this.cardType === 'gauge' ? 'accent-color' : 'background'];
+      const first = this.cardType === 'gauge'
+        ? 'accent-color'
+        : DEFAULT_PROPERTY_ORDER.find((p) => thresholdPropertyAllowed(p, this.cardType));
+      if (first) newState.properties = [first];
     }
     this.dispatchEvent(
       new CustomEvent<ThresholdModuleState>('state-changed', {
@@ -306,9 +308,9 @@ export class ThresholdModule extends LitElement {
   private _propertyOptions(): Array<{ value: ThresholdProperty; label: string }> {
     return PROPERTY_OPTIONS.filter(
       (opt) =>
-        opt.value !== 'icon-color' ||
-        !NO_ICON_PROPERTY_TYPES.has(this.cardType) ||
-        this.state.properties.includes('icon-color'),
+        !this.cardType ||
+        thresholdPropertyAllowed(opt.value, this.cardType) ||
+        this.state.properties.includes(opt.value),
     ).map((opt) =>
       opt.value === 'accent-color' && this.cardType === 'gauge'
         ? { ...opt, label: 'Gauge / Accent Color' }

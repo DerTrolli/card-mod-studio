@@ -1777,6 +1777,13 @@ function mapThreshold(
     if (thresholdProperty === 'accent-color') {
       claimAccentAux(haCard, haGauge, prop.value.trim(), claimed);
     }
+    // text-color on a tile also writes the tile's own text variables.
+    if (thresholdProperty === 'text-color') {
+      for (const v of ['--ha-tile-info-primary-color', '--ha-tile-info-secondary-color']) {
+        const aux = findProp(target, v);
+        if (aux && aux.value.trim() === prop.value.trim()) claimed.add(claimKey(target.selector, v));
+      }
+    }
 
     // For "border: 2px solid {{ ... }}" extract the width from the leading non-Jinja part
     if (cssProperty === 'border') {

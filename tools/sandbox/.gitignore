@@ -64,3 +64,5 @@ harness/heading-check-*.json
 harness/*.tmp.mjs
 harness/functional-ui-check-*.json
 harness/dbg*.png
+harness/module-effect-audit-*.json
+harness/module-effect-audit-*.md

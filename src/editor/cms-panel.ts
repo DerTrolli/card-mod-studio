@@ -38,8 +38,10 @@ import {
   NO_ICON_COLOR_TYPES,
   NO_FONT_TYPES,
   NO_THRESHOLD_TYPES,
+  NO_TEXT_COLOR_TYPES,
   ICON_SIZE_TYPES,
   isStateAware,
+  showsAccentColor,
 } from '../utils/card-caps.js';
 import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles, refreshPaletteDefaults } from './studio-state.js';
 import './cms-child-card-section.js';
@@ -1212,6 +1214,7 @@ export class CmsPanel extends LitElement {
 
       ${showFont
         ? html`<cms-font-module
+            .allowColor=${!NO_TEXT_COLOR_TYPES.has(this.config?.type ?? '')}
             .overridden=${!!conflicts.font}
             .overriddenDetail=${(conflicts.font ?? []).join(", ")}
             .state=${s.font}
@@ -1228,7 +1231,7 @@ export class CmsPanel extends LitElement {
         @state-changed=${this._onFilterChanged}
       ></cms-filter-module>
 
-      ${!showHeadingStyle && !this._isEntitiesCard
+      ${showsAccentColor(this.config?.type ?? '')
         ? html`<cms-accent-color-module
             .overridden=${!!conflicts.accentColor}
             .overriddenDetail=${(conflicts.accentColor ?? []).join(", ")}

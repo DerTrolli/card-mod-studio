@@ -56,8 +56,10 @@ import {
   NO_ICON_COLOR_TYPES,
   NO_FONT_TYPES,
   NO_THRESHOLD_TYPES,
+  NO_TEXT_COLOR_TYPES,
   ICON_SIZE_TYPES,
   isStateAware,
+  showsAccentColor,
 } from '../utils/card-caps.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
@@ -316,6 +318,7 @@ export class CmsChildCardSection extends LitElement {
 
         ${!NO_FONT_TYPES.has(cardType)
           ? html`<cms-font-module
+              .allowColor=${!NO_TEXT_COLOR_TYPES.has(cardType)}
               .overridden=${!!conflicts.font}
               .overriddenDetail=${(conflicts.font ?? []).join(", ")}
               .state=${s.font}
@@ -332,7 +335,7 @@ export class CmsChildCardSection extends LitElement {
           @state-changed=${(e: CustomEvent<FilterModuleState>) => this._emitChanged({ filter: e.detail })}
         ></cms-filter-module>
 
-        ${!showHeading && !isEntities
+        ${showsAccentColor(cardType)
           ? html`<cms-accent-color-module
               .overridden=${!!conflicts.accentColor}
               .overriddenDetail=${(conflicts.accentColor ?? []).join(", ")}

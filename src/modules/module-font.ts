@@ -25,6 +25,9 @@ export class FontModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** False on cards whose text carries its own colour (NO_TEXT_COLOR_TYPES)
+   *  — the colour picker would be a dead control there. */
+  @property({ attribute: false }) allowColor = true;
 
   @state() private _open = false;
   @state() private _fontSize = DEFAULT_FONT.fontSize;
@@ -173,15 +176,17 @@ export class FontModule extends LitElement {
             `
           : nothing}
 
-        <div class="control-row">
-          <span class="control-label">Text color</span>
-          <div class="control-right">
-            <cms-color-picker
-              .value=${this.state.color}
-              @color-changed=${(e: CustomEvent) => this._emit({ color: e.detail.value })}
-            ></cms-color-picker>
-          </div>
-        </div>
+        ${this.allowColor
+          ? html`<div class="control-row">
+              <span class="control-label">Text color</span>
+              <div class="control-right">
+                <cms-color-picker
+                  .value=${this.state.color}
+                  @color-changed=${(e: CustomEvent) => this._emit({ color: e.detail.value })}
+                ></cms-color-picker>
+              </div>
+            </div>`
+          : nothing}
       </div>
     `;
   }
