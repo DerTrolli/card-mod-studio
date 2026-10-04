@@ -430,12 +430,17 @@ only (UIX 8.x requires HA ≥ 2026.8), each in its own Docker rig
 |---|---|---|---|---|---|
 | 2026.6.4 | 4.2.1 | 30/30 | 397/397 | 20/20 clean | ✅ works |
 | 2026.2.3 | 4.2.1 | 30/30 | 397/397 | 20/20 clean | ✅ works |
-| 2025.9.4 | 3.4.5 | 30/30 | 392/397 — the 5 misses are Font on a tile's text (known gap, below) | VISUAL | 🟡 works, one gap |
+| 2025.9.4 | 3.4.5 | 30/30 | 392/397 — the 5 misses are Font on a tile's text (known gap, below) | 20/20 clean³ | 🟡 works, one gap |
 | 2025.3.4 | 3.4.5 | 30/30² | — | — | ❌ Style button never appears |
 
 ¹ `compat_check`, `heading_check`, `dict_visual_check`, `state_props_check`.
-² These mount the panel directly; in the real card editor the button has no
-injection point (the footer has no `ha-button[slot=secondaryAction]`).
+² (2025.3) These mount the panel directly; in the real card editor the
+button has no injection point (the footer has no
+`ha-button[slot=secondaryAction]`).
+³ (2025.9) After re-running 4 of the 20: two phone runs hit a harness click
+on older HA's dialog close button (fixed in `release_qa.mjs`), two desktop
+runs logged an intermittent HA-frontend `recovery_mode of null` page error
+that the Studio doesn't touch and that didn't reproduce.
 
 Found and fixed on the way (all versions benefit):
 
