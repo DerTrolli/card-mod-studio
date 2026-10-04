@@ -32,7 +32,8 @@ describe('per-card gating', () => {
     expect(thresholdPropertyAllowed('accent-color', 'gauge')).toBe(true);
     expect(thresholdPropertyAllowed('accent-color', 'markdown')).toBe(false);
     expect(thresholdPropertyAllowed('text-color', 'tile')).toBe(true);
-    expect(thresholdPropertyAllowed('text-color', 'todo-list')).toBe(false);
+    expect(thresholdPropertyAllowed('text-color', 'alarm-panel')).toBe(false);
+    expect(thresholdPropertyAllowed('text-color', 'todo-list')).toBe(true); // reaches the card title
     expect(thresholdPropertyAllowed('background', 'picture')).toBe(false);
     expect(thresholdPropertyAllowed('icon-color', 'area')).toBe(false);
   });

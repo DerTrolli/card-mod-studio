@@ -1,8 +1,10 @@
 # Card × Setting Support Matrix (empirical)
 
 **Generated:** 2026-06-25 · **Against:** Home Assistant 2026.x + card-mod 4.2.1
-**Version note (v0.10.0, 2026-10-03):** the cells below were measured in
-2026-06 and have not been re-measured wholesale. The v0.10.0 release was
+**Version note (v0.10.0, 2026-10-04):** the *current* per-card gating is the
+module-effect audit section right below (re-measured 2026-10-04, every card ×
+every module, both engines). The older single-property cells further down
+were measured in 2026-06 and are kept for their findings. The v0.10.0 release was
 live-verified on HA 2026.9.4 and HA 2026.10.0b0, each with card-mod 4.2.1 and
 with UIX 8.3.1 (full live-check suite + real-dialog visual QA) — see
 [COMPATIBILITY_AUDIT.md §11](COMPATIBILITY_AUDIT.md). The one HA 2026.10 change
@@ -23,6 +25,74 @@ actually change vs baseline. Reproduce with [`tools/sandbox`](../tools/sandbox/R
 
 This is the current, empirically-measured source of truth for per-card-type
 support — earlier speculative planning docs it superseded have been retired.
+
+## v0.10.0 module-effect audit (2026-10-04) — the current gating
+
+`tools/sandbox/harness/module_effect_audit.mjs` re-measured **every module on
+every built-in card type** (31 types, card-mod 4.2.1 AND UIX 8.3.1, HA
+2026.9.4): it mounts the real panel, switches each module on through the
+panel's own state → generator path, and compares the rendered preview
+**pixel by pixel** (computed styles are recorded for diagnosis; pixels that
+change on their own — graphs, camera images — are masked). Chart/list cards
+carry a title, as real ones usually do (their graph labels are drawn on a
+canvas, so the title is the text a colour can reach).
+
+Result after the v0.10.0 gating changes: **0 controls shown without a visible
+effect on either engine.** `font:color` = Font's colour picker alone (Font
+already on); `thr:*` = each Threshold "Apply to" option.
+
+✅ shown + works · ⚠️ hidden but would change pixels · `·` hidden, no effect
+(the module/option isn't offered there)
+
+| card | font | filter | accent-color | icon-color | background | animation | border | heading-style | thr:icon-color | thr:accent-color | thr:background | thr:text-color | thr:border-color | font:color |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| alarm-panel | ✅ | ✅ | · | ✅ | ✅ | ⚠️ | ✅ | · | ✅ | · | ✅ | · | ✅ | · |
+| area | ✅ | ✅ | · | · | ✅ | ✅ | ✅ | · | · | · | ✅ | · | ✅ | · |
+| button | ✅ | ✅ | · | ✅ | ✅ | ✅ | ✅ | · | ✅ | · | ✅ | ✅ | ✅ | ✅ |
+| calendar | ✅ | ✅ | ✅ | ⚠️ | ✅ | ⚠️ | ✅ | ⚠️ | ⚠️ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| entities | ✅ | ✅ | ⚠️ | · | ✅ | ✅ | ✅ | · | · | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ✅ |
+| entity | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | · | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| gauge | ✅ | ✅ | ✅ | · | ✅ | ⚠️ | ✅ | · | · | ✅ | ✅ | ✅ | ✅ | ✅ |
+| glance | ✅ | ✅ | · | · | ✅ | ✅ | ✅ | · | · | · | ✅ | ✅ | ✅ | ✅ |
+| heading | ⚠️ | ✅ | · | · | · | ⚠️ | · | ✅ | · | · | · | · | · | · |
+| history-graph | ✅ | ✅ | ✅ | ⚠️ | ✅ | ⚠️ | ✅ | ⚠️ | ⚠️ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| humidifier | ✅ | ✅ | · | · | ✅ | ⚠️ | ✅ | · | · | · | ✅ | ✅ | ✅ | ✅ |
+| iframe | · | ✅ | · | · | ⚠️ | ⚠️ | ✅ | · | · | · | ⚠️ | · | ✅ | · |
+| light | ✅ | ✅ | · | ✅ | ✅ | ⚠️ | ✅ | · | ✅ | · | ✅ | ✅ | ✅ | ✅ |
+| logbook | ✅ | ✅ | · | · | ✅ | ⚠️ | ✅ | · | · | · | ✅ | ✅ | ✅ | ✅ |
+| map | ⚠️ | ✅ | · | · | ⚠️ | ⚠️ | ✅ | · | · | · | ⚠️ | · | ✅ | · |
+| markdown | ✅ | ✅ | · | · | ✅ | ✅ | ✅ | · | · | · | ✅ | ✅ | ✅ | ✅ |
+| media-control | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ | ✅ | · | ✅ | ✅ | ✅ | · | ✅ | · |
+| picture | · | ✅ | · | · | ⚠️ | ⚠️ | ✅ | · | · | · | ⚠️ | · | ✅ | · |
+| picture-elements | ✅ | ✅ | · | · | ⚠️ | ⚠️ | ✅ | · | · | · | ⚠️ | · | ✅ | · |
+| picture-entity | ✅ | ✅ | · | ⚠️ | ⚠️ | ⚠️ | ✅ | ⚠️ | ⚠️ | · | ⚠️ | · | ✅ | · |
+| picture-glance | ✅ | ✅ | · | ✅ | ⚠️ | ⚠️ | ✅ | ⚠️ | ✅ | · | ⚠️ | ⚠️ | ✅ | · |
+| sensor | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | · | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| statistic | ✅ | ✅ | ✅ | ⚠️ | ✅ | ⚠️ | ✅ | · | ⚠️ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| statistics-graph | ✅ | ✅ | · | · | ✅ | ⚠️ | ✅ | · | · | · | ✅ | ✅ | ✅ | ✅ |
+| thermostat | ✅ | ✅ | ✅ | · | ✅ | ⚠️ | ✅ | · | · | ✅ | ✅ | ✅ | ✅ | ✅ |
+| tile | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | · | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| todo-list | ✅ | ✅ | · | · | ✅ | ⚠️ | ✅ | · | · | · | ✅ | ✅ | ✅ | ✅ |
+| weather-forecast | ✅ | ✅ | · | · | ✅ | ⚠️ | ✅ | · | · | · | ✅ | ✅ | ✅ | ✅ |
+| entity-filter | · | · | · | · | · | · | · | · | · | · | · | · | · | · |
+| vertical-stack | · | · | · | · | · | · | · | · | · | · | · | · | · | · |
+| grid | · | · | · | · | · | · | · | · | · | · | · | · | · | · |
+
+The ⚠️ cells are deliberate: **Animation** stays hidden on chart, dial,
+gauge, keypad and picture cards (it interferes with their own rendering —
+see the per-card wiki pages); **Font on heading** is covered by Heading
+Style; **Background on picture/map/iframe** only shows at the image's edges;
+the **entities card's** colours live in its per-row sections; Heading Style
+is heading-only by design. Icon Color on `statistic`/`calendar`/
+`history-graph` is a candidate for a later release.
+
+Gating changes this produced (all in `src/utils/card-caps.ts`): Accent Color
+hidden where nothing reads the accent colour (`NO_ACCENT_TYPES`), Font's
+colour picker hidden where a card colours its own text
+(`NO_TEXT_COLOR_TYPES`), Icon Color hidden on `area` / `picture-elements`,
+Font hidden on `picture`, Threshold's options following the matching
+module (`thresholdPropertyAllowed`), `entity-filter` treated as a container,
+and Threshold Text Color gained the tile/title colour companions.
 
 > **UIX note (v0.6.0):** this matrix was measured against card-mod, but the CSS
 > the Studio generates is identical either way — UIX applies the same
