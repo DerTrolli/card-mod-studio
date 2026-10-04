@@ -30,7 +30,7 @@ Exceptions and specials:
 | glance | Icon Color hidden: the icon lives in a nested shadow root, colored inline from state — no reachable selector (measured) |
 | gauge / thermostat / humidifier / weather / graphs | Icon Color hidden (no `ha-state-icon` to color); Accent works on the meaningful target (gauge dial, thermostat slider, history/statistic graphs) |
 | Accent Color | Hidden wherever nothing on the card reads the accent colour: button, light, glance, markdown, humidifier, alarm-panel, area, picture cards, map, iframe, todo-list, logbook, statistics-graph, weather-forecast |
-| Font text color | Hidden where the card colours its own text (alarm-panel, media-control, area, picture-entity, picture-elements, statistics-graph, todo-list, logbook) — size/weight/family still offered |
+| Font text color | Hidden where the card colours its own text (alarm-panel, media-control, area, picture-entity, picture-glance, picture-elements) — size/weight/family still offered. On chart cards it colours the title (graph labels are drawn by the chart) |
 | Threshold Colors | Its "Apply to" list only offers the colours the matching module offers on that card |
 | area | Icon Color hidden (the area icon doesn't take it); everything card-box-level works |
 | entity-filter | Treated as a container: a style on the filter reaches nothing — Advanced CSS only; style its inner `card:` in YAML |

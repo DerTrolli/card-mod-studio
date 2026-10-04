@@ -203,8 +203,9 @@ Found by a dedicated audit (every item reproduced first, now covered by
   matching modules offer on that card, and presets drop what a card hides.
   An `entity-filter` card is treated as a container — a style on the filter
   itself never reached the card it shows.
-- **Threshold Colors → Text Color now works on tile cards** (the tile's
-  text uses its own colour variables; Font already handled them).
+- **Threshold Colors → Text Color now works on tile cards and on card
+  titles** (tile text and titles use their own colour variables; Font
+  already handled them).
 - **Entity row icon colours now show while the entity is on.** HA colours
   an active entity's icon itself (lights always do), which beat the row
   colour, so it only showed while the entity was off. Setting a row icon

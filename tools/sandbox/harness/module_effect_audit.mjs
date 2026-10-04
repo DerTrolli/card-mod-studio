@@ -39,22 +39,24 @@ const L = 'light.ceiling_lights';
 const T = 'sensor.outside_temperature';
 const IMG = '/static/icons/favicon-192x192.png';
 // Every built-in card type that renders in the sandbox (containers are
-// covered separately: they show no card-level modules at all).
+// covered separately: they show no card-level modules at all). Cards that
+// can carry a title get one, as real ones usually do — on chart/list cards
+// it's often the only HTML text (graph labels are canvas-drawn).
 const CARDS = {
   'alarm-panel': { entity: 'alarm_control_panel.security' },
   area: { area: 'living_room' },
   button: { entity: L },
-  calendar: { entities: ['calendar.calendar_1'] },
+  calendar: { title: 'Calendar', entities: ['calendar.calendar_1'] },
   entities: { entities: [L, T] },
   entity: { entity: T },
   gauge: { entity: T, min: 0, max: 40 },
-  glance: { entities: [L, 'switch.decorative_lights'] },
+  glance: { title: 'Glance', entities: [L, 'switch.decorative_lights'] },
   heading: { heading: 'My Heading', icon: 'mdi:home' },
-  'history-graph': { entities: [T] },
+  'history-graph': { title: 'History', entities: [T] },
   humidifier: { entity: 'humidifier.humidifier' },
   iframe: { url: 'https://www.home-assistant.io', aspect_ratio: '50%' },
   light: { entity: L },
-  logbook: { target: { entity_id: [L] } },
+  logbook: { title: 'Logbook', target: { entity_id: [L] } },
   map: { entities: ['device_tracker.demo_paulus'] },
   markdown: { content: 'Hello **world**' },
   'media-control': { entity: 'media_player.living_room' },
@@ -64,10 +66,10 @@ const CARDS = {
   'picture-glance': { title: 'Garden', camera_image: 'camera.demo_camera', entities: [L] },
   sensor: { entity: T, graph: 'line' },
   statistic: { entity: T, stat_type: 'mean', period: { calendar: { period: 'day' } } },
-  'statistics-graph': { entities: [T], chart_type: 'line' },
+  'statistics-graph': { title: 'Statistics', entities: [T], chart_type: 'line' },
   thermostat: { entity: 'climate.heatpump' },
   tile: { entity: L },
-  'todo-list': { entity: 'todo.shopping_list' },
+  'todo-list': { title: 'To-do', entity: 'todo.shopping_list' },
   'weather-forecast': { entity: 'weather.demo_weather_south', show_forecast: true },
   'entity-filter': { entities: [L, 'switch.decorative_lights'], state_filter: ['on'] },
   'vertical-stack': { cards: [{ type: 'tile', entity: L }] },

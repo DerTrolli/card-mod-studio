@@ -6,7 +6,7 @@ and the `energy-*` cards.
 
 | Module | Available | Notes |
 |---|---|---|
-| Font | ✅ | Body text **plus the card title** (all except weather/energy). Text color is hidden on `statistics-graph`, `todo-list` and `logbook`, whose text keeps its own colour (measured, v0.10.0) |
+| Font | ✅ | Body text **plus the card title** (all except weather/energy). Text color reaches the card title and HTML text — graph axis labels are drawn by the chart itself (measured, v0.10.0) |
 | Visual Filters | ✅ | |
 | Background | ✅ | |
 | Border & Radius | ✅ | |

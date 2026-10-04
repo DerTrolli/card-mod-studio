@@ -96,10 +96,12 @@ export const NO_ACCENT_TYPES = new Set([
  * A card-level text colour (Font's colour picker, Threshold's Text Color)
  * reaches no visible text on these — their text carries its own colour
  * (measured, see NO_ACCENT_TYPES). Font's size/weight still work there.
+ * (Chart/list cards — statistics-graph, todo-list, logbook — keep it: their
+ * graph labels are canvas-drawn, but the colour reaches the card title.)
  */
 export const NO_TEXT_COLOR_TYPES = new Set([
-  'alarm-panel', 'area', 'media-control', 'picture-elements', 'statistics-graph',
-  'todo-list', 'logbook', 'picture-entity',
+  'alarm-panel', 'area', 'media-control', 'picture-elements', 'picture-entity',
+  'picture-glance',
 ]);
 
 /**

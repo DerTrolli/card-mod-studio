@@ -1777,9 +1777,10 @@ function mapThreshold(
     if (thresholdProperty === 'accent-color') {
       claimAccentAux(haCard, haGauge, prop.value.trim(), claimed);
     }
-    // text-color on a tile also writes the tile's own text variables.
+    // text-color also writes the tile's text / the card title's colour
+    // variables (thresholdPropertyBlock).
     if (thresholdProperty === 'text-color') {
-      for (const v of ['--ha-tile-info-primary-color', '--ha-tile-info-secondary-color']) {
+      for (const v of ['--ha-tile-info-primary-color', '--ha-tile-info-secondary-color', '--ha-card-header-color']) {
         const aux = findProp(target, v);
         if (aux && aux.value.trim() === prop.value.trim()) claimed.add(claimKey(target.selector, v));
       }

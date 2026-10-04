@@ -67,4 +67,13 @@ describe('Threshold Text Color on a tile', () => {
     expect(generateCss(back, 'tile')).toBe(css);
     expect(generateCss(s, 'sensor')).not.toContain('--ha-tile-info');
   });
+
+  it('on a titled card it also colours the title (--ha-card-header-color), round-trip stable', () => {
+    const s = state({ threshold: { ...DEFAULT_THRESHOLD, enabled: true, entityId: 'sensor.t', properties: ['text-color'], rules: [{ id: '0', operator: '>', value: 1, color: '#ff0000' }] } });
+    const css = generateCss(s, 'history-graph');
+    expect(css).toMatch(/--ha-card-header-color: \{\{/);
+    const back = mapToStudioState(parseCardModConfig({ type: 'history-graph', card_mod: { style: css } }));
+    expect(back.advanced.rawCss).toBe('');
+    expect(generateCss(back, 'history-graph')).toBe(css);
+  });
 });
