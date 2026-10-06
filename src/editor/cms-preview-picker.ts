@@ -36,6 +36,13 @@ export interface PickEventDetail extends PickTarget {
   rowIndex?: number;
 }
 
+/** Room below the card inside the preview box (cms-panel's
+ *  .preview-card-wrapper padding is 12px) the label may hang into. */
+const PREVIEW_PADDING_BELOW = 10;
+/** The highlight's border sits just OUTSIDE the target — on its exact edge
+ *  the 2px border cut through the first letter of text targets. */
+const HL_OUTSET = 3;
+
 export class CmsPreviewPicker extends LitElement {
   /** The preview card's `type:` — drives the module mapping. */
   @property({ attribute: false }) cardType = '';
@@ -62,13 +69,13 @@ export class CmsPreviewPicker extends LitElement {
       cursor: pointer;
     }
 
-    /* Highlight box — module-base-ish accents: 2px pink/accent border with a
-       faint fill. */
+    /* Highlight box: theme accent border with a faint fill of the same
+       hue (derived, so it can't clash with the border colour). */
     .hl {
       position: absolute;
       pointer-events: none;
-      border: 2px solid var(--accent-color, #ff4081);
-      background: rgba(255, 64, 129, 0.08);
+      border: 2px solid var(--accent-color, #ff9800);
+      background: color-mix(in srgb, var(--accent-color, #ff9800) 10%, transparent);
       border-radius: 4px;
       box-sizing: border-box;
       z-index: 1;
@@ -77,18 +84,27 @@ export class CmsPreviewPicker extends LitElement {
     /* The label sits OUTSIDE the box (above it, or below when the box
        touches the top edge) — most targets (icons!) are far smaller than
        the pill, so an inside-pinned label truncates to nothing (caught in
-       visual review). */
+       visual review). Theme-inverse colours (text colour as background)
+       read at >= 13:1 in light AND dark mode, on any card underneath; white
+       on the accent colour measured ~2:1. Never wider than the preview:
+       long row labels ellipsize, and updated() shifts it left to fit. */
     .hl-label {
       position: absolute;
+      z-index: 2;
       white-space: nowrap;
-      padding: 2px 7px;
+      max-width: calc(100% - 4px);
+      box-sizing: border-box;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 2px 8px;
       border-radius: 10px;
-      background: var(--accent-color, #ff4081);
-      color: #fff;
-      font-size: 10px;
+      background: var(--primary-text-color, #212121);
+      color: var(--card-background-color, #fff);
+      font-size: 11px;
       font-weight: 500;
       line-height: 1.4;
       font-family: var(--primary-font-family, sans-serif);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     }
   `;
 
@@ -225,7 +241,11 @@ export class CmsPreviewPicker extends LitElement {
 
     const target: PickEventDetail = { ...match.target };
     if (target.module === 'cms-entities-rows-module') {
-      const rowEl = chain.find((el) => ENTITY_ROW_TAG_RE.test(el.tagName.toLowerCase()));
+      // Outermost match (chain runs innermost → card): the row element
+      // itself, not the hui-generic-entity-row HA nests inside every row,
+      // which _collectRows never descends into (rows don't nest) — so the
+      // inner match resolved to index -1 and no row ever opened.
+      const rowEl = [...chain].reverse().find((el) => ENTITY_ROW_TAG_RE.test(el.tagName.toLowerCase()));
       const rowIndex = rowEl ? this._resolveRowIndex(rowEl, cardEl) : -1;
       if (rowIndex !== -1) {
         target.rowIndex = rowIndex;
@@ -288,6 +308,20 @@ export class CmsPreviewPicker extends LitElement {
   // Render
   // ---------------------------------------------------------------------------
 
+  /** Keep the label inside the preview: render() places it at the target's
+   *  left edge, which overflows (scrollbar flicker + clipping) for targets
+   *  on the right half of the card — shift it left by the overhang. Below a
+   *  box that fills a short card, it may only use the preview box's own
+   *  padding (the box is sized to the card) — lift it by the rest. */
+  override updated() {
+    const label = this.shadowRoot?.querySelector('.hl-label') as HTMLElement | null;
+    if (!label) return;
+    const overhang = label.offsetLeft + label.offsetWidth - (this.clientWidth - 2);
+    if (overhang > 0) label.style.left = `${Math.max(0, label.offsetLeft - overhang)}px`;
+    const below = label.offsetTop + label.offsetHeight - (this.clientHeight + PREVIEW_PADDING_BELOW);
+    if (below > 0) label.style.top = `${label.offsetTop - below}px`;
+  }
+
   override render() {
     return html`
       <div
@@ -300,7 +334,7 @@ export class CmsPreviewPicker extends LitElement {
         ? html`
             <div
               class="hl"
-              style="left:${this._box.left}px;top:${this._box.top}px;width:${this._box.width}px;height:${this._box.height}px"
+              style="left:${this._box.left - HL_OUTSET}px;top:${this._box.top - HL_OUTSET}px;width:${this._box.width + 2 * HL_OUTSET}px;height:${this._box.height + 2 * HL_OUTSET}px"
             >
             </div>
             <span

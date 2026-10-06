@@ -14,11 +14,26 @@ import type {
   HomeAssistant,
   StudioState,
 } from '../types/index.js';
-import { parseStyleValue } from '../parser/yaml-parser.js';
-import { mapToStudioState, mergeStudioStates, parseEntityRowCss, mergeEntityRowStyles } from '../parser/state-mapper.js';
+import { parseStyleValue, splitDictStyle } from '../parser/yaml-parser.js';
+import {
+  mapToStudioState,
+  mergeStudioStates,
+  parseEntityRowCss,
+  mergeEntityRowStyles,
+  DEFAULT_ICON_COLOR,
+  DEFAULT_ACCENT_COLOR,
+} from '../parser/state-mapper.js';
 import { generateCss, buildThresholdJinja, FONT_WEIGHT_VALUE } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
-import { hasStyleContent, usesUixOnlyFeatures, resolveStyle, isDictForm } from '../utils/style-compat.js';
+import {
+  hasStyleContent,
+  usesUixOnlyFeatures,
+  resolveStyle,
+  isDictForm,
+  sameStyleValue,
+  hasUnsupportedDictRoot,
+  dictUsesUixOnlySelectors,
+} from '../utils/style-compat.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
 
 /**
@@ -50,6 +65,36 @@ function applyPaletteDefaults(state: StudioState): StudioState {
 }
 
 /**
+ * Re-applies the palette's ON/OFF defaults after the palette changed while
+ * the panel is open (applyPaletteDefaults only runs when the state is
+ * built, so new defaults used to take effect only after reopening the
+ * dialog). Same rule: modules that aren't enabled get the palette colour,
+ * or the built-in one when that default was cleared; enabled modules are
+ * never touched.
+ */
+export function refreshPaletteDefaults(state: StudioState): StudioState {
+  const { onColor, offColor } = getCachedPalette().defaults;
+  const next = { ...state };
+  if (!next.iconColor.enabled) {
+    next.iconColor = {
+      ...next.iconColor,
+      color: onColor || DEFAULT_ICON_COLOR.color,
+      colorOn: onColor || DEFAULT_ICON_COLOR.colorOn,
+      colorOff: offColor || DEFAULT_ICON_COLOR.colorOff,
+    };
+  }
+  if (!next.accentColor.enabled) {
+    next.accentColor = {
+      ...next.accentColor,
+      color: onColor || DEFAULT_ACCENT_COLOR.color,
+      colorOn: onColor || DEFAULT_ACCENT_COLOR.colorOn,
+      colorOff: offColor || DEFAULT_ACCENT_COLOR.colorOff,
+    };
+  }
+  return next;
+}
+
+/**
  * Builds studio state from a card_mod/uix-bearing object, merging settings
  * from BOTH keys when both carry real (string-form) content — not just
  * whichever resolveStyle() would pick — so a setting that only lives under
@@ -75,6 +120,31 @@ export function buildMergedStudioState(
 
   const primaryState = mapToStudioState(parseStyleValue(primaryStyle), config.type);
 
+  if (isDictForm(secondaryStyle) && hasStyleContent(secondaryStyle)) {
+    // v0.10: a dict-form SECONDARY that is the card's ONLY style is simply
+    // the effective style — parsed with its carrier and, on save,
+    // consolidated into the active key like a string would be, unless it's
+    // a uix: dict using UIX-only features, which stays under uix: (audit
+    // v0.10 #6 — it used to be frozen behind a false "Mixed-form" banner).
+    if (!hasStyleContent(primaryStyle)) {
+      const effective = mapToStudioState(parseStyleValue(secondaryStyle), config.type);
+      const pin = outputKey === 'card_mod' && usesUixOnlyFeatures(config);
+      return applyPaletteDefaults(
+        pin && effective.dictSource ? { ...effective, dictSource: { ...effective.dictSource, pinKey: 'uix' } } : effective,
+      );
+    }
+    // The same dict under both keys (what "Copy to card_mod" produces) is
+    // one dict: the active key's, the duplicate cleared on save.
+    if (sameStyleValue(primaryStyle, secondaryStyle)) return applyPaletteDefaults(primaryState);
+    // Otherwise it can never be consolidated into the active key — folding
+    // its `.` into the regenerated css would still drop its pierced entries
+    // when the save path clears the other key. Strip the primary's dict
+    // carrier too, so the panel gate and the save path both fall back to
+    // the mixed-form freeze (both keys preserved verbatim).
+    const { dictSource: _mixed, ...frozen } = primaryState;
+    return applyPaletteDefaults(frozen);
+  }
+
   const secondaryUsable = outputKey === 'uix' || !usesUixOnlyFeatures(config);
   if (!hasStyleContent(secondaryStyle) || !secondaryUsable) return applyPaletteDefaults(primaryState);
 
@@ -96,7 +166,7 @@ export function applyStudioState(
   const css = generateCss(state, config.type, {
     gaugeNeedle: (config as { needle?: boolean }).needle === true,
   });
-  return applyCardModStyle(css, config, pickOutputKey(hass));
+  return applyCardModStyle(css, config, pickOutputKey(hass), state.dictSource);
 }
 
 // ---------------------------------------------------------------------------
@@ -105,8 +175,28 @@ export function applyStudioState(
 // rows get the exact same read/merge/write pipeline as top-level ones.
 // ---------------------------------------------------------------------------
 
+/** Parses one row style value — string or dict-form. A dict row's `.` entry
+ *  runs through the normal row recogniser; everything else rides in the
+ *  dictSource carrier, exactly like the card-level parseDictForm. */
+function parseRowStyleValue(style: unknown, entity?: string): EntitiesRowStyle {
+  if (typeof style === 'string') return parseEntityRowCss(style, entity);
+  if (style && typeof style === 'object' && hasStyleContent(style as Record<string, string>)) {
+    // A `.` that isn't a CSS string can't be rebuilt — frozen (audit v0.10 #16).
+    if (hasUnsupportedDictRoot(style)) return { ...parseEntityRowCss(''), frozen: true };
+    const { rootCss, dictSource } = splitDictStyle(style as Record<string, unknown>);
+    return { ...parseEntityRowCss(rootCss, entity), dictSource };
+  }
+  return parseEntityRowCss('');
+}
+
 /** Row-level counterpart to buildMergedStudioState — rows have no
- *  macros/billets concept, so there's no secondary-key guard to check. */
+ *  macros/billets concept, so there's no secondary-key guard to check.
+ *  The dict rules mirror the card level: a dict-form PRIMARY is editable
+ *  (carrier attached); a dict-form SECONDARY is the effective style when
+ *  the primary is empty, one dict when identical to the primary, and
+ *  otherwise makes the row mixed-form — marked `frozen` so
+ *  applyEntityRowStyles leaves it untouched and the rows module shows a
+ *  lock note instead of dead controls (audit v0.10 #9). */
 export function buildMergedRowStyle(
   row: EntitiesCardRow,
   hass?: HomeAssistant,
@@ -115,10 +205,22 @@ export function buildMergedRowStyle(
   const primaryStyle = outputKey === 'uix' ? row.uix?.style : row.card_mod?.style;
   const secondaryStyle = outputKey === 'uix' ? row.card_mod?.style : row.uix?.style;
 
-  const primaryRowStyle = parseEntityRowCss(typeof primaryStyle === 'string' ? primaryStyle : '');
-  if (!hasStyleContent(secondaryStyle)) return primaryRowStyle;
+  const primaryRowStyle = parseRowStyleValue(primaryStyle, row.entity);
+  if (isDictForm(secondaryStyle) && hasStyleContent(secondaryStyle)) {
+    if (!hasStyleContent(primaryStyle)) {
+      const effective = parseRowStyleValue(secondaryStyle, row.entity);
+      // A uix: row dict with `$$`/`&` keys can't move to card_mod (audit v0.10 #6).
+      return outputKey === 'card_mod' && effective.dictSource && dictUsesUixOnlySelectors(secondaryStyle)
+        ? { ...effective, dictSource: { ...effective.dictSource, pinKey: 'uix' } }
+        : effective;
+    }
+    if (sameStyleValue(primaryStyle, secondaryStyle)) return primaryRowStyle;
+    const { dictSource: _mixed, ...frozen } = primaryRowStyle;
+    return { ...frozen, frozen: true };
+  }
+  if (!hasStyleContent(secondaryStyle) || primaryRowStyle.frozen) return primaryRowStyle;
 
-  const secondaryRowStyle = parseEntityRowCss(typeof secondaryStyle === 'string' ? secondaryStyle : '');
+  const secondaryRowStyle = parseEntityRowCss(typeof secondaryStyle === 'string' ? secondaryStyle : '', row.entity);
   return mergeEntityRowStyles(primaryRowStyle, secondaryRowStyle);
 }
 
@@ -129,7 +231,10 @@ export function buildMergedRowStyle(
 export type EntitiesRowLike = EntitiesCardRow | string;
 
 export function rowEntityId(row: EntitiesRowLike): string | undefined {
-  return typeof row === 'string' ? row : row.entity;
+  // A null/non-object entry (hand-edited YAML) has no entity — it used to
+  // throw and break the whole panel (audit v0.10 #20).
+  if (typeof row === 'string') return row;
+  return row && typeof row === 'object' ? row.entity : undefined;
 }
 
 /** The row-style map key for the row at `index` — POSITIONAL, not
@@ -205,6 +310,43 @@ export function rowStyleHasContent(rowStyle: EntitiesRowStyle | undefined): bool
   return hasIcon || hasText || !!rowStyle.fontSizePx || !!rowStyle.fontWeight || !!rowStyle.extraCss;
 }
 
+/**
+ * Row icon colours need `state_color: false` on the row. HA colours the icon
+ * of an active entity itself — an inline style on the icon (lights always,
+ * other domains with state_color) — which beats `--state-icon-color`, so a
+ * row colour only showed while the entity was off. `state_color: false` is
+ * HA's own per-row switch for that colouring.
+ *
+ * Touched only when this edit changes the row's icon colour: set (or
+ * changed) → add it; removed → drop it (`force`: the rows module's explicit
+ * "Always use this color" for an older row). A row whose icon colour is unchanged
+ * keeps exactly what it had, so an unrelated edit never rewrites an older
+ * or hand-written row, and a hand-set `state_color` on a row without an
+ * icon colour is never touched.
+ */
+function withRowStateColor(
+  updated: EntitiesCardRow,
+  previousStyle: unknown,
+  newCss: string,
+  force = false,
+): EntitiesCardRow {
+  const iconDecl = (text: string): string | null => {
+    const m = /--state-icon-color\s*:\s*([^;]*);/.exec(text);
+    return m ? m[1].trim() : null;
+  };
+  const before = iconDecl(typeof previousStyle === 'string' ? previousStyle : JSON.stringify(previousStyle ?? '').replace(/\\n/g, '\n'));
+  const after = iconDecl(newCss);
+  if (after === before && !(force && after !== null)) return updated;
+  if (after !== null) {
+    return updated.state_color === false ? updated : { ...updated, state_color: false };
+  }
+  if (updated.state_color === false) {
+    const { state_color: _dropped, ...rest } = updated;
+    return rest as EntitiesCardRow;
+  }
+  return updated;
+}
+
 /** Writes the row-style map (keyed by rowStyleKey(index) — see above) back
  *  into each row's card_mod:/uix: block, matching styles to rows by
  *  position so duplicate-entity rows round-trip independently. */
@@ -227,19 +369,29 @@ export function applyEntityRowStyles(
     // that can carry a card_mod:/uix: block).
     if (typeof row === 'string') {
       if (!hasContent) return row;
-      return applyCardModStyle(
+      const promoted = applyCardModStyle(
         generateEntityRowCss(rowStyle!, entityId),
         { entity: row } as unknown as CardModCardConfig,
         outputKey,
       ) as unknown as EntitiesCardRow;
+      return withRowStateColor(promoted, undefined, generateEntityRowCss(rowStyle!, entityId));
     }
-    // A dictionary-form row style can't be parsed into row state yet
-    // (ROADMAP #23) — rewriting the row would replace it with nothing.
-    // Leave such rows completely untouched instead of destroying them.
+    // v0.10: a dict-form row WITH a parsed carrier is editable — the save
+    // rebuilds its dictionary around the regenerated `.` entry, pierced
+    // entries verbatim. Without a carrier (mixed-form, or a style map that
+    // predates the dict), rewriting would destroy the dict — leave the row
+    // completely untouched instead.
+    if (rowStyle?.frozen) return row;
     const currentStyle = resolveStyle(row as unknown as CardModCardConfig);
-    if (isDictForm(currentStyle)) return row;
+    if (isDictForm(currentStyle) && hasStyleContent(currentStyle) && !rowStyle?.dictSource) return row;
     const rowCss = hasContent ? generateEntityRowCss(rowStyle!, entityId) : '';
-    return applyCardModStyle(rowCss, row as unknown as CardModCardConfig, outputKey) as unknown as EntitiesCardRow;
+    const updated = applyCardModStyle(
+      rowCss,
+      row as unknown as CardModCardConfig,
+      outputKey,
+      rowStyle?.dictSource,
+    ) as unknown as EntitiesCardRow;
+    return withRowStateColor(updated, currentStyle, rowCss, !!rowStyle?.iconWhileOn);
   });
 
   return { ...(config as unknown as object), entities: updatedRows } as unknown as CardModCardConfig;

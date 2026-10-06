@@ -7,8 +7,9 @@ as an instant local fallback).
 
 The bar at the top of the panel:
 
-- **💾 Save** — stores the card's *entire* current style configuration under
-  a name.
+- **💾 Save preset** — stores the card's *entire* current style
+  configuration under a name, typed into the bar itself (Enter saves,
+  Escape cancels).
 - **📋 Load preset…** — applies a saved preset to any other card, in one
   click. Card-type-specific parts adapt (the same accent preset colors a
   gauge's dial and a tile's tint).

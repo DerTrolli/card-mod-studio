@@ -28,7 +28,9 @@ overview.
 Card-Mod Studio adds a **🎨 Style button** to the Home Assistant card editor. Clicking it opens a two-column style panel alongside the native editor — no separate page, no copy-pasting YAML.
 
 - **Left column** — scrollable list of style modules, each collapsible
-- **Right column** — always-visible live card preview that updates as you change settings
+- **Right column** — always-visible live card preview that updates as you change settings, shown on your theme's own dashboard background
+
+The panel follows your theme in light and dark mode and works on phones: below ~720px panel width the preview stacks under the controls, and the Style button turns icon-only on narrow screens so HA's dialog footer fits. Every collapsible section is reachable with the keyboard (Tab, then Enter/Space).
 
 **Not sure which control styles what?** Just point at it: hovering any part
 of the preview shows a highlight box naming the control that styles that
@@ -52,13 +54,13 @@ If you switch back from UIX to card-mod-only, card-mod never reads `uix:` at all
 
 ### Icon Color & Accent Color
 
-Set a static color for the card's icon or accent, choose separate colors for when the entity is **on** vs **off**, or — for light entities — let the icon automatically reflect the light's actual `rgb_color` attribute.
+Set a static color for the card's icon or accent, choose separate colors for when the entity is **on** vs **off**, or — on light cards — let the icon automatically reflect the light's actual `rgb_color` attribute.
 
 The on/off condition doesn't have to come from the card's own entity: a **"Controlled by"** picker lets any toggleable entity drive the colors — e.g. a button card's icon reflecting a separate status sensor.
 
 On tile, entity, sensor, and picture-glance cards the module also offers an **icon size** slider — static, or reacting to a state/value condition with a fallback size (icon grows while the alarm is armed). It's only offered where the size variables verifiably reach the main state icon.
 
-The Accent Color override targets the correct CSS variable per card type: `--tile-color` for tile cards, `--gauge-color` for gauges (including needle mode), and `--state-icon-color` for everything else.
+The Accent Color override targets the correct CSS variable per card type: `--tile-color` for tile cards, `--gauge-color` for gauges (including needle mode), and `--state-icon-color` for everything else. It's only offered on cards that actually use the accent colour (see [Card-type awareness](#card-type-awareness)).
 
 ![Icon and accent color controls](images/03%20Accent%20and%20Icon%20Color.png)
 
@@ -135,13 +137,13 @@ Round the card corners with a configurable **corner radius**, and optionally add
 
 Text size, weight, family (including a custom free-text family), and color for almost any card — closing the gap for cards that aren't headings. Where a card overrides fonts internally, the module emits the card-specific companion selectors/variables needed so the setting actually lands: the light card's name/brightness text, the button card's label, the sensor/entity card's name *and* value (the value scales proportionally), the gauge and thermostat titles, tile-card text, and the card **title** of list-style cards (entities, glance, calendar, …).
 
-Two documented per-card limits (HA hard-codes these out of reach): the gauge's value number and the thermostat's big temperature number can't change **size** — weight and color still work there.
+Two documented per-card limits for now: the gauge's value number and the thermostat's big temperature number can't change **size** from this module yet — weight and color still work there. Size controls for both are planned for v0.11 (they need shadow-piercing styles, which v0.10 made editable).
 
 ![Font module and the Color Palette Manager](images/09%20Font%20and%20Palette.png)
 
 ### Heading Style
 
-For `heading` type cards: control text size, weight, font family (with the same Custom… option as the Font module), text color, icon size, icon color, and text alignment — all from one module.
+For `heading` type cards: control text size, weight, font family (with the same Custom… option as the Font module), text color, icon size, icon color, and text alignment — all from one module. Works on both **Title** and **Subtitle** headings, and on HA 2026.10's new heading markup (heading styles written by older versions are migrated the first time you open and save the card).
 
 ### Advanced CSS
 
@@ -196,12 +198,16 @@ The panel adapts to the card type so you never see irrelevant controls:
 - **Entities cards** — hides card-level Icon Color, Accent Color, and Threshold modules (use per-row styling instead)
 - **Data-viz / media cards** — hides Animation and Icon Color where they have no effect
 - **Picture / iframe cards** — hides Background and Font modules
+- **Accent Color** is only offered where a card actually draws with the accent colour (tile, gauge, entity, sensor, thermostat, media, calendar, history graph, …) — not on button, light, glance, markdown, picture and similar cards; **Font's text colour** is hidden where a card colours its own text
+- **Threshold Colors** offers exactly the colours the matching modules offer on that card
+
+Every module was checked on every built-in card type, with card-mod and with UIX, by switching it on and comparing the rendered card pixel by pixel — anything that changed nothing is hidden on that card (full table: [`docs/CARD_SUPPORT_MATRIX.md`](docs/CARD_SUPPORT_MATRIX.md)).
 
 ---
 
 ## Requirements
 
-- Home Assistant 2024.4.0 or newer
+- Home Assistant **2025.9 or newer** — fully tested on 2026.9 and 2026.10, 2026.2 or newer recommended (see [Compatibility](#compatibility))
 - [card-mod](https://github.com/thomasloven/lovelace-card-mod) or [UIX](https://uix.lf.technology/) must be installed and working
 - HACS (for installation)
 
@@ -228,7 +234,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.9.1`
+   - URL: `/local/card-mod-studio.js?v=0.10.0`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -237,7 +243,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 ## Usage
 
 1. Open any card in edit mode (click the pencil icon)
-2. Look for the **🎨 Style** button in the card editor footer
+2. Look for the **🎨 Style** button in the card editor footer (icon-only on narrow screens)
 3. Click it to open the style panel
 4. Adjust controls — changes are previewed live on the right
 5. Click **Save** as normal in the HA editor
@@ -246,18 +252,21 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 
 ## Compatibility
 
-| HA Version | Status |
-|---|---|
-| 2026.x | Tested (support baseline: 2026.8.0 — every release is live-verified against it) |
-| 2025.x | Expected compatible |
-| 2024.4+ | Minimum supported |
+| HA Version | Engine | Status |
+|---|---|---|
+| 2026.9 – 2026.10 | card-mod 4.2.1, UIX 8.3.1 | ✅ **Fully tested** — v0.10.0 is live-verified on **2026.9.4** (current stable) and **2026.10.0b0** (2026.10.0 releases 2026-10-07), each with card-mod and with UIX: every control in the real card editor, every module on every built-in card type, light and dark mode, six screen sizes from phone to desktop |
+| 2026.2 – 2026.8 | card-mod 4.2.1 | 🟡 **Partially tested** — quick checks on **2026.2.3** and **2026.6.4**: every module's controls in the real card editor (397/397 checks each), the scripted live checks, and a light/dark × desktop/phone visual pass (all clean). UIX 8.x itself needs HA ≥ 2026.8, so UIX was only tested on the versions above |
+| 2025.9 – 2026.1 | card-mod 3.4.5 | 🟡 **Partially tested** — quick checks on **2025.9.4**: the Style button, live preview, colour pickers, entity pickers, presets and saving work (392/397 functional checks — the 5 misses are the gap below), the scripted live checks pass and the visual pass is clean. Known gap: on tile cards the Font module doesn't change the tile's name/state text there (HA added the tile text variables Studio uses after 2025.9) — everything else on the tile, and Font on other cards, works |
+| Older than 2025.9 | — | ❌ **Not supported** — on 2025.3 the Style button doesn't appear (HA's older card-editor dialog), so HACS only offers Card-Mod Studio from 2025.9 |
 
 Card-mod compatibility follows card-mod's own compatibility table. See [card-mod releases](https://github.com/thomasloven/lovelace-card-mod/releases).
 
 | Engine | Version tested | Status |
 |---|---|---|
-| card-mod | 4.2.1 | ✅ Tested on HA 2026.8.0 (4.2.1 is still card-mod's current stable as of 2026-08), see [`docs/COMPATIBILITY_AUDIT.md`](docs/COMPATIBILITY_AUDIT.md) |
-| UIX | 8.0.0 | ✅ Tested against a real running integration in Docker (note: UIX 8.0.0 itself requires HA ≥ 2026.8.0; the `uix:`/`card_mod:` styling contract is unchanged from 7.x), see [`docs/COMPATIBILITY_AUDIT.md` §9](docs/COMPATIBILITY_AUDIT.md) and [`tools/sandbox/run-uix.sh`](tools/sandbox/run-uix.sh) |
+| card-mod | 4.2.1 (3.4.5 on HA before 2026.2) | ✅ Fully tested on HA 2026.9.4 and 2026.10.0b0; quick-checked on 2026.6.4 and 2026.2.3 (4.2.1) and 2025.9.4 (3.4.5 — card-mod 4.2.1 needs HA ≥ 2026.2). 4.2.1 is still the newest card-mod release, but it is effectively unmaintained — see the caveat below. See [`docs/COMPATIBILITY_AUDIT.md`](docs/COMPATIBILITY_AUDIT.md) |
+| UIX | 8.3.1 | ✅ Tested against a real running integration in Docker on HA 2026.9.4 and 2026.10.0b0 (note: UIX 8.x itself requires HA ≥ 2026.8.0, and UIX 8.4, currently in beta, will require HA ≥ 2026.10; the `uix:`/`card_mod:` styling contract is unchanged from 7.x), see [`docs/COMPATIBILITY_AUDIT.md` §9](docs/COMPATIBILITY_AUDIT.md) and [`tools/sandbox/run-uix.sh`](tools/sandbox/run-uix.sh) |
+
+> **card-mod caveat — consider UIX:** card-mod 4.2.1 still works with Card-Mod Studio on the HA versions above, but it is effectively unmaintained: on HA ≥ 2026.8 it hangs if your active *theme* defines `card-mod-*-yaml` variables ([card-mod #606](https://github.com/thomasloven/lovelace-card-mod/issues/606), [#617](https://github.com/thomasloven/lovelace-card-mod/issues/617)). If your theme does, [UIX](https://uix.lf.technology/) is a drop-in replacement for card-mod, and Card-Mod Studio supports both equally.
 
 > **Note on HA updates:** Card-Mod Studio injects into the card editor using the `hui-dialog-edit-card` element. If a HA update renames this element, the Style button will not appear and a console warning will be shown. Check [GitHub Issues](../../issues) for status after major HA releases.
 
@@ -270,7 +279,8 @@ Card-mod compatibility follows card-mod's own compatibility table. See [card-mod
 - **card-mod or UIX required** — this plugin generates YAML; it does not apply CSS itself
 - **Common card types prioritised** — standard HA cards are fully supported; custom cards (Mushroom, Bubble) have varying shadow DOM paths and may need the Advanced CSS editor
 - **Entity-state conditionals only** — the UI supports on/off entity state conditions and numeric threshold rules; complex Jinja2 logic goes in the Advanced CSS editor
-- **Dict-form / shadow-pierce styles aren't editable (yet)** — hand-authored dictionary/`$`-pierce `card_mod`/`uix` styles (card-level or per-row) are preserved untouched but aren't parsed back into the visual controls; this is the v0.10 roadmap headline. See [ROADMAP.md](docs/ROADMAP.md).
+- **Pierced entries are preserved, not visually edited** — on a dictionary-form (`$` shadow-piercing) style, the `.` entry is fully editable through the visual controls (since v0.10.0), while every other entry (pierced `selector$` chains, nested dicts, UIX `$$`/`&` keys) is shown read-only in Advanced CSS and preserved byte-identically on every save. Only *mixed-form* styling — a plain style on one key plus a *different* dictionary on the other, or a dictionary whose `.` entry isn't plain CSS — stays frozen behind a lock banner (preserved exactly, just not editable here). Dict-form entities rows are editable too. See [ROADMAP.md](docs/ROADMAP.md).
+- **Gauge value / thermostat big-number size** — the Font module can't resize these two yet (weight and color work); size controls are planned for v0.11. **Glance icon color** can't be changed at all: HA colors it inline from entity state inside a nested shadow root, and even shadow-piercing styles don't reach it.
 - **No UIX-exclusive features** — macros, billets, and Forge (UIX's own visual template builder) aren't generated by this tool; see [ROADMAP.md](docs/ROADMAP.md) for why and what's planned
 
 ---
@@ -390,6 +400,9 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 18 | UX consistency pass — identical controls/labels/behavior for the same concept everywhere (Heading ↔ Font parity, row-font sliders, unified threshold builders, one styled-dot) | ✅ v0.8.0 |
 | 19 | Migration robustness — "custom CSS is overriding this control" warnings (card + row level), safe adoption of equivalent hand-written/legacy phrasings, audited old-version round-trips, verified card-mod→UIX switch | ✅ v0.8.1 |
 | 20 | Click-to-edit preview picker (hover-highlight any element, jump to its control) + 4 new animation presets + value-conditional animations ("pulse while sensor.x > 30") | ✅ v0.9.0 |
+| 21 | Correctness release — dict-form data-loss guard + full-codebase audit (14 reproduced bugs fixed, ~2,900 fuzzed round-trips) | ✅ v0.9.1 |
+| 22 | Dict-form (`$` shadow-piercing) styles editable — `.` entry through the full module pipeline, every pierced entry preserved byte-identically (cards, stack children, entities rows) | ✅ v0.10.0 |
+| 23 | Release polish — light/dark/phone-ready editor UI, HA 2026.10 heading compatibility (Heading Style on HA's `--ha-heading-card-*` variables, Subtitle headings), hand-written-CSS audit (20 reproduced bugs fixed), real-dialog functional + visual QA of every control (entity-row icon colours while on, HA YAML-editor sync, and more), a per-card audit that hides every control without a visible effect, re-verified on HA 2026.9.4/2026.10.0b0 with card-mod 4.2.1 and UIX 8.3.1, quick-checked back to HA 2025.9 | ✅ v0.10.0 |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

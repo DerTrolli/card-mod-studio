@@ -3,7 +3,7 @@ Welcome to the **Card-Mod Studio** wiki — the detailed manual. The
 project is and how to install it; these pages cover how everything works,
 module by module, plus recipes, troubleshooting, and exact per-card support.
 
-**Current version:** v0.8.0
+**Current version:** v0.10.0
 
 ## What is Card-Mod Studio?
 

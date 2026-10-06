@@ -2,7 +2,9 @@
 
 Text **size** (slider), **weight** (Normal / Medium / Bold), **family**
 (Theme default / Sans-serif / Serif / Monospace / Custom… free text), and
-**color** — for almost any card, not just headings.
+**color** — for almost any card, not just headings. A freshly enabled text
+color starts from your theme's own text color (`var(--primary-text-color)`),
+so turning the module on doesn't turn the text near-white on a light theme.
 
 ![Font module](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/09%20Font%20and%20Palette.png)
 
@@ -20,31 +22,45 @@ this, it just works:
 | light | Name/state text and the brightness % |
 | button | The label |
 | sensor / entity | Name, unit, **and the big value** (value at 1.75× your size — its native ratio) |
-| tile | Name and state text (via the tile's own font variables) |
-| gauge | The title; the value number follows **color** (see limits) |
-| thermostat | The title and mode label; the big number follows **weight/color** (see limits) |
+| tile | Name and state text (via the tile's own font variables — HA 2026.2+; on HA 2025.9 these variables don't exist yet, so the tile text keeps its size/colour) |
+| gauge | The title (also on older HA, where it's a different element); the value number follows **color** (size: see limits) |
+| thermostat | The title and mode label; the big number follows **weight/color** (size: see limits) |
 
-### Known limits (HA hard-codes these out of reach)
+### Known limits (for now)
 
-- **Gauge value number — size can't change.** It's SVG text that HA
-  auto-scales to always fill the same fraction of the dial. Color works.
-- **Thermostat big temperature — size can't change.** Hard-coded two shadow
-  roots deep with no variable or selector to reach it. Weight and color work.
+- **Gauge value number — size can't change from this module yet.** It's SVG
+  text that HA auto-scales to fill the dial. Color works.
+- **Thermostat big temperature — size can't change from this module yet.**
+  It sits two shadow roots deep with no variable to reach it. Weight and
+  color work.
 
-These need card-mod's dictionary-form shadow-piercing styles, which the
-Studio doesn't generate yet (planned — see the
-[roadmap](https://github.com/DerTrolli/card-mod-studio/blob/main/docs/ROADMAP.md)).
+Both are reachable with card-mod/UIX dictionary-form (`$` shadow-piercing)
+styles — you can write one by hand in the card's YAML editor and the Studio
+will [preserve it](Advanced-CSS#dictionary-form-styles-shadow-piercing) — but
+the Font module can't generate them yet. Size controls for both are
+**planned for v0.11** (they need a new generated-dictionary path in the save
+logic, and the gauge's SVG text needs a scale-based control design). See
+[What's Planned](Whats-Planned).
 
 ### Not offered on
 
-`heading` (it has the dedicated module below), and `iframe`/`webpage`/`map`
-(no HA-templated text to style).
+`heading` (it has the dedicated module below), `iframe`/`webpage`/`map`
+(no HA-templated text to style), and plain `picture` cards (no text).
+
+**Text color** is hidden (size/weight/family stay) where the card colours
+its own text and a colour set here would never show: alarm-panel,
+media-control, area, picture-entity, picture-glance and picture-elements.
 
 ## The Heading Style module
 
 `heading` cards get their own module with the same text controls (size,
 weight, family incl. Custom…, color) **plus** icon size, icon color, and
 text alignment (left/center/right).
+
+It works on both **Title** and **Subtitle** heading styles (v0.10.0 — the
+module never reached Subtitle headings before), and on Home Assistant
+2026.10's new heading markup. Details, and what happens to headings you
+styled with an older version, are on the [Heading card](Heading-Card) page.
 
 ## Per-row fonts
 

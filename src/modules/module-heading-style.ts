@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { HeadingStyleModuleState } from '../types/index.js';
 import { DEFAULT_HEADING_STYLE } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint } from './module-base.js';
+import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
 import { FONT_FAMILY_PRESETS } from './module-font.js';
 import '../components/cms-color-picker.js';
 
@@ -18,6 +18,9 @@ export class HeadingStyleModule extends LitElement {
 
   @state() private _open = false;
   @state() private _fontSize = DEFAULT_HEADING_STYLE.fontSize;
+  /** "Custom…" chosen but nothing typed yet — picking it changes no state,
+   *  so without this the text field never appeared. */
+  @state() private _customPicked = false;
   @state() private _iconSize = DEFAULT_HEADING_STYLE.iconSize;
 
   static override styles = [moduleStyles];
@@ -30,6 +33,9 @@ export class HeadingStyleModule extends LitElement {
     if (changed.has('state')) {
       const prev = changed.get('state') as HeadingStyleModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;
+      // A family arriving from outside (typed, preset, reopen) decides
+      // what the select shows again.
+      if (prev && prev.fontFamily !== this.state.fontFamily) this._customPicked = false;
       this._fontSize = this.state.fontSize;
       this._iconSize = this.state.iconSize;
     }
@@ -50,7 +56,14 @@ export class HeadingStyleModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div class="module-header" @click=${this._toggleOpen}>
+        <div
+          class="module-header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${this._open ? 'true' : 'false'}
+          @click=${this._toggleOpen}
+          @keydown=${onHeaderKeydown}
+        >
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🔤 Heading Style</span>
           ${renderOverrideBadge(this.overridden)}
@@ -67,7 +80,7 @@ export class HeadingStyleModule extends LitElement {
   }
 
   private get _isCustomFamily(): boolean {
-    return !FONT_FAMILY_PRESETS.some((p) => p.value === (this.state.fontFamily ?? ''));
+    return this._customPicked || !FONT_FAMILY_PRESETS.some((p) => p.value === (this.state.fontFamily ?? ''));
   }
 
   private _renderBody() {
@@ -121,6 +134,7 @@ export class HeadingStyleModule extends LitElement {
               .value=${isCustom ? 'custom' : family}
               @change=${(e: Event) => {
                 const v = (e.target as HTMLSelectElement).value;
+                this._customPicked = v === 'custom';
                 if (v !== 'custom') this._emit({ fontFamily: v });
               }}
             >

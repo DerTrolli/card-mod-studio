@@ -32,6 +32,20 @@ function findModalDialogAncestor(start: Element): HTMLDialogElement | null {
   return null;
 }
 
+/**
+ * Where a portal stays clickable while an older (pre-Web-Awesome, e.g. HA
+ * 2026.2) MDC-style dialog is open: that dialog registers itself with the
+ * `blocking-elements` polyfill, which marks everything outside the top
+ * blocking element `inert` — document.body children, the dialog's siblings,
+ * and anything appended there later. Inside it (its shadow root) is the only
+ * interactive place. null when no such dialog is open (current HA uses a
+ * native modal <dialog> instead — see findModalDialogAncestor).
+ */
+function blockingElementRoot(): Node | null {
+  const top = (document as Document & { $blockingElements?: { top?: Element | null } }).$blockingElements?.top;
+  return top ? (top.shadowRoot ?? top) : null;
+}
+
 export interface ColorPreset {
   name: string;
   variable: string;  // e.g., 'var(--red-color)'
@@ -61,6 +75,16 @@ export function previewHexFor(value: string): string {
   const preset = HA_COLOR_PRESETS.find((p) => p.variable === value);
   if (preset) return preset.hex;
   if (/^#[0-9a-fA-F]{3,8}$/.test(value)) return value;
+  // Any other var(--x) — e.g. the theme-aware var(--primary-text-color)
+  // default — resolves against the live theme (HA sets its theme variables
+  // on <html>), so the swatch shows what the card will actually get.
+  const varRef = value.trim().match(/^var\(\s*(--[\w-]+)\s*(?:,\s*([^)]+))?\)$/);
+  if (varRef) {
+    const resolved =
+      getComputedStyle(document.documentElement).getPropertyValue(varRef[1]).trim() || varRef[2]?.trim() || '';
+    if (!resolved || resolved.startsWith('var(')) return '#888888';
+    value = resolved;
+  }
   try {
     const canvas = document.createElement('canvas');
     canvas.width = 1;
@@ -81,30 +105,111 @@ export function previewHexFor(value: string): string {
  * created in _ensurePortal — see that method's doc comment for why the
  * popover can't just be a normal child of this element's own shadow DOM.
  */
+/** Splits swatches into rows of `size` — see .preset-group. */
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Swatch / custom-input styles, shared by the inline picker and the portal
+ * popover (see _ensurePortal) so both look identical. Colours derive from
+ * HA's theme variables so light, dark and custom themes all read well:
+ * - every swatch carries a faint inset outline (yellow/white/light swatches
+ *   otherwise vanish on a light card);
+ * - "selected" is a two-ring halo in the theme's own text colour, which
+ *   stays visible on any swatch (a primary-coloured ring disappeared on the
+ *   blue/cyan presets) and differs from hover (a slight lift).
+ */
+const swatchStyles = css`
+  .container { display: flex; flex-direction: column; gap: 8px; }
+  /* Swatches come in groups of 5 that never break internally, so a row
+     that doesn't fit wraps as two even rows (5 + 5) instead of 8 + 2. */
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+  .preset-group { display: flex; gap: 6px; }
+  .preset {
+    box-sizing: border-box;
+    width: 26px;
+    height: 26px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-text-color, #212121) 22%, transparent);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+  .preset:hover:not(.selected) { transform: scale(1.12); }
+  .preset.selected {
+    box-shadow:
+      0 0 0 2px var(--card-background-color, #fff),
+      0 0 0 4px var(--primary-text-color, #212121);
+  }
+  .preset:focus-visible,
+  .swatch-trigger:focus-visible,
+  .custom input:focus-visible {
+    outline: 2px solid var(--primary-color, #03a9f4);
+    outline-offset: 2px;
+  }
+  .custom { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+  .custom input[type="color"] {
+    -webkit-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    width: 34px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-text-color, #212121) 22%, transparent);
+  }
+  .custom input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+  .custom input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 6px; }
+  .custom input[type="color"]::-moz-color-swatch { border: 0; border-radius: 6px; }
+  .custom input[type="text"] {
+    flex: 1;
+    /* width 0: grow into the row, never size it — an input's intrinsic
+       ~20ch width made the whole picker ~215px wide minimum and pushed it
+       past the module edge on 360px phones. */
+    width: 0;
+    min-width: 0;
+    box-sizing: border-box;
+    height: 28px;
+    padding: 4px 8px;
+    font: inherit;
+    font-size: 12px;
+    color: var(--primary-text-color, #212121);
+    background: var(--card-background-color, #fff);
+    border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+    border-radius: 4px;
+  }
+`;
+
+/**
+ * Popover-only styles, used in the portal shadow root created in
+ * _ensurePortal — see that method's doc comment for why the popover can't
+ * just be a normal child of this element's own shadow DOM. The border is a
+ * text-colour mix rather than --divider-color, which is nearly invisible
+ * against the dialog surface in dark mode.
+ */
 const popoverStyles = css`
   .popover {
     position: fixed;
     z-index: 999999;
-    background: var(--card-background-color, #1c1c1c);
-    border: 1px solid var(--divider-color, #383838);
+    background: var(--card-background-color, #fff);
+    color: var(--primary-text-color, #212121);
+    font-family: var(--primary-font-family, sans-serif);
+    border: 1px solid color-mix(in srgb, var(--primary-text-color, #212121) 25%, transparent);
     border-radius: 8px;
     padding: 10px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-    width: 200px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    box-sizing: border-box;
+    width: 208px;
   }
-  .container { display: flex; flex-direction: column; gap: 8px; }
-  .presets { display: flex; flex-wrap: wrap; gap: 4px; }
-  .preset {
-    width: 24px; height: 24px;
-    border-radius: 4px;
-    border: 2px solid transparent;
-    cursor: pointer;
-  }
-  .preset:hover { border-color: var(--primary-color, #03a9f4); }
-  .preset.selected { border-color: var(--primary-color, #03a9f4); }
-  .custom { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-  .custom input[type="color"] { width: 32px; height: 24px; padding: 0; border: none; }
-  .custom input[type="text"] { flex: 1; padding: 4px; font-size: 12px; }
 `;
 
 @customElement('cms-color-picker')
@@ -130,31 +235,34 @@ export class CmsColorPicker extends LitElement {
     }
   };
 
-  static styles = css`
-    :host { display: block; }
-    .container { display: flex; flex-direction: column; gap: 8px; }
-    .presets { display: flex; flex-wrap: wrap; gap: 4px; }
-    .preset {
-      width: 24px; height: 24px;
-      border-radius: 4px;
-      border: 2px solid transparent;
-      cursor: pointer;
-    }
-    .preset:hover { border-color: var(--primary-color, #03a9f4); }
-    .preset.selected { border-color: var(--primary-color, #03a9f4); }
-    .custom { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-    .custom input[type="color"] { width: 32px; height: 24px; padding: 0; border: none; }
-    .custom input[type="text"] { flex: 1; padding: 4px; font-size: 12px; }
+  /** Escape closes just the popover. Without this the key reached the
+   *  card-edit dialog instead: current HA closed the whole editor, older
+   *  (MDC-dialog) HA ignored it and left the popover open. Window capture
+   *  runs before either dialog's own key handling. */
+  private _escapeHandler = (e: KeyboardEvent) => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    this._closePopover();
+    (this.shadowRoot?.querySelector('.swatch-trigger') as HTMLElement | null)?.focus();
+  };
 
-    .swatch-trigger {
-      width: 32px;
-      height: 24px;
-      padding: 0;
-      border: 1px solid var(--divider-color, #383838);
-      border-radius: 4px;
-      cursor: pointer;
-    }
-  `;
+  static styles = [
+    swatchStyles,
+    css`
+      :host { display: block; }
+      .swatch-trigger {
+        box-sizing: border-box;
+        width: 34px;
+        height: 26px;
+        padding: 0;
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-text-color, #212121) 22%, transparent);
+      }
+    `,
+  ];
 
   private _paletteChangedHandler = () => {
     this.requestUpdate();
@@ -179,9 +287,13 @@ export class CmsColorPicker extends LitElement {
 
     return html`
       <button
+        type="button"
         class="swatch-trigger"
         style="background: ${previewHexFor(this.value)}"
         title="${this.value}"
+        aria-label="Color ${this.value} — change"
+        aria-haspopup="dialog"
+        aria-expanded="${this._popoverOpen}"
         @click=${this._toggleCompactPopover}
       ></button>
     `;
@@ -200,30 +312,36 @@ export class CmsColorPicker extends LitElement {
     return html`
       <div class="container">
         <div class="presets">
-          ${HA_COLOR_PRESETS.map(p => html`
-            <div
+          ${chunk(HA_COLOR_PRESETS, 5).map(group => html`<div class="preset-group">${group.map(p => html`
+            <button
+              type="button"
               class="preset ${this.value === p.variable ? 'selected' : ''}"
               style="background: ${p.hex}"
               title="${p.name} (${p.variable})"
+              aria-label="${p.name}"
+              aria-pressed="${this.value === p.variable}"
               @click=${() => this._selectPreset(p)}
-            ></div>
-          `)}
+            ></button>
+          `)}</div>`)}
         </div>
         ${customColors.length > 0
           ? html`<div class="presets" title="My colors">
-              ${customColors.map(c => html`
-                <div
+              ${chunk(customColors, 5).map(group => html`<div class="preset-group">${group.map(c => html`
+                <button
+                  type="button"
                   class="preset ${this.value === c.hex ? 'selected' : ''}"
                   style="background: ${c.hex}"
                   title="${c.name || c.hex}"
+                  aria-label="${c.name || c.hex}"
+                  aria-pressed="${this.value === c.hex}"
                   @click=${() => this._selectCustom(c.hex)}
-                ></div>
-              `)}
+                ></button>
+              `)}</div>`)}
             </div>`
           : nothing}
         <div class="custom">
-          <input type="color" .value=${this._toHex(this.value)} @input=${this._onColorInput} />
-          <input type="text" .value=${this.value} @change=${this._onTextChange} placeholder="Color or var(--name)" />
+          <input type="color" aria-label="Pick a custom color" .value=${this._toHex(this.value)} @input=${this._onColorInput} />
+          <input type="text" aria-label="Color value" .value=${this.value} @change=${this._onTextChange} placeholder="Color or var(--name)" />
         </div>
       </div>
     `;
@@ -256,15 +374,26 @@ export class CmsColorPicker extends LitElement {
    * dialog is now deliberately the portal's containing block, position is
    * computed relative to the dialog's own rect instead of the viewport's
    * (see _toggleCompactPopover), which is correct *because of* #1, not in
-   * spite of it. Falls back to document.body (viewport-relative) when
-   * there's no dialog ancestor, e.g. this component used standalone.
+   * spite of it.
    *
-   * Confirmed empirically against a live HA instance for both problems.
+   * Without a native modal <dialog> (HA before the Web Awesome dialogs,
+   * e.g. 2026.2: an MDC-style ha-dialog) the portal goes into that
+   * dialog's shadow root (blockingElementRoot): while it's open everything
+   * outside it is `inert`, so a body-level popover was visible but couldn't
+   * be clicked — choosing a colour did nothing. Whatever containing block
+   * that gives the popover is corrected for after the first render
+   * (_correctPortalOffset). document.body is the last resort, for this
+   * component used outside HA.
+   *
+   * Confirmed empirically against live HA instances (2026.2 and 2026.9).
    */
   private _ensurePortal(): ShadowRoot {
     if (!this._portalShadow) {
       this._portalHost = document.createElement('div');
-      (this._containingDialog ?? document.body).appendChild(this._portalHost);
+      // The portal sits outside the panel, so it can't inherit the panel's
+      // dark color-scheme (native colour input / text field) — copy it.
+      this._portalHost.style.colorScheme = getComputedStyle(this).colorScheme;
+      (this._containingDialog ?? blockingElementRoot() ?? document.body).appendChild(this._portalHost);
       this._portalShadow = this._portalHost.attachShadow({ mode: 'open' });
     }
     return this._portalShadow;
@@ -274,7 +403,7 @@ export class CmsColorPicker extends LitElement {
     if (!this._portalShadow || !this._popoverPos) return;
     litRender(
       html`
-        <style>${popoverStyles}</style>
+        <style>${String(swatchStyles) + String(popoverStyles)}</style>
         <div
           class="popover"
           style="top: ${this._popoverPos.top}px; left: ${this._popoverPos.left}px;"
@@ -290,10 +419,26 @@ export class CmsColorPicker extends LitElement {
 
   private _destroyPortal() {
     document.removeEventListener('click', this._outsideClickHandler, true);
+    window.removeEventListener('keydown', this._escapeHandler, true);
     this._portalHost?.remove();
     this._portalHost = null;
     this._portalShadow = null;
     this._containingDialog = null;
+  }
+
+  /** The popover's position is computed against `bounds` (the native
+   *  dialog, else the viewport); a portal container with its own
+   *  containing block (a transformed ancestor inside an older MDC dialog)
+   *  would shift it — measure where it really landed and shift it back. */
+  private _correctPortalOffset(bounds: DOMRect) {
+    const pop = this._portalShadow?.querySelector('.popover') as HTMLElement | null;
+    if (!pop || !this._popoverPos) return;
+    const r = pop.getBoundingClientRect();
+    const dx = r.left - (bounds.left + this._popoverPos.left);
+    const dy = r.top - (bounds.top + this._popoverPos.top);
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    this._popoverPos = { left: this._popoverPos.left - dx, top: this._popoverPos.top - dy };
+    this._renderPortalContent();
   }
 
   private _toggleCompactPopover(e: Event) {
@@ -317,7 +462,7 @@ export class CmsColorPicker extends LitElement {
     const relTop = rect.top - bounds.top;
     const relBottom = rect.bottom - bounds.top;
 
-    // 200px popover width (see .popover) — keep it within bounds
+    // 208px border-box popover width (see .popover) — keep it within bounds
     // horizontally if the trigger sits near either edge, common in a dense
     // rule row.
     const left = Math.max(8, Math.min(relLeft, bounds.width - 216));
@@ -333,9 +478,24 @@ export class CmsColorPicker extends LitElement {
     this._popoverOpen = true;
     this._ensurePortal();
     this._renderPortalContent();
+    // Re-place using the popover's REAL height: "My colors" rows make it
+    // taller than the estimate, which pushed it past the dialog's bottom
+    // edge (clipped) for triggers low in the panel.
+    const realHeight = (this._portalShadow?.querySelector('.popover') as HTMLElement | null)?.offsetHeight ?? 0;
+    if (realHeight > 0) {
+      const fitted = relBottom + realHeight + 4 <= bounds.height
+        ? relBottom + 4
+        : Math.max(8, relTop - realHeight - 4);
+      if (fitted !== top) {
+        this._popoverPos = { top: fitted, left };
+        this._renderPortalContent();
+      }
+    }
+    this._correctPortalOffset(bounds);
     // Capture phase so this fires before the click that opened it finishes
     // bubbling — otherwise it would immediately close itself.
     document.addEventListener('click', this._outsideClickHandler, true);
+    window.addEventListener('keydown', this._escapeHandler, true);
   }
 
   private _closePopover() {
@@ -371,12 +531,10 @@ export class CmsColorPicker extends LitElement {
   }
 
   private _toHex(val: string): string {
-    // If it's a var(), return a fallback color for the picker
-    if (val.startsWith('var(')) {
-      const preset = HA_COLOR_PRESETS.find(p => p.variable === val);
-      return preset?.hex || '#888888';
-    }
-    return val;
+    // <input type="color"> only takes #rrggbb: resolve var()s and named
+    // colours through previewHexFor (theme-aware), then drop any alpha.
+    if (/^#[0-9a-fA-F]{6}$/.test(val)) return val;
+    return previewHexFor(val).slice(0, 7);
   }
 
   private _emit() {

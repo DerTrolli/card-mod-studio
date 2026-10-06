@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { FontModuleState } from '../types/index.js';
 import { DEFAULT_FONT } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint } from './module-base.js';
+import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
 import '../components/cms-color-picker.js';
 
 /** Preset font-family values shown in the dropdown. '' = leave the theme's
@@ -25,9 +25,15 @@ export class FontModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** False on cards whose text carries its own colour (NO_TEXT_COLOR_TYPES)
+   *  — the colour picker would be a dead control there. */
+  @property({ attribute: false }) allowColor = true;
 
   @state() private _open = false;
   @state() private _fontSize = DEFAULT_FONT.fontSize;
+  /** "Custom…" chosen but nothing typed yet — picking it changes no state,
+   *  so without this the text field never appeared. */
+  @state() private _customPicked = false;
 
   static override styles = [moduleStyles];
 
@@ -39,6 +45,9 @@ export class FontModule extends LitElement {
     if (changed.has('state')) {
       const prev = changed.get('state') as FontModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;
+      // A family arriving from outside (typed, preset, reopen) decides
+      // what the select shows again.
+      if (prev && prev.fontFamily !== this.state.fontFamily) this._customPicked = false;
       this._fontSize = this.state.fontSize;
     }
   }
@@ -56,13 +65,20 @@ export class FontModule extends LitElement {
   }
 
   private get _isCustomFamily(): boolean {
-    return !FONT_FAMILY_PRESETS.some((p) => p.value === this.state.fontFamily);
+    return this._customPicked || !FONT_FAMILY_PRESETS.some((p) => p.value === this.state.fontFamily);
   }
 
   override render() {
     return html`
       <div class="module">
-        <div class="module-header" @click=${this._toggleOpen}>
+        <div
+          class="module-header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${this._open ? 'true' : 'false'}
+          @click=${this._toggleOpen}
+          @keydown=${onHeaderKeydown}
+        >
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🔠 Font</span>
           ${renderOverrideBadge(this.overridden)}
@@ -129,6 +145,7 @@ export class FontModule extends LitElement {
               .value=${isCustom ? 'custom' : family}
               @change=${(e: Event) => {
                 const v = (e.target as HTMLSelectElement).value;
+                this._customPicked = v === 'custom';
                 if (v !== 'custom') this._emit({ fontFamily: v });
               }}
             >
@@ -159,15 +176,17 @@ export class FontModule extends LitElement {
             `
           : nothing}
 
-        <div class="control-row">
-          <span class="control-label">Text color</span>
-          <div class="control-right">
-            <cms-color-picker
-              .value=${this.state.color}
-              @color-changed=${(e: CustomEvent) => this._emit({ color: e.detail.value })}
-            ></cms-color-picker>
-          </div>
-        </div>
+        ${this.allowColor
+          ? html`<div class="control-row">
+              <span class="control-label">Text color</span>
+              <div class="control-right">
+                <cms-color-picker
+                  .value=${this.state.color}
+                  @color-changed=${(e: CustomEvent) => this._emit({ color: e.detail.value })}
+                ></cms-color-picker>
+              </div>
+            </div>`
+          : nothing}
       </div>
     `;
   }

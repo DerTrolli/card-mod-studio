@@ -125,7 +125,7 @@ export function conditionExpr(c: StyleCondition | undefined): string | null {
   return `${src} ${c.valueOperator} ${c.valueThreshold}`;
 }
 
-function filterDecls(s: FilterModuleState): string[] {
+function filterDecls(s: FilterModuleState, cardType?: string, rawCss = ''): string[] {
   if (!s.enabled) return [];
 
   const decls: string[] = [];
@@ -188,7 +188,14 @@ function filterDecls(s: FilterModuleState): string[] {
   }
 
   if (decls.length > 0) {
-    decls.push(`transition: filter ${s.transitionMs}ms ease;`);
+    // The tile card's own stylesheet sets `ha-card { transition: … }` and,
+    // being adopted after card-mod's/UIX's injected <style>, wins a plain
+    // declaration — filter changes snapped instead of fading (measured: the
+    // only one of 10 card types affected). Same mechanism as the button
+    // card's font size. Not when Advanced CSS sets a transition itself:
+    // hand-written CSS must keep winning, as it does everywhere else.
+    const important = cardType === 'tile' && !/(^|[\s;{])transition\s*:/.test(rawCss);
+    decls.push(`transition: filter ${s.transitionMs}ms ease${important ? ' !important' : ''};`);
   }
 
   return decls;
@@ -264,6 +271,18 @@ export interface GenerateCssOptions {
 }
 
 /**
+ * Whether a value reads the custom property it would be assigned to.
+ * `--x: var(--x)` is a dependency cycle: invalid at computed-value time, so
+ * everything reading --x falls back to its initial value — the gauge's value
+ * text turned black on dark themes with the theme-default text colour.
+ * Leaving the declaration out keeps the inherited theme value, which is what
+ * the value meant anyway.
+ */
+function refersTo(value: string, name: string): boolean {
+  return new RegExp(`var\\(\\s*${name}\\s*[,)]`).test(value);
+}
+
+/**
  * Gauge cards ignore an inherited --gauge-color: hui-gauge-card writes the
  * severity-computed color as an *inline style* on <ha-gauge> on every render
  * (styleMap in hui-gauge-card.ts), and inline wins over anything inherited
@@ -288,7 +307,9 @@ function gaugeColorBlock(
 ): string {
   if (cardType !== 'gauge') return '';
   const markerLine = marker ? `  ${GRADIENT_MARKER_PROPERTY}: ${marker};\n` : '';
-  const needleLine = opts?.gaugeNeedle ? `  --primary-text-color: ${value} !important;\n` : '';
+  const needleLine = opts?.gaugeNeedle && !refersTo(value, '--primary-text-color')
+    ? `  --primary-text-color: ${value} !important;\n`
+    : '';
   return `ha-gauge {\n${markerLine}  --gauge-color: ${value} !important;\n${needleLine}}`;
 }
 
@@ -392,6 +413,25 @@ function animationDecls(s: AnimationModuleState): string[] {
   return decls;
 }
 
+/**
+ * Heading card. HA 2026.10 replaced the title's `<p>` with
+ * `<h2 class="heading">` (`<h3>` for `heading_style: subtitle`) whose font
+ * properties inherit from HA's public `--ha-heading-card-{title,subtitle}-*`
+ * variables: the old `.title p` selector stopped matching, and even a
+ * `.heading` selector can't set size/weight there (HA's `inherit` wins).
+ * The variables work on 2026.9 AND 2026.10 alike (verified live, card-mod
+ * and UIX), so size / colour / weight go through them — for both heading
+ * styles, which also makes the module work on "Subtitle" headings (it never
+ * reached them before). Font family has no variable: a selector list
+ * covering the old `<p>` and the new `.heading` sets it on both versions.
+ * `.content` wraps the icon + text in either style.
+ *
+ * The pre-v0.10 shape (`.title p` / `.title ha-icon`) is still recognised
+ * by mapHeadingStyle, so opening an old config and saving migrates it.
+ */
+export const HEADING_FAMILY_SELECTOR = '.content p,\n.content .heading';
+export const HEADING_ICON_SELECTOR = '.content ha-icon';
+
 function headingStyleBlocks(s: HeadingStyleModuleState): string {
   if (!s.enabled) return '';
 
@@ -400,29 +440,29 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
     center: 'center',
     right: 'flex-end',
   };
-
-  const titlePDecls = [
-    `font-size: ${s.fontSize}px;`,
-    `color: ${s.textColor} !important;`,
-    `font-weight: ${FONT_WEIGHT_VALUE[s.fontWeight ?? 'normal']};`,
-    ...(s.fontFamily?.trim() ? [`font-family: ${s.fontFamily.trim()};`] : []),
-  ];
-  const titleP = `.title p {\n${titlePDecls.map((d) => `  ${d}`).join('\n')}\n}`;
-
-  // --mdc-icon-size is the var the heading icon honours today, but MDC custom
-  // properties are deprecated in HA (2026.4+). Emit --ha-icon-size alongside it
-  // as a forward-compatible fallback so sizing survives the MDC removal.
-  const iconDecls = [
-    `--mdc-icon-size: ${s.iconSize}px;`,
-    `--ha-icon-size: ${s.iconSize}px;`,
-    `color: ${s.iconColor} !important;`,
-  ];
-  const titleIcon = `.title ha-icon {\n${iconDecls.map((d) => `  ${d}`).join('\n')}\n}`;
-
   const alignVal = alignMap[s.alignment] ?? 'flex-start';
-  const container = `.container {\n  justify-content: ${alignVal} !important;\n}`;
+  const weight = FONT_WEIGHT_VALUE[s.fontWeight ?? 'normal'];
 
-  return [container, titleP, titleIcon].join('\n\n');
+  const containerDecls = [
+    `justify-content: ${alignVal} !important;`,
+    ...(['title', 'subtitle'] as const).flatMap((kind) => [
+      `--ha-heading-card-${kind}-font-size: ${s.fontSize}px;`,
+      `--ha-heading-card-${kind}-color: ${s.textColor};`,
+      `--ha-heading-card-${kind}-font-weight: ${weight};`,
+    ]),
+  ];
+  const container = `.container {\n${containerDecls.map((d) => `  ${d}`).join('\n')}\n}`;
+
+  const family = s.fontFamily?.trim()
+    ? `${HEADING_FAMILY_SELECTOR} {\n  font-family: ${s.fontFamily.trim()};\n}`
+    : '';
+
+  // --mdc-icon-size is what ha-icon honours (still, as of HA 2026.10 —
+  // HA's own usage grew); the pre-v0.10 `--ha-icon-size` twin was inert and
+  // is no longer emitted (still recognised when reading older configs).
+  const icon = `${HEADING_ICON_SELECTOR} {\n  --mdc-icon-size: ${s.iconSize}px;\n  color: ${s.iconColor} !important;\n}`;
+
+  return [container, family, icon].filter(Boolean).join('\n\n');
 }
 
 /** CSS value per Font-module weight name. Exported for the parser's
@@ -523,6 +563,10 @@ function fontCompanionBlocks(
       ...(color ? [`  color: ${color} !important;`] : []),
     ];
     blocks.push(`.title {\n${titleDecls.join('\n')}\n}`);
+    // On older HA the gauge's name is a div.name (checked live on 2026.2 and
+    // 2025.9; 2026.6+ uses p.title); current HA has no .name in the gauge, so
+    // this is inert there.
+    if (cardType === 'gauge') blocks.push(`.name {\n${titleDecls.join('\n')}\n}`);
   }
 
   if (cardType === 'entities') {
@@ -559,11 +603,12 @@ function fontCompanionDecls(
     }
   }
 
-  if (cardType === 'gauge' && color) {
+  if (cardType === 'gauge' && color && !refersTo(color, '--primary-text-color')) {
     // The gauge's SVG value text is `fill: var(--primary-text-color)` inside
     // a nested shadow root — the variable is the only way in. Scoped to this
     // card's ha-card, so nothing outside the gauge is affected. (Accent
     // Color's needle-mode !important on ha-gauge deliberately outranks it.)
+    // The theme default needs no override (and must not get one: see refersTo).
     decls.push(`--primary-text-color: ${color};`);
   }
 
@@ -835,8 +880,17 @@ function thresholdPropertyBlock(
       return `ha-state-icon {\n${marker}  color: ${jinja} !important;\n}`;
     case 'background':
       return `ha-card {\n${marker}  background: ${jinja};\n}`;
-    case 'text-color':
-      return `ha-card {\n${marker}  color: ${jinja};\n}`;
+    case 'text-color': {
+      // The same colour companions the Font module writes: tile text reads
+      // its own --ha-tile-info-* colours, card titles --ha-card-header-color
+      // — neither inherits ha-card's colour.
+      const aux = cardType === 'tile'
+        ? `  --ha-tile-info-primary-color: ${jinja};\n  --ha-tile-info-secondary-color: ${jinja};\n`
+        : HEADER_TITLE_CARD_TYPES.has(cardType ?? '')
+          ? `  --ha-card-header-color: ${jinja};\n`
+          : '';
+      return `ha-card {\n${marker}  color: ${jinja};\n${aux}}`;
+    }
     case 'accent-color': {
       // Same card-type companion variables as the Accent Color module —
       // --accent-color alone is invisible on tile/thermostat/button/gauge.
@@ -852,6 +906,18 @@ function thresholdPropertyBlock(
     default:
       return '';
   }
+}
+
+/**
+ * The properties the Threshold module is currently writing — empty until it
+ * has an entity, at least one rule (gradient: two stops) and a property,
+ * i.e. exactly when thresholdBlock() emits something. The static module for
+ * each of these properties steps aside (see generateCss).
+ */
+export function thresholdOwnedProperties(s: ThresholdModuleState | undefined): Set<ThresholdProperty> {
+  if (!s || !s.enabled || !s.entityId || s.properties.length === 0) return new Set();
+  if (s.valueMode === 'gradient' ? s.colorStops.length < 2 : s.rules.length === 0) return new Set();
+  return new Set(s.properties);
 }
 
 /**
@@ -904,12 +970,15 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // same declaration into the same ha-card block, and only the one that
   // happens to render later would actually take effect (silently ignoring
   // the static module's own control).
-  const thresholdProps = new Set(state.threshold.enabled ? state.threshold.properties : []);
+  // Only once Threshold actually writes something: an enabled-but-unfinished
+  // Threshold (no entity / no rules yet) used to silently disable e.g.
+  // Background on a thermostat or Accent on a gauge (its default property).
+  const thresholdProps = thresholdOwnedProperties(state.threshold);
 
   // ha-card block
   const haCardDecls = [
     ...(thresholdProps.has('accent-color') ? [] : accentColorDecls(state.accentColor, cardType)),
-    ...filterDecls(state.filter),
+    ...filterDecls(state.filter, cardType, state.advanced.rawCss),
     ...(thresholdProps.has('background') ? [] : backgroundDecls(state.background)),
     ...borderDecls(state.border, thresholdProps.has('border-color')),
     ...animDecls,

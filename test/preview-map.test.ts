@@ -72,6 +72,15 @@ describe('mapElementToTarget', () => {
     expect(mapElementToMatch(chain, 'heading')?.index).toBe(1);
   });
 
+  it('maps the HA 2026.10 heading title (<h2 class="heading">) and a subtitle-style heading to Heading Style', () => {
+    const h2 = [el('h2', ['heading']), el('div', ['content', 'title']), el('div', ['container']), el('ha-card'), el('hui-heading-card')];
+    expect(mapElementToTarget(h2, 'heading')).toEqual({ module: 'cms-heading-style-module', label: 'Heading Style' });
+    expect(mapElementToMatch(h2, 'heading')?.index).toBe(1);
+    const sub = [el('h3', ['heading']), el('div', ['content', 'subtitle']), el('div', ['container']), el('ha-card'), el('hui-heading-card')];
+    expect(mapElementToTarget(sub, 'heading')).toEqual({ module: 'cms-heading-style-module', label: 'Heading Style' });
+    expect(mapElementToMatch(sub, 'heading')?.index).toBe(1);
+  });
+
   it('maps a row tag on an entities card to Entity Rows', () => {
     const chain = [
       el('hui-sensor-entity-row'),
@@ -103,7 +112,7 @@ describe('mapElementToTarget', () => {
     });
   });
 
-  it('maps generic-entity-row text to Font (walked before the row tag)', () => {
+  it('maps row text on an entities card to that row (its section holds the row\'s text colour + font)', () => {
     const chain = [
       el('div', ['info', 'text-content']),
       el('hui-generic-entity-row'),
@@ -112,9 +121,12 @@ describe('mapElementToTarget', () => {
       el('hui-card'),
     ];
     expect(mapElementToTarget(chain, 'entities')).toEqual({
-      module: 'cms-font-module',
-      label: 'Font',
+      module: 'cms-entities-rows-module',
+      label: 'Entity Rows',
     });
+    // highlight = the OUTERMOST row element (the row itself), not HA's
+    // inner hui-generic-entity-row
+    expect(mapElementToMatch(chain, 'entities')?.index).toBe(2);
   });
 
   it('maps the button card name (bare span) and state (span.state) to Font', () => {

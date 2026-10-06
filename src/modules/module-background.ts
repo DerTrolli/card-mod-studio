@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { BackgroundModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_BACKGROUND } from '../parser/state-mapper.js';
-import { moduleStyles, renderWhen, renderOverrideBadge, renderOverrideHint } from './module-base.js';
+import { moduleStyles, renderWhen, renderOverrideBadge, renderOverrideHint, renderThresholdOwnedHint, onHeaderKeydown } from './module-base.js';
 import '../components/cms-color-picker.js';
 
 export class BackgroundModule extends LitElement {
@@ -19,6 +19,8 @@ export class BackgroundModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** Threshold Colors is currently writing this module's property. */
+  @property({ attribute: false }) thresholdOwned = false;
 
   @state() private _open = false;
   @state() private _angle = DEFAULT_BACKGROUND.angle;
@@ -52,7 +54,14 @@ export class BackgroundModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div class="module-header" @click=${this._toggleOpen}>
+        <div
+          class="module-header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${this._open ? 'true' : 'false'}
+          @click=${this._toggleOpen}
+          @keydown=${onHeaderKeydown}
+        >
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🖼️ Background</span>
           ${renderOverrideBadge(this.overridden)}
@@ -72,6 +81,7 @@ export class BackgroundModule extends LitElement {
     return html`
       <div class="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${renderThresholdOwnedHint(this.thresholdOwned, 'background', 'Background')}
         <div class="control-row">
           <span class="control-label">Type</span>
           <div class="control-right">

@@ -6,9 +6,9 @@
 |---|---|---|
 | Font | ✅ | The whole rendered content inherits size/weight/family/color |
 | Visual Filters | ✅ | |
-| Accent Color | ✅ | Generic variables — mostly affects links/accents in the content |
+| Accent Color | — hidden | Nothing in rendered markdown reads the accent colour (links use the theme's primary colour) (measured, v0.10.0) |
 | Icon Color | — hidden | No icon |
-| Threshold Colors | ✅ | Background/text color from any entity's value |
+| Threshold Colors | ✅ | Background / Text / Border Color from any entity's value |
 | Background | ✅ | |
 | Animation | ✅ | |
 | Border & Radius | ✅ | |

@@ -38,7 +38,27 @@ export function hasDictFormStyle(source: {
   uix?: { style?: unknown };
   card_mod?: { style?: unknown };
 }): boolean {
-  return isDictForm(source.card_mod?.style) || isDictForm(source.uix?.style);
+  // An EMPTY dict (`style: {}`) is no content at all — counting it froze
+  // the card and silently dropped every edit (audit v0.10 #14).
+  const dictWithContent = (s: unknown) => isDictForm(s) && hasStyleContent(s as StyleValue);
+  return dictWithContent(source.card_mod?.style) || dictWithContent(source.uix?.style);
+}
+
+/** A dict whose `.` entry isn't a CSS string (a nested dict, null, a
+ *  number) can't be rebuilt around a regenerated root — such a style is
+ *  preserved untouched, like mixed-form (audit v0.10 #16). */
+export function hasUnsupportedDictRoot(style: unknown): boolean {
+  return (
+    isDictForm(style) &&
+    Object.prototype.hasOwnProperty.call(style, '.') &&
+    typeof (style as Record<string, unknown>)['.'] !== 'string'
+  );
+}
+
+/** Structural equality of two style values (same dict, or a copy of it —
+ *  what "Copy to card_mod" produces). */
+export function sameStyleValue(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 /** A style value counts as "real" content only if it has something in it — an
@@ -69,8 +89,28 @@ export function isUixOnlyStyle(config: CardModCardConfig): boolean {
 }
 
 /**
+ * True when a dict-form style value uses UIX-only selector extensions
+ * anywhere in its (recursive) key structure (docs/V0.10_PLAN.md §1):
+ * - `$$` express selector (recursive deep shadow search). The single
+ *   trailing-`$` pierce (`ha-gauge$`) is NOT UIX-only — that's the shared
+ *   syntax card-mod also runs.
+ * - `&`-prefixed host-filter keys.
+ * Values recurse: dict-in-dict entries are navigation steps whose keys
+ * need the same scan.
+ */
+export function dictUsesUixOnlySelectors(style: unknown): boolean {
+  if (!style || typeof style !== 'object') return false;
+  for (const [key, value] of Object.entries(style as Record<string, unknown>)) {
+    if (key.includes('$$') || key.trimStart().startsWith('&')) return true;
+    if (dictUsesUixOnlySelectors(value)) return true;
+  }
+  return false;
+}
+
+/**
  * True when a uix: block uses UIX-only features (macros, billets, per-card
- * theme override) that card-mod cannot run under any key — rewriting the
+ * theme override, or dict-style keys using `$$` express selectors /
+ * `&` host filters) that card-mod cannot run under any key — rewriting the
  * key to `card_mod:` would not make this styling work, unlike plain CSS.
  * (`uix.class` is NOT in this list: card-mod's `card_mod: class:` is an
  * equivalent spelling, so a class-only block is portable.) Also used to
@@ -80,6 +120,18 @@ export function isUixOnlyStyle(config: CardModCardConfig): boolean {
  * before overwriting.
  */
 export function usesUixOnlyFeaturesInBlock(uix: UixConfig | undefined): boolean {
+  return usesUixMacroBlockFeatures(uix) || (isDictForm(uix?.style) && dictUsesUixOnlySelectors(uix?.style));
+}
+
+/**
+ * Narrower check: only the block-LEVEL UIX features (macros/billets/theme),
+ * NOT dict `$$`/`&` selector keys. The panel's coexist/overwrite banners
+ * need this distinction — they describe hand-authored macro/billet styling
+ * being left unsynced or overwritten by a save, which doesn't apply to
+ * dict-form styles under the v0.10 model (those are rebuilt with pierced
+ * entries preserved, or frozen entirely, never silently replaced).
+ */
+export function usesUixMacroBlockFeatures(uix: UixConfig | undefined): boolean {
   return !!(uix?.macros || uix?.billets || uix?.theme);
 }
 
@@ -111,4 +163,19 @@ export function hasUixOnlyRow(config: CardModCardConfig): boolean {
   const rows = (config as unknown as { entities?: unknown }).entities;
   if (!Array.isArray(rows)) return false;
   return rows.some((row) => row && typeof row === 'object' && isUixOnlyRowStyle(row as EntitiesCardRow));
+}
+
+/** True when an at-risk (uix-only) row's dict style uses UIX-only `$$`/`&`
+ *  keys — card-mod can't run it under any key, so the "Copy to card_mod"
+ *  offer must not be made for it (audit v0.10 #18). */
+export function hasUixOnlySelectorRow(config: CardModCardConfig): boolean {
+  const rows = (config as unknown as { entities?: unknown }).entities;
+  if (!Array.isArray(rows)) return false;
+  return rows.some(
+    (row) =>
+      row &&
+      typeof row === 'object' &&
+      isUixOnlyRowStyle(row as EntitiesCardRow) &&
+      dictUsesUixOnlySelectors((row as EntitiesCardRow).uix?.style),
+  );
 }

@@ -6,14 +6,14 @@ and the `energy-*` cards.
 
 | Module | Available | Notes |
 |---|---|---|
-| Font | ✅ | Body text **plus the card title** (all except weather/energy) |
+| Font | ✅ | Body text **plus the card title** (all except weather/energy). Text color reaches the card title and HTML text — graph axis labels are drawn by the chart itself (measured, v0.10.0) |
 | Visual Filters | ✅ | |
 | Background | ✅ | |
 | Border & Radius | ✅ | |
-| Threshold Colors | ✅ | Background/text/border color from any entity |
+| Threshold Colors | ✅ | Background/text/border color from any entity (text where Font's colour works; accent where Accent works) |
 | Advanced CSS | ✅ | |
 | Icon Color | — hidden | No single card icon to color |
-| Accent Color | ✅/limited | Generic variables; graph internals mostly draw their own colors |
+| Accent Color | history-graph, statistic, calendar | Recolours their accent-drawn parts; hidden on statistics-graph, todo-list, logbook and weather-forecast, where nothing reads it (measured, v0.10.0) |
 | Animation | — hidden | Interferes with chart rendering |
 
 ## Notes

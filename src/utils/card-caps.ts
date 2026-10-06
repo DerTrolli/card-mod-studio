@@ -17,6 +17,9 @@ export const NON_STATE_CARD_TYPES = new Set([
 
 export const CONTAINER_CARD_TYPES = new Set([
   'grid', 'vertical-stack', 'horizontal-stack', 'sections', 'conditional',
+  // entity-filter renders its inner `card:` — a style on the filter itself
+  // reaches nothing (module_effect_audit: every module dead on both engines).
+  'entity-filter',
 ]);
 
 /** Container types whose children live in a `cards: []` array the panel can
@@ -49,6 +52,14 @@ export const NO_BORDER_TYPES = new Set([
   'heading',
 ]);
 
+// Threshold Colors writes icon/accent/background/text/border colour —
+// none of which shows on a heading card (measured on a real dashboard:
+// title colour, background and border all unchanged; Heading Style has its
+// own colour controls). Entities cards hide it too, for per-row thresholds.
+export const NO_THRESHOLD_TYPES = new Set([
+  'heading',
+]);
+
 export const NO_ICON_COLOR_TYPES = new Set([
   'gauge', 'history-graph', 'statistics-graph', 'statistic',
   'energy-distribution', 'energy-usage-graph',
@@ -63,6 +74,34 @@ export const NO_ICON_COLOR_TYPES = new Set([
   // control. alarm-panel and media-control DO honour icon colour (plain mode)
   // and are intentionally NOT listed here.
   'glance',
+  // v0.10 module_effect_audit (pixel-measured, card-mod + UIX): the area
+  // card's icon and picture-elements' state icons don't take the colour.
+  'area', 'picture-elements',
+]);
+
+/**
+ * Accent Color — cards that never read the accent colour (or its companion
+ * variables) anywhere visible. Measured by tools/sandbox/harness/
+ * module_effect_audit.mjs (rendered pixels, card-mod AND UIX, HA 2026.9):
+ * switching the module on changed nothing on these. heading/entities hide
+ * it for their own reasons (see cms-panel).
+ */
+export const NO_ACCENT_TYPES = new Set([
+  'alarm-panel', 'area', 'button', 'glance', 'humidifier', 'iframe', 'light',
+  'map', 'markdown', 'picture', 'picture-elements', 'picture-entity',
+  'statistics-graph', 'todo-list', 'weather-forecast', 'logbook', 'picture-glance',
+]);
+
+/**
+ * A card-level text colour (Font's colour picker, Threshold's Text Color)
+ * reaches no visible text on these — their text carries its own colour
+ * (measured, see NO_ACCENT_TYPES). Font's size/weight still work there.
+ * (Chart/list cards — statistics-graph, todo-list, logbook — keep it: their
+ * graph labels are canvas-drawn, but the colour reaches the card title.)
+ */
+export const NO_TEXT_COLOR_TYPES = new Set([
+  'alarm-panel', 'area', 'media-control', 'picture-elements', 'picture-entity',
+  'picture-glance',
 ]);
 
 /**
@@ -89,7 +128,28 @@ export const ICON_SIZE_TYPES = new Set([
 // render no HA-templated text at all for card-mod to reach.
 export const NO_FONT_TYPES = new Set([
   'heading', 'iframe', 'webpage', 'map',
+  // a picture card has no text at all (module_effect_audit)
+  'picture',
 ]);
+
+export const showsAccentColor = (cardType: string): boolean =>
+  cardType !== 'heading' && cardType !== 'entities' && !NO_ACCENT_TYPES.has(cardType);
+
+/**
+ * Which Threshold Colors "Apply to" properties do something on a card type —
+ * the same gating as the module each property mirrors, so Threshold never
+ * offers a colour the matching module hides as dead.
+ */
+export function thresholdPropertyAllowed(property: string, cardType: string): boolean {
+  switch (property) {
+    case 'icon-color': return cardType !== 'entities' && !NO_ICON_COLOR_TYPES.has(cardType);
+    case 'accent-color': return showsAccentColor(cardType);
+    case 'background': return !NO_BACKGROUND_TYPES.has(cardType);
+    case 'border-color': return !NO_BORDER_TYPES.has(cardType);
+    case 'text-color': return !NO_FONT_TYPES.has(cardType) && !NO_TEXT_COLOR_TYPES.has(cardType);
+    default: return true;
+  }
+}
 
 /** Domains whose entities carry a binary on/off state usable in an
  *  is_state(x, 'on'/'off') condition even when the state string itself

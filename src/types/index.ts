@@ -109,6 +109,35 @@ export interface CssTarget {
  * The parsed representation of a card_mod style block.
  * This is what all modules read from and write to.
  */
+/**
+ * One preserved top-level entry of a dictionary-form style (v0.10): the
+ * original key (selector, `sel $`, `$$` chain, …) and its ORIGINAL value —
+ * a CSS string or a nested dict, kept by reference and re-emitted
+ * byte-identically in original order. The Studio never interprets these
+ * in beta.1; the `.` entry is the only one parsed (through the normal
+ * string pipeline).
+ */
+export interface PiercedEntry {
+  key: string;
+  value: unknown;
+}
+
+/** The dict-form carrier threaded from parse to save (v0.10): preserved
+ *  entries in original order plus where the `.` entry sat, so the save
+ *  path can rebuild the dictionary byte-identically around a regenerated
+ *  root. Present ⇔ the source style was dictionary-form. */
+export interface DictSource {
+  /** Every top-level entry EXCEPT `.`, in original order, verbatim. */
+  entries: PiercedEntry[];
+  /** Index (into the ORIGINAL key order) where `.` sat; null = absent. */
+  rootIndex: number | null;
+  /** Write the rebuilt dict back under THIS key instead of the active
+   *  engine's: a `uix:` dict that is the card's only style and uses
+   *  UIX-only features (`$$`/`&` keys, macros/billets/theme) can't move to
+   *  `card_mod:` (audit v0.10 #6). */
+  pinKey?: 'card_mod' | 'uix';
+}
+
 export interface CardModStyleState {
   targets: CssTarget[];
   /** Raw CSS that could not be parsed into structured targets. */
@@ -116,6 +145,11 @@ export interface CardModStyleState {
   /** Valid-but-unmodelable blocks (@keyframes, @media, ...) preserved
    *  verbatim — mapAdvanced re-emits them so they survive a save. */
   passthroughCss?: string;
+  /** Order-sensitive remainder (@media, nested rules, Jinja statements, …)
+   *  preserved byte-for-byte and re-emitted LAST — see parseCssDetailed. */
+  tailCss?: string;
+  /** Dictionary-form only (v0.10 — see docs/V0.10_PLAN.md §4.1). */
+  dictSource?: DictSource;
 }
 
 // ---------------------------------------------------------------------------
@@ -335,6 +369,20 @@ export interface EntitiesRowStyle {
    *  no UI for it; it rides along invisibly so an unrelated panel edit
    *  can't delete hand-authored row styling. */
   extraCss?: string;
+  /** Dict-form rows (v0.10): same carrier as StudioState.dictSource — the
+   *  row's `.` entry is what the fields above were parsed from; everything
+   *  else is preserved verbatim and rebuilt around the regenerated `.` on
+   *  save. Absent for plain string row styles. */
+  dictSource?: DictSource;
+  /** One-shot request from the rows module ("Always use this color"): add
+   *  `state_color: false` to the row even though its icon colour didn't
+   *  change in this edit — for rows styled before v0.10.0 (see
+   *  applyEntityRowStyles). Never parsed from YAML. */
+  iconWhileOn?: true;
+  /** Set when this row's styling can't be rewritten faithfully (mixed-form,
+   *  or a dict whose `.` isn't a CSS string): the save path leaves the row
+   *  untouched and the rows module shows a lock note instead of controls. */
+  frozen?: true;
 }
 
 export type EntitiesRowStyles = Record<string, EntitiesRowStyle>;
@@ -343,6 +391,8 @@ export interface EntitiesCardRow {
   entity?: string;
   name?: string;
   icon?: string;
+  /** `style` is a string in the common case; dict-form rows carry a dict
+   *  here (the config types can't express the nesting — see isDictForm). */
   card_mod?: { style: string };
   uix?: { style: string };
   [key: string]: unknown;
@@ -360,6 +410,10 @@ export interface StudioState {
   font: FontModuleState;
   threshold: ThresholdModuleState;
   advanced: AdvancedModuleState;
+  /** Dict-form cards: preserved shadow-piercing entries + original shape,
+   *  threaded from parse to save so regeneration rebuilds the dict
+   *  byte-identically (v0.10). Absent for plain string styles. */
+  dictSource?: DictSource;
 }
 
 // ---------------------------------------------------------------------------

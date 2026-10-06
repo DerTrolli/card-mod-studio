@@ -11,11 +11,25 @@ every combination. This page explains exactly what it writes and when.
   extras (macros, billets, and the UIX Forge template surface — molds,
   server-stored "foundries", and add-on "sparks").
 
-**Tested versions** (2026-08): card-mod **4.2.1** and UIX **8.0.0**, both
-verified live on HA 2026.8.0. Note UIX 8.x itself requires HA ≥ 2026.8.0;
-its styling contract (what the Studio reads/writes) is unchanged from 7.x.
-The Studio doesn't edit UIX Forge config (`forge:`/`foundry:` keys) but
-preserves it untouched through every edit.
+**Tested versions** (2026-10, Card-Mod Studio v0.10.0): card-mod **4.2.1**
+and UIX **8.3.1**, each fully verified live on HA 2026.9.4 (current stable)
+and HA 2026.10.0b0. card-mod was also quick-checked on older HA: 4.2.1 on
+2026.6.4 and 2026.2.3, and 3.4.5 (the newest card-mod 3.x; 4.2.1 needs
+HA ≥ 2026.2) on 2025.9.4 — see [Installation](Installation#requirements).
+Note UIX 8.x itself requires HA ≥ 2026.8.0, and UIX 8.4 (in beta) will
+require HA ≥ 2026.10; its styling contract (what the Studio reads/writes)
+is unchanged from 7.x. The Studio doesn't edit UIX Forge config
+(`forge:`/`foundry:` keys) but preserves it untouched through every edit.
+
+**Which engine should I use?** Both work equally well with the Studio.
+card-mod 4.2.1 is still the newest card-mod release, but it is effectively
+unmaintained: on HA 2026.8 or newer it **hangs if your active theme defines
+`card-mod-*-yaml` variables** (upstream issues
+[#606](https://github.com/thomasloven/lovelace-card-mod/issues/606) /
+[#617](https://github.com/thomasloven/lovelace-card-mod/issues/617)). UIX is
+actively developed and, per its own docs, a drop-in replacement for card-mod
+up to 4.2.1 (all card-mod card and theme configurations are supported), so if
+you're affected — or starting fresh — UIX is the safer choice.
 
 ## Which key does the Studio write?
 
@@ -47,10 +61,22 @@ silently lost or duplicated.
   `card_mod:` styling and rewrites it under `uix:` (verified by a
   permanent live check against a real UIX install).
 
+## UIX-only dictionary keys
+
+In card-mod's dictionary-form styles (the `$` shadow-piercing syntax), UIX
+adds two extensions that card-mod can't run: **`$$`** (a recursive deep-search
+"express" selector) and **`&`-prefixed host-filter keys**. The Studio never
+generates them, but it **preserves them byte-for-byte** through every edit
+(they're shown read-only in [Advanced CSS](Advanced-CSS#dictionary-form-styles-shadow-piercing)),
+and — like macros and billets — they're treated as UIX-only: if card-mod is
+the only engine installed, the panel warns instead of offering a "Copy to
+card_mod" fix that couldn't work, and a `uix:` dictionary using them stays
+under `uix:` rather than moving to `card_mod:`.
+
 ## Compatibility notes
 
 - Generated CSS is identical for both engines and is verified against **real
-  running instances** of each (card-mod 4.2.x and UIX 7.x in the project's
+  running instances** of each (card-mod 4.2.x and UIX 8.x in the project's
   Docker test rig) before every release.
 - Since v0.8.0 the Studio also works around an engine-level gap in both:
   HA's newer schema-validated card editors rejected any card carrying a

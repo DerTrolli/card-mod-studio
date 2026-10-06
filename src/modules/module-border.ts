@@ -6,7 +6,9 @@ import {
   moduleStyles,
   renderOverrideBadge,
   renderOverrideHint,
+  renderThresholdOwnedHint,
   renderCondition,
+  onHeaderKeydown,
 } from './module-base.js';
 import '../components/cms-color-picker.js';
 
@@ -19,6 +21,8 @@ export class BorderModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** Threshold Colors is currently writing this module's property. */
+  @property({ attribute: false }) thresholdOwned = false;
 
   @state() private _open = false;
   @state() private _radiusPx = DEFAULT_BORDER.radiusPx;
@@ -54,9 +58,16 @@ export class BorderModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div class="module-header" @click=${this._toggleOpen}>
+        <div
+          class="module-header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${this._open ? 'true' : 'false'}
+          @click=${this._toggleOpen}
+          @keydown=${onHeaderKeydown}
+        >
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">⬛ Border & Radius</span>
+          <span class="module-title">📐 Border & Radius</span>
           ${renderOverrideBadge(this.overridden)}
           <ha-switch
             .checked=${this.state.enabled}
@@ -74,6 +85,7 @@ export class BorderModule extends LitElement {
     return html`
       <div class="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${renderThresholdOwnedHint(this.thresholdOwned, 'border color', 'Border Color')}
         <div class="control-row">
           <span class="control-label">Border radius</span>
           <div class="control-right">

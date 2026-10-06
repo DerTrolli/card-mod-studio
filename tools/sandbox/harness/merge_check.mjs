@@ -25,7 +25,7 @@ import { waitForHassReady, makeRecorder, finish } from './harness-utils.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HA = process.env.HA_URL || 'http://127.0.0.1:8124';
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-const tokens = JSON.parse(readFileSync(resolve(HERE, 'tokens-uix.json'), 'utf8'));
+const tokens = JSON.parse(readFileSync(resolve(HERE, process.env.TOKENS_FILE || 'tokens-uix.json'), 'utf8'));
 
 const { results, record } = makeRecorder();
 
@@ -182,8 +182,10 @@ const run = async () => {
     const rowsModule = panel.shadowRoot?.querySelector('cms-entities-rows-module');
     // Re-dispatch the same (already-merged) row styles a real edit would
     // produce, to trigger a save without changing the visible outcome.
+    // Row styles are keyed POSITIONALLY ('0', '1', …) since the #24 fix,
+    // not by entity_id.
     rowsModule?.dispatchEvent(new CustomEvent('styles-changed', {
-      detail: { 'light.ceiling_lights': { iconColor: 'red', textColor: 'blue' } },
+      detail: { '0': { iconColor: 'red', textColor: 'blue' } },
       bubbles: true,
       composed: true,
     }));

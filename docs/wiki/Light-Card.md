@@ -6,9 +6,9 @@
 |---|---|---|
 | Font | ✅ | Name/state text (`#info`) and the brightness % both follow the size |
 | Visual Filters | ✅ | Grayscale-while-off is great here |
-| Accent Color | ✅ | Generic accent variables |
+| Accent Color | — hidden | The dial shows the light's own colour; no part of the card reads the accent colour (measured, v0.10.0) |
 | Icon Color | ✅ | Has the extra **"Match the light's color"** mode |
-| Threshold Colors | ✅ | e.g. color by `brightness` attribute |
+| Threshold Colors | ✅ | Icon / Background / Text / Border Color — e.g. color by `brightness` attribute |
 | Background | ✅ | Gradient-while-on = "glow" effect |
 | Animation | — hidden | Interferes with the dial rendering |
 | Border & Radius | ✅ | |

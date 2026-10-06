@@ -57,3 +57,9 @@ use the card's own entity. If the card's own entity has no on/off state
   (and more) from the same rule set.
 - Some cards have no reachable icon (see [Card Support](Card-Support)) — the
   Icon Color module is hidden there rather than showing a dead control.
+- Likewise, **Accent Color is only offered on cards that actually draw with
+  the accent colour** — not on button, light, glance, markdown, humidifier,
+  alarm panel, area, picture, map, iframe, to-do list, logbook, statistics
+  graph or weather cards, where switching it on changed nothing (checked
+  pixel by pixel on every card, with card-mod and UIX). On a light card use
+  Icon Color, or a tile card of the same light for both.

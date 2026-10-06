@@ -1,0 +1,37 @@
+[
+  {
+    "name": "'.' background renders on 14/14 box cards (dict form, engine-applied)",
+    "pass": true,
+    "detail": "{\"tile\":\"rgb(17, 51, 85)\",\"entity\":\"rgb(17, 51, 85)\",\"glance\":\"rgb(17, 51, 85)\",\"sensor\":\"rgb(17, 51, 85)\",\"gauge\":\"rgb(17, 51, 85)\",\"light\":\"rgb(17, 51, 85)\",\"thermostat\":\"rgb(17, 51, 85)\",\"humidifier\":\"rgb(17, 51, 85)\",\"alarm-panel\":\"rgb(17, 51, 85)\",\"media-control\":\"rgb(17, 51, 85)\",\"weather-forecast\":\"rgb(17, 51, 85)\",\"history-graph\":\"rgb(17, 51, 85)\",\"markdown\":\"rgb(17, 51, 85)\",\"entities\":\"rgb(17, 51, 85)\"}"
+  },
+  {
+    "name": "'.' border renders on 14/14 box cards",
+    "pass": true,
+    "detail": "{\"tile\":\"3px\",\"entity\":\"3px\",\"glance\":\"3px\",\"sensor\":\"3px\",\"gauge\":\"3px\",\"light\":\"3px\",\"thermostat\":\"3px\",\"humidifier\":\"3px\",\"alarm-panel\":\"3px\",\"media-control\":\"3px\",\"weather-forecast\":\"3px\",\"history-graph\":\"3px\",\"markdown\":\"3px\",\"entities\":\"3px\"}"
+  },
+  {
+    "name": "pierce entries visibly render before edit (gauge, thermostat)",
+    "pass": true,
+    "detail": "{\"gauge\":\"30px\",\"thermostat\":\"30px\"}"
+  },
+  {
+    "name": "panel edit per card: editable + '.' updated + pierced byte-identical (15/15)",
+    "pass": true,
+    "detail": "{}"
+  },
+  {
+    "name": "re-rendered EMITTED config: background still applied (14) AND new outline renders (14) on all box cards",
+    "pass": true,
+    "detail": "{\"tile\":{\"bg\":\"rgb(17, 51, 85)\",\"outline\":\"dashed\"},\"entity\":{\"bg\":\"rgb(17, 51, 85)\",\"outline\":\"dashed\"},\"glance\":{\"bg\":\"rgb(17, 51, 85)\",\"outline\":\"dashed\"},\"sensor\":{\"bg\":\"rgb(17, 51, 85)\",\"outline\":\"dashed\"},\"gauge\":{\"bg\":\"rgb(17, 51, 85)\",\"outline\":\"dashed\"},\"light\":{\"bg\":\"rgb(17, 51, 85)\",\"outline\":\"dashed\"},\"thermostat\":{\"bg\":\"rgb(17, 51, 85)\",\"outline\":\"dashed\"},\"humidifier\":{\"bg\":\"rgb(17, 51, 85)\",\"outline\":\"dashed\"},\"alarm-panel\":{\"bg\":\"rgb(17, 51, 85)\",\"outline\":\"dashed\"},\"media-control\":{\"bg\":\"rgb(17, 51, 85)\",\"outline\":\"dashed\"},\"weather-forecast\":{\"bg\":\"rgb(17, 51, 85)\",\"outline\":\"dashed\"},\"history-graph\":{\"bg\":\"rgb(17, 51, 85)\",\"outline\":\"dashed\"},\"markdown\":{\"bg\":\"rgb(17, 51, 85)\",\"outline\":\"dashed\"},\"entities\":{\"bg\":\"rgb(17, 51, 85)\",\"outline\":\"dashed\"}}"
+  },
+  {
+    "name": "pierce effects still render after the studio edit",
+    "pass": true,
+    "detail": "{\"gauge\":\"30px\",\"thermostat\":\"30px\"}"
+  },
+  {
+    "name": "entities dict ROW: red before edit, blue after, pierce kept",
+    "pass": true,
+    "detail": "{\"rowBaseline\":\"rgb(255, 34, 0)\",\"rowBefore\":\"rgb(255, 34, 0)\",\"rowAfter\":\"rgb(34, 102, 255)\",\"rowStillDict\":true,\"rowPierceKept\":true,\"rowRootBlue\":true}"
+  }
+]

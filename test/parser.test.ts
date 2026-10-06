@@ -257,24 +257,31 @@ describe('parseCardModConfig', () => {
     expect(result.rawCss).toBe('ha-card { border-radius: 8px; }');
   });
 
-  it('parses a dictionary style', () => {
+  // v0.10 dict model: only the `.` entry is parsed (it's the one whose value
+  // is CSS ruleset text for the card itself); every OTHER key — whatever its
+  // shape — is preserved verbatim in dictSource, never interpreted. (The old
+  // behavior of wrapping `key { value }` mis-modelled card-mod's semantics
+  // and corrupted such styles on save — see docs/V0.10_PLAN.md §3.)
+  it('parses only the `.` entry of a dictionary style, preserving the rest', () => {
     const config: CardModCardConfig = {
       type: 'button',
       card_mod: {
         style: {
-          'ha-card': 'border-radius: 12px;',
+          '.': 'ha-card { border-radius: 12px; }',
           'ha-state-icon': 'color: red;',
         },
       },
     };
     const result = parseCardModConfig(config);
-    expect(result.targets).toHaveLength(2);
-    const selectors = result.targets.map((t) => t.selector);
-    expect(selectors).toContain('ha-card');
-    expect(selectors).toContain('ha-state-icon');
+    expect(result.targets).toHaveLength(1);
+    expect(result.targets[0].selector).toBe('ha-card');
+    expect(result.dictSource).toEqual({
+      entries: [{ key: 'ha-state-icon', value: 'color: red;' }],
+      rootIndex: 0,
+    });
   });
 
-  it('skips non-string dictionary values gracefully', () => {
+  it('preserves non-string dictionary values verbatim', () => {
     const config: CardModCardConfig = {
       type: 'button',
       card_mod: {
@@ -286,8 +293,15 @@ describe('parseCardModConfig', () => {
       },
     };
     const result = parseCardModConfig(config);
-    // Only ha-card should be parsed
-    expect(result.targets).toHaveLength(1);
+    // No `.` entry → nothing is parsed; both entries ride in dictSource.
+    expect(result.targets).toHaveLength(0);
+    expect(result.dictSource).toEqual({
+      entries: [
+        { key: 'ha-card', value: 'color: red;' },
+        { key: '$', value: 42 },
+      ],
+      rootIndex: null,
+    });
   });
 
   it('preserves raw CSS in the returned state', () => {
@@ -344,18 +358,19 @@ describe('parseCardModConfig', () => {
     expect(result.rawCss).toBe('ha-card { color: blue; }');
   });
 
-  it('parses a dictionary style from uix', () => {
+  it('parses a dictionary style from uix (`.` entry only, rest preserved)', () => {
     const config: CardModCardConfig = {
       type: 'button',
       uix: {
         style: {
-          'ha-card': 'border-radius: 12px;',
+          '.': 'ha-card { border-radius: 12px; }',
           'ha-state-icon': 'color: red;',
         },
       },
     };
     const result = parseCardModConfig(config);
-    expect(result.targets).toHaveLength(2);
+    expect(result.targets).toHaveLength(1);
+    expect(result.dictSource?.entries).toEqual([{ key: 'ha-state-icon', value: 'color: red;' }]);
   });
 });
 

@@ -5,10 +5,10 @@
 | Module | Available | Notes |
 |---|---|---|
 | Icon Color | ✅ | Verified working on both (they were wrongly hidden pre-v0.5.0) |
-| Font | ✅ | |
+| Font | ✅ | Size/weight/family. **Text color is hidden** — both cards colour their text themselves (measured, v0.10.0) |
 | Visual Filters | ✅ | |
-| Accent Color | ✅ | Generic variables |
-| Threshold Colors | ✅ | |
+| Accent Color | media-control only | alarm-panel never reads the accent colour (measured, v0.10.0) |
+| Threshold Colors | ✅ | Icon / Background / Border Color (+ Accent on media-control); no Text Color (see Font) |
 | Background | ✅ | |
 | Border & Radius | ✅ | |
 | Animation | — hidden | Interferes with artwork / keypad rendering |

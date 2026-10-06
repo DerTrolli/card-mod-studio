@@ -30,6 +30,20 @@ describe('findAdvancedCssConflicts', () => {
     expect(c.threshold).toEqual(['ha-gauge { --gauge-color }']);
   });
 
+  it('flags overrides of the Heading Style module in both its v0.10 and legacy shapes', () => {
+    const s = base();
+    s.headingStyle.enabled = true;
+    const c = findAdvancedCssConflicts(
+      '.container {\n  --ha-heading-card-title-color: red;\n}\n.content ha-icon {\n  color: blue;\n}\n.title p {\n  font-size: 9px;\n}',
+      s,
+    );
+    expect(c.headingStyle).toEqual([
+      '.container { --ha-heading-card-title-color }',
+      '.content ha-icon { color }',
+      '.title p { font-size }',
+    ]);
+  });
+
   it('handles empty/garbage CSS without throwing', () => {
     expect(findAdvancedCssConflicts('', base())).toEqual({});
     expect(findAdvancedCssConflicts('not css at all', base())).toEqual({});

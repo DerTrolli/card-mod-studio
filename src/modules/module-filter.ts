@@ -8,6 +8,7 @@ import {
   renderOverrideBadge,
   renderOverrideHint,
   renderCondition,
+  onHeaderKeydown,
 } from './module-base.js';
 
 export class FilterModule extends LitElement {
@@ -61,9 +62,16 @@ export class FilterModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div class="module-header" @click=${this._toggleOpen}>
+        <div
+          class="module-header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${this._open ? 'true' : 'false'}
+          @click=${this._toggleOpen}
+          @keydown=${onHeaderKeydown}
+        >
           <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">🔲 Visual Filters</span>
+          <span class="module-title">🎚️ Visual Filters</span>
           ${renderOverrideBadge(this.overridden)}
           <ha-switch
             .checked=${this.state.enabled}

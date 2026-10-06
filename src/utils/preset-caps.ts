@@ -13,8 +13,9 @@
  * panel's own _show* gating exactly:
  *   - headingStyle  → only on 'heading' cards
  *   - iconColor     → hidden on 'entities' and NO_ICON_COLOR_TYPES
- *   - accentColor   → hidden on 'heading' and 'entities'
- *   - threshold     → hidden on 'entities'
+ *   - accentColor   → hidden on 'heading', 'entities' and NO_ACCENT_TYPES
+ *   - threshold     → hidden on 'entities' and NO_THRESHOLD_TYPES; elsewhere
+ *                     its properties are filtered by thresholdPropertyAllowed
  *   - background    → hidden per NO_BACKGROUND_TYPES
  *   - animation     → hidden per NO_ANIMATION_TYPES
  *   - border        → hidden per NO_BORDER_TYPES
@@ -39,6 +40,9 @@ import {
   NO_BORDER_TYPES,
   NO_FONT_TYPES,
   NO_ICON_COLOR_TYPES,
+  NO_THRESHOLD_TYPES,
+  showsAccentColor,
+  thresholdPropertyAllowed,
 } from './card-caps.js';
 
 /** DEFAULT_THRESHOLD carries arrays — copy them so a later in-place edit of
@@ -70,8 +74,15 @@ export function filterPresetStateForCardType(
 
   if (!isHeading) next.headingStyle = { ...DEFAULT_HEADING_STYLE };
   if (isEntities || NO_ICON_COLOR_TYPES.has(type)) next.iconColor = { ...DEFAULT_ICON_COLOR };
-  if (isHeading || isEntities) next.accentColor = { ...DEFAULT_ACCENT_COLOR };
-  if (isEntities) next.threshold = freshThreshold();
+  if (!showsAccentColor(type)) next.accentColor = { ...DEFAULT_ACCENT_COLOR };
+  if (isEntities || NO_THRESHOLD_TYPES.has(type)) {
+    next.threshold = freshThreshold();
+  } else if (next.threshold?.enabled && type) {
+    // Threshold properties this card type doesn't offer would be invisible
+    // styling the module can't untick — drop them (all gone → module off).
+    const props = next.threshold.properties.filter((p) => thresholdPropertyAllowed(p, type));
+    next.threshold = props.length ? { ...next.threshold, properties: props } : freshThreshold();
+  }
   if (NO_BACKGROUND_TYPES.has(type)) next.background = { ...DEFAULT_BACKGROUND };
   if (NO_ANIMATION_TYPES.has(type)) next.animation = { ...DEFAULT_ANIMATION };
   if (NO_BORDER_TYPES.has(type)) next.border = { ...DEFAULT_BORDER };

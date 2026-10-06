@@ -1,12 +1,20 @@
-// v0.9.1 hotfix: dictionary-form ($-pierce) styles are preserved verbatim
-// through the REAL panel. Verifies:
-//   1. A card with a nested dict card_mod.style shows the "preserved as-is"
-//      banner and does NOT render the (dead) card-level modules.
-//   2. An entities card with a dict-form CARD style keeps per-row editing:
-//      a row edit emits a config whose card-level dict is byte-identical
-//      and whose row gained the new style.
-//   3. A stack child with dict-form styling shows the child-note instead of
-//      module controls.
+// v0.10 dict-form model: dictionary styles are EDITABLE — the '.' entry
+// runs through the normal module pipeline while every pierced entry is
+// preserved byte-identically, in original key order, through real panel
+// edits. Verifies:
+//   1. A card with a dict style (pierce entries, no '.') renders the full
+//      module set — no freeze banner — and the Advanced module shows the
+//      pierced entries read-only.
+//   2. A panel edit on that card emits a config whose pierced entries are
+//      byte-identical, with the new '.' entry added first.
+//   3. A dict style WITH a '.' mid-dict: an edit updates '.' in place —
+//      key order preserved, pierced bytes untouched.
+//   4. Mixed-form (string style + dict on the other key) still freezes:
+//      banner shown, modules hidden, both keys byte-identical after a save.
+//   5. An entities card's dict-form ROW is editable the same way: a row
+//      edit rebuilds the row dict around '.' keeping its pierced entry.
+//   6. A stack child with a dict style gets editable modules and preserves
+//      its pierced entries through a child edit.
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -45,66 +53,121 @@ const run = async () => {
       await sleep(1200);
       return { panel, host };
     };
+    const editAdvanced = async (panel, rawCss) => {
+      let emitted = null;
+      const onCfg = (e) => { emitted = e.detail.config; };
+      panel.addEventListener('config-changed', onCfg);
+      panel._studioState = {
+        ...panel._studioState,
+        advanced: { ...panel._studioState.advanced, rawCss },
+      };
+      panel._emitConfigChanged();
+      await sleep(400);
+      panel.removeEventListener('config-changed', onCfg);
+      return emitted;
+    };
 
     const res = {};
 
-    // ---- 1. nested dict card: banner + no dead modules -------------------
-    const dictStyle = { 'ha-state-control-climate-temperature$': { 'ha-big-number$': '.value { font-size: 30px; }' } };
-    const a = await mk({ type: 'thermostat', entity: 'climate.heatpump', [styleKey]: { style: dictStyle } });
-    const bannerText = [...a.panel.shadowRoot.querySelectorAll('.container-banner')]
-      .map((el) => el.textContent).join(' ');
-    res.bannerShown = /dictionary form/.test(bannerText) && /preserved/i.test(bannerText);
-    res.modulesHidden = !a.panel.shadowRoot.querySelector('cms-icon-color-module, cms-border-module, cms-filter-module');
+    // ---- 1+2. dict card (pierce-only): editable, pierced preserved -------
+    const pierced = 'text.value-text {\n  font-size: 30px;\n}';
+    const a = await mk({ type: 'gauge', entity: 'sensor.outside_temperature', [styleKey]: { style: { 'ha-gauge$': pierced } } });
+    const bannerA = [...a.panel.shadowRoot.querySelectorAll('.container-banner')].map((el) => el.textContent).join(' ');
+    res.noFreezeBanner = !/Mixed-form|preserved as-is/i.test(bannerA);
+    res.modulesVisible = !!a.panel.shadowRoot.querySelector('cms-border-module') && !!a.panel.shadowRoot.querySelector('cms-filter-module');
+    const advA = a.panel.shadowRoot.querySelector('cms-advanced-module');
+    const piercedBlock = advA?.shadowRoot?.querySelector('.pierced');
+    res.piercedShown = !!piercedBlock && piercedBlock.textContent.includes('ha-gauge$');
+    const emittedA = await editAdvanced(a.panel, 'ha-card { clip-path: circle(40%); }');
+    const styleA = emittedA?.[styleKey]?.style;
+    res.editKeptDict = !!styleA && typeof styleA !== 'string';
+    res.editKeptPierced = styleA?.['ha-gauge$'] === pierced;
+    res.editAddedRootFirst = !!styleA && Object.keys(styleA)[0] === '.' && String(styleA['.']).includes('clip-path');
     a.host.remove();
 
-    // ---- 2. entities card: dict card style frozen, rows still editable ---
-    const rowDict = { 'ha-card $': 'h1 { color: purple; }' };
+    // ---- 3. dict with '.' mid-dict: order + bytes survive an edit --------
     const b = await mk({
-      type: 'entities',
-      entities: ['sensor.outside_temperature', 'sensor.outside_humidity'],
-      [styleKey]: { style: rowDict },
+      type: 'gauge', entity: 'sensor.outside_temperature',
+      [styleKey]: { style: { 'ha-gauge$': pierced, '.': 'ha-card {\n  clip-path: circle(40%);\n}' } },
     });
-    let emitted = null;
-    b.panel.addEventListener('config-changed', (e) => { emitted = e.detail.config; });
-    const rowsModule = b.panel.shadowRoot.querySelector('cms-entities-rows-module');
-    res.rowsModulePresent = !!rowsModule;
-    // simulate a row icon-color edit through the panel's own state pipe
-    b.panel._entityRowStyles = {
-      ...b.panel._entityRowStyles,
-      '0': { ...(b.panel._entityRowStyles['0'] ?? {}), iconColor: '#ff0000', textColor: '' },
-    };
-    b.panel._emitConfigChanged();
-    await sleep(400);
-    res.rowEditEmitted = !!emitted;
-    res.cardDictIntact = JSON.stringify(emitted?.[styleKey]?.style) === JSON.stringify(rowDict);
-    const row0 = emitted?.entities?.[0];
-    const row0Style = row0?.uix?.style ?? row0?.card_mod?.style ?? null;
-    res.rowGotStyle = typeof row0Style === 'string' && row0Style.includes('#ff0000');
+    const emittedB = await editAdvanced(b.panel, 'ha-card { clip-path: ellipse(30% 40%); }');
+    const styleB = emittedB?.[styleKey]?.style;
+    res.orderPreserved = !!styleB && JSON.stringify(Object.keys(styleB)) === JSON.stringify(['ha-gauge$', '.']);
+    res.rootUpdatedInPlace = styleB?.['ha-gauge$'] === pierced && String(styleB?.['.'] ?? '').includes('ellipse');
     b.host.remove();
 
-    // ---- 3. stack child with dict style: child-note, no controls ---------
+    // ---- 4. mixed-form still freezes -------------------------------------
+    const otherKey = styleKey === 'uix' ? 'card_mod' : 'uix';
+    const mixed = await mk({
+      type: 'gauge', entity: 'sensor.outside_temperature',
+      [styleKey]: { style: 'ha-card {\n  color: red;\n}' },
+      [otherKey]: { style: { 'ha-gauge$': pierced } },
+    });
+    const bannerM = [...mixed.panel.shadowRoot.querySelectorAll('.container-banner')].map((el) => el.textContent).join(' ');
+    res.mixedBanner = /Mixed-form/i.test(bannerM);
+    res.mixedModulesHidden = !mixed.panel.shadowRoot.querySelector('cms-border-module');
+    mixed.host.remove();
+
+    // ---- 5. entities dict ROW is editable, pierced kept ------------------
+    const rowPierce = 'x {\n  y: z;\n}';
     const c = await mk({
-      type: 'vertical-stack',
-      cards: [
-        { type: 'tile', entity: 'light.ceiling_lights', [styleKey]: { style: { 'ha-tile-icon$': 'ha-state-icon { color: red; }' } } },
+      type: 'entities',
+      entities: [
+        { entity: 'sensor.outside_temperature', [styleKey]: { style: { '.': ':host {\n  color: red;\n}', 'div$': rowPierce } } },
+        'sensor.outside_humidity',
       ],
     });
-    const section = c.panel.shadowRoot.querySelector('cms-child-card-section');
-    if (section) { section._open = true; await sleep(400); }
-    const noteText = section?.shadowRoot?.textContent ?? '';
-    res.childNoteShown = /dictionary form/.test(noteText) && /preserved/i.test(noteText);
-    res.childModulesHidden = !section?.shadowRoot?.querySelector('cms-icon-color-module');
+    let emittedC = null;
+    c.panel.addEventListener('config-changed', (e) => { emittedC = e.detail.config; });
+    res.rowParsedFromDot = c.panel._entityRowStyles['0']?.textColor === 'red';
+    c.panel._entityRowStyles = {
+      ...c.panel._entityRowStyles,
+      '0': { ...(c.panel._entityRowStyles['0'] ?? {}), textColor: 'blue' },
+    };
+    c.panel._emitConfigChanged();
+    await sleep(400);
+    const rowStyle = emittedC?.entities?.[0]?.[styleKey]?.style;
+    res.rowDictRebuilt = !!rowStyle && typeof rowStyle !== 'string'
+      && rowStyle['div$'] === rowPierce
+      && String(rowStyle['.'] ?? '').includes('blue')
+      && JSON.stringify(Object.keys(rowStyle)) === JSON.stringify(['.', 'div$']);
     c.host.remove();
+
+    // ---- 6. stack child dict: editable + pierced preserved ---------------
+    const childPierce = 'ha-state-icon {\n  color: red;\n}';
+    const d = await mk({
+      type: 'vertical-stack',
+      cards: [
+        { type: 'tile', entity: 'light.ceiling_lights', [styleKey]: { style: { 'ha-tile-icon$': childPierce } } },
+      ],
+    });
+    const section = d.panel.shadowRoot.querySelector('cms-child-card-section');
+    if (section) { section._open = true; await sleep(400); }
+    res.childModulesVisible = !!section?.shadowRoot?.querySelector('cms-icon-color-module');
+    let childEmitted = null;
+    section?.addEventListener('child-config-changed', (e) => { childEmitted = e.detail.config; });
+    if (section?._studioState) {
+      section._studioState = {
+        ...section._studioState,
+        advanced: { ...section._studioState.advanced, rawCss: 'ha-card { opacity: 0.9; }' },
+      };
+      section._emitChildConfig();
+      await sleep(400);
+    }
+    const childStyle = childEmitted?.[styleKey]?.style;
+    res.childPiercedKept = !!childStyle && childStyle['ha-tile-icon$'] === childPierce && String(childStyle['.'] ?? '').includes('opacity');
+    d.host.remove();
 
     return res;
   }, { styleKey: STYLE_KEY === 'uix' ? 'uix' : 'card_mod' });
 
-  record('dict-form card shows the preserved-as-is banner', out.bannerShown === true, JSON.stringify({ bannerShown: out.bannerShown }));
-  record('card-level modules are not rendered for a dict-form card (no dead controls)', out.modulesHidden === true, JSON.stringify({ modulesHidden: out.modulesHidden }));
-  record('entities card with dict card style keeps the per-row module', out.rowsModulePresent === true, JSON.stringify({ rowsModulePresent: out.rowsModulePresent }));
-  record('a row edit emits with the card-level dict byte-identical', out.rowEditEmitted === true && out.cardDictIntact === true, JSON.stringify({ emitted: out.rowEditEmitted, cardDictIntact: out.cardDictIntact }));
-  record('…and the edited row actually gained its style', out.rowGotStyle === true, JSON.stringify({ rowGotStyle: out.rowGotStyle }));
-  record('stack child with dict style shows the preserved note instead of controls', out.childNoteShown === true && out.childModulesHidden === true, JSON.stringify({ note: out.childNoteShown, hidden: out.childModulesHidden }));
+  record('dict card: no freeze banner, full modules rendered', out.noFreezeBanner === true && out.modulesVisible === true, JSON.stringify({ noFreezeBanner: out.noFreezeBanner, modulesVisible: out.modulesVisible }));
+  record('Advanced shows the pierced entries read-only', out.piercedShown === true, JSON.stringify({ piercedShown: out.piercedShown }));
+  record('edit keeps dict form, pierced bytes identical, "." added first', out.editKeptDict === true && out.editKeptPierced === true && out.editAddedRootFirst === true, JSON.stringify({ dict: out.editKeptDict, pierced: out.editKeptPierced, rootFirst: out.editAddedRootFirst }));
+  record('"." mid-dict: key order preserved, "." updated in place', out.orderPreserved === true && out.rootUpdatedInPlace === true, JSON.stringify({ order: out.orderPreserved, updated: out.rootUpdatedInPlace }));
+  record('mixed-form (string + dict) still freezes with banner', out.mixedBanner === true && out.mixedModulesHidden === true, JSON.stringify({ banner: out.mixedBanner, hidden: out.mixedModulesHidden }));
+  record('dict ROW: "." parsed into row state and rebuilt with pierced kept', out.rowParsedFromDot === true && out.rowDictRebuilt === true, JSON.stringify({ parsed: out.rowParsedFromDot, rebuilt: out.rowDictRebuilt }));
+  record('stack child dict: modules visible, pierced kept through edit', out.childModulesVisible === true && out.childPiercedKept === true, JSON.stringify({ visible: out.childModulesVisible, kept: out.childPiercedKept }));
 
   await page.screenshot({ path: resolve(SHOTS, 'dict-preserve-01.png') });
   await browser.close();

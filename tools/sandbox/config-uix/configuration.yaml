@@ -19,6 +19,7 @@ frontend: {}
 # render NOTHING without history data (2026.7 still drew a placeholder).
 recorder:
 history:
+logbook:
 
 
 # YAML-mode dashboard so we never touch the storage/editor onboarding. HA

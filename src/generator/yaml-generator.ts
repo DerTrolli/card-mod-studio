@@ -8,7 +8,7 @@
  * serialised — so we work with plain JS objects, not YAML strings.
  */
 
-import type { CardModCardConfig, UixConfig } from '../types/index.js';
+import type { CardModCardConfig, UixConfig, DictSource } from '../types/index.js';
 import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
 import { usesUixOnlyFeaturesInBlock, hasDictFormStyle } from '../utils/style-compat.js';
 
@@ -53,6 +53,71 @@ function clearCardModStyle(existingConfig: CardModCardConfig): CardModCardConfig
 }
 
 /**
+ * Dict-form save (v0.10): reassembles the dictionary in ORIGINAL key order —
+ * pierced entries verbatim, the regenerated `.` css at its original
+ * position (or first, when the dict had no `.` yet). An empty css drops
+ * the `.` entry; an empty resulting dict clears the style like the string
+ * path does. The non-active key keeps only non-style siblings; a dict-form
+ * style on the NON-active key is never touched (mixed-form freeze happens
+ * before this is called).
+ */
+function applyDictStyle(
+  css: string,
+  existingConfig: CardModCardConfig,
+  outputKey: StyleOutputKey,
+  dictSource: DictSource,
+): CardModCardConfig {
+  const trimmed = css.trim();
+  const list: Array<[string, unknown]> = dictSource.entries.map((e) => [e.key, e.value]);
+  if (trimmed) {
+    const at = dictSource.rootIndex === null ? 0 : Math.min(dictSource.rootIndex, list.length);
+    list.splice(at, 0, ['.', trimmed]);
+  }
+  // A uix: dict using UIX-only features stays under uix: (audit v0.10 #6).
+  const key = dictSource.pinKey ?? outputKey;
+
+  const next: CardModCardConfig = { ...existingConfig };
+
+  if (list.length === 0) {
+    // Nothing left at all — same semantics as the string clear path.
+    const cleanedCardMod = clearCardModStyle(next);
+    if (cleanedCardMod === undefined) delete next.card_mod;
+    else next.card_mod = cleanedCardMod;
+    if (keepsHandAuthoredUixStyle(next, key)) return next;
+    const cleanedUix = clearUixStyle(next);
+    if (cleanedUix === undefined) delete next.uix;
+    else next.uix = cleanedUix;
+    return next;
+  }
+
+  const style = Object.fromEntries(list) as Record<string, string>;
+  if (key === 'uix') {
+    next.uix = { ...existingConfig.uix, style };
+    const cleanedCardMod = clearCardModStyle(next);
+    if (cleanedCardMod === undefined) delete next.card_mod;
+    else next.card_mod = cleanedCardMod;
+  } else {
+    next.card_mod = { ...existingConfig.card_mod, style };
+    // Same guard as the string path: a macro/billet/theme-driven uix.style
+    // is hand-authored content the Studio never parsed — never cleared
+    // (audit v0.10 #4).
+    if (keepsHandAuthoredUixStyle(next, key)) return next;
+    const cleanedUix = clearUixStyle(next);
+    if (cleanedUix === undefined) delete next.uix;
+    else next.uix = cleanedUix;
+  }
+  return next;
+}
+
+/** True when the card's uix.style must survive a save that targets the
+ *  OTHER key: it uses UIX-only features (macros/billets/theme, `$$`/`&`
+ *  dict keys) the Studio skipped on open, so it's not "redundant" — and the
+ *  panel's coexist banner promises it keeps rendering (audit v0.10 #4). */
+function keepsHandAuthoredUixStyle(config: CardModCardConfig, writtenKey: StyleOutputKey): boolean {
+  return writtenKey !== 'uix' && config.uix?.style !== undefined && usesUixOnlyFeaturesInBlock(config.uix);
+}
+
+/**
  * Returns a new card config with style set to the given CSS string, under
  * either the card_mod or uix key.
  *
@@ -64,6 +129,9 @@ function clearCardModStyle(existingConfig: CardModCardConfig): CardModCardConfig
  *   winning: a stale card_mod.style reactivates via UIX's own fallback once
  *   uix.style is gone, and a stale uix.style keeps outranking a freshly
  *   card_mod-cleared card since UIX always prefers uix over card_mod.
+ *   Exception: with card_mod as the target, a uix.style using UIX-only
+ *   features (macros/billets/theme) is kept — the Studio never parsed it
+ *   (same guard as below; audit v0.10 #4).
  * - Otherwise, `css` is written to the active (outputKey) key, and the
  *   *other* key's .style is cleared — not synced. The caller is expected to
  *   have already merged any settings that only existed under the other key
@@ -93,12 +161,17 @@ export function applyCardModStyle(
   css: string,
   existingConfig: CardModCardConfig,
   outputKey: StyleOutputKey = 'card_mod',
+  dictSource?: DictSource,
 ): CardModCardConfig {
-  // v0.9.1 data-loss guard: a dictionary-form ($-pierce) style under EITHER
-  // key can't be faithfully regenerated yet (v0.10 — docs/V0.10_PLAN.md).
-  // Preserve both style keys completely untouched — the card-level lift of
-  // the v0.7.1 row guard. Without this, a nested dict was DELETED, a
-  // pierce-key dict corrupted, and a dict uix.style cleared on save.
+  // v0.10: with a dict carrier, the ACTIVE key's dictionary style is
+  // rebuilt byte-identically around the regenerated `.` entry (pierced
+  // entries verbatim, original order). Without a carrier, any dict-form
+  // style still freezes the card (the v0.9.1 guard) — that covers legacy
+  // callers and the mixed-form case (active string + dict secondary),
+  // which has no faithful single-key rewrite.
+  if (dictSource) {
+    return applyDictStyle(css, existingConfig, outputKey, dictSource);
+  }
   if (hasDictFormStyle(existingConfig)) {
     return { ...existingConfig };
   }
@@ -116,6 +189,10 @@ export function applyCardModStyle(
       result.card_mod = cleanedCardMod;
     }
 
+    // …except a macro/billet/theme-driven uix.style when card_mod is the
+    // target: the Studio never showed it, so "clear" can't mean it (audit
+    // v0.10 #4).
+    if (keepsHandAuthoredUixStyle(result, outputKey)) return result;
     const cleanedUix = clearUixStyle(result);
     if (cleanedUix === undefined) {
       delete result.uix;

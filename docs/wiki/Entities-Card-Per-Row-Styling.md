@@ -35,6 +35,7 @@ Row styles are written into each row's own `card_mod:`/`uix:` block:
 ```yaml
 entities:
   - entity: sensor.temperature
+    state_color: false
     card_mod:
       style: |
         :host {
@@ -42,6 +43,34 @@ entities:
           font-size: 18px;
         }
 ```
+
+`state_color: false` is HA's own per-row option. While an entity is *on*,
+HA colours its icon itself (lights always do), and that colour wins over
+any style — so without it a row icon colour would only show while the
+entity is off. The Studio adds it when you set a row's icon color and
+removes it again when you remove that color; rows whose icon color you
+don't touch are left exactly as they are. A row colored before v0.10.0
+shows an **Always use this color** button under its icon color that adds
+it.
+
+## Dictionary-form rows (v0.10.0)
+
+A row whose style is written in card-mod's dictionary form (the `$`
+shadow-piercing syntax) is editable too: its `.` entry is read into the
+controls above and rewritten when you edit them, while every other entry in
+that row's dictionary is preserved exactly as written. See
+[Advanced CSS](Advanced-CSS#dictionary-form-styles-shadow-piercing) for how
+dictionary-form styles behave.
+
+A row that can't be rewritten faithfully — a plain style on one key plus a
+*different* dictionary on the other, or a dictionary whose `.` isn't plain
+CSS — shows a 🔒 lock note instead of controls, because edits there would be
+dropped. It's preserved as-is; edit it in YAML. Other rows on the same card
+stay editable.
+
+Hand-written row CSS from *both* `card_mod:` and `uix:` is kept through an
+edit, and a row rule aimed at part of the row (`state-badge`,
+`hui-generic-entity-row`, …) is never turned into a whole-row rule.
 
 ## Also available inside stacks
 
@@ -51,7 +80,6 @@ Entity Rows section inside its child styling section — see
 
 ## Current limitations
 
-- Two rows referencing the **same entity ID** share one style slot.
-- Hand-written **dictionary-form** row styles (card-mod's `$`-piercing
-  syntax) aren't parsed back into the controls; they're preserved untouched
-  on save, just not editable visually.
+- A mixed-form row (see above) is preserved but not editable visually.
+- The pierced entries of a dictionary-form row (everything except its `.`
+  entry) are preserved verbatim but not editable visually.

@@ -177,7 +177,9 @@ const run = async () => {
     document.body.appendChild(host);
     const panel = document.createElement('cms-panel');
     panel.hass = document.querySelector('home-assistant').hass;
-    panel.config = { type: 'button', entity };
+    // A tile, not a button: Accent Color is hidden on button cards since
+    // v0.10.0 (no visible effect there — module_effect_audit.mjs).
+    panel.config = { type: 'tile', entity };
     host.appendChild(panel);
     await panel.updateComplete;
     await new Promise((r) => setTimeout(r, 400));

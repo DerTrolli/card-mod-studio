@@ -42,7 +42,9 @@ const CARDS = [
     entity: 'sensor.outside_temperature',
     card_mod: { style: 'ha-card {\n  --accent-color: #03a9f4;\n  --tile-color: #03a9f4 !important;\n  border: 2px solid #03a9f4;\n}' },
   },
-  { type: 'light', entity: 'light.ceiling_lights' },
+  // Accent Color is hidden on light cards (no visible effect there), so the
+  // Icon + Accent shot uses a tile of the same light.
+  { type: 'tile', entity: 'light.ceiling_lights' },
   {
     type: 'entities',
     title: 'Climate',
@@ -62,7 +64,7 @@ const CARDS = [
   },
 ];
 
-async function openEditDialog(page, innerCardTag) {
+async function openEditDialog(page, innerCardTag, entity = null) {
   await page.goto(`${HA}/${DASHBOARD}/0`, { waitUntil: 'domcontentloaded' });
   await waitForHassReady(page);
   await page.waitForFunction(({ allByTagSrc }) => {
@@ -98,14 +100,14 @@ async function openEditDialog(page, innerCardTag) {
   await page.mouse.click(editDashboardItem.x, editDashboardItem.y);
   await page.waitForTimeout(1200);
 
-  const editLink = await page.evaluate(({ allByTagSrc, innerCardTag }) => {
+  const editLink = await page.evaluate(({ allByTagSrc, innerCardTag, entity }) => {
     const all = new Function('root', 'tag', allByTagSrc);
     const huiRoot = all(document.querySelector('home-assistant'), 'hui-root')[0];
     // Identify the wanted card by the card element it renders — index-based
     // selection is unreliable (shadow-DOM walk order != dashboard order).
     const cardOptions = all(huiRoot, 'hui-card-options').find(
       (co) =>
-        all(co, innerCardTag).length > 0 &&
+        all(co, innerCardTag).some((c) => !entity || c._config?.entity === entity) &&
         // the stack card contains a tile and an entities card of its own —
         // only match the stack when the stack is what's asked for
         (innerCardTag === 'hui-vertical-stack-card' || all(co, 'hui-vertical-stack-card').length === 0),
@@ -123,7 +125,7 @@ async function openEditDialog(page, innerCardTag) {
     const clickable = btn.closest('mwc-button, ha-button, button') || btn;
     const r = clickable.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  }, { allByTagSrc, innerCardTag });
+  }, { allByTagSrc, innerCardTag, entity });
   if (!editLink) throw new Error(`Card ${innerCardTag} Edit link not found`);
   await page.mouse.click(editLink.x, editLink.y);
   await page.waitForTimeout(1200);
@@ -262,7 +264,7 @@ async function annotate(page, anns) {
       } else if (side === 'insideRight') {
         // Label sits at the right end INSIDE the row (for full-width rows
         // whose visible content ends mid-row); arrow points left at it.
-        lx = r.right - dRect.left - lw - 10; ly = r.top - dRect.top + r.height / 2 - lh / 2;
+        lx = r.right - dRect.left - lw - 10 + (a.shiftX ?? 0); ly = r.top - dRect.top + r.height / 2 - lh / 2;
         tx = lx - GAP; ty = ly + lh / 2;
       } else { // bottom
         tx = r.left - dRect.left + Math.min(r.width / 2, 160); ty = r.bottom - dRect.top + 4;
@@ -364,7 +366,7 @@ const run = async () => {
   }, { urlPath: DASHBOARD, cards: CARDS });
 
   // --- 01: the Style button in the editor footer ---
-  await openEditDialog(page, 'hui-tile-card');
+  await openEditDialog(page, 'hui-tile-card', 'sensor.outside_temperature');
   {
     const ann = await annotate(page, [
       { find: { global: 'cms-tab-button' }, label: 'Opens the Card-Mod Studio panel', side: 'top', shiftX: 280 },
@@ -388,7 +390,7 @@ const run = async () => {
   }
 
   // --- 03: Icon + Accent Color, conditional mode with "Controlled by" ---
-  await openEditDialog(page, 'hui-light-card');
+  await openEditDialog(page, 'hui-tile-card', 'light.ceiling_lights');
   await clickStyleTab(page);
   await page.evaluate(async ({ allByTagSrc }) => {
     const all = new Function('root', 'tag', allByTagSrc);
@@ -396,7 +398,7 @@ const run = async () => {
     panel._studioState = {
       ...panel._studioState,
       accentColor: { ...panel._studioState.accentColor, enabled: true, mode: 'conditional', colorOn: '#ffb300', colorOff: '#455a64' },
-      iconColor: { ...panel._studioState.iconColor, enabled: true, mode: 'light', colorOff: '#6b6b6b' },
+      iconColor: { ...panel._studioState.iconColor, enabled: true, mode: 'conditional', colorOn: '#ffd54f', colorOff: '#6b6b6b' },
     };
     await panel.updateComplete;
     for (const sel of ['cms-accent-color-module', 'cms-icon-color-module']) {
@@ -436,12 +438,24 @@ const run = async () => {
     await new Promise((r) => setTimeout(r, 400));
   }, { allByTagSrc });
   {
+    // The label hangs below the module — hide the modules after it so the
+    // crop doesn't show a half-covered "Border & Radius" header.
+    const setNextModulesVisibility = (v) => page.evaluate(({ allByTagSrc, v }) => {
+      const all = new Function('root', 'tag', allByTagSrc);
+      const panel = all(document.body, 'cms-panel').filter((x) => x.isConnected && x.getBoundingClientRect().width > 0).pop();
+      for (const sel of ['cms-animation-module', 'cms-border-module', 'cms-advanced-module']) {
+        const el = panel.shadowRoot.querySelector(sel);
+        if (el) el.style.visibility = v;
+      }
+    }, { allByTagSrc, v });
+    await setNextModulesVisibility('hidden');
     const content = await panelElementRect(page, 'cms-background-module');
     const ann = await annotate(page, [
-      { find: { module: 'cms-background-module', sel: '.control-row', text: 'Apply when' }, label: 'Only while the entity is ON / OFF', side: 'bottom', shiftX: -140 },
+      { find: { module: 'cms-background-module', sel: 'select', text: 'Only while entity is ON' }, label: 'Only while the entity is ON / OFF', side: 'insideRight' },
     ]);
     await shot(page, union(content, ann ? pad(ann, 12) : null), '04 Background Color.png');
     await clearAnnotations(page);
+    await setNextModulesVisibility('');
   }
 
   // --- 07: Threshold — Fade mode + attribute source ---
@@ -519,7 +533,9 @@ const run = async () => {
     const all = new Function('root', 'tag', allByTagSrc);
     const panel = all(document.body, 'cms-panel').filter((x) => x.isConnected && x.getBoundingClientRect().width > 0).pop();
     const rows = panel.shadowRoot.querySelector('cms-entities-rows-module');
-    rows._openRows = new Set(['sensor.outside_temperature']);
+    // Row state is keyed by POSITION since the duplicate-row fix (#24):
+    // sensor.outside_temperature is row 0 of this card.
+    rows._openRows = new Set(['0']);
     await rows.updateComplete;
     await new Promise((r) => setTimeout(r, 300));
   }, { allByTagSrc });
@@ -537,7 +553,7 @@ const run = async () => {
     const panel = all(document.body, 'cms-panel').filter((x) => x.isConnected && x.getBoundingClientRect().width > 0).pop();
     panel._entityRowStyles = {
       ...panel._entityRowStyles,
-      'sensor.outside_temperature': {
+      '0': {
         iconColor: '',
         textColor: '',
         iconMode: 'threshold',
@@ -559,7 +575,7 @@ const run = async () => {
   {
     const content = await panelElementRect(page, 'cms-entities-rows-module');
     const ann = await annotate(page, [
-      { find: { module: 'cms-entities-rows-module', sel: '.rule' }, label: 'Value-based rules for just this row', side: 'insideRight' },
+      { find: { module: 'cms-entities-rows-module', sel: '.rule' }, label: 'Rules for just this row', side: 'insideRight', shiftX: -48 },
       { find: { module: 'cms-entities-rows-module', sel: 'ha-slider' }, label: 'Per-row font override', side: 'left' },
     ]);
     await shot(page, union(content, ann ? pad(ann, 12) : null), '06 Entities Card Modifications.png');

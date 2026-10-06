@@ -16,12 +16,13 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
-CFG="$HERE/config-uix"
+CFG="${CFG:-$HERE/config-uix}"
+CONTAINER="${CONTAINER:-ha-sandbox-uix}"
 HA_IMAGE="${HA_IMAGE:-ghcr.io/home-assistant/home-assistant:stable}"
-UIX_TAG="${UIX_TAG:-v8.0.0}"
+UIX_TAG="${UIX_TAG:-v8.3.1}"
 HOST_PORT="${HOST_PORT:-8124}"
 HA_URL="http://127.0.0.1:${HOST_PORT}"
-TOKENS="$HERE/harness/tokens-uix.json"
+TOKENS="${TOKENS:-$HERE/harness/tokens-uix.json}"
 
 echo "==> [1/7] ensure docker daemon"
 if ! docker info >/dev/null 2>&1; then
@@ -33,6 +34,7 @@ fi
 echo "==> [2/7] build the plugin"
 ( cd "$REPO" && npm ci && npx vite build )
 mkdir -p "$CFG/www"
+[ -f "$CFG/configuration.yaml" ] || cp "$HERE/config-uix/configuration.yaml" "$CFG/configuration.yaml"
 cp "$REPO/dist/card-mod-studio.js" "$CFG/www/card-mod-studio.js"
 
 echo "==> [3/7] fetch UIX ($UIX_TAG) custom_components/uix"
@@ -45,8 +47,8 @@ cp -r "$TMP_CLONE/custom_components/uix" "$CFG/custom_components/uix"
 rm -rf "$TMP_CLONE"
 
 echo "==> [4/7] (re)start Home Assistant container"
-docker rm -f ha-sandbox-uix >/dev/null 2>&1 || true
-docker run -d --name ha-sandbox-uix -p "127.0.0.1:${HOST_PORT}:8123" \
+docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+docker run -d --name "$CONTAINER" -p "127.0.0.1:${HOST_PORT}:8123" \
   -v "$CFG":/config "$HA_IMAGE" >/dev/null
 echo "    HA at $HA_URL"
 

@@ -35,6 +35,13 @@ cards:
 Because the output is per-child standard YAML, a card moved out of the stack
 keeps its styling, and cards styled standalone keep theirs when moved in.
 
+A child whose style is written in card-mod's dictionary form (the `$`
+shadow-piercing syntax) is editable like any other — its `.` entry drives the
+controls and every other entry is preserved exactly as written (see
+[Advanced CSS](Advanced-CSS#dictionary-form-styles-shadow-piercing)). A child
+with *mixed-form* styling shows a 🔒 lock banner instead of controls, but its
+entity rows (if it's an entities card) stay editable.
+
 ## Container-level styling
 
 The container itself only offers [Advanced CSS](Advanced-CSS) — background/
