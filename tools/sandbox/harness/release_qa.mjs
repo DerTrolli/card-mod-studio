@@ -32,7 +32,7 @@ import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { waitForHassReady, ensureStorageDashboard } from './harness-utils.mjs';
+import { waitForHassReady, ensureStorageDashboard, resetTheme } from './harness-utils.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HA = process.env.HA_URL || 'http://127.0.0.1:8123';
@@ -397,6 +397,8 @@ const run = async () => {
     await page.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
     await page.goto(`${HA}/lovelace/0`, { waitUntil: 'domcontentloaded' });
     await waitForHassReady(page);
+    const resetFrom = await resetTheme(page);
+    if (resetFrom) console.log(`theme reset to default (was ${JSON.stringify(resetFrom)})`);
     report.haVersion = await page.evaluate(() => document.querySelector('home-assistant').hass.config.version);
     for (const s of SCEN) await ensureStorageDashboard(page, `qa-${s}`, [{ title: s, cards: [SCENARIOS[s]] }]);
     await ctx.close();

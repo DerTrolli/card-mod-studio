@@ -13,6 +13,19 @@ export async function waitForHassReady(page, timeout = 60000) {
 }
 
 /** Shared pass/fail bookkeeping so every check script reports the same shape. */
+/** HA saves a `settheme` choice to the user's profile, so one theme probe
+ *  silently changes every later run on that rig (found 2026-10-27: a whole
+ *  visual pass ran on a test theme). Runs start from the default theme with
+ *  automatic light/dark. Returns the theme it reset, or null. */
+export async function resetTheme(page) {
+  const before = await page.evaluate(() => document.querySelector('home-assistant').hass.selectedTheme ?? null);
+  if (!before || ((before.theme ?? 'default') === 'default' && before.dark === undefined)) return null;
+  await page.evaluate(() => document.querySelector('home-assistant').dispatchEvent(
+    new CustomEvent('settheme', { detail: { theme: 'default', dark: undefined }, bubbles: true, composed: true })));
+  await page.waitForTimeout(800);
+  return before;
+}
+
 export function makeRecorder() {
   const results = [];
   const record = (name, pass, detail) => {

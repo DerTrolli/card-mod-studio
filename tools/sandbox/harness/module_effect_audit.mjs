@@ -282,6 +282,9 @@ const run = async () => {
         ...THRESHOLD_PROPS.map((p) => ({ mod: 'cms-threshold-module', label: `threshold:${p}`, slice: threshold(initial, p, entity), shown: row.shown.includes('cms-threshold-module') && thrOffered.includes(p) })),
         // Font's colour picker on its own: Font already on at defaults, then only the colour changes.
         { mod: 'cms-font-module', label: 'font:color', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, color: RED } }, shown: row.shown.includes('cms-font-module') && fontColorShown },
+        // …and its size on its own: the combined `font` case also changes the
+        // family, which reaches custom cards whose text ignores the size.
+        { mod: 'cms-font-module', label: 'font:size', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontSize: 26 } }, shown: row.shown.includes('cms-font-module') },
       ];
       for (const c of cases) {
         let cBase = base;

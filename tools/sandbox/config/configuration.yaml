@@ -55,3 +55,7 @@ lovelace:
       type: module
     - url: /local/card-mod-studio.js
       type: module
+    - url: /local/mushroom.js
+      type: module
+    - url: /local/bubble-card.js
+      type: module

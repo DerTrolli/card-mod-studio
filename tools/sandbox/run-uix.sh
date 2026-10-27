@@ -18,8 +18,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 CFG="${CFG:-$HERE/config-uix}"
 CONTAINER="${CONTAINER:-ha-sandbox-uix}"
-HA_IMAGE="${HA_IMAGE:-ghcr.io/home-assistant/home-assistant:stable}"
-UIX_TAG="${UIX_TAG:-v8.3.1}"
+# Pinned, not :stable — a new HA release must never move the baseline
+# silently (docs/V0.11_PLAN.md D8); try a newer one with HA_IMAGE=….
+HA_IMAGE="${HA_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.10.4}"
+MUSHROOM_TAG="${MUSHROOM_TAG:-v5.2.3}"
+BUBBLE_TAG="${BUBBLE_TAG:-v3.4.2}"
+UIX_TAG="${UIX_TAG:-v8.4.0}"  # 8.4 needs HA >= 2026.10
 HOST_PORT="${HOST_PORT:-8124}"
 HA_URL="http://127.0.0.1:${HOST_PORT}"
 TOKENS="${TOKENS:-$HERE/harness/tokens-uix.json}"
@@ -45,6 +49,17 @@ git clone --quiet --depth 1 --branch "$UIX_TAG" \
   https://github.com/Lint-Free-Technology/uix.git "$TMP_CLONE"
 cp -r "$TMP_CLONE/custom_components/uix" "$CFG/custom_components/uix"
 rm -rf "$TMP_CLONE"
+
+echo "==> fetch pinned custom cards (Mushroom $MUSHROOM_TAG, Bubble Card $BUBBLE_TAG)"
+# Real Mushroom/Bubble builds so custom-card support can be probed and
+# audited (docs/V0.11_PLAN.md). CUSTOM_CARDS=0 skips; the resources in
+# configuration.yaml then just 404 and the cards render as errors.
+if [ "${CUSTOM_CARDS:-1}" != "0" ]; then
+  curl -fsSL -o "$CFG/www/mushroom.js" \
+    "https://github.com/piitaya/lovelace-mushroom/releases/download/${MUSHROOM_TAG}/mushroom.js"
+  curl -fsSL -o "$CFG/www/bubble-card.js" \
+    "https://github.com/Clooos/Bubble-Card/releases/download/${BUBBLE_TAG}/bubble-card.js"
+fi
 
 echo "==> [4/7] (re)start Home Assistant container"
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true

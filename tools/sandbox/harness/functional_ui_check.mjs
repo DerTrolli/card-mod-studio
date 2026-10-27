@@ -24,6 +24,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { makeRecorder, finish } from './harness-utils.mjs';
 import { HARNESS, rigEnv, fuiTokens, launch, waitHass, makeT, HaWs, shot } from './fui/lib.mjs';
+import { resetTheme } from './harness-utils.mjs';
 import { SECTIONS as CORE } from './fui/s-core.mjs';
 import { SECTIONS as MODULES } from './fui/s-modules.mjs';
 import { SECTIONS as STRUCTURE } from './fui/s-structure.mjs';
@@ -42,6 +43,8 @@ const run = async () => {
   await ws.call({ type: 'lovelace/config/save', url_path: 'fui-home', config: { views: [{ title: 'fui', cards: [{ type: 'tile', entity: 'light.ceiling_lights' }] }] } });
   await page.goto(`${env.HA}/fui-home/0`, { waitUntil: 'domcontentloaded' });
   await waitHass(page);
+  const resetFrom = await resetTheme(page);
+  if (resetFrom) console.log(`theme reset to default (was ${JSON.stringify(resetFrom)})`);
   const meta = await page.evaluate(() => {
     const hass = document.querySelector('home-assistant').hass;
     return { version: hass.config.version, user: hass.user?.name, admin: hass.user?.is_admin };
