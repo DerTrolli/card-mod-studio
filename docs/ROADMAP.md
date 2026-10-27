@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-10-04 · **Current version:** v0.10.0 — "Piercing + polish": dict-form styles editable (the `.` entry through the full module pipeline, pierced entries preserved byte-identically), Heading Style rebuilt for HA 2026.10, a hand-written-CSS audit, and a light/dark/phone overhaul of the editor UI. Next: v0.11 (Font size unlocks). Cycle plan (historical): [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
+**Last updated:** 2026-10-27 · **Current version:** v0.10.1 — a fix for translucent themes on top of v0.10.0 "Piercing + polish": dict-form styles editable (the `.` entry through the full module pipeline, pierced entries preserved byte-identically), Heading Style rebuilt for HA 2026.10, a hand-written-CSS audit, and a light/dark/phone overhaul of the editor UI. Next: v0.11 (Font size unlocks). Cycle plan (historical): [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -29,6 +29,17 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | v0.11 | Font size unlocks | The Font module's size controls for the **gauge value number** and the **thermostat big number**, built on the v0.10 dict-form machinery (both targets were live-probed reachable with pierced selectors on both engines — `docs/V0.10_PLAN.md` §2). Moved out of v0.10 because they need a new generated-dictionary path in the save logic, which deserves its own beta round; the gauge's SVG text also needs a scale-based control design. |
 | v1.0 | Structural completeness | The remaining container gaps (item #7 — `conditional` cards, containers nested in containers, per-row styling of nested entities cards) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
 | Post-1.0 | Stretch | Official Mushroom/Bubble selectors, UIX Forge/sparks support (item #28 — new in the 2026-08 engine audit), a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
+
+## Recently shipped (v0.10.1)
+
+- **Readable on translucent ("glass") themes** ([#36](https://github.com/DerTrolli/card-mod-studio/issues/36)).
+  The Studio panel sits over HA's own editor and preview; with see-through
+  card/dialog backgrounds they showed through it (worst with HA's YAML code
+  editor, which cards without a visual editor always show). HA's editor and
+  preview are now hidden (`visibility`) while the Studio is open and come
+  back when it closes. Verified on HA 2025.9, 2026.2, 2026.9 and 2026.10
+  with a new **Glass QA** theme in the sandbox configs, plus a regression
+  check in `functional_ui_check`.
 
 ## Recently shipped (v0.10.0)
 

@@ -191,7 +191,18 @@ User opens card editor
     ha-button[slot=secondaryAction] (the Cancel/Save footer)
   → User clicks button → togglePanel() creates/shows <cms-panel>
     inside hui-card-element-editor's shadow root
+  → …and marks hui-card-element-editor [data-cms-studio-open]: a <style>
+    in the dialog's shadow root hides HA's editor and its .element-preview
+    (visibility) while the panel is shown
 ```
+
+The panel is `position: absolute; inset: 0` over the dialog body, so HA's own
+editor and preview are still underneath it. They're hidden while it's open
+(`visibility: hidden`, the panel opts back in with `visibility: visible`)
+because on themes with translucent card/dialog backgrounds they showed
+through the panel (issue #36). The sandbox configs ship a **Glass QA** theme
+for exactly this case (`settheme` event with `{ theme: 'Glass QA', dark }`);
+`functional_ui_check`'s stylebutton section asserts the hide/restore.
 
 The card config is read from the dialog's `_cardConfig` property and the
 `hass` object from the dialog; changes are emitted back via a `config-changed`

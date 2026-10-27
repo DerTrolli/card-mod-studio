@@ -28,6 +28,36 @@ import type { CardModCardConfig, HomeAssistant } from '../types/index.js';
 
 const CMS_BUTTON_ATTR = 'data-cms-injected';
 const CMS_PANEL_ID = 'cms-style-panel';
+/** Set on hui-card-element-editor while the Studio panel is shown. */
+const CMS_OPEN_ATTR = 'data-cms-studio-open';
+const CMS_COVER_STYLE_ID = 'cms-cover-style';
+
+/**
+ * While the Studio is open, HA's own editor (form or YAML) and HA's own
+ * preview sit underneath the panel. On a theme with a translucent card or
+ * dialog background ("glass" themes) they showed through it and the panel
+ * became unreadable (issue #36). Hiding them — `visibility`, so the dialog
+ * keeps its size and HA's editor stays alive — leaves the panel over the
+ * theme's own dialog surface; it also keeps Tab out of the hidden editor.
+ * The panel re-shows itself (`visibility: visible` on its host).
+ *
+ * Same structure on HA 2025.9, 2026.2, 2026.9 and 2026.10 (checked live):
+ * `.content > .element-editor > hui-card-element-editor` and
+ * `.content > .element-preview`. The two rules are separate so a browser
+ * without :has() still hides the editor.
+ */
+const COVER_CSS = `
+  ${HA_CARD_EDITOR_ELEMENT}[${CMS_OPEN_ATTR}] { visibility: hidden; }
+  :has(> ${HA_CARD_EDITOR_ELEMENT}[${CMS_OPEN_ATTR}]) ~ .element-preview { visibility: hidden; }
+`;
+
+function ensureCoverStyle(root: ShadowRoot): void {
+  if (root.getElementById(CMS_COVER_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = CMS_COVER_STYLE_ID;
+  style.textContent = COVER_CSS;
+  root.appendChild(style);
+}
 
 // Confirmed by card-mod source: this is the selector that finds the
 // Cancel/Save buttons inside hui-dialog-edit-card's shadow root.
@@ -126,6 +156,15 @@ function togglePanel(dialog: HuiDialogEditCard, active: boolean): void {
   let panel = host.getElementById(CMS_PANEL_ID) as
     | import('./cms-panel.js').CmsPanel
     | null;
+
+  // The attribute lives on the panel's own host element, so it can't outlive
+  // the panel when HA re-creates the editor.
+  const dialogRoot = dialog.shadowRoot;
+  const cardEditor = dialogRoot?.querySelector(HA_CARD_EDITOR_ELEMENT);
+  if (dialogRoot && cardEditor) {
+    ensureCoverStyle(dialogRoot);
+    cardEditor.toggleAttribute(CMS_OPEN_ATTR, active);
+  }
 
   if (active) {
     tryExpandDialog(dialog);

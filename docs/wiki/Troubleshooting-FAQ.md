@@ -12,6 +12,13 @@
    [the issues](https://github.com/DerTrolli/card-mod-studio/issues) —
    compatibility fixes ship quickly after HA releases.
 
+## The panel is hard to read — I can see HA's editor through it
+
+That happens on themes with see-through ("glass") card or dialog
+backgrounds in v0.10.0 and earlier: HA's own editor and preview underneath
+showed through the panel. **Fixed in v0.10.1** — update, then hard-refresh
+the browser (Ctrl+Shift+R).
+
 ## A module shows a ⚠️ "Custom CSS is currently overriding this control"
 
 Working as intended: hand-written CSS in Advanced CSS always takes
