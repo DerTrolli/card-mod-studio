@@ -203,6 +203,11 @@ because on themes with translucent card/dialog backgrounds they showed
 through the panel (issue #36). The sandbox configs ship a **Glass QA** theme
 for exactly this case (`settheme` event with `{ theme: 'Glass QA', dark }`);
 `functional_ui_check`'s stylebutton section asserts the hide/restore.
+**HA saves that choice to the test user's profile**, so every later run on
+that rig (fresh browser contexts included) keeps the glass theme and a
+forced dark/light mode — reset it afterwards with
+`settheme { theme: 'default', dark: undefined }` (found 2026-10-27, when a
+whole visual pass had silently run on the glass theme).
 
 The card config is read from the dialog's `_cardConfig` property and the
 `hass` object from the dialog; changes are emitted back via a `config-changed`

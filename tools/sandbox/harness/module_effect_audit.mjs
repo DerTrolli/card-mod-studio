@@ -75,6 +75,9 @@ const CARDS = {
   'vertical-stack': { cards: [{ type: 'tile', entity: L }] },
   grid: { cards: [{ type: 'tile', entity: L }] },
 };
+// AUDIT_EXTRA_CARDS='{"custom:mushroom-entity-card":{"entity":"light.ceiling_lights"}}'
+// adds card configs (e.g. custom cards installed on the rig) to the sweep.
+if (process.env.AUDIT_EXTRA_CARDS) Object.assign(CARDS, JSON.parse(process.env.AUDIT_EXTRA_CARDS));
 
 const RED = '#ee1111';
 const GREEN = '#11ee11';
