@@ -5,6 +5,40 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0-beta.1] — 2026-10-27
+
+First beta of v0.11 "Reach" (plan: `docs/V0.11_PLAN.md`): the two big
+numbers HA draws deep inside the gauge and the thermostat can be sized, and
+four controls that stopped doing anything on Home Assistant 2026.10 work
+again or are hidden. Tested live on **HA 2026.10.4** with **card-mod 4.2.1**
+and with **UIX 8.4.0**.
+
+### Added
+
+- **Font → Number size on gauge cards** (50–150 %) and **Temperature size
+  on thermostat cards** (24–96px). The gauge fits its value into a box of
+  its own, so the control scales that box — the number grows until the dial
+  leaves no room. Each has its own switch, so it works with or without the
+  rest of the Font module. The Studio writes it as a shadow-piercing
+  (dictionary-form) style and keeps it editable; if the card already has
+  your own CSS for that number, the control is locked and your CSS is left
+  as it is. Checked live on HA 2025.9, 2026.2 and 2026.10.
+
+### Fixed — Home Assistant 2026.10
+
+- **Visual Filters' transition speed** works again on sensor, entity and
+  area cards (HA 2026.10 made them override it, as the tile card already
+  did).
+- **Accent Color on calendar and history-graph cards** works again: HA
+  2026.10 colours them with different variables, which the Studio now
+  writes too (older HA keeps working).
+
+### Fixed — controls that do nothing
+
+- Font's **text size** slider is hidden on cards that size their own text —
+  alarm panel, area, humidifier, picture-entity, picture-glance and weather
+  (measured on HA 2026.6 and 2026.10); weight, family and colour stay.
+
 ## [0.10.1] — 2026-10-27
 
 ### Fixed
@@ -1101,6 +1135,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.11.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.1
 [0.10.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.10.1
 [0.10.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.10.0
 [0.9.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.1

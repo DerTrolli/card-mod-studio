@@ -234,7 +234,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.10.1`
+   - URL: `/local/card-mod-studio.js?v=0.11.0-beta.1`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -264,7 +264,7 @@ Card-mod compatibility follows card-mod's own compatibility table. See [card-mod
 | Engine | Version tested | Status |
 |---|---|---|
 | card-mod | 4.2.1 (3.4.5 on HA before 2026.2) | ✅ Fully tested on HA 2026.9.4 and 2026.10.0b0; quick-checked on 2026.6.4 and 2026.2.3 (4.2.1) and 2025.9.4 (3.4.5 — card-mod 4.2.1 needs HA ≥ 2026.2). 4.2.1 is still the newest card-mod release, but it is effectively unmaintained — see the caveat below. See [`docs/COMPATIBILITY_AUDIT.md`](docs/COMPATIBILITY_AUDIT.md) |
-| UIX | 8.3.1 | ✅ Tested against a real running integration in Docker on HA 2026.9.4 and 2026.10.0b0 (note: UIX 8.x itself requires HA ≥ 2026.8.0, and UIX 8.4, currently in beta, will require HA ≥ 2026.10; the `uix:`/`card_mod:` styling contract is unchanged from 7.x), see [`docs/COMPATIBILITY_AUDIT.md` §9](docs/COMPATIBILITY_AUDIT.md) and [`tools/sandbox/run-uix.sh`](tools/sandbox/run-uix.sh) |
+| UIX | 8.3.1, 8.4.0 | ✅ Tested against a real running integration in Docker — v0.10 with UIX 8.3.1 on HA 2026.9.4 and 2026.10.0b0, the v0.11 betas with UIX 8.4.0 on HA 2026.10.4 (note: UIX 8.x itself requires HA ≥ 2026.8.0, and UIX 8.4, currently in beta, will require HA ≥ 2026.10; the `uix:`/`card_mod:` styling contract is unchanged from 7.x), see [`docs/COMPATIBILITY_AUDIT.md` §9](docs/COMPATIBILITY_AUDIT.md) and [`tools/sandbox/run-uix.sh`](tools/sandbox/run-uix.sh) |
 
 > **card-mod caveat — consider UIX:** card-mod 4.2.1 still works with Card-Mod Studio on the HA versions above, but it is effectively unmaintained: on HA ≥ 2026.8 it hangs if your active *theme* defines `card-mod-*-yaml` variables ([card-mod #606](https://github.com/thomasloven/lovelace-card-mod/issues/606), [#617](https://github.com/thomasloven/lovelace-card-mod/issues/617)). If your theme does, [UIX](https://uix.lf.technology/) is a drop-in replacement for card-mod, and Card-Mod Studio supports both equally.
 
@@ -403,6 +403,7 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 21 | Correctness release — dict-form data-loss guard + full-codebase audit (14 reproduced bugs fixed, ~2,900 fuzzed round-trips) | ✅ v0.9.1 |
 | 22 | Dict-form (`$` shadow-piercing) styles editable — `.` entry through the full module pipeline, every pierced entry preserved byte-identically (cards, stack children, entities rows) | ✅ v0.10.0 |
 | 23 | Release polish — light/dark/phone-ready editor UI, HA 2026.10 heading compatibility (Heading Style on HA's `--ha-heading-card-*` variables, Subtitle headings), hand-written-CSS audit (20 reproduced bugs fixed), real-dialog functional + visual QA of every control (entity-row icon colours while on, HA YAML-editor sync, and more), a per-card audit that hides every control without a visible effect, re-verified on HA 2026.9.4/2026.10.0b0 with card-mod 4.2.1 and UIX 8.3.1, quick-checked back to HA 2025.9 | ✅ v0.10.0 |
+| 24 | Font → Number size for the gauge value and the thermostat big number (Studio-owned shadow-piercing entries); HA 2026.10 fixes for filter transitions and calendar/history-graph accent | 🧪 v0.11.0-beta.1 |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.
