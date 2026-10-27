@@ -50,6 +50,19 @@ export async function cancelDialog(T) {
 
 // ---------------------------------------------------------------------------
 
+// Issue #36: what's left of HA's own editor and preview under the Studio.
+// Hidden while it's open (a translucent theme showed them through the panel),
+// back when it closes.
+const underneath = (T) => T.page.evaluate(() => {
+  const Q = window.__fui;
+  const ed = Q.q1(document.body, 'hui-card-element-editor');
+  const wrap = ed?.shadowRoot?.querySelector('.wrapper');
+  const prev = Q.q1(document.body, '.element-preview');
+  const panel = ed?.shadowRoot?.querySelector('cms-panel');
+  const v = (e) => e && getComputedStyle(e).visibility;
+  return { haEditor: v(wrap), haPreview: v(prev), panel: v(panel) };
+});
+
 async function styleButtonSection(T) {
   const cards = [{ type: 'tile', entity: 'light.ceiling_lights' }, { type: 'tile', entity: 'switch.decorative_lights' }];
   await openEditor(T, 'fui-stylebtn', cards, 0);
@@ -64,6 +77,8 @@ async function styleButtonSection(T) {
   T.check('Style click → Studio panel visible + button pressed', (await panelVisible(T)) && (await b.getAttribute('aria-pressed')) === 'true');
   hit = await editorPaneHit(T);
   T.check('the Studio covers HA\'s editor pane (what the user clicks is the Studio)', hit?.inPanel, JSON.stringify(hit));
+  let under = await underneath(T);
+  T.check('HA\'s editor and preview are hidden under the open Studio (nothing shows through on translucent themes)', under.haEditor === 'hidden' && under.haPreview === 'hidden' && under.panel === 'visible', JSON.stringify(under));
   const pv = await T.page.evaluate(P_PANEL);
   T.check('panel header shows the plugin version', /^v\d+\.\d+\.\d+/.test(pv?.version || ''), pv?.version);
   T.check('opening the Studio alone does not change the config', same(await getCfg(T), before));
@@ -78,6 +93,8 @@ async function styleButtonSection(T) {
   T.check('second Style click hides the panel + unpresses the button', !(await panelVisible(T)) && (await b.getAttribute('aria-pressed')) === 'false');
   hit = await editorPaneHit(T);
   T.check('HA\'s own editor is back in the left pane', hit && !hit.inPanel, JSON.stringify(hit));
+  under = await underneath(T);
+  T.check('closing the Studio shows HA\'s editor and preview again', under.haEditor === 'visible' && under.haPreview === 'visible', JSON.stringify(under));
   T.check('config keeps the Studio edit while the panel is hidden', S(T, await getCfg(T)).includes('font-size: 20px;'));
 
   await b.click();

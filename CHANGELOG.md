@@ -5,6 +5,21 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] — 2026-10-27
+
+### Fixed
+
+- **The Studio is readable on translucent ("glass") themes.** While the
+  Studio is open it sits on top of HA's own card editor and preview. With a
+  theme whose card or dialog background is see-through, HA's editor —
+  especially the YAML code editor, which cards without a visual editor
+  (e.g. `custom:button-card`) always show — and HA's preview card showed
+  through the panel, making it very hard to read
+  ([#36](https://github.com/DerTrolli/card-mod-studio/issues/36)). HA's
+  editor and preview are now hidden while the Studio is open and come back
+  as soon as you close it, so the panel sits on your theme's own dialog
+  background. Keyboard Tab also no longer wanders into the hidden editor.
+
 ## [0.10.0] — 2026-10-04
 
 The "Piercing + polish" release — the v0.10 cycle consolidated (beta.1,
@@ -1086,6 +1101,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.10.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.10.1
 [0.10.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.10.0
 [0.9.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.1
 [0.9.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.0

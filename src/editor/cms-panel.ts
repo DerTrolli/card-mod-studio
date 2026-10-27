@@ -589,6 +589,9 @@ export class CmsPanel extends LitElement {
       position: absolute;
       inset: 0;
       z-index: 10;
+      /* The injector hides HA's editor underneath (issue #36) — this host
+         lives inside it, so it opts back in. */
+      visibility: visible;
       background: var(--card-background-color, var(--ha-card-background, #fff));
       font-family: var(--primary-font-family, sans-serif);
       color: var(--primary-text-color, #212121);
