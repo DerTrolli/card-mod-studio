@@ -276,6 +276,7 @@ const run = async () => {
       const thrOffered = row.shown.includes('cms-threshold-module') ? await page.evaluate(() => window.__audit.thresholdOptions()) : [];
       row.thresholdOffers = thrOffered;
       const fontColorShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-font-module')?.allowColor !== false);
+      const fontSizeShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-font-module')?.allowSize !== false);
       const initial = await page.evaluate(() => window.__audit.state());
       const cases = [
         ...Object.entries(MODULES).map(([mod, f]) => ({ mod, label: mod.replace(/^cms-|-module$/g, ''), slice: f(initial), shown: row.shown.includes(mod) })),
@@ -284,7 +285,7 @@ const run = async () => {
         { mod: 'cms-font-module', label: 'font:color', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, color: RED } }, shown: row.shown.includes('cms-font-module') && fontColorShown },
         // …and its size on its own: the combined `font` case also changes the
         // family, which reaches custom cards whose text ignores the size.
-        { mod: 'cms-font-module', label: 'font:size', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontSize: 26 } }, shown: row.shown.includes('cms-font-module') },
+        { mod: 'cms-font-module', label: 'font:size', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontSize: 26 } }, shown: row.shown.includes('cms-font-module') && fontSizeShown },
       ];
       for (const c of cases) {
         let cBase = base;
