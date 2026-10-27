@@ -99,6 +99,13 @@ export const NO_ACCENT_TYPES = new Set([
  * (Chart/list cards — statistics-graph, todo-list, logbook — keep it: their
  * graph labels are canvas-drawn, but the colour reaches the card title.)
  */
+/** Font's size slider changes nothing visible on these cards — they size
+ *  their own text (module-effect audit, `font:size` slice, HA 2026.10.4 and
+ *  2026.6, card-mod and UIX). Weight, family and colour stay where they work. */
+export const NO_FONT_SIZE_TYPES = new Set([
+  'alarm-panel', 'area', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast',
+]);
+
 export const NO_TEXT_COLOR_TYPES = new Set([
   'alarm-panel', 'area', 'media-control', 'picture-elements', 'picture-entity',
   'picture-glance',

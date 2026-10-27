@@ -3,7 +3,7 @@ import { ownedEntryFor, ownedEntryKey, parseOwnedEntry } from '../src/utils/owne
 
 describe('Studio-owned number-size entries', () => {
   it('builds the probed shapes for gauge and thermostat', () => {
-    expect(ownedEntryFor('gauge', 30)).toEqual({ key: 'ha-gauge$', value: 'text.value-text {\n  font-size: 30px !important;\n}' });
+    expect(ownedEntryFor('gauge', 125)).toEqual({ key: 'ha-gauge$', value: '.text {\n  max-width: 68.8% !important;\n  max-height: 50% !important;\n}' });
     expect(ownedEntryFor('thermostat', 30)).toEqual({
       key: 'ha-state-control-climate-temperature$',
       value: { 'ha-big-number$': '.value {\n  font-size: 30px !important;\n}' },
@@ -13,8 +13,7 @@ describe('Studio-owned number-size entries', () => {
   });
 
   it('round-trips every 5 % gauge step exactly (one decimal, no drift)', () => {
-    for (let pct = 50; pct <= 200; pct += 5) {
-      const px = Math.round(16 * pct) / 100;
+    for (let px = 50; px <= 150; px += 5) {
       const e = ownedEntryFor('gauge', px)!;
       const back = parseOwnedEntry('gauge', e.key, e.value)!;
       expect(back).not.toBeNull();
@@ -23,13 +22,13 @@ describe('Studio-owned number-size entries', () => {
   });
 
   it('accepts the trailing newline of a YAML block scalar', () => {
-    expect(parseOwnedEntry('gauge', 'ha-gauge$', 'text.value-text {\n  font-size: 24px !important;\n}\n')).toBe(24);
+    expect(parseOwnedEntry('gauge', 'ha-gauge$', '.text {\n  max-width: 55% !important;\n  max-height: 40% !important;\n}\n')).toBe(100);
   });
 
   it('rejects anything that is not exactly the Studio shape', () => {
-    expect(parseOwnedEntry('gauge', 'ha-gauge$', 'text.value-text { font-size: 24px !important; }')).toBeNull();
-    expect(parseOwnedEntry('gauge', 'ha-gauge$', 'text.value-text {\n  font-size: 24px !important;\n  fill: red;\n}')).toBeNull();
-    expect(parseOwnedEntry('gauge', 'ha-gauge$', 'text.value-text {\n  font-size: 24px;\n}')).toBeNull();
+    expect(parseOwnedEntry('gauge', 'ha-gauge$', '.text { max-width: 55% !important; max-height: 40% !important; }')).toBeNull();
+    expect(parseOwnedEntry('gauge', 'ha-gauge$', '.text {\n  max-width: 55% !important;\n  max-height: 50% !important;\n}')).toBeNull();
+    expect(parseOwnedEntry('gauge', 'ha-gauge$', 'text.value-text {\n  font-size: 24px !important;\n}')).toBeNull();
     expect(parseOwnedEntry('gauge', 'ha-gauge$', { 'text.value-text': 'x' })).toBeNull();
     expect(parseOwnedEntry('thermostat', 'ha-state-control-climate-temperature$', {
       'ha-big-number$': '.value {\n  font-size: 30px !important;\n}',
@@ -37,6 +36,6 @@ describe('Studio-owned number-size entries', () => {
     })).toBeNull();
     expect(parseOwnedEntry('thermostat', 'ha-state-control-climate-temperature$', '.value { font-size: 30px }')).toBeNull();
     // right shape, wrong card type
-    expect(parseOwnedEntry('thermostat', 'ha-gauge$', 'text.value-text {\n  font-size: 24px !important;\n}')).toBeNull();
+    expect(parseOwnedEntry('thermostat', 'ha-gauge$', '.text {\n  max-width: 55% !important;\n  max-height: 40% !important;\n}')).toBeNull();
   });
 });

@@ -131,7 +131,7 @@ export const DEFAULT_FONT: FontModuleState = {
   fontWeight: 'normal',
   color: THEME_TEXT_COLOR,
   numberSizeEnabled: false,
-  numberSizePx: 0,
+  numberSize: 0,
 };
 
 export const DEFAULT_THRESHOLD: ThresholdModuleState = {
@@ -214,6 +214,8 @@ function claimKey(selector: string, property: string): string {
  */
 const ACCENT_AUX_VARS = [
   '--tile-color',
+  '--primary-color',
+  '--graph-color-1',
   '--state-icon-color',
   '--paper-item-icon-active-color',
   '--state-climate-heat-color',
@@ -478,7 +480,7 @@ function claimNumberSize(
       return e;
     }
     font.numberSizeEnabled = true;
-    font.numberSizePx = px;
+    font.numberSize = px;
     return { ...e, owned: true as const };
   });
   if (!font.numberSizeEnabled) return { font, dictSource };
@@ -519,7 +521,7 @@ export function mergeStudioStates(primary: StudioState, secondary: StudioState):
     font: {
       ...(primary.font.enabled ? primary.font : secondary.font),
       numberSizeEnabled: primary.font.numberSizeEnabled,
-      numberSizePx: primary.font.numberSizePx,
+      numberSize: primary.font.numberSize,
       ...(primary.font.numberSizeLocked ? { numberSizeLocked: true } : {}),
     },
     threshold: primary.threshold.enabled ? primary.threshold : secondary.threshold,

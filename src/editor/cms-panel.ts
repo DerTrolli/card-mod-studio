@@ -39,6 +39,7 @@ import {
   NO_FONT_TYPES,
   NO_THRESHOLD_TYPES,
   NO_TEXT_COLOR_TYPES,
+  NO_FONT_SIZE_TYPES,
   ICON_SIZE_TYPES,
   isStateAware,
   showsAccentColor,
@@ -1221,6 +1222,7 @@ export class CmsPanel extends LitElement {
       ${showFont
         ? html`<cms-font-module
             .allowColor=${!NO_TEXT_COLOR_TYPES.has(this.config?.type ?? '')}
+            .allowSize=${!NO_FONT_SIZE_TYPES.has(this.config?.type ?? '')}
             .numberSize=${numberSizeKind(this.config?.type)}
             .overridden=${!!conflicts.font}
             .overriddenDetail=${(conflicts.font ?? []).join(", ")}

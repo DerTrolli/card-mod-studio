@@ -28,7 +28,7 @@ afterEach(() => {
   engine = 'card-mod';
 });
 
-const GAUGE_ENTRY = 'text.value-text {\n  font-size: 24px !important;\n}';
+const GAUGE_ENTRY = '.text {\n  max-width: 66% !important;\n  max-height: 48% !important;\n}'; // 120 %
 const THERMO_ENTRY = { 'ha-big-number$': '.value {\n  font-size: 30px !important;\n}' };
 const cfg = (c: Record<string, unknown>) => c as unknown as CardModCardConfig;
 const style = (c: CardModCardConfig) => c.card_mod?.style as unknown;
@@ -45,8 +45,8 @@ function session(config: CardModCardConfig, ...edits: Array<(s: StudioState) => 
   }
   return current;
 }
-const numberSize = (on: boolean, px = 24) => (s: StudioState): StudioState => ({
-  ...s, font: { ...s.font, numberSizeEnabled: on, numberSizePx: px },
+const numberSize = (on: boolean, px = 120) => (s: StudioState): StudioState => ({
+  ...s, font: { ...s.font, numberSizeEnabled: on, numberSize: px },
 });
 const color = (c: string) => (s: StudioState): StudioState => ({
   ...s, background: { ...s.background, enabled: true, type: 'solid', color1: c, applyWhen: 'always' },
@@ -80,7 +80,7 @@ describe('v0.11 Number size — string ↔ dict', () => {
     expect(style(out)).toEqual({ 'ha-state-control-climate-temperature$': THERMO_ENTRY });
     const back = buildMergedStudioState(out);
     expect(back.font.numberSizeEnabled).toBe(true);
-    expect(back.font.numberSizePx).toBe(30);
+    expect(back.font.numberSize).toBe(30);
     expect(userEntries(back.dictSource)).toEqual([]); // Advanced lists nothing
   });
 
@@ -122,7 +122,7 @@ describe('v0.11 Number size — order and preservation', () => {
   });
 
   it('a foreign value under the owned key is preserved and locks the control', () => {
-    const foreign = 'text.value-text { font-size: 9px; fill: red; }';
+    const foreign = '.text { max-width: 90%; }';
     const config = cfg({ type: 'gauge', entity: 'sensor.x', card_mod: { style: { '.': 'ha-card { color: red; }', 'ha-gauge$': foreign } } });
     const state = buildMergedStudioState(config);
     expect(state.font.numberSizeLocked).toBe(true);
@@ -172,6 +172,6 @@ describe('v0.11 Number size — presets', () => {
     const state = buildMergedStudioState(cfg({ type: 'gauge', entity: 'sensor.x', card_mod: { style: { 'ha-gauge$': GAUGE_ENTRY } } }));
     const filtered = filterPresetStateForCardType(state, 'thermostat');
     expect(filtered.font.numberSizeEnabled).toBe(false);
-    expect(filtered.font.numberSizePx).toBe(0);
+    expect(filtered.font.numberSize).toBe(0);
   });
 });

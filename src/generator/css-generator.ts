@@ -252,6 +252,13 @@ function accentAuxDecls(value: string, cardType?: string): string[] {
   // extra in the ha-card block itself. Heading has no accent consumers.
   if (cardType === 'gauge' || cardType === 'heading') return [];
 
+  // HA 2026.10 stopped reading --accent-color/--state-icon-color here:
+  // the calendar colours with --primary-color, the history graph draws its
+  // first line in --graph-color-1 (measured on HA 2026.10.4, both engines).
+  // The old variable stays for older HA.
+  if (cardType === 'calendar') return [`--state-icon-color: ${value};`, `--primary-color: ${value};`];
+  if (cardType === 'history-graph') return [`--state-icon-color: ${value};`, `--graph-color-1: ${value};`];
+
   // Button card (HA built-in) and generic entity-state cards. The legacy
   // --paper-item-icon-active-color companion is no longer emitted (roadmap
   // #6) — nothing in current HA reads it; the parser still claims it on

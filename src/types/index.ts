@@ -306,8 +306,9 @@ export interface FontModuleState {
   /** v0.11 Number size (gauge value / thermostat big number), independent
    *  of `enabled` — see docs/V0.11_PLAN.md C1.0. */
   numberSizeEnabled: boolean;
-  /** Emitted size: gauge SVG units / thermostat px. 0 = the card's default. */
-  numberSizePx: number;
+  /** Gauge: % of HA's own box for the value (100 = default); thermostat:
+   *  px (57 = default). 0 = the card's default. */
+  numberSize: number;
   /** Derived on read, never saved: a hand-written entry sits under the
    *  Studio's key, so the control can't write without touching it. */
   numberSizeLocked?: boolean;

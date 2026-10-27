@@ -64,6 +64,21 @@ describe('generateCss — empty state', () => {
 // generateCss — filter module
 // ---------------------------------------------------------------------------
 
+describe('generateCss — accent on HA 2026.10 calendar / history graph', () => {
+  it('writes the variable each card reads now plus the old one, and round-trips', () => {
+    const state = makeState({ accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'plain', color: '#ff0000' } });
+    for (const [type, v] of [['calendar', '--primary-color'], ['history-graph', '--graph-color-1']] as const) {
+      const css = generateCss(state, type);
+      expect(css, type).toContain(`${v}: #ff0000;`);
+      expect(css, type).toContain('--accent-color: #ff0000;');
+      const back = mapToStudioState(parseCardModConfig({ type, card_mod: { style: css } }), type);
+      expect(back.accentColor.enabled, type).toBe(true);
+      expect(back.advanced.rawCss, type).toBe('');
+      expect(generateCss(back, type), type).toBe(css);
+    }
+  });
+});
+
 describe('generateCss — filter', () => {
   it('tile: the filter transition is !important (the tile\'s own stylesheet overrides a plain one) and round-trips', () => {
     const state = makeState({ filter: { ...DEFAULT_FILTER, enabled: true, brightness: 150, transitionMs: 600 } });

@@ -15,21 +15,26 @@ import type { DictSource, FontModuleState, PiercedEntry, StudioState } from '../
 /** Card types with a Number size control. */
 export const NUMBER_SIZE_CARD_TYPES = new Set(['gauge', 'thermostat']);
 
-/** Each card's default number size, in the units the entry is written in:
- *  the gauge's is SVG text (auto-scaled to the dial), the thermostat's px. */
-export const NUMBER_SIZE_DEFAULT_PX: Record<string, number> = { gauge: 16, thermostat: 57 };
+/** Each card's default Number size: the gauge's is a percentage of HA's
+ *  own box for the value (100 = HA's default), the thermostat's is px. */
+export const NUMBER_SIZE_DEFAULT: Record<string, number> = { gauge: 100, thermostat: 57 };
 
 const GAUGE_KEY = 'ha-gauge$';
 const THERMOSTAT_KEY = 'ha-state-control-climate-temperature$';
 const THERMOSTAT_INNER_KEY = 'ha-big-number$';
 
-/** At most one decimal (the gauge's 5 % steps are 0.8px), no trailing zeros. */
-function formatPx(px: number): string {
-  return `${Math.round(px * 10) / 10}px`;
-}
+/** HA's own box for the gauge value (ha-gauge's `.text` rule, HA 2026.10).
+ *  The gauge fits its number into this box (it rewrites the SVG viewBox
+ *  from the text), so a bigger font-size renders at the SAME size once HA
+ *  refits — measured on HA 2026.10.4; scaling the box is what shows. */
+const GAUGE_BOX = { width: 55, height: 40 };
 
-const sizeRule = (selector: string, px: number) =>
-  `${selector} {\n  font-size: ${formatPx(px)} !important;\n}`;
+/** At most one decimal, no trailing zeros. */
+const num = (n: number) => String(Math.round(n * 10) / 10);
+
+const gaugeRule = (pct: number) =>
+  `.text {\n  max-width: ${num((GAUGE_BOX.width * pct) / 100)}% !important;\n  max-height: ${num((GAUGE_BOX.height * pct) / 100)}% !important;\n}`;
+const thermostatRule = (px: number) => `.value {\n  font-size: ${num(px)}px !important;\n}`;
 
 /** The top-level dictionary key the card's entry lives under, or null. */
 export function ownedEntryKey(cardType: string | undefined): string | null {
@@ -39,21 +44,17 @@ export function ownedEntryKey(cardType: string | undefined): string | null {
 }
 
 /** The exact entry the Studio writes for this card type and size. */
-export function ownedEntryFor(cardType: string | undefined, px: number): { key: string; value: unknown } | null {
-  if (cardType === 'gauge') return { key: GAUGE_KEY, value: sizeRule('text.value-text', px) };
-  if (cardType === 'thermostat') {
-    return { key: THERMOSTAT_KEY, value: { [THERMOSTAT_INNER_KEY]: sizeRule('.value', px) } };
-  }
+export function ownedEntryFor(cardType: string | undefined, size: number): { key: string; value: unknown } | null {
+  if (cardType === 'gauge') return { key: GAUGE_KEY, value: gaugeRule(size) };
+  if (cardType === 'thermostat') return { key: THERMOSTAT_KEY, value: { [THERMOSTAT_INNER_KEY]: thermostatRule(size) } };
   return null;
 }
 
-const SIZE_RE = /font-size: (\d+(?:\.\d)?)px !important;/;
-
 /**
- * The px of an entry the Studio wrote itself, or null when the entry is
- * anything else (a different key, a different value, extra rules, a
- * nested dict with more keys…). Trailing whitespace is ignored — YAML
- * block scalars add a newline.
+ * The size of an entry the Studio wrote itself, or null when the entry is
+ * anything else (a different key, a different value, extra rules, a nested
+ * dict with more keys…). Trailing whitespace is ignored — YAML block
+ * scalars add a newline.
  */
 export function parseOwnedEntry(cardType: string | undefined, key: string, value: unknown): number | null {
   if (key !== ownedEntryKey(cardType)) return null;
@@ -65,14 +66,18 @@ export function parseOwnedEntry(cardType: string | undefined, key: string, value
     css = (value as Record<string, unknown>)[THERMOSTAT_INNER_KEY];
   }
   if (typeof css !== 'string') return null;
-  const m = css.match(SIZE_RE);
-  if (!m) return null;
-  const px = Number(m[1]);
-  const built = ownedEntryFor(cardType, px);
-  const builtCss = cardType === 'thermostat'
-    ? (built!.value as Record<string, string>)[THERMOSTAT_INNER_KEY]
-    : (built!.value as string);
-  return css.trim() === builtCss ? px : null;
+  let size: number;
+  if (cardType === 'gauge') {
+    const m = css.match(/max-width: (\d+(?:\.\d)?)% !important;/);
+    if (!m) return null;
+    size = Math.round((Number(m[1]) / GAUGE_BOX.width) * 100);
+  } else {
+    const m = css.match(/font-size: (\d+(?:\.\d)?)px !important;/);
+    if (!m) return null;
+    size = Number(m[1]);
+  }
+  const built = cardType === 'gauge' ? gaugeRule(size) : thermostatRule(size);
+  return css.trim() === built ? size : null;
 }
 
 /** The owned entries this state writes for this card (empty unless Number
@@ -80,19 +85,19 @@ export function parseOwnedEntry(cardType: string | undefined, key: string, value
 export function generateOwnedEntries(state: StudioState, cardType: string | undefined): PiercedEntry[] {
   const f = state.font;
   if (!f.numberSizeEnabled || f.numberSizeLocked || !cardType || !NUMBER_SIZE_CARD_TYPES.has(cardType)) return [];
-  const e = ownedEntryFor(cardType, f.numberSizePx || NUMBER_SIZE_DEFAULT_PX[cardType]);
+  const e = ownedEntryFor(cardType, f.numberSize || NUMBER_SIZE_DEFAULT[cardType]);
   return e ? [{ ...e, owned: true }] : [];
 }
 
 /** Just the Number size fields of a font state. */
-export function numberSizeOf(f: FontModuleState): Pick<FontModuleState, 'numberSizeEnabled' | 'numberSizePx' | 'numberSizeLocked'> {
-  return { numberSizeEnabled: f.numberSizeEnabled, numberSizePx: f.numberSizePx, ...(f.numberSizeLocked ? { numberSizeLocked: true } : {}) };
+export function numberSizeOf(f: FontModuleState): Pick<FontModuleState, 'numberSizeEnabled' | 'numberSize' | 'numberSizeLocked'> {
+  return { numberSizeEnabled: f.numberSizeEnabled, numberSize: f.numberSize, ...(f.numberSizeLocked ? { numberSizeLocked: true } : {}) };
 }
 
 /** A font state with Number size off — presets never carry it. */
 export function withoutNumberSize(f: FontModuleState): FontModuleState {
   const { numberSizeLocked: _locked, ...rest } = f;
-  return { ...rest, numberSizeEnabled: false, numberSizePx: 0 };
+  return { ...rest, numberSizeEnabled: false, numberSize: 0 };
 }
 
 /** The dict entries that are the user's own CSS (not the Studio's). */

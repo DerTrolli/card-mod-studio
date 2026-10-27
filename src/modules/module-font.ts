@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { FontModuleState } from '../types/index.js';
 import { DEFAULT_FONT } from '../parser/state-mapper.js';
-import { NUMBER_SIZE_DEFAULT_PX } from '../utils/owned-entries.js';
+import { NUMBER_SIZE_DEFAULT } from '../utils/owned-entries.js';
 import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
 import '../components/cms-color-picker.js';
 
@@ -29,6 +29,8 @@ export class FontModule extends LitElement {
   /** False on cards whose text carries its own colour (NO_TEXT_COLOR_TYPES)
    *  — the colour picker would be a dead control there. */
   @property({ attribute: false }) allowColor = true;
+  /** False on cards that size their own text (NO_FONT_SIZE_TYPES). */
+  @property({ attribute: false }) allowSize = true;
   /** 'gauge' / 'thermostat' on cards with a Number size control (v0.11),
    *  '' elsewhere. */
   @property({ attribute: false }) numberSize: '' | 'gauge' | 'thermostat' = '';
@@ -106,7 +108,7 @@ export class FontModule extends LitElement {
     return html`
       <div class="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
-        <div class="control-row">
+        ${this.allowSize ? html`<div class="control-row">
           <span class="control-label">Text size</span>
           <div class="control-right">
             <ha-slider
@@ -124,7 +126,7 @@ export class FontModule extends LitElement {
             ></ha-slider>
             <span class="value-label">${this._fontSize}px</span>
           </div>
-        </div>
+        </div>` : nothing}
 
         <div class="control-row">
           <span class="control-label">Weight</span>
@@ -200,15 +202,17 @@ export class FontModule extends LitElement {
   /**
    * The gauge value / thermostat big number (v0.11). Own switch — it's
    * independent of the base Font switch above — and written as a
-   * Studio-owned pierced entry (docs/V0.11_PLAN.md C1.0). The gauge number
-   * is SVG text the dial scales, so it's a percentage of HA's 16; the
+   * Studio-owned pierced entry (docs/V0.11_PLAN.md C1.0). The gauge fits
+   * its number into a box of its own, so its control scales that box (%,
+   * 100 = HA's size; it stops growing where the dial leaves no room); the
    * thermostat's is plain px.
    */
   private _renderNumberSize(kind: 'gauge' | 'thermostat') {
     const s = this.state;
-    const def = NUMBER_SIZE_DEFAULT_PX[kind];
-    const px = s.numberSizePx || def;
-    const label = kind === 'gauge' ? 'Number size' : 'Temperature size';
+    const def = NUMBER_SIZE_DEFAULT[kind];
+    const size = s.numberSize || def;
+    const isGauge = kind === 'gauge';
+    const label = isGauge ? 'Number size' : 'Temperature size';
     if (s.numberSizeLocked) {
       return html`<div class="control-row">
         <span class="control-label">${label}</span>
@@ -217,31 +221,24 @@ export class FontModule extends LitElement {
         </div>
       </div>`;
     }
-    const isGauge = kind === 'gauge';
-    const sliderValue = isGauge ? Math.round((px / def) * 100) : px;
     return html`<div class="control-row">
       <span class="control-label">${label}</span>
       <div class="control-right">
         <ha-switch
           .checked=${s.numberSizeEnabled}
           aria-label="${label}"
-          @change=${(e: Event) => {
-            const on = (e.target as HTMLInputElement).checked;
-            this._emit({ numberSizeEnabled: on, numberSizePx: s.numberSizePx || def });
-          }}
+          @change=${(e: Event) =>
+            this._emit({ numberSizeEnabled: (e.target as HTMLInputElement).checked, numberSize: size })}
         ></ha-switch>
         <ha-slider
           min=${isGauge ? 50 : 24}
-          max=${isGauge ? 200 : 96}
+          max=${isGauge ? 150 : 96}
           step=${isGauge ? 5 : 1}
-          .value=${String(sliderValue)}
+          .value=${String(size)}
           ?disabled=${!s.numberSizeEnabled}
-          @change=${(e: Event) => {
-            const v = parseFloat((e.target as HTMLInputElement).value);
-            this._emit({ numberSizePx: isGauge ? Math.round(def * v * 10 / 100) / 10 : v });
-          }}
+          @change=${(e: Event) => this._emit({ numberSize: parseFloat((e.target as HTMLInputElement).value) })}
         ></ha-slider>
-        <span class="value-label">${isGauge ? `${sliderValue}%` : `${px}px`}</span>
+        <span class="value-label">${size}${isGauge ? '%' : 'px'}</span>
       </div>
     </div>`;
   }
