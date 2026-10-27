@@ -23,24 +23,24 @@ this, it just works:
 | button | The label |
 | sensor / entity | Name, unit, **and the big value** (value at 1.75× your size — its native ratio) |
 | tile | Name and state text (via the tile's own font variables — HA 2026.2+; on HA 2025.9 these variables don't exist yet, so the tile text keeps its size/colour) |
-| gauge | The title (also on older HA, where it's a different element); the value number follows **color** (size: see limits) |
-| thermostat | The title and mode label; the big number follows **weight/color** (size: see limits) |
+| gauge | The title (also on older HA, where it's a different element); the value number follows **color**, and **Number size** sizes it (below) |
+| thermostat | The title and mode label; the big number follows **weight/color**, and **Temperature size** sizes it (below) |
 
-### Known limits (for now)
+### Number size — gauge value and thermostat temperature (v0.11)
 
-- **Gauge value number — size can't change from this module yet.** It's SVG
-  text that HA auto-scales to fill the dial. Color works.
-- **Thermostat big temperature — size can't change from this module yet.**
-  It sits two shadow roots deep with no variable to reach it. Weight and
-  color work.
+On gauge and thermostat cards the module has one more row with its own
+switch — it works with or without the rest of the Font module:
 
-Both are reachable with card-mod/UIX dictionary-form (`$` shadow-piercing)
-styles — you can write one by hand in the card's YAML editor and the Studio
-will [preserve it](Advanced-CSS#dictionary-form-styles-shadow-piercing) — but
-the Font module can't generate them yet. Size controls for both are
-**planned for v0.11** (they need a new generated-dictionary path in the save
-logic, and the gauge's SVG text needs a scale-based control design). See
-[What's Planned](Whats-Planned).
+- **Gauge → Number size**, 50–150 %: scales the box HA fits the value into
+  (HA fits the number into that box, so a plain font size wouldn't show).
+  It stops growing where the dial leaves no room.
+- **Thermostat → Temperature size**, 24–96px (HA's default is 57px).
+
+Both numbers sit inside nested shadow roots, so the Studio writes them as a
+dictionary-form (`$` shadow-piercing) entry and keeps it editable. If the
+card already has your own hand-written CSS for that number, the row shows as
+locked and your CSS is [preserved](Advanced-CSS#dictionary-form-styles-shadow-piercing)
+unchanged.
 
 ### Not offered on
 
@@ -50,6 +50,9 @@ logic, and the gauge's SVG text needs a scale-based control design). See
 **Text color** is hidden (size/weight/family stay) where the card colours
 its own text and a colour set here would never show: alarm-panel,
 media-control, area, picture-entity, picture-glance and picture-elements.
+**Text size** is hidden where the card sizes its own text: alarm-panel,
+area, humidifier, picture-entity, picture-glance and weather-forecast
+(measured with the module-effect audit on HA 2026.6 and 2026.10).
 
 ## The Heading Style module
 

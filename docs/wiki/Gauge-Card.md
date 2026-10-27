@@ -1,11 +1,11 @@
-`type: gauge` — well supported, with the dial color as the star and one
-documented limit (value-number size — planned for v0.11).
+`type: gauge` — well supported, with the dial color as the star; since v0.11
+the value number's size can be changed too.
 
 ## Available options
 
 | Module | Available | Notes on this card |
 |---|---|---|
-| Font | ✅ | Title: size/weight/color. Value number: **color only** for now (see limits) |
+| Font | ✅ | Title: size/weight/color. Value number: color, and **Number size** (v0.11) |
 | Visual Filters | ✅ | |
 | Accent Color | ✅ | Labeled "Gauge / Accent Color" — colors the **dial's value arc** |
 | Icon Color | — hidden | A gauge has no icon |
@@ -31,10 +31,10 @@ documented limit (value-number size — planned for v0.11).
 
 ## Limits
 
-- **The value number's size can't be changed from the Font module yet** —
-  it's SVG text that HA auto-scales to fill the dial. Its **color** follows
-  the Font module's text color. A size control is **planned for v0.11**: the
-  number is reachable with a dictionary-form (`$` shadow-piercing) style, but
-  the Font module can't generate one yet, and because the text auto-scales
-  the control needs a scale-based design rather than a plain px slider. See
-  [What's Planned](Whats-Planned).
+- **Number size** (Font module, v0.11) scales the box HA fits the value
+  into — 50–150 % of HA's own size. HA always fits the number into that box,
+  so the number stops growing where the dial leaves no room (around 125–150 %,
+  depending on the card's width). It has its own switch in the Font module
+  and is written as a shadow-piercing (`$`) dictionary entry the Studio keeps
+  editable; if you already wrote your own `ha-gauge$` CSS, the control shows
+  as locked and your CSS stays as it is.

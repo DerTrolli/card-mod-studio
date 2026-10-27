@@ -38,14 +38,8 @@ Exceptions and specials:
 | alarm-panel / media-control | Icon Color available (verified working) |
 | iframe / webpage / map | Only border/radius/filter apply (cross-origin / map-library content) |
 
-## Known limitations (v0.10.0)
+## Known limitations (v0.11)
 
-- **Gauge value number: size** can't change from the Font module yet (HA
-  auto-scales the SVG to fill the dial). Color works. A size control is
-  planned for v0.11.
-- **Thermostat big temperature: size** can't change from the Font module yet
-  (two shadow roots deep, no variable). Weight and color work. A size control
-  is planned for v0.11.
 - **Glance icons** can't be recolored (nested shadow root + inline state
   color — probed with shadow-piercing styles on both engines too: they don't
   reach it either). A documented limitation, not planned.
@@ -60,6 +54,6 @@ Exceptions and specials:
 Most of the "can't reach it" entries share one root cause: the target lives
 in a nested shadow root that string-form card-mod/UIX styles can't pierce.
 Dictionary-form (`$`) styles can — v0.10.0 made hand-written ones fully
-editable and preserved, and the two size controls above are the first
-planned use of them for *generated* styles (v0.11). Glance is the exception:
-even pierced styles don't reach it.
+editable and preserved, and v0.11's Number size controls (gauge value,
+thermostat temperature) are the first *generated* ones. Glance is the
+exception: even pierced styles don't reach it.

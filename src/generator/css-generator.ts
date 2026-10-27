@@ -529,12 +529,14 @@ export function valueFontSize(sizePx: number): string {
  *   (name also weight+color, measurement also color) — direct selectors.
  * - gauge: .title has explicit size/color; the value text is SVG inside
  *   ha-gauge's nested shadow root — its color is `fill:
- *   var(--primary-text-color)` (reachable by variable only), its SIZE is
- *   auto-scaled to a fixed viewBox by ha-gauge and effectively fixed.
+ *   var(--primary-text-color)` (reachable by variable only); its SIZE is
+ *   Font → Number size, a Studio-owned pierced entry scaling the box
+ *   ha-gauge fits it into (src/utils/owned-entries.ts) — a font-size there
+ *   is refitted away by HA.
  * - thermostat: .title has explicit size; the hvac label reads
- *   --ha-font-size-l / --ha-font-weight-medium; the big number's size is
- *   hard-coded (57px) two shadow roots deep — unreachable, weight/color
- *   inherit through.
+ *   --ha-font-size-l / --ha-font-weight-medium; the big number (57px, two
+ *   shadow roots deep) takes weight/color by inheritance and its size from
+ *   Font → Temperature size (owned pierced entry, owned-entries.ts).
  * - header-title cards: see HEADER_TITLE_CARD_TYPES above.
  *
  * All returned as extra top-level blocks joined after the base ha-card block.

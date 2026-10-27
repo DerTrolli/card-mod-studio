@@ -35,15 +35,15 @@ effects, icon size).
 - A 20-bug audit of how hand-written CSS survives an edit, a light/dark/phone
   overhaul of the editor, and keyboard access to every collapsible section.
 
-## v0.11 — Font size unlocks
+## v0.11 "Reach" — in progress
 
-- **Gauge value number and thermostat big number size** in the Font module,
-  built on the dictionary-form machinery from v0.10 (both are reachable with
-  shadow-piercing styles). They need a new generated-dictionary path in the
-  save logic — which deserves its own beta round — and the gauge's SVG text
-  also needs a scale-based control design. See the
+- ✅ **Gauge value number and thermostat big number size** (Font → Number
+  size / Temperature size) — in the first v0.11 beta. See the
   [Gauge](Gauge-Card) and [Thermostat](Thermostat-and-Humidifier-Cards)
   pages.
+- **Mushroom and Bubble Card support** — controls that actually reach those
+  custom cards (today several do nothing there), planned for later v0.11
+  betas.
 - Glance icon color stays out: even shadow-piercing styles don't reach it
   ([why](Glance-Card#why-no-icon-color)).
 

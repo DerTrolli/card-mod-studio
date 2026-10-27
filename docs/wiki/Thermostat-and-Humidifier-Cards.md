@@ -4,7 +4,7 @@
 
 | Module | Available | Notes |
 |---|---|---|
-| Font | ✅ | Title + mode label follow fully; the big number: **weight/color only** for now (see limits) |
+| Font | ✅ | Title + mode label follow fully; the big number: weight/color, and **Temperature size** (v0.11) |
 | Visual Filters | ✅ | |
 | Accent Color | thermostat only | Recolors the circular slider + the heat/cool/auto/idle state colors together. Hidden on humidifier: its slider keeps HA's state colour (measured, v0.10.0) |
 | Icon Color | — hidden | No reachable standalone icon |
@@ -25,9 +25,10 @@
 
 ## Limits
 
-- **The big temperature number's size can't be changed from the Font module
-  yet** — it sits two shadow roots deep with no variable to reach it.
-  **Weight and color work.** A size control is **planned for v0.11**: the
-  number is reachable with a dictionary-form (`$` shadow-piercing) style, but
-  the Font module can't generate one yet (see
-  [What's Planned](Whats-Planned)).
+- **Temperature size** (Font module, v0.11) sets the big number's size,
+  24–96px (HA's default is 57px). It has its own switch and is written as a
+  shadow-piercing (`$`) dictionary entry the Studio keeps editable; your own
+  hand-written CSS for that number locks the control instead of being
+  changed.
+- **Humidifier:** the Font text-size slider is hidden — the card sizes its
+  own text (measured); weight, family and color still apply.
