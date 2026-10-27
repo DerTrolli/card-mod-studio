@@ -495,8 +495,11 @@ export const FONT_WEIGHT_VALUE: Record<FontModuleState['fontWeight'], string> = 
  */
 const HEADER_TITLE_CARD_TYPES = new Set([
   'entities', 'glance', 'history-graph', 'statistics-graph', 'statistic',
-  'calendar', 'todo-list', 'shopping-list', 'logbook', 'picture-glance',
+  'calendar', 'todo-list', 'shopping-list', 'logbook',
 ]);
+// (picture-glance left this list in v0.11: its title isn't a card header —
+// the module-effect audit measured header size and colour dead there; the
+// parser still claims the variables in older output.)
 
 /** Header title scales at 1.5× the body size (HA default: 24px header vs
  *  16px body), so "make the text bigger" keeps the hierarchy intact.

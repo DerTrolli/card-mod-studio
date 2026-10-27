@@ -92,20 +92,23 @@ export const NO_ACCENT_TYPES = new Set([
   'statistics-graph', 'todo-list', 'weather-forecast', 'logbook', 'picture-glance',
 ]);
 
-/**
- * A card-level text colour (Font's colour picker, Threshold's Text Color)
- * reaches no visible text on these — their text carries its own colour
- * (measured, see NO_ACCENT_TYPES). Font's size/weight still work there.
- * (Chart/list cards — statistics-graph, todo-list, logbook — keep it: their
- * graph labels are canvas-drawn, but the colour reaches the card title.)
- */
 /** Font's size slider changes nothing visible on these cards — they size
  *  their own text (module-effect audit, `font:size` slice, HA 2026.10.4 and
- *  2026.6, card-mod and UIX). Weight, family and colour stay where they work. */
+ *  2026.6, card-mod and UIX). Weight, family and colour stay where they work.
+ *  The size declaration is still written: it's what the parser recognises
+ *  the Font module by, and it has no visible effect on these cards. */
 export const NO_FONT_SIZE_TYPES = new Set([
   'alarm-panel', 'area', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast',
 ]);
 
+/**
+ * A card-level text colour (Font's colour picker, Threshold's Text Color)
+ * reaches no visible text on these — their text carries its own colour
+ * (measured, see NO_ACCENT_TYPES). Font's weight (and size, outside
+ * NO_FONT_SIZE_TYPES) still work there.
+ * (Chart/list cards — statistics-graph, todo-list, logbook — keep it: their
+ * graph labels are canvas-drawn, but the colour reaches the card title.)
+ */
 export const NO_TEXT_COLOR_TYPES = new Set([
   'alarm-panel', 'area', 'media-control', 'picture-elements', 'picture-entity',
   'picture-glance',

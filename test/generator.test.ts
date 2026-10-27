@@ -77,6 +77,15 @@ describe('generateCss — accent on HA 2026.10 calendar / history graph', () => 
       expect(generateCss(back, type), type).toBe(css);
     }
   });
+
+  it('a hand-written --primary-color equal to the accent stays the user\'s on other cards', () => {
+    for (const type of ['tile', 'sensor', 'entities', 'button']) {
+      const style = 'ha-card {\n  --accent-color: #ff0000;\n  --primary-color: #ff0000;\n  --graph-color-1: #ff0000;\n}';
+      const back = mapToStudioState(parseCardModConfig({ type, card_mod: { style } }), type);
+      expect(back.advanced.rawCss, type).toContain('--primary-color: #ff0000');
+      expect(back.advanced.rawCss, type).toContain('--graph-color-1: #ff0000');
+    }
+  });
 });
 
 describe('generateCss — filter', () => {

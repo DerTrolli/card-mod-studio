@@ -184,9 +184,23 @@ export function refreshCarrier(
   written: CardModCardConfig,
   hass?: HomeAssistant,
 ): StudioState {
-  const { dictSource } = buildMergedStudioState(written, hass);
-  const { dictSource: _stale, ...rest } = state;
-  return dictSource ? { ...rest, dictSource } : rest;
+  const { dictSource: fresh } = buildMergedStudioState(written, hass);
+  const { dictSource: old, ...rest } = state;
+  if (!fresh) return rest;
+  let dictSource = fresh;
+  if (old) {
+    // What the written config can't tell: whether the Studio created the
+    // dict (a hand-written `{'.': …}` stays a dict after Number size goes
+    // off), and where `.` sat when this write left it out (all CSS off) —
+    // a later write puts it back there, not first.
+    dictSource = { ...dictSource, studioCreated: old.studioCreated ?? false };
+    if (fresh.rootIndex === null && old.rootIndex !== null) {
+      const kept = new Set(fresh.entries.map((e) => e.key));
+      const before = old.entries.slice(0, old.rootIndex).filter((e) => kept.has(e.key)).length;
+      dictSource = { ...dictSource, rootIndex: before };
+    }
+  }
+  return { ...rest, dictSource };
 }
 
 // ---------------------------------------------------------------------------

@@ -331,7 +331,17 @@ export class CmsPanel extends LitElement {
    *  a `.` that isn't plain CSS) — the card-level modules are replaced by
    *  the lock banner (see _renderModuleList). */
   private get _isLocked(): boolean {
-    return hasDictFormStyle(this.config ?? {}) && !this._studioState?.dictSource;
+    return hasDictFormStyle(this._written ?? this.config ?? {}) && !this._studioState?.dictSource;
+  }
+
+  /** The config this panel just emitted, until HA feeds it back as
+   *  `config`: the state's carrier already describes it, so judging the
+   *  lock against the older config flashed the lock banner for a frame
+   *  when Number size turned a dict back into a string. */
+  private _written?: CardModCardConfig;
+
+  override willUpdate(changed: Map<PropertyKey, unknown>) {
+    if (changed.has('config')) this._written = undefined;
   }
 
   private get _isEntitiesCard(): boolean {
@@ -475,6 +485,7 @@ export class CmsPanel extends LitElement {
     if (this.config.type === 'entities') {
       newConfig = this._applyEntityRowStyles(newConfig);
     }
+    this._written = newConfig;
     this._studioState = refreshCarrier(this._studioState, newConfig, this.hass);
     this._emitConfig(newConfig);
   }

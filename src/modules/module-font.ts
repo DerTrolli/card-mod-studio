@@ -37,6 +37,8 @@ export class FontModule extends LitElement {
 
   @state() private _open = false;
   @state() private _fontSize = DEFAULT_FONT.fontSize;
+  /** Number size while the slider is dragged (null = the state's value). */
+  @state() private _numberSizeLive: number | null = null;
   /** "Custom…" chosen but nothing typed yet — picking it changes no state,
    *  so without this the text field never appeared. */
   @state() private _customPicked = false;
@@ -56,6 +58,7 @@ export class FontModule extends LitElement {
       // what the select shows again.
       if (prev && prev.fontFamily !== this.state.fontFamily) this._customPicked = false;
       this._fontSize = this.state.fontSize;
+      this._numberSizeLive = null;
     }
   }
 
@@ -210,14 +213,14 @@ export class FontModule extends LitElement {
   private _renderNumberSize(kind: 'gauge' | 'thermostat') {
     const s = this.state;
     const def = NUMBER_SIZE_DEFAULT[kind];
-    const size = s.numberSize || def;
+    const size = this._numberSizeLive ?? (s.numberSize || def);
     const isGauge = kind === 'gauge';
     const label = isGauge ? 'Number size' : 'Temperature size';
     if (s.numberSizeLocked) {
       return html`<div class="control-row">
         <span class="control-label">${label}</span>
         <div class="control-right">
-          <span class="when-hint">Set by your own CSS for this card — edit it in Advanced CSS.</span>
+          <span class="when-hint">Set by your own CSS for this card (listed read-only in Advanced CSS) — edit it in the card's YAML.</span>
         </div>
       </div>`;
     }
@@ -236,6 +239,7 @@ export class FontModule extends LitElement {
           step=${isGauge ? 5 : 1}
           .value=${String(size)}
           ?disabled=${!s.numberSizeEnabled}
+          @input=${(e: Event) => { this._numberSizeLive = parseFloat((e.target as HTMLInputElement).value); }}
           @change=${(e: Event) => this._emit({ numberSize: parseFloat((e.target as HTMLInputElement).value) })}
         ></ha-slider>
         <span class="value-label">${size}${isGauge ? '%' : 'px'}</span>

@@ -184,8 +184,13 @@ export class CmsChildCardSection extends LitElement {
     if (this._studioState) this._studioState = refreshPaletteDefaults(this._studioState);
   };
 
+  /** The child config just emitted, until it comes back as childConfig —
+   *  see cms-panel's _written. */
+  private _written?: CardModCardConfig;
+
   override willUpdate(changed: Map<PropertyKey, unknown>) {
     if (changed.has('childConfig')) {
+      this._written = undefined;
       if (!this.childConfig) {
         this._studioState = null;
         this._entityRowStyles = {};
@@ -217,6 +222,7 @@ export class CmsChildCardSection extends LitElement {
     if (this.childConfig.type === 'entities') {
       newChild = applyEntityRowStyles(newChild, this._entityRowStyles, this.hass);
     }
+    this._written = newChild;
     this._studioState = refreshCarrier(this._studioState, newChild, this.hass);
     this._echoGuard.noteEmitted(JSON.stringify(newChild));
     this.dispatchEvent(
@@ -277,7 +283,7 @@ export class CmsChildCardSection extends LitElement {
     // Only the MIXED form (active string style + dict on the secondary key)
     // still freezes: there's no faithful single-key rewrite for it, so the
     // save path preserves both keys untouched (same gate as cms-panel).
-    if (hasDictFormStyle(c) && !s.dictSource) {
+    if (hasDictFormStyle(this._written ?? c) && !s.dictSource) {
       // Per-row styling stays editable, exactly like the top-level panel's
       // mixed-form gate (audit v0.10 #17).
       return html`<div class="child-note">

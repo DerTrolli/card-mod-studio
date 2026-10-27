@@ -167,6 +167,26 @@ describe('v0.11 Number size — order and preservation', () => {
   });
 });
 
+describe('v0.11 Number size — carrier refresh (code review)', () => {
+  const bg = (on: boolean) => (st: StudioState): StudioState => ({
+    ...st, background: { ...st.background, enabled: on, type: 'solid', color1: '#010203', applyWhen: 'always' },
+  });
+
+  it('switching all CSS off and on again puts "." back where it was', () => {
+    const start = session(cfg({ type: 'gauge', entity: 'sensor.x', card_mod: { style: { 'hui-x$': 'p { margin: 0; }', '.': '' } } }), bg(true));
+    expect(Object.keys(style(start) as object)).toEqual(['hui-x$', '.']);
+    // one session: off (no "." written) then on again
+    const out = session(start, bg(false), bg(true));
+    expect(Object.keys(style(out) as object)).toEqual(['hui-x$', '.']);
+  });
+
+  it('a hand-written {".": …} stays a dict after Number size on then off', () => {
+    const out = session(cfg({ type: 'gauge', entity: 'sensor.x', card_mod: { style: { '.': 'ha-card {\n  color: red;\n}' } } }), numberSize(true), numberSize(false));
+    expect(typeof style(out)).toBe('object');
+    expect(style(out)).toEqual({ '.': expect.stringContaining('color: red') });
+  });
+});
+
 describe('v0.11 Number size — presets', () => {
   it('a preset never carries Number size, and applying one keeps nothing of it', () => {
     const state = buildMergedStudioState(cfg({ type: 'gauge', entity: 'sensor.x', card_mod: { style: { 'ha-gauge$': GAUGE_ENTRY } } }));
