@@ -69,11 +69,19 @@ describe('generateCss — filter', () => {
     const state = makeState({ filter: { ...DEFAULT_FILTER, enabled: true, brightness: 150, transitionMs: 600 } });
     const tile = generateCss(state, 'tile');
     expect(tile).toContain('transition: filter 600ms ease !important;');
-    expect(generateCss(state, 'sensor')).toContain('transition: filter 600ms ease;');
+    expect(generateCss(state, 'glance')).toContain('transition: filter 600ms ease;');
     const reparsed = mapToStudioState(parseCardModConfig({ type: 'tile', card_mod: { style: tile } }));
     expect(reparsed.filter.transitionMs).toBe(600);
     expect(reparsed.advanced.rawCss).toBe('');
     expect(generateCss(reparsed, 'tile')).toBe(tile);
+    // HA 2026.10.4 added sensor, entity and area to the cards that override it
+    for (const type of ['sensor', 'entity', 'area']) {
+      const css = generateCss(state, type);
+      expect(css, type).toContain('transition: filter 600ms ease !important;');
+      const back = mapToStudioState(parseCardModConfig({ type, card_mod: { style: css } }), type);
+      expect(back.advanced.rawCss, type).toBe('');
+      expect(generateCss(back, type), type).toBe(css);
+    }
     // a hand-written transition in Advanced CSS keeps winning
     const withRaw = makeState({ ...state, advanced: { rawCss: 'ha-card {\n  transition: all 1s;\n}' } });
     expect(generateCss(withRaw, 'tile')).toContain('transition: filter 600ms ease;');

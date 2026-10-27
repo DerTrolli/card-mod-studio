@@ -43,7 +43,8 @@ import {
   isStateAware,
   showsAccentColor,
 } from '../utils/card-caps.js';
-import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles, refreshPaletteDefaults } from './studio-state.js';
+import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles, refreshPaletteDefaults, applyStudioState, refreshCarrier } from './studio-state.js';
+import { numberSizeOf, withoutNumberSize, userEntries, numberSizeKind } from '../utils/owned-entries.js';
 import './cms-child-card-section.js';
 import './cms-preview-picker.js';
 import type { PickEventDetail } from './cms-preview-picker.js';
@@ -54,8 +55,7 @@ import { ConfigEchoGuard } from '../utils/config-echo.js';
 import { initPaletteCache, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
-import { generateCss, thresholdOwnedProperties } from '../generator/css-generator.js';
-import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
+import { thresholdOwnedProperties } from '../generator/css-generator.js';
 import { cmsTokens } from '../modules/module-base.js';
 
 import '../modules/module-filter.js';
@@ -470,13 +470,11 @@ export class CmsPanel extends LitElement {
 
   private _emitConfigChanged() {
     if (!this.config || !this._studioState) return;
-    const css = generateCss(this._studioState, this.config?.type, {
-      gaugeNeedle: (this.config as { needle?: boolean }).needle === true,
-    });
-    let newConfig = applyCardModStyle(css, this.config, pickOutputKey(this.hass), this._studioState.dictSource);
+    let newConfig = applyStudioState(this._studioState, this.config, this.hass);
     if (this.config.type === 'entities') {
       newConfig = this._applyEntityRowStyles(newConfig);
     }
+    this._studioState = refreshCarrier(this._studioState, newConfig, this.hass);
     this._emitConfig(newConfig);
   }
 
@@ -525,7 +523,10 @@ export class CmsPanel extends LitElement {
     this._presetName = '';
     // A dict card's carrier (its pierced entries) belongs to THAT card — a
     // preset must never carry it (audit v0.10 #8).
-    const { dictSource: _cardDict, ...presetState } = this._studioState;
+    // Nor Number size: its units differ per card and it can sit under a
+    // hand-written entry (v0.11) — it stays the card's own setting.
+    const { dictSource: _cardDict, ...cardState } = this._studioState;
+    const presetState = { ...cardState, font: withoutNumberSize(cardState.font) };
     const updated = [
       ...this._presets.filter((p) => p.name !== trimmed),
       { name: trimmed, state: presetState },
@@ -551,6 +552,7 @@ export class CmsPanel extends LitElement {
     // none (the save then froze and the panel flipped to "Mixed-form"), and
     // an in-session one could carry stale/foreign pierced entries (audit
     // v0.10 #8).
+    const current = this._studioState;
     const currentDictSource = this._studioState?.dictSource;
     const { dictSource: _presetDict, ...presetState } = preset.state;
     // Reset any module THIS card type's panel hides back to its disabled
@@ -567,6 +569,7 @@ export class CmsPanel extends LitElement {
       ),
       ...(currentDictSource ? { dictSource: currentDictSource } : {}),
     };
+    if (current) this._studioState = { ...this._studioState, font: { ...this._studioState.font, ...numberSizeOf(current.font) } };
     this._emitConfigChanged();
   }
 
@@ -1218,6 +1221,7 @@ export class CmsPanel extends LitElement {
       ${showFont
         ? html`<cms-font-module
             .allowColor=${!NO_TEXT_COLOR_TYPES.has(this.config?.type ?? '')}
+            .numberSize=${numberSizeKind(this.config?.type)}
             .overridden=${!!conflicts.font}
             .overriddenDetail=${(conflicts.font ?? []).join(", ")}
             .state=${s.font}
@@ -1312,8 +1316,8 @@ export class CmsPanel extends LitElement {
 
       <cms-advanced-module
         .state=${s.advanced}
-        .pierced=${s.dictSource?.entries ?? []}
-        .autoOpen=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
+        .pierced=${userEntries(s.dictSource)}
+        .autoOpen=${hasUnrecognisedCss || userEntries(s.dictSource).length > 0}
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
 
@@ -1389,8 +1393,8 @@ export class CmsPanel extends LitElement {
 
       <cms-advanced-module
         .state=${s.advanced}
-        .pierced=${s.dictSource?.entries ?? []}
-        .autoOpen=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
+        .pierced=${userEntries(s.dictSource)}
+        .autoOpen=${hasUnrecognisedCss || userEntries(s.dictSource).length > 0}
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
     `;

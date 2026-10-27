@@ -34,6 +34,7 @@ import {
   DEFAULT_ICON_COLOR,
   DEFAULT_THRESHOLD,
 } from '../parser/state-mapper.js';
+import { withoutNumberSize } from './owned-entries.js';
 import {
   NO_ANIMATION_TYPES,
   NO_BACKGROUND_TYPES,
@@ -87,6 +88,8 @@ export function filterPresetStateForCardType(
   if (NO_ANIMATION_TYPES.has(type)) next.animation = { ...DEFAULT_ANIMATION };
   if (NO_BORDER_TYPES.has(type)) next.border = { ...DEFAULT_BORDER };
   if (NO_FONT_TYPES.has(type)) next.font = { ...DEFAULT_FONT };
+  // Number size is never part of a preset (v0.11) — the card keeps its own.
+  if (next.font) next.font = withoutNumberSize(next.font);
 
   return next;
 }

@@ -32,6 +32,7 @@ import type {
   StudioState,
   EntitiesRowStyle,
   StyleCondition,
+  DictSource,
 } from '../types/index.js';
 import { parseCss, parseCssDetailed, isBareDeclarations } from './css-parser.js';
 import {
@@ -46,6 +47,7 @@ import {
   HEADING_ICON_SELECTOR,
 } from '../generator/css-generator.js';
 import { NO_ICON_COLOR_TYPES, ICON_SIZE_TYPES } from '../utils/card-caps.js';
+import { ownedEntryKey, parseOwnedEntry } from '../utils/owned-entries.js';
 
 // ---------------------------------------------------------------------------
 // Default states
@@ -128,6 +130,8 @@ export const DEFAULT_FONT: FontModuleState = {
   fontFamily: '',
   fontWeight: 'normal',
   color: THEME_TEXT_COLOR,
+  numberSizeEnabled: false,
+  numberSizePx: 0,
 };
 
 export const DEFAULT_THRESHOLD: ThresholdModuleState = {
@@ -434,6 +438,7 @@ export function mapToStudioState(parsed: CardModStyleState, cardType?: string): 
   const container = findTarget(parsed.targets, '.container');
 
   const claimed = new Set<string>();
+  const numberSize = claimNumberSize(parsed.dictSource, cardType);
 
   return {
     filter: mapFilter(haCard, claimed),
@@ -443,12 +448,43 @@ export function mapToStudioState(parsed: CardModStyleState, cardType?: string): 
     animation: mapAnimation(haCard, claimed),
     border: mapBorder(haCard, claimed),
     headingStyle: mapHeadingStyle(titleP, headingIcon, container, headingFamily, claimed),
-    font: mapFont(parsed.targets, haCard, claimed),
+    font: { ...mapFont(parsed.targets, haCard, claimed), ...numberSize.font },
     threshold: mapThreshold(haCard, haStateIcon, haGauge, hostTarget, cardType, claimed),
     advanced: mapAdvanced(parsed, claimed),
     // Dict-form carrier (v0.10): threaded to the save path so the dict is
     // rebuilt byte-identically around the regenerated `.` entry.
-    ...(parsed.dictSource ? { dictSource: parsed.dictSource } : {}),
+    ...(numberSize.dictSource ? { dictSource: numberSize.dictSource } : {}),
+  };
+}
+
+/**
+ * Font → Number size (v0.11): flags the Studio's own gauge/thermostat entry
+ * in the dict carrier and reads its size back; a hand-written entry under
+ * the same key stays the user's (unflagged, listed in Advanced CSS) and
+ * locks the control. Never mutates the parsed carrier.
+ */
+function claimNumberSize(
+  dictSource: DictSource | undefined,
+  cardType: string | undefined,
+): { font: Partial<FontModuleState>; dictSource?: DictSource } {
+  const key = ownedEntryKey(cardType);
+  if (!dictSource || !key) return { font: {}, dictSource };
+  const font: Partial<FontModuleState> = {};
+  const entries = dictSource.entries.map((e) => {
+    if (e.key !== key) return e;
+    const px = parseOwnedEntry(cardType, e.key, e.value);
+    if (px === null) {
+      font.numberSizeLocked = true;
+      return e;
+    }
+    font.numberSizeEnabled = true;
+    font.numberSizePx = px;
+    return { ...e, owned: true as const };
+  });
+  if (!font.numberSizeEnabled) return { font, dictSource };
+  return {
+    font,
+    dictSource: { ...dictSource, entries, studioCreated: entries.every((e) => e.owned) },
   };
 }
 
@@ -478,7 +514,14 @@ export function mergeStudioStates(primary: StudioState, secondary: StudioState):
     animation: primary.animation.enabled ? primary.animation : secondary.animation,
     border: primary.border.enabled ? primary.border : secondary.border,
     headingStyle: primary.headingStyle.enabled ? primary.headingStyle : secondary.headingStyle,
-    font: primary.font.enabled ? primary.font : secondary.font,
+    // Number size lives in the primary's dict (a string secondary can't
+    // carry it), whichever side's base font wins.
+    font: {
+      ...(primary.font.enabled ? primary.font : secondary.font),
+      numberSizeEnabled: primary.font.numberSizeEnabled,
+      numberSizePx: primary.font.numberSizePx,
+      ...(primary.font.numberSizeLocked ? { numberSizeLocked: true } : {}),
+    },
     threshold: primary.threshold.enabled ? primary.threshold : secondary.threshold,
     advanced: { rawCss: mergeRawCss(primary.advanced.rawCss, secondary.advanced.rawCss) },
     // The dict carrier always follows the PRIMARY (active-key) style — a

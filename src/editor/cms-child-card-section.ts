@@ -21,6 +21,7 @@
  * - mixed-form child styles (string + dict together) are preserved
  *   untouched, same as everywhere (pure dict-form IS editable — v0.10).
  */
+import { userEntries, numberSizeKind } from '../utils/owned-entries.js';
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type {
@@ -43,6 +44,7 @@ import type {
 import {
   buildMergedStudioState,
   applyStudioState,
+  refreshCarrier,
   initEntityRowStyles,
   applyEntityRowStyles,
   refreshPaletteDefaults,
@@ -214,6 +216,7 @@ export class CmsChildCardSection extends LitElement {
     if (this.childConfig.type === 'entities') {
       newChild = applyEntityRowStyles(newChild, this._entityRowStyles, this.hass);
     }
+    this._studioState = refreshCarrier(this._studioState, newChild, this.hass);
     this._echoGuard.noteEmitted(JSON.stringify(newChild));
     this.dispatchEvent(
       new CustomEvent<{ index: number; config: CardModCardConfig }>('child-config-changed', {
@@ -319,6 +322,7 @@ export class CmsChildCardSection extends LitElement {
         ${!NO_FONT_TYPES.has(cardType)
           ? html`<cms-font-module
               .allowColor=${!NO_TEXT_COLOR_TYPES.has(cardType)}
+              .numberSize=${numberSizeKind(cardType)}
               .overridden=${!!conflicts.font}
               .overriddenDetail=${(conflicts.font ?? []).join(", ")}
               .state=${s.font}
@@ -418,8 +422,8 @@ export class CmsChildCardSection extends LitElement {
 
         <cms-advanced-module
           .state=${s.advanced}
-          .pierced=${s.dictSource?.entries ?? []}
-          .autoOpen=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
+          .pierced=${userEntries(s.dictSource)}
+          .autoOpen=${hasUnrecognisedCss || userEntries(s.dictSource).length > 0}
           @state-changed=${(e: CustomEvent<AdvancedModuleState>) => this._emitChanged({ advanced: e.detail })}
         ></cms-advanced-module>
 

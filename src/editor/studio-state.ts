@@ -25,6 +25,7 @@ import {
 } from '../parser/state-mapper.js';
 import { generateCss, buildThresholdJinja, FONT_WEIGHT_VALUE } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
+import { generateOwnedEntries } from '../utils/owned-entries.js';
 import {
   hasStyleContent,
   usesUixOnlyFeatures,
@@ -142,7 +143,8 @@ export function buildMergedStudioState(
     // carrier too, so the panel gate and the save path both fall back to
     // the mixed-form freeze (both keys preserved verbatim).
     const { dictSource: _mixed, ...frozen } = primaryState;
-    return applyPaletteDefaults(frozen);
+    // …and nothing may write owned entries into it either.
+    return applyPaletteDefaults({ ...frozen, font: { ...frozen.font, numberSizeEnabled: false } });
   }
 
   const secondaryUsable = outputKey === 'uix' || !usesUixOnlyFeatures(config);
@@ -166,7 +168,25 @@ export function applyStudioState(
   const css = generateCss(state, config.type, {
     gaugeNeedle: (config as { needle?: boolean }).needle === true,
   });
-  return applyCardModStyle(css, config, pickOutputKey(hass), state.dictSource);
+  return applyCardModStyle(css, config, pickOutputKey(hass), state.dictSource, generateOwnedEntries(state, config.type));
+}
+
+/**
+ * The state with its dict carrier re-derived from the config it just
+ * wrote. The panel's echo guard skips rebuilding state for the Studio's own
+ * emits, so without this a write that switched the style between string
+ * and dictionary form (Number size on/off, v0.11) left a stale carrier:
+ * the first switch-on showed the mixed-form lock, and a switch-off kept
+ * re-writing a dictionary.
+ */
+export function refreshCarrier(
+  state: StudioState,
+  written: CardModCardConfig,
+  hass?: HomeAssistant,
+): StudioState {
+  const { dictSource } = buildMergedStudioState(written, hass);
+  const { dictSource: _stale, ...rest } = state;
+  return dictSource ? { ...rest, dictSource } : rest;
 }
 
 // ---------------------------------------------------------------------------

@@ -10,6 +10,8 @@
  * preserved verbatim (docs/V0.11_PLAN.md, C1.0).
  */
 
+import type { DictSource, FontModuleState, PiercedEntry, StudioState } from '../types/index.js';
+
 /** Card types with a Number size control. */
 export const NUMBER_SIZE_CARD_TYPES = new Set(['gauge', 'thermostat']);
 
@@ -71,4 +73,34 @@ export function parseOwnedEntry(cardType: string | undefined, key: string, value
     ? (built!.value as Record<string, string>)[THERMOSTAT_INNER_KEY]
     : (built!.value as string);
   return css.trim() === builtCss ? px : null;
+}
+
+/** The owned entries this state writes for this card (empty unless Number
+ *  size is on, not locked by a hand-written entry, and the card has one). */
+export function generateOwnedEntries(state: StudioState, cardType: string | undefined): PiercedEntry[] {
+  const f = state.font;
+  if (!f.numberSizeEnabled || f.numberSizeLocked || !cardType || !NUMBER_SIZE_CARD_TYPES.has(cardType)) return [];
+  const e = ownedEntryFor(cardType, f.numberSizePx || NUMBER_SIZE_DEFAULT_PX[cardType]);
+  return e ? [{ ...e, owned: true }] : [];
+}
+
+/** Just the Number size fields of a font state. */
+export function numberSizeOf(f: FontModuleState): Pick<FontModuleState, 'numberSizeEnabled' | 'numberSizePx' | 'numberSizeLocked'> {
+  return { numberSizeEnabled: f.numberSizeEnabled, numberSizePx: f.numberSizePx, ...(f.numberSizeLocked ? { numberSizeLocked: true } : {}) };
+}
+
+/** A font state with Number size off — presets never carry it. */
+export function withoutNumberSize(f: FontModuleState): FontModuleState {
+  const { numberSizeLocked: _locked, ...rest } = f;
+  return { ...rest, numberSizeEnabled: false, numberSizePx: 0 };
+}
+
+/** The dict entries that are the user's own CSS (not the Studio's). */
+export function userEntries(ds: DictSource | undefined): PiercedEntry[] {
+  return (ds?.entries ?? []).filter((e) => !e.owned);
+}
+
+/** The Font module's Number size kind for a card type ('' = none). */
+export function numberSizeKind(cardType: string | undefined): '' | 'gauge' | 'thermostat' {
+  return cardType === 'gauge' || cardType === 'thermostat' ? cardType : '';
 }

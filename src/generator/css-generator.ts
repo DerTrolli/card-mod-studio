@@ -125,6 +125,10 @@ export function conditionExpr(c: StyleCondition | undefined): string | null {
   return `${src} ${c.valueOperator} ${c.valueThreshold}`;
 }
 
+/** Cards whose own stylesheet overrides a plain filter transition (see
+ *  the filter block below). */
+const TRANSITION_IMPORTANT_TYPES = new Set(['tile', 'sensor', 'entity', 'area']);
+
 function filterDecls(s: FilterModuleState, cardType?: string, rawCss = ''): string[] {
   if (!s.enabled) return [];
 
@@ -188,13 +192,14 @@ function filterDecls(s: FilterModuleState, cardType?: string, rawCss = ''): stri
   }
 
   if (decls.length > 0) {
-    // The tile card's own stylesheet sets `ha-card { transition: … }` and,
-    // being adopted after card-mod's/UIX's injected <style>, wins a plain
-    // declaration — filter changes snapped instead of fading (measured: the
-    // only one of 10 card types affected). Same mechanism as the button
-    // card's font size. Not when Advanced CSS sets a transition itself:
-    // hand-written CSS must keep winning, as it does everywhere else.
-    const important = cardType === 'tile' && !/(^|[\s;{])transition\s*:/.test(rawCss);
+    // These cards' own stylesheets set `ha-card { transition: … }` and,
+    // being adopted after card-mod's/UIX's injected <style>, win a plain
+    // declaration — filter changes snapped instead of fading. Measured on
+    // both engines: tile only on HA 2026.9; tile, sensor, entity and area on
+    // HA 2026.10.4 (harmless where not needed). Same mechanism as the
+    // button card's font size. Not when Advanced CSS sets a transition
+    // itself: hand-written CSS must keep winning, as it does everywhere else.
+    const important = TRANSITION_IMPORTANT_TYPES.has(cardType ?? '') && !/(^|[\s;{])transition\s*:/.test(rawCss);
     decls.push(`transition: filter ${s.transitionMs}ms ease${important ? ' !important' : ''};`);
   }
 

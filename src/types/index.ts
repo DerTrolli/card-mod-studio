@@ -120,6 +120,10 @@ export interface CssTarget {
 export interface PiercedEntry {
   key: string;
   value: unknown;
+  /** v0.11: an entry the Studio itself writes (Font → Number size,
+   *  src/utils/owned-entries.ts). It keeps its place in the dict; its value
+   *  is regenerated on save, and it is never listed as the user's CSS. */
+  owned?: true;
 }
 
 /** The dict-form carrier threaded from parse to save (v0.10): preserved
@@ -136,6 +140,9 @@ export interface DictSource {
    *  UIX-only features (`$$`/`&` keys, macros/billets/theme) can't move to
    *  `card_mod:` (audit v0.10 #6). */
   pinKey?: 'card_mod' | 'uix';
+  /** v0.11: the dict holds nothing but `.` and owned entries, so it may
+   *  return to a plain string once no owned entry is written any more. */
+  studioCreated?: boolean;
 }
 
 export interface CardModStyleState {
@@ -296,6 +303,14 @@ export interface FontModuleState {
   fontFamily: string;
   fontWeight: 'normal' | 'medium' | 'bold';
   color: string;
+  /** v0.11 Number size (gauge value / thermostat big number), independent
+   *  of `enabled` — see docs/V0.11_PLAN.md C1.0. */
+  numberSizeEnabled: boolean;
+  /** Emitted size: gauge SVG units / thermostat px. 0 = the card's default. */
+  numberSizePx: number;
+  /** Derived on read, never saved: a hand-written entry sits under the
+   *  Studio's key, so the control can't write without touching it. */
+  numberSizeLocked?: boolean;
 }
 
 export interface ThresholdRule {
