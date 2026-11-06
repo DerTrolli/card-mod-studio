@@ -77,6 +77,8 @@ export const NO_ICON_COLOR_TYPES = new Set([
   // v0.10 module_effect_audit (pixel-measured, card-mod + UIX): the area
   // card's icon and picture-elements' state icons don't take the colour.
   'area', 'picture-elements',
+  // HA 2026.11 date card: live module-effect audit (UIX 9) — dead.
+  'date',
 ]);
 
 /**
@@ -90,6 +92,8 @@ export const NO_ACCENT_TYPES = new Set([
   'alarm-panel', 'area', 'button', 'glance', 'humidifier', 'iframe', 'light',
   'map', 'markdown', 'picture', 'picture-elements', 'picture-entity',
   'statistics-graph', 'todo-list', 'weather-forecast', 'logbook', 'picture-glance',
+  // HA 2026.11 date card (module-effect audit, UIX 9): dead.
+  'date',
 ]);
 
 /** Font's size slider changes nothing visible on these cards — they size
@@ -99,6 +103,8 @@ export const NO_ACCENT_TYPES = new Set([
  *  the Font module by, and it has no visible effect on these cards. */
 export const NO_FONT_SIZE_TYPES = new Set([
   'alarm-panel', 'area', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast',
+  // HA 2026.11 date card (module-effect audit, UIX 9)
+  'date',
 ]);
 
 /**
@@ -112,6 +118,8 @@ export const NO_FONT_SIZE_TYPES = new Set([
 export const NO_TEXT_COLOR_TYPES = new Set([
   'alarm-panel', 'area', 'media-control', 'picture-elements', 'picture-entity',
   'picture-glance',
+  // HA 2026.11 date card (module-effect audit, UIX 9)
+  'date',
 ]);
 
 /**

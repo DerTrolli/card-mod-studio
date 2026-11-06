@@ -3,7 +3,9 @@
  * the upgrade path for CSS written by v0.10.1.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { NO_FONT_SIZE_TYPES } from '../src/utils/card-caps.js';
+import {
+  NO_FONT_SIZE_TYPES, NO_TEXT_COLOR_TYPES, NO_ICON_COLOR_TYPES, NO_FONT_TYPES, showsAccentColor, thresholdPropertyAllowed,
+} from '../src/utils/card-caps.js';
 import { generateCss } from '../src/generator/css-generator.js';
 import { DEFAULT_FONT, mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseCardModConfig } from '../src/parser/yaml-parser.js';
@@ -22,9 +24,9 @@ const fontState = (base: StudioState): StudioState => ({
 const blank = () => buildMergedStudioState({ type: 'picture-glance' } as unknown as CardModCardConfig);
 
 describe('NO_FONT_SIZE_TYPES', () => {
-  it('is exactly the six cards that size their own text', () => {
+  it('is exactly the cards that size their own text', () => {
     expect([...NO_FONT_SIZE_TYPES].sort()).toEqual(
-      ['alarm-panel', 'area', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast'],
+      ['alarm-panel', 'area', 'date', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast'],
     );
   });
 });
@@ -89,5 +91,21 @@ describe('upgrade: CSS written by v0.10.1 for picture-glance (Font 20px + #ff000
     expect(regen).toContain('font-size: 20px;');
     expect(regen).toContain('color: #ff0000;');
     expect(regen).not.toContain('--ha-card-header');
+  });
+});
+
+describe('HA 2026.11 date card gating', () => {
+  it('hides exactly the dead controls and keeps the working ones', () => {
+    expect(NO_FONT_SIZE_TYPES.has('date')).toBe(true);
+    expect(NO_TEXT_COLOR_TYPES.has('date')).toBe(true);
+    expect(NO_FONT_TYPES.has('date')).toBe(false); // weight/family still work
+    expect(NO_ICON_COLOR_TYPES.has('date')).toBe(true);
+    expect(showsAccentColor('date')).toBe(false);
+    for (const p of ['icon-color', 'accent-color', 'text-color']) expect(thresholdPropertyAllowed(p, 'date'), p).toBe(false);
+    for (const p of ['background', 'border-color']) expect(thresholdPropertyAllowed(p, 'date'), p).toBe(true);
+  });
+  it('leaves other cards untouched', () => {
+    expect(showsAccentColor('tile')).toBe(true);
+    expect(thresholdPropertyAllowed('text-color', 'tile')).toBe(true);
   });
 });

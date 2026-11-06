@@ -30,6 +30,10 @@ four styling regressions that appear on HA 2026.10 and newer.
   alarm-panel, area, humidifier, picture-entity, picture-glance and
   weather-forecast — where the slider changed nothing. Weight, family and
   colour are still offered where they work.
+- **The new Date card (HA 2026.11) only offers controls that work on it.**
+  Icon colour, Accent colour, Font size and Font text colour (and the
+  matching Threshold targets) did nothing there and are now hidden;
+  Background, Border, Filters, Animation and Font weight/family stay.
 
 ### Changed
 
