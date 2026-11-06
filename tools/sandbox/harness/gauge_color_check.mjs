@@ -44,7 +44,7 @@ const run = async () => {
     await customElements.whenDefined('hui-card');
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:400px;height:300px;z-index:2147483647;background:#fff;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const card = document.createElement('hui-card');
     card.hass = document.querySelector('home-assistant').hass;
     card.config = { type: 'gauge', entity, [styleKey]: { style } };
@@ -88,7 +88,7 @@ const run = async () => {
   const emitted = await page.evaluate(async ({ entity }) => {
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:900px;background:#111;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const panel = document.createElement('cms-panel');
     panel.hass = document.querySelector('home-assistant').hass;
     panel.config = { type: 'gauge', entity };
@@ -133,7 +133,7 @@ const run = async () => {
   const gradientEmitted = await page.evaluate(async ({ entity }) => {
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:900px;background:#111;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const panel = document.createElement('cms-panel');
     panel.hass = document.querySelector('home-assistant').hass;
     panel.config = { type: 'gauge', entity };
@@ -183,7 +183,7 @@ const run = async () => {
   const reopened = await page.evaluate(async ({ entity, style, styleKey }) => {
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:900px;background:#111;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const panel = document.createElement('cms-panel');
     panel.hass = document.querySelector('home-assistant').hass;
     panel.config = { type: 'gauge', entity, [styleKey]: { style } };

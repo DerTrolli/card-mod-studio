@@ -46,7 +46,7 @@ const run = async () => {
     const host = document.createElement('div');
     host.id = 'compat-host';
     host.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:1200px;background:#111;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const hass = document.querySelector('home-assistant').hass;
     const panel = document.createElement('cms-panel');
     panel.hass = hass;
@@ -107,7 +107,7 @@ const run = async () => {
     const host = document.createElement('div');
     host.id = 'compat-render-host';
     host.style.cssText = 'position:fixed;left:0;top:0;width:400px;height:200px;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const hass = document.querySelector('home-assistant').hass;
     const card = document.createElement('hui-card');
     card.hass = hass;

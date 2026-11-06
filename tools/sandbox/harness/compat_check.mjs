@@ -31,7 +31,7 @@ const mountPanel = async (page, config) => page.evaluate(async (cfg) => {
     host = document.createElement('div');
     host.id = 'compat-host';
     host.style.cssText = 'position:fixed;left:0;top:0;width:900px;height:900px;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
   }
   host.innerHTML = '';
   const panel = document.createElement('cms-panel');

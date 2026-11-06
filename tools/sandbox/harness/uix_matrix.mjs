@@ -63,7 +63,7 @@ const run = async () => {
     };
     const h = document.createElement('div'); h.id = 'bench';
     h.style.cssText = 'position:fixed;left:0;top:0;width:380px;z-index:2147483647;background:#0b0b0b;padding:12px';
-    document.body.appendChild(h);
+    window.__cmsMount(h);
     window.__render = async (cfg) => {
       const hass = document.querySelector('home-assistant').hass;
       const b = document.getElementById('bench'); b.innerHTML = '';
@@ -109,7 +109,7 @@ const run = async () => {
     const hass = document.querySelector('home-assistant').hass;
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:900px;height:900px;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const panel = document.createElement('cms-panel');
     panel.hass = hass; panel.config = config; host.appendChild(panel);
     await panel.updateComplete?.catch(() => {});

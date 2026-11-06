@@ -27,7 +27,7 @@ const run = async () => {
   const probe = async (config, mutateSrc) => page.evaluate(async ({ config, mutateSrc }) => {
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:900px;background:#111;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const panel = document.createElement('cms-panel');
     panel.hass = document.querySelector('home-assistant').hass;
     panel.config = config;

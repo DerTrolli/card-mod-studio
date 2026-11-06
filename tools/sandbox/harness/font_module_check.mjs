@@ -48,7 +48,7 @@ const run = async () => {
   const emitStyle = async (config, mutateSrc) => page.evaluate(async ({ config, mutateSrc }) => {
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:900px;background:#111;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const panel = document.createElement('cms-panel');
     panel.hass = document.querySelector('home-assistant').hass;
     panel.config = config;
@@ -79,7 +79,7 @@ const run = async () => {
     await customElements.whenDefined('hui-card');
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:420px;height:300px;z-index:2147483647;background:#fff;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const card = document.createElement('hui-card');
     card.hass = document.querySelector('home-assistant').hass;
     card.config = { type: 'entities', entities: ['sensor.outside_temperature'], [styleKey]: { style } };
@@ -118,7 +118,7 @@ const run = async () => {
     await customElements.whenDefined('hui-card');
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:400px;height:200px;z-index:2147483647;background:#fff;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const card = document.createElement('hui-card');
     card.hass = document.querySelector('home-assistant').hass;
     card.config = { type: 'tile', entity, [styleKey]: { style } };
@@ -158,7 +158,7 @@ const run = async () => {
     const check = async (config) => {
       const host = document.createElement('div');
       host.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:900px;background:#111;z-index:2147483647;';
-      document.body.appendChild(host);
+      window.__cmsMount(host);
       const panel = document.createElement('cms-panel');
       panel.hass = document.querySelector('home-assistant').hass;
       panel.config = config;
@@ -185,7 +185,7 @@ const run = async () => {
     const findAll = new Function('root', 'sel', findAllSrc);
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:900px;background:#111;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const panel = document.createElement('cms-panel');
     panel.hass = document.querySelector('home-assistant').hass;
     panel.config = { type: 'tile', entity, [styleKey]: { style } };
@@ -214,7 +214,7 @@ const run = async () => {
     await customElements.whenDefined('hui-card');
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:420px;height:360px;z-index:2147483647;background:#fff;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const card = document.createElement('hui-card');
     card.hass = document.querySelector('home-assistant').hass;
     card.config = config;
@@ -292,7 +292,7 @@ const run = async () => {
   const rowStyled = await page.evaluate(async () => {
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:900px;background:#111;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const panel = document.createElement('cms-panel');
     panel.hass = document.querySelector('home-assistant').hass;
     panel.config = { type: 'entities', entities: ['sensor.outside_temperature', 'sensor.outside_humidity'] };

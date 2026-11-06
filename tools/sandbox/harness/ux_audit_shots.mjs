@@ -36,7 +36,7 @@ const run = async () => {
       const host = document.createElement('div');
       host.id = 'ux-audit-host';
       host.style.cssText = 'position:fixed;left:0;top:0;width:1000px;height:1400px;background:#111;z-index:2147483647;overflow:auto;';
-      document.body.appendChild(host);
+      window.__cmsMount(host);
       const panel = document.createElement('cms-panel');
       panel.hass = document.querySelector('home-assistant').hass;
       panel.config = config;

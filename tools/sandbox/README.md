@@ -87,7 +87,7 @@ node readme_shots.mjs  # screenshot-only: regenerates every README image (images
 node scan.mjs            # which card types mount cleanly standalone
 ```
 
-Environment overrides: `HA_URL`, `CHROME_BIN`, `HA_IMAGE`, `CARD_MOD_TAG` — and,
+Environment overrides: `HA_URL`, `CHROME_BIN`, `HA_IMAGE` (default `ghcr.io/home-assistant/home-assistant:2026.11.0`), `CARD_MOD_TAG` — and,
 to run a second instance beside the default one (e.g. `HA_IMAGE=ghcr.io/home-assistant/home-assistant:beta`),
 `CFG` (config dir), `CONTAINER`, `HOST_PORT` and `TOKENS` (tokens file); point the
 harness at it with `HA_URL` / `TOKENS_FILE`.
@@ -277,7 +277,7 @@ and verifies the same way: real render, real computed style.
 tools/sandbox/run-uix.sh
 ```
 
-Results land in `harness/uix-matrix.json`. Override `UIX_TAG` (default `v8.3.1`)
+Results land in `harness/uix-matrix.json`. Override `UIX_TAG` (default `v9.0.0`, which needs HA 2026.11; the 8.x line is for older HA)
 and `HOST_PORT` (default `8124`) as needed. Like `run.sh`, it also accepts `CFG`,
 `CONTAINER`, `HA_IMAGE` and `TOKENS` overrides.
 

@@ -33,7 +33,7 @@ const mountPanel = (config) => (page) => page.evaluate((cfg) => {
     host = document.createElement('div');
     host.id = 'gradient-typing-check-host';
     host.style.cssText = 'position:fixed;left:0;top:0;width:1600px;height:1200px;background:#111;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
   }
   host.innerHTML = '';
   const hass = document.querySelector('home-assistant').hass;

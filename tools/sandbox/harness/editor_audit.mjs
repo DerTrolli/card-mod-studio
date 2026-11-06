@@ -7,6 +7,7 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { installMountHelper } from './harness-utils.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SHOTS = resolve(HERE, 'shots');
@@ -41,10 +42,11 @@ await page.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringif
 await page.goto(`${HA}/lovelace/0`, { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => { const h = document.querySelector('home-assistant'); return !!(h && h.hass && h.hass.states && Object.keys(h.hass.states).length > 10); }, { timeout: 60000 });
 await page.waitForFunction(() => !!customElements.get('cms-panel'), { timeout: 30000 });
+await installMountHelper(page);
 await page.evaluate((w) => {
   const host = document.createElement('div'); host.id = 'audit-host';
   host.style.cssText = `position:fixed;left:0;top:0;width:${w}px;height:1180px;background:var(--card-background-color,#1c1c1c);z-index:2147483647;overflow:hidden;`;
-  document.body.appendChild(host);
+  window.__cmsMount(host);
 }, W);
 
 const audit = {};

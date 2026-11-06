@@ -9,7 +9,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
-HA_IMAGE="${HA_IMAGE:-ghcr.io/home-assistant/home-assistant:stable}"
+HA_IMAGE="${HA_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.11.0}"
 CARD_MOD_TAG="${CARD_MOD_TAG:-v4.2.1}"
 # Overridable so a second instance (e.g. HA_IMAGE=...:beta) can run beside
 # the default one: its own config dir, container, port and tokens file.
