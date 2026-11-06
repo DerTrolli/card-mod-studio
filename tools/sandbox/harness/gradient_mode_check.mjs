@@ -21,7 +21,7 @@ const tokens = JSON.parse(readFileSync(resolve(HERE, process.env.TOKENS_FILE || 
 const { results, record } = makeRecorder();
 
 const mountPanel = (config) => (page) => page.evaluate((cfg) => {
-  let host = document.getElementById('gradient-check-host');
+  let host = window.__cmsFind('#gradient-check-host');
   if (!host) {
     host = document.createElement('div');
     host.id = 'gradient-check-host';
@@ -53,7 +53,7 @@ const run = async () => {
   // Enable Threshold, switch to gradient mode, set 3 stops matching the
   // user's real report (gray/orange/red at 0/150/220).
   const setup = await page.evaluate(async () => {
-    const panel = document.querySelector('#gradient-check-host cms-panel');
+    const panel = window.__cmsFind('#gradient-check-host cms-panel');
     const mod = panel.shadowRoot.querySelector('cms-threshold-module');
     await mod.updateComplete;
     const sw = mod.shadowRoot.querySelector('ha-switch');
@@ -109,7 +109,7 @@ const run = async () => {
   // Live preview sanity: does the generated Jinja actually evaluate to
   // different colors at 0 / 150 / 220 / -50 (clamp) / 999 (clamp)?
   const evalCheck = await page.evaluate(() => {
-    const panel = document.querySelector('#gradient-check-host cms-panel');
+    const panel = window.__cmsFind('#gradient-check-host cms-panel');
     const mod = panel.shadowRoot.querySelector('cms-threshold-module');
     // Pull the actual generated Jinja out of the last emitted card_mod.style
     // by re-deriving it the same way the panel did, via its own preview config.
@@ -120,7 +120,7 @@ const run = async () => {
   // Swap-with-neighbor buttons: swap the middle point's color with the top
   // one's, values must stay put (only the colors trade places).
   const swapCheck = await page.evaluate(async () => {
-    const panel = document.querySelector('#gradient-check-host cms-panel');
+    const panel = window.__cmsFind('#gradient-check-host cms-panel');
     const mod = panel.shadowRoot.querySelector('cms-threshold-module');
     await mod.updateComplete;
     const before = mod.state.colorStops.map((s) => ({ value: s.value, color: s.color }));
@@ -155,7 +155,7 @@ const run = async () => {
   await page.waitForTimeout(600);
 
   const roundTrip = await page.evaluate(async () => {
-    const panel = document.querySelector('#gradient-check-host cms-panel');
+    const panel = window.__cmsFind('#gradient-check-host cms-panel');
     const mod = panel.shadowRoot.querySelector('cms-threshold-module');
     await mod.updateComplete;
     return {

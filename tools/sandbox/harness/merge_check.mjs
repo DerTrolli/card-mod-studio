@@ -35,7 +35,7 @@ const { results, record } = makeRecorder();
 // emitted config-changed detail.
 const mountEditAndCapture = async (page, config, moduleTag, eventDetail) => page.evaluate(async ({ cfg, moduleTag, eventDetail }) => {
   const hass = document.querySelector('home-assistant').hass;
-  let host = document.getElementById('merge-check-host');
+  let host = window.__cmsFind('#merge-check-host');
   if (!host) {
     host = document.createElement('div');
     host.id = 'merge-check-host';
@@ -154,7 +154,7 @@ const run = async () => {
   // -----------------------------------------------------------------------
   const rowResult = await page.evaluate(async () => {
     const hass = document.querySelector('home-assistant').hass;
-    let host = document.getElementById('merge-check-host');
+    let host = window.__cmsFind('#merge-check-host');
     if (!host) {
       host = document.createElement('div');
       host.id = 'merge-check-host';

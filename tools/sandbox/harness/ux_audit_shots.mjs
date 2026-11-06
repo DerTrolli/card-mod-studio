@@ -32,7 +32,7 @@ const run = async () => {
 
   const mount = async (config, prep) => {
     await page.evaluate(async ({ config, prep }) => {
-      document.getElementById('ux-audit-host')?.remove();
+      window.__cmsFind('#ux-audit-host')?.remove();
       const host = document.createElement('div');
       host.id = 'ux-audit-host';
       host.style.cssText = 'position:fixed;left:0;top:0;width:1000px;height:1400px;background:#111;z-index:2147483647;overflow:auto;';
@@ -53,7 +53,7 @@ const run = async () => {
     { type: 'heading', heading: 'My Heading', card_mod: { style: '.title p {\n  font-size: 28px;\n  font-weight: 500;\n  font-family: \'Comic Sans MS\';\n  color: #ff0000;\n}' } },
   );
   await page.evaluate(async () => {
-    const panel = document.querySelector('#ux-audit-host cms-panel');
+    const panel = window.__cmsFind('#ux-audit-host cms-panel');
     const mod = panel.shadowRoot.querySelector('cms-heading-style-module');
     mod._open = true; await mod.updateComplete;
   });
@@ -67,7 +67,7 @@ const run = async () => {
     entities: ['sensor.outside_temperature', { entity: 'sensor.outside_humidity', card_mod: { style: ':host {\n  font-size: 20px;\n  font-weight: bold;\n}' } }],
   });
   await page.evaluate(async () => {
-    const panel = document.querySelector('#ux-audit-host cms-panel');
+    const panel = window.__cmsFind('#ux-audit-host cms-panel');
     const pm = panel.shadowRoot.querySelector('cms-palette-manager');
     pm._open = true; await pm.updateComplete;
     const rows = panel.shadowRoot.querySelector('cms-entities-rows-module');
@@ -81,7 +81,7 @@ const run = async () => {
   // 3. Sensor card — threshold open with attribute select + border-color property (slider)
   await mount({ type: 'sensor', entity: 'sensor.outside_temperature' });
   await page.evaluate(async () => {
-    const panel = document.querySelector('#ux-audit-host cms-panel');
+    const panel = window.__cmsFind('#ux-audit-host cms-panel');
     panel._studioState = {
       ...panel._studioState,
       threshold: {
@@ -101,7 +101,7 @@ const run = async () => {
   await page.waitForTimeout(300);
   await page.screenshot({ path: resolve(SHOTS, 'ux-audit-3-threshold.png'), fullPage: false });
 
-  await page.evaluate(() => document.getElementById('ux-audit-host')?.remove());
+  await page.evaluate(() => window.__cmsFind('#ux-audit-host')?.remove());
   await browser.close();
   console.log('shots written');
 };

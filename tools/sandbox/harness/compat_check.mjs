@@ -26,7 +26,7 @@ const { results, record } = makeRecorder();
 
 const mountPanel = async (page, config) => page.evaluate(async (cfg) => {
   const hass = document.querySelector('home-assistant').hass;
-  let host = document.getElementById('compat-host');
+  let host = window.__cmsFind('#compat-host');
   if (!host) {
     host = document.createElement('div');
     host.id = 'compat-host';

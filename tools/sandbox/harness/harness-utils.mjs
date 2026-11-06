@@ -14,7 +14,8 @@
  * inside home-assistant's shadow root (which also gives them HA's theme
  * variables). Gauge, alarm-panel and media-control additionally lazy-load
  * their element definitions: `await window.__cmsReady(['gauge'])` first.
- * Scripts call `window.__cmsMount(host)` (and may `await window.__cmsReady(['gauge'])` again) instead of document.body.appendChild.
+ * Scripts call `window.__cmsMount(host)` and look hosts up again with
+ * `window.__cmsFind('#id cms-panel')` (never document.getElementById) (and may `await window.__cmsReady(['gauge'])` again) instead of document.body.appendChild.
  * waitForHassReady() installs this and pre-loads the lazy cards, so scripts
  * that use it need no extra call; others call installMountHelper(page).
  */
@@ -24,6 +25,12 @@ export const MOUNT_HELPER_SRC = `(() => {
     const ha = document.querySelector('home-assistant');
     (ha?.shadowRoot || document.body).appendChild(host);
     return host;
+  };
+  // Shadow-aware lookup for hosts mounted by __cmsMount: document.getElementById
+  // and document.querySelector('#id ...') cannot see into home-assistant's shadow root.
+  window.__cmsFind = (selector) => {
+    const ha = document.querySelector('home-assistant');
+    return ha?.shadowRoot?.querySelector(selector) ?? document.querySelector(selector);
   };
   window.__cmsReady = async (types = []) => {
     const withTimeout = (p, ms = 8000) => Promise.race([p, new Promise((r) => setTimeout(r, ms))]);

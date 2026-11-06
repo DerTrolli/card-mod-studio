@@ -18,7 +18,7 @@ const tokens = JSON.parse(readFileSync(resolve(HERE, process.env.TOKENS_FILE || 
 const { results, record } = makeRecorder();
 
 const mountPanel = (config) => (page) => page.evaluate((cfg) => {
-  let host = document.getElementById('palette-check-host');
+  let host = window.__cmsFind('#palette-check-host');
   if (!host) {
     host = document.createElement('div');
     host.id = 'palette-check-host';
@@ -42,7 +42,7 @@ const allInPanel = async (page, tag) => page.evaluate((t) => {
     }
     return o;
   };
-  return all(document.querySelector('#palette-check-host cms-panel'), t).length;
+  return all(window.__cmsFind('#palette-check-host cms-panel'), t).length;
 }, tag);
 
 const run = async () => {
@@ -67,7 +67,7 @@ const run = async () => {
   await page.screenshot({ path: resolve(SHOTS, 'palette-01-threshold-open.png') });
 
   const thresholdModuleOpen = await page.evaluate(() => {
-    const panel = document.querySelector('#palette-check-host cms-panel');
+    const panel = window.__cmsFind('#palette-check-host cms-panel');
     return !!panel.shadowRoot.querySelector('cms-threshold-module')?.shadowRoot?.querySelector('.rules-container');
   });
   record('var(--x-color) threshold config parses into recognized rules (not Advanced CSS)', thresholdModuleOpen);
@@ -76,7 +76,7 @@ const run = async () => {
   record('compact color pickers render for each rule + default color', pickerCount >= 3, `count=${pickerCount}`);
 
   const popoverTest = await page.evaluate(async () => {
-    const panel = document.querySelector('#palette-check-host cms-panel');
+    const panel = window.__cmsFind('#palette-check-host cms-panel');
     const thresholdModule = panel.shadowRoot.querySelector('cms-threshold-module');
     // Target the "Default color" picker by structure (its containing
     // .control-row), not array position — a stack-based subtree walk visits
@@ -108,7 +108,7 @@ const run = async () => {
   await page.screenshot({ path: resolve(SHOTS, 'palette-02-popover-open.png') });
 
   const pickResult = await page.evaluate(async () => {
-    const panel = document.querySelector('#palette-check-host cms-panel');
+    const panel = window.__cmsFind('#palette-check-host cms-panel');
     const thresholdModule = panel.shadowRoot.querySelector('cms-threshold-module');
     const defaultRow = [...thresholdModule.shadowRoot.querySelectorAll('.control-row')]
       .find((row) => row.textContent.includes('Default color'));
@@ -155,7 +155,7 @@ const run = async () => {
   })(page);
   await page.waitForTimeout(500);
   const rowOpened = await page.evaluate(async () => {
-    const panel = document.querySelector('#palette-check-host cms-panel');
+    const panel = window.__cmsFind('#palette-check-host cms-panel');
     const rowsModule = panel.shadowRoot.querySelector('cms-entities-rows-module');
     const header = rowsModule?.shadowRoot?.querySelector('.entity-header');
     header?.click();

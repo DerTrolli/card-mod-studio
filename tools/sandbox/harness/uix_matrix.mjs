@@ -66,14 +66,14 @@ const run = async () => {
     window.__cmsMount(h);
     window.__render = async (cfg) => {
       const hass = document.querySelector('home-assistant').hass;
-      const b = document.getElementById('bench'); b.innerHTML = '';
+      const b = window.__cmsFind('#bench'); b.innerHTML = '';
       const c = document.createElement('hui-card'); c.hass = hass; c.config = cfg; b.appendChild(c);
       if (c.updateComplete) await c.updateComplete;
       await new Promise((r) => setTimeout(r, 1200));
       return c;
     };
     window.__readBg = () => {
-      const el = window.__all(document.querySelector('#bench hui-card'), 'ha-card')[0];
+      const el = window.__all(window.__cmsFind('#bench hui-card'), 'ha-card')[0];
       return el ? getComputedStyle(el).backgroundColor : null;
     };
   });

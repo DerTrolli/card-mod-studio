@@ -291,7 +291,7 @@ const run = async () => {
   await page.evaluate(async ({ styleKey }) => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const haRoot = document.querySelector('home-assistant').shadowRoot;
-    document.getElementById('cms-vgrid')?.remove?.();
+    window.__cmsFind('#cms-vgrid')?.remove?.();
     const grid = haRoot.querySelector('#cms-vgrid'); grid?.remove();
     const mk = (id, cfg, x) => {
       const host = document.createElement('div');

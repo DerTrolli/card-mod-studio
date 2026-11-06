@@ -53,7 +53,7 @@ const audit = {};
 for (const [name, config] of Object.entries(CARDS)) {
   const modules = await page.evaluate(async (config) => {
     const hass = document.querySelector('home-assistant').hass;
-    const host = document.getElementById('audit-host'); host.innerHTML = '';
+    const host = window.__cmsFind('#audit-host'); host.innerHTML = '';
     const panel = document.createElement('cms-panel');
     panel.hass = hass; panel.config = config; host.appendChild(panel);
     await panel.updateComplete?.catch(() => {});
@@ -72,7 +72,7 @@ for (const [name, config] of Object.entries(CARDS)) {
   }, config);
   audit[name] = modules;
   const h = await page.evaluate(() => {
-    const sr = document.querySelector('#audit-host cms-panel')?.shadowRoot;
+    const sr = window.__cmsFind('#audit-host cms-panel')?.shadowRoot;
     if (!sr) return 200; let t = 0; for (const c of sr.children) t += c.scrollHeight;
     return Math.min(Math.max(t + 24, 120), 1180);
   });
