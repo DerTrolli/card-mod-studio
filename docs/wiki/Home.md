@@ -17,7 +17,7 @@ through HA's normal save flow.
 ## Pages
 
 **Setup**
-- [Installation](Installation) — HACS, manual, requirements
+- [Installation](Installation) — Marketplace, HACS, manual, requirements
 - [Getting Started](Getting-Started) — the panel, saving, how the YAML works
 
 **Style modules**

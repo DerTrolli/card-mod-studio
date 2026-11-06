@@ -305,7 +305,7 @@ Found while re-verifying against HA 2026.9.4 and 2026.10.0b0 with card-mod
   different containers, ports, config dirs and token files, and accept
   `CFG` / `CONTAINER` / `HOST_PORT` / `TOKENS` overrides — so a second
   instance of either (for example on the `:beta` HA image) can run beside the
-  default one. `run-uix.sh` now defaults to UIX v8.3.1.
+  default one. (Historical: `run-uix.sh` defaulted to UIX v8.3.1 in the 2026.9/2026.10 era; it now defaults to v9.0.0 — see "HA 2026.11 sandbox/harness notes" below. Pin `UIX_TAG=v8.3.1` for older HA.)
 
 ### HA 2026.11 sandbox/harness notes
 

@@ -7,7 +7,7 @@ The picture family: `picture`, `picture-entity`, `picture-glance`,
 |---|---|---|
 | Border & Radius | ✅ | The most useful one here — rounds/frames the image |
 | Visual Filters | ✅ | Grayscale/brightness/blur applied to the picture itself |
-| Font | picture-entity, picture-glance, picture-elements | Caption/state text and the `picture-glance` title. Text color hidden — these cards draw their captions in their own colour over the image; plain `picture` has no text (measured, v0.10.0) |
+| Font | picture-entity, picture-glance, picture-elements | Caption/state text (picture-entity and picture-glance: weight, family only — no size row). Text color hidden — these cards draw their captions in their own colour over the image; plain `picture` has no text (measured, v0.10.0) |
 | Threshold Colors | ✅ | Border Color from a value makes a nice status frame (plus Icon/Text where the card has them) |
 | Background | — hidden | The image covers the card — a background can't show |
 | Animation | — hidden | |

@@ -5,6 +5,40 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2] — 2026-11-07
+
+A maintenance release for **Home Assistant 2026.11.0**, which folds HACS
+into core as the **Marketplace**. Tested on HA 2026.11.0 with card-mod
+4.2.1 and UIX 9.0.0 (UIX 9.0 requires HA 2026.11.0 or newer). It also fixes
+four styling regressions that appear on HA 2026.10 and newer.
+
+### Fixed
+
+- **Smooth filter transitions on tile, sensor, entity and area cards.**
+  The Background/Filters "transition" setting wrote a plain `transition`,
+  but on HA 2026.10 and newer those cards' own transition wins, so filter
+  changes snapped instead of fading. The transition now gets `!important`
+  on those cards (as it already did on tile cards for HA 2026.9). Hand-written
+  `transition` in Advanced CSS still wins.
+- **Accent colour reaches the calendar card and history-graph lines.**
+  HA 2026.10 stopped reading the old accent variables on these two cards:
+  the calendar now takes `--primary-color` and the history graph's first
+  line `--graph-color-1`. The old variable is still written for older HA.
+- **picture-glance is no longer treated as a header-title card.** Its title
+  isn't a card header, so the header size/colour settings did nothing there.
+- **Font hides its text-size row on cards that size their own text** —
+  alarm-panel, area, humidifier, picture-entity, picture-glance and
+  weather-forecast — where the slider changed nothing. Weight, family and
+  colour are still offered where they work.
+
+### Changed
+
+- **Marketplace install docs.** README and wiki now describe installing
+  from the Marketplace on HA 2026.11 and newer, and from HACS on older HA.
+  No change to the plugin itself is needed: `hacs.json` is unchanged.
+- Dev: the test harness now mounts test cards inside `<home-assistant>`
+  (needed on HA 2026.11); the sandbox rigs pin HA 2026.11.0 and UIX v9.0.0.
+
 ## [0.10.1] — 2026-10-27
 
 ### Fixed
@@ -1101,6 +1135,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.10.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.10.2
 [0.10.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.10.1
 [0.10.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.10.0
 [0.9.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.9.1
