@@ -208,8 +208,16 @@ function claimKey(selector: string, property: string): string {
  * last, so its duplicates win the cascade). A companion with a *different*
  * value is treated as deliberate hand-written CSS and left alone.
  */
+/** Accent companions written for one card type only (HA 2026.10). */
+const ACCENT_AUX_ONLY_ON: Record<string, string> = {
+  '--primary-color': 'calendar',
+  '--graph-color-1': 'history-graph',
+};
+
 const ACCENT_AUX_VARS = [
   '--tile-color',
+  '--primary-color',
+  '--graph-color-1',
   '--state-icon-color',
   '--paper-item-icon-active-color',
   '--state-climate-heat-color',
@@ -226,9 +234,13 @@ function claimAccentAux(
   haGauge: CssTarget | null,
   value: string,
   claimed: Set<string>,
+  cardType?: string,
 ): void {
   if (haCard) {
-    for (const aux of ACCENT_AUX_VARS) {
+    // Only the variables accentAuxDecls writes for THIS card: a hand-written
+    // --primary-color equal to the accent on any other card is the user's.
+    const vars = ACCENT_AUX_VARS.filter((v) => !(v in ACCENT_AUX_ONLY_ON) || ACCENT_AUX_ONLY_ON[v] === cardType);
+    for (const aux of vars) {
       const prop = findProp(haCard, aux);
       if (prop && prop.value.trim() === value) claimed.add(claimKey(haCard.selector, aux));
     }
@@ -438,7 +450,7 @@ export function mapToStudioState(parsed: CardModStyleState, cardType?: string): 
   return {
     filter: mapFilter(haCard, claimed),
     iconColor: mapIconColor(haStateIcon, haIcon, haCard, hostTarget, haTileIcon, cardType, claimed),
-    accentColor: mapAccentColor(haCard, haGauge, claimed),
+    accentColor: mapAccentColor(haCard, haGauge, claimed, cardType),
     background: mapBackground(haCard, claimed),
     animation: mapAnimation(haCard, claimed),
     border: mapBorder(haCard, claimed),
@@ -926,6 +938,7 @@ function mapAccentColor(
   haCard: CssTarget | null,
   haGauge: CssTarget | null,
   claimed: Set<string>,
+  cardType?: string,
 ): AccentColorModuleState {
   if (!haCard) return { ...DEFAULT_ACCENT_COLOR };
 
@@ -936,7 +949,7 @@ function mapAccentColor(
     // Jinja2 on/off conditional — map to conditional mode (mirrors mapIconColor).
     if (prop.onValue && prop.offValue) {
       claimed.add(claimKey(haCard.selector, '--accent-color'));
-      claimAccentAux(haCard, haGauge, prop.value.trim(), claimed);
+      claimAccentAux(haCard, haGauge, prop.value.trim(), claimed, cardType);
       return {
         ...DEFAULT_ACCENT_COLOR,
         enabled: true,
@@ -955,7 +968,7 @@ function mapAccentColor(
   if (!value) return { ...DEFAULT_ACCENT_COLOR };
 
   claimed.add(claimKey(haCard.selector, '--accent-color'));
-  claimAccentAux(haCard, haGauge, value, claimed);
+  claimAccentAux(haCard, haGauge, value, claimed, cardType);
   return { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'plain', color: value };
 }
 
@@ -1775,7 +1788,7 @@ function mapThreshold(
     // accent-color emits card-type companion variables carrying the same
     // Jinja expression (accentAuxDecls/gaugeColorBlock) — claim them with it.
     if (thresholdProperty === 'accent-color') {
-      claimAccentAux(haCard, haGauge, prop.value.trim(), claimed);
+      claimAccentAux(haCard, haGauge, prop.value.trim(), claimed, cardType);
     }
     // text-color also writes the tile's text / the card title's colour
     // variables (thresholdPropertyBlock).

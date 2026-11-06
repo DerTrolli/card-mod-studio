@@ -64,16 +64,48 @@ describe('generateCss — empty state', () => {
 // generateCss — filter module
 // ---------------------------------------------------------------------------
 
+describe('generateCss — accent on HA 2026.10 calendar / history graph', () => {
+  it('writes the variable each card reads now plus the old one, and round-trips', () => {
+    const state = makeState({ accentColor: { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'plain', color: '#ff0000' } });
+    for (const [type, v] of [['calendar', '--primary-color'], ['history-graph', '--graph-color-1']] as const) {
+      const css = generateCss(state, type);
+      expect(css, type).toContain(`${v}: #ff0000;`);
+      expect(css, type).toContain('--accent-color: #ff0000;');
+      const back = mapToStudioState(parseCardModConfig({ type, card_mod: { style: css } }), type);
+      expect(back.accentColor.enabled, type).toBe(true);
+      expect(back.advanced.rawCss, type).toBe('');
+      expect(generateCss(back, type), type).toBe(css);
+    }
+  });
+
+  it('a hand-written --primary-color equal to the accent stays the user\'s on other cards', () => {
+    for (const type of ['tile', 'sensor', 'entities', 'button']) {
+      const style = 'ha-card {\n  --accent-color: #ff0000;\n  --primary-color: #ff0000;\n  --graph-color-1: #ff0000;\n}';
+      const back = mapToStudioState(parseCardModConfig({ type, card_mod: { style } }), type);
+      expect(back.advanced.rawCss, type).toContain('--primary-color: #ff0000');
+      expect(back.advanced.rawCss, type).toContain('--graph-color-1: #ff0000');
+    }
+  });
+});
+
 describe('generateCss — filter', () => {
   it('tile: the filter transition is !important (the tile\'s own stylesheet overrides a plain one) and round-trips', () => {
     const state = makeState({ filter: { ...DEFAULT_FILTER, enabled: true, brightness: 150, transitionMs: 600 } });
     const tile = generateCss(state, 'tile');
     expect(tile).toContain('transition: filter 600ms ease !important;');
-    expect(generateCss(state, 'sensor')).toContain('transition: filter 600ms ease;');
+    expect(generateCss(state, 'glance')).toContain('transition: filter 600ms ease;');
     const reparsed = mapToStudioState(parseCardModConfig({ type: 'tile', card_mod: { style: tile } }));
     expect(reparsed.filter.transitionMs).toBe(600);
     expect(reparsed.advanced.rawCss).toBe('');
     expect(generateCss(reparsed, 'tile')).toBe(tile);
+    // HA 2026.10.4 added sensor, entity and area to the cards that override it
+    for (const type of ['sensor', 'entity', 'area']) {
+      const css = generateCss(state, type);
+      expect(css, type).toContain('transition: filter 600ms ease !important;');
+      const back = mapToStudioState(parseCardModConfig({ type, card_mod: { style: css } }), type);
+      expect(back.advanced.rawCss, type).toBe('');
+      expect(generateCss(back, type), type).toBe(css);
+    }
     // a hand-written transition in Advanced CSS keeps winning
     const withRaw = makeState({ ...state, advanced: { rawCss: 'ha-card {\n  transition: all 1s;\n}' } });
     expect(generateCss(withRaw, 'tile')).toContain('transition: filter 600ms ease;');
