@@ -6,6 +6,10 @@
 > changes nothing on any of the 18 types. Other Mushroom versions aren't measured — if a control stops working
 > after a Mushroom update, [open an issue](https://github.com/DerTrolli/card-mod-studio/issues).
 
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/10%20Mushroom%20Card.png" alt="Card-Mod Studio on a Mushroom light card" width="1024">
+
+*Mushroom light card: Font, Icon Color and Accent each change the preview.*
+
 ## Which cards
 
 | Group | Card types |

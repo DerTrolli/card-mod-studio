@@ -77,6 +77,9 @@ const OLD_NO_ACCENT_TYPES = new Set<string>([
   'map', 'markdown', 'picture', 'picture-elements', 'picture-entity',
   'statistics-graph', 'todo-list', 'weather-forecast', 'logbook', 'picture-glance',
   'date',
+  // Deliberate change after C2.0 (beta.2): webpage's Accent is dead like
+  // iframe's (module-effect audit, HA 2026.11.0 + UIX 9.0.0) — now hidden.
+  'webpage',
 ]);
 const OLD_NO_FONT_SIZE_TYPES = new Set<string>([
   'alarm-panel', 'area', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast',

@@ -75,6 +75,6 @@ Open any dashboard card in edit mode (pencil icon). You should see a
 phone screens it shows just the 🎨 icon, to leave room for HA's own footer
 buttons):
 
-![The Style button](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/01%20Style%20button.png)
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/01%20Style%20button.png" alt="The Style button" width="1024">
 
 If it's missing, see [Troubleshooting](Troubleshooting-FAQ#the-style-button-doesnt-appear).

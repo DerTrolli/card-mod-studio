@@ -6,7 +6,7 @@ Text **size** (slider), **weight** (Normal / Medium / Bold), **family**
 color starts from your theme's own text color (`var(--primary-text-color)`),
 so turning the module on doesn't turn the text near-white on a light theme.
 
-![Font module](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/09%20Font%20and%20Palette.png)
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/09%20Font%20and%20Palette.png" alt="Font module" width="618">
 
 ### Per-card behavior
 

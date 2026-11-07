@@ -5,7 +5,7 @@
    screens)
 3. The Card-Mod Studio panel opens in place of the card's normal config form
 
-![The panel](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/02%20Card-Mod%20Studio.png)
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/02%20Card-Mod%20Studio.png" alt="The panel" width="1024">
 
 The layout:
 

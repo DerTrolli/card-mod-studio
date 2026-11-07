@@ -1,6 +1,10 @@
 `type: gauge` — well supported, with the dial color as the star; since v0.11
 the value number's size can be changed too.
 
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/12%20Gauge%20Number%20Size.png" alt="Number size on a gauge card" width="1024">
+
+*The Font module's Number size row makes the gauge's value number bigger.*
+
 ## Available options
 
 | Module | Available | Notes on this card |

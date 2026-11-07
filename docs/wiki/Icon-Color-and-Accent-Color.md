@@ -1,6 +1,6 @@
 Two closely related modules for the card's main colors.
 
-![Icon and Accent Color](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/03%20Accent%20and%20Icon%20Color.png)
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/03%20Accent%20and%20Icon%20Color.png" alt="Icon and Accent Color" width="618">
 
 ## Icon Color
 

@@ -102,6 +102,8 @@ export const NO_ACCENT_TYPES = new Set([
   'date',
   // alert card: accent dead (module-effect audit, HA 2026.11.0 + UIX 9.0.0)
   'alert',
+  // webpage (HA's successor of iframe): accent dead, like iframe (same audit)
+  'webpage',
 ]);
 
 /** Font's size slider changes nothing visible on these cards — they size

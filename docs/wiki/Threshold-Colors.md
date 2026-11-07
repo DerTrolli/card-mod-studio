@@ -1,7 +1,7 @@
 The most powerful module: colors driven by a **live numeric value**, with no
 YAML or Jinja2 to write.
 
-![Fade mode](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/07%20Threshold%20Fade.png)
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/07%20Threshold%20Fade.png" alt="Fade mode" width="630">
 
 ## The value source
 

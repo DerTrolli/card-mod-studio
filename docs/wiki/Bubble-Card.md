@@ -7,6 +7,10 @@
 > names are tracked per major version — a later major gets its own audit
 > before the Studio adopts it.
 
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/11%20Bubble%20Card.png" alt="Card-Mod Studio on a Bubble slider button" width="1024">
+
+*Bubble slider button: Accent colors the slider fill.*
+
 ## Which cards
 
 Bubble picks its kind with `card_type:`. The Studio recognises:

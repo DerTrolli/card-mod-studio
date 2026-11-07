@@ -2,7 +2,7 @@
 styling section per row, because card-level icon/text styling can't reach
 into individual rows (each row is its own shadow-DOM element).
 
-![Per-row styling](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/06%20Entities%20Card%20Modifications.png)
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/06%20Entities%20Card%20Modifications.png" alt="Per-row styling" width="630">
 
 ## Per row, you can style
 

@@ -3,7 +3,7 @@ shared **"Apply when"** control where noted.
 
 ## Background
 
-![Background](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/04%20Background%20Color.png)
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/04%20Background%20Color.png" alt="Background" width="618">
 
 - **Solid color** or **gradient** (two colors + angle slider)
 - **Apply when**: always / only while the entity is ON / only while OFF /

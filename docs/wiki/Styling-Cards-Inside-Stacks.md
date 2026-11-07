@@ -3,7 +3,7 @@ no card box of their own, so styling "the stack" mostly means styling the
 cards inside it. Opening a container in the Studio shows **one styling
 section per child card**.
 
-![Stack children](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/08%20Stack%20Children.png)
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/08%20Stack%20Children.png" alt="Stack children" width="1024">
 
 ## How it works
 

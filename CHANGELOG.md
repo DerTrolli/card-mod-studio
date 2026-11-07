@@ -43,6 +43,11 @@ cards, all 18 Mushroom card types and 4 Bubble kinds; click-to-edit 24/24.
   name, via `hass.formatEntityName`); older HA keeps the previous fallback.
 - **Alert card:** Accent, Font text colour and Threshold accent / text
   colour are hidden (they had no effect).
+- **Webpage card:** Accent is hidden, as it already was on the iframe card
+  it replaces — it had no effect.
+- **Docs:** README and wiki screenshots regenerated on HA 2026.11, plus new
+  ones for Mushroom, Bubble Card and the gauge's Number size; new wiki pages
+  for Mushroom and Bubble Card.
 
 ### Known limits
 

@@ -8,7 +8,7 @@ A visual GUI editor for [card-mod](https://github.com/thomasloven/lovelace-card-
 
 Instead of hand-writing YAML + CSS + Jinja2 templates, Card-Mod Studio gives you color pickers, sliders, and animation presets — and generates the correct `card_mod`/`uix` YAML automatically.
 
-![Style button in the card editor](images/01%20Style%20button.png)
+<img src="images/01%20Style%20button.png" alt="Style button in the card editor" width="1024">
 
 📖 **Detailed documentation lives in the [Wiki](../../wiki)** — module-by-module
 reference, per-card support details, and troubleshooting. This README is the
@@ -38,7 +38,7 @@ element ("Icon Color", "Font", "Entity Rows: sensor.x", …), and clicking
 jumps straight to it. The preview stays safe — clicks never reach your real
 entities.
 
-![Card-Mod Studio panel](images/02%20Card-Mod%20Studio.png)
+<img src="images/02%20Card-Mod%20Studio.png" alt="Card-Mod Studio panel" width="1024">
 
 All changes are serialised to `card_mod` YAML and saved with the card config through HA's normal save flow. If you open a card that already has hand-written `card_mod` (or `uix`) CSS, the panel reads it back and pre-fills the controls.
 
@@ -62,13 +62,13 @@ On tile, entity, sensor, and picture-glance cards (and on Mushroom and Bubble Ca
 
 The Accent Color override targets the correct CSS variable per card type: `--tile-color` for tile cards, `--gauge-color` for gauges (including needle mode), and `--state-icon-color` for everything else (calendar and history-graph cards get the variables HA 2026.10 reads there; **Mushroom** takes it as the card's active colour and **Bubble's slider button** as the slider fill — see [Mushroom](../../wiki/Mushroom-Cards) and [Bubble Card](../../wiki/Bubble-Card)). It's only offered on cards that actually use the accent colour (see [Card-type awareness](#card-type-awareness)).
 
-![Icon and accent color controls](images/03%20Accent%20and%20Icon%20Color.png)
+<img src="images/03%20Accent%20and%20Icon%20Color.png" alt="Icon and accent color controls" width="618">
 
 ### Background
 
 Apply a **solid color** or a **gradient** (with configurable angle) as the card background. Optionally restrict the background to only show when the entity is **on** or **off** — useful for making a card visually "glow" when a device is active.
 
-![Background color module](images/04%20Background%20Color.png)
+<img src="images/04%20Background%20Color.png" alt="Background color module" width="618">
 
 ### Threshold Colors
 
@@ -87,7 +87,7 @@ Beyond the basics:
 - **One rule set, several properties** — tick multiple target properties and they all follow the same rules (e.g. icon *and* accent color changing together).
 - **Fade mode** — instead of discrete steps, define value→color points and the color blends smoothly between them, clamped at the ends. Your actual points are restored when you reopen the editor.
 
-![Threshold Colors in Fade mode](images/07%20Threshold%20Fade.png)
+<img src="images/07%20Threshold%20Fade.png" alt="Threshold Colors in Fade mode" width="630">
 
 **Target properties:**
 | Property | What it colors |
@@ -139,7 +139,11 @@ Text size, weight, family (including a custom free-text family), and color for a
 
 **Number size** (v0.11): on gauge and thermostat cards the Font module also sizes the big number HA draws deep inside the card — the gauge's value (50–150 % of HA's own size) and the thermostat's temperature (24–96px). It has its own switch, so it works with or without the rest of the Font module, and it's written as a shadow-piercing (dictionary-form) style that the Studio keeps editable. On cards that size their own text (alarm panel, area, humidifier, picture-entity, picture-glance, weather, date) the text-size slider is hidden; weight, family and color stay.
 
-![Font module and the Color Palette Manager](images/09%20Font%20and%20Palette.png)
+<img src="images/12%20Gauge%20Number%20Size.png" alt="Number size on a gauge card" width="1024">
+
+*Gauge card: the Font module's Number size row makes the value number bigger.*
+
+<img src="images/09%20Font%20and%20Palette.png" alt="Font module and the Color Palette Manager" width="618">
 
 ### Heading Style
 
@@ -163,7 +167,7 @@ Define named custom colors once and they appear as extra swatches in **every** c
 
 Vertical-stack, horizontal-stack, and grid cards show **one styling section per child card**, each with the full module set for that child's card type — a gauge child gets the gauge treatment, a tile child the tile treatment, and an entities-card child even gets its per-row section. Changes are written into that child's own `card_mod:`/`uix:` block inside the stack config — exactly the YAML you'd get styling it standalone — and the live preview shows the whole stack update as you edit.
 
-![Per-child styling sections on a vertical stack](images/08%20Stack%20Children.png)
+<img src="images/08%20Stack%20Children.png" alt="Per-child styling sections on a vertical stack" width="1024">
 
 Not covered yet: containers nested inside containers, and `conditional` cards.
 
@@ -173,7 +177,7 @@ Not covered yet: containers nested inside containers, and `conditional` cards.
 
 For `type: entities` cards, Card-Mod Studio adds a dedicated section for each entity row in the list.
 
-![Entities card styling](images/05%20Entities%20Card.png)
+<img src="images/05%20Entities%20Card.png" alt="Entities card styling" width="618">
 
 Each row can be styled independently:
 - **Icon color** — static color, or threshold rules based on the row entity's numeric value
@@ -186,7 +190,7 @@ Row headers are labelled the way HA labels the row itself (on HA 2026.11 and new
 
 Both row forms work — `- entity: sensor.x` and the plain-string shorthand `- sensor.x` (a string row is converted to the object form only when it actually gains styling). The same rows section also appears for an entities card nested inside a stack.
 
-![Per-entity modifications](images/06%20Entities%20Card%20Modifications.png)
+<img src="images/06%20Entities%20Card%20Modifications.png" alt="Per-entity modifications" width="630">
 
 ---
 
@@ -203,6 +207,14 @@ The panel adapts to the card type so you never see irrelevant controls:
 - **Picture / iframe cards** — hides Background and Font modules
 - **Accent Color** is only offered where a card actually draws with the accent colour (tile, gauge, entity, sensor, thermostat, media, calendar, history graph, …) — not on button, light, glance, markdown, picture, date, alert and similar cards; **Font's text colour** is hidden where a card colours its own text (HA 2026.11's date and alert cards included)
 - **Threshold Colors** offers exactly the colours the matching modules offer on that card
+
+<img src="images/10%20Mushroom%20Card.png" alt="Card-Mod Studio on a Mushroom light card" width="1024">
+
+*Mushroom light card: Font, Icon Color and Accent each change the preview.*
+
+<img src="images/11%20Bubble%20Card.png" alt="Card-Mod Studio on a Bubble slider button" width="1024">
+
+*Bubble slider button: Accent colors the slider fill.*
 
 Every module was checked on every built-in card type, with card-mod and with UIX, by switching it on and comparing the rendered card pixel by pixel — anything that changed nothing is hidden on that card (full table: [`docs/CARD_SUPPORT_MATRIX.md`](docs/CARD_SUPPORT_MATRIX.md)).
 

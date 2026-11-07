@@ -21,7 +21,7 @@ won't silently wipe your custom rules.
 
 ## My Color Palette
 
-![My Color Palette](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/09%20Font%20and%20Palette.png)
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/09%20Font%20and%20Palette.png" alt="My Color Palette" width="618">
 
 The **🖌️ My Color Palette** section (below the preset bar):
 
