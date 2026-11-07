@@ -44,7 +44,7 @@ if (window.cardModStudio) {
   if (!cardModPresent && !uixPresent) {
     console.warn(
       '[Card-Mod Studio] Neither card-mod nor UIX is detected. ' +
-        'Install one of them via HACS first. ' +
+        'Install one of them first (via the Marketplace on HA 2026.11+, or HACS on older versions). ' +
         'The style editor UI will still open, but generated YAML will not apply until one is present.',
     );
   } else if (uixPresent && !cardModPresent) {

@@ -22,9 +22,8 @@
 //         shots/fui/<rig>/ (screenshots of failures and key states).
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { makeRecorder, finish } from './harness-utils.mjs';
+import { makeRecorder, finish, resetTheme } from './harness-utils.mjs';
 import { HARNESS, rigEnv, fuiTokens, launch, waitHass, makeT, HaWs, shot } from './fui/lib.mjs';
-import { resetTheme } from './harness-utils.mjs';
 import { SECTIONS as CORE } from './fui/s-core.mjs';
 import { SECTIONS as MODULES } from './fui/s-modules.mjs';
 import { SECTIONS as STRUCTURE } from './fui/s-structure.mjs';

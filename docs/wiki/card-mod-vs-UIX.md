@@ -11,13 +11,14 @@ every combination. This page explains exactly what it writes and when.
   extras (macros, billets, and the UIX Forge template surface — molds,
   server-stored "foundries", and add-on "sparks").
 
-**Tested versions** (2026-10, Card-Mod Studio v0.10.0): card-mod **4.2.1**
-and UIX **8.3.1**, each fully verified live on HA 2026.9.4 (current stable)
-and HA 2026.10.0b0. card-mod was also quick-checked on older HA: 4.2.1 on
+**Tested versions** (2026-11, Card-Mod Studio v0.10.2): card-mod **4.2.1**
+and UIX **8.3.1**, each fully verified live (v0.10.0) on HA 2026.9.4 and HA
+2026.10.0b0; v0.10.2 was also tested on HA 2026.11.0 with card-mod 4.2.1
+and UIX **9.0.0**. card-mod was also quick-checked on older HA: 4.2.1 on
 2026.6.4 and 2026.2.3, and 3.4.5 (the newest card-mod 3.x; 4.2.1 needs
 HA ≥ 2026.2) on 2025.9.4 — see [Installation](Installation#requirements).
-Note UIX 8.x itself requires HA ≥ 2026.8.0, and UIX 8.4 (in beta) will
-require HA ≥ 2026.10; its styling contract (what the Studio reads/writes)
+Note UIX 8.x itself requires HA ≥ 2026.8.0, UIX 8.4.0 requires
+HA ≥ 2026.10.0, and UIX 9.0.0 requires HA ≥ 2026.11.0; its styling contract (what the Studio reads/writes)
 is unchanged from 7.x. The Studio doesn't edit UIX Forge config
 (`forge:`/`foundry:` keys) but preserves it untouched through every edit.
 

@@ -28,12 +28,12 @@ const tokens = JSON.parse(readFileSync(resolve(HERE, process.env.TOKENS_FILE || 
 const { results, record } = makeRecorder();
 
 const mountPanel = (config) => (page) => page.evaluate((cfg) => {
-  let host = document.getElementById('gradient-typing-check-host');
+  let host = window.__cmsFind('#gradient-typing-check-host');
   if (!host) {
     host = document.createElement('div');
     host.id = 'gradient-typing-check-host';
     host.style.cssText = 'position:fixed;left:0;top:0;width:1600px;height:1200px;background:#111;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
   }
   host.innerHTML = '';
   const hass = document.querySelector('home-assistant').hass;
@@ -59,7 +59,7 @@ const run = async () => {
   await page.waitForTimeout(500);
 
   await page.evaluate(async () => {
-    const panel = document.querySelector('#gradient-typing-check-host cms-panel');
+    const panel = window.__cmsFind('#gradient-typing-check-host cms-panel');
     const mod = panel.shadowRoot.querySelector('cms-threshold-module');
     await mod.updateComplete;
     const sw = mod.shadowRoot.querySelector('ha-switch');
@@ -94,7 +94,7 @@ const run = async () => {
   // this must go through the actual DOM input the way a real user's
   // keystrokes would, to catch the reorder-mid-edit bug).
   const inputHandle = await page.evaluateHandle(() => {
-    const mod = document.querySelector('#gradient-typing-check-host cms-panel')
+    const mod = window.__cmsFind('#gradient-typing-check-host cms-panel')
       .shadowRoot.querySelector('cms-threshold-module');
     const inputs = [...mod.shadowRoot.querySelectorAll('.stop input[type="number"]')];
     return inputs.find((el) => el.value === '140');
@@ -109,7 +109,7 @@ const run = async () => {
   await page.screenshot({ path: resolve(SHOTS, 'gradient-typing-01-after-edit.png') });
 
   const after = await page.evaluate(() => {
-    const mod = document.querySelector('#gradient-typing-check-host cms-panel')
+    const mod = window.__cmsFind('#gradient-typing-check-host cms-panel')
       .shadowRoot.querySelector('cms-threshold-module');
     return mod.state.colorStops.map((s) => ({ id: s.id, value: s.value, color: s.color }));
   });

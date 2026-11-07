@@ -9,6 +9,7 @@ import { chromium } from 'playwright';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { installMountHelper } from './harness-utils.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HA = process.env.HA_URL || 'http://127.0.0.1:8123';
@@ -53,6 +54,7 @@ const run = async () => {
     return !!(ha && ha.hass && ha.hass.states && Object.keys(ha.hass.states).length > 10);
   }, { timeout: 60000 });
   await page.evaluate(() => customElements.whenDefined('hui-card'));
+  await installMountHelper(page);
 
   await page.evaluate(() => {
     window.__all = (root, tag) => { const o = []; const s = [root]; tag = tag.toLowerCase();
@@ -60,17 +62,17 @@ const run = async () => {
         if (n.shadowRoot) s.push(...n.shadowRoot.children); if (n.children) s.push(...n.children); } return o; };
     const h = document.createElement('div'); h.id = 'bench';
     h.style.cssText = 'position:fixed;left:0;top:0;width:380px;z-index:2147483647;background:#0b0b0b;padding:12px';
-    document.body.appendChild(h);
+    window.__cmsMount(h);
     window.__render = async (cfg) => {
       const hass = document.querySelector('home-assistant').hass;
-      const b = document.getElementById('bench'); b.innerHTML = '';
+      const b = window.__cmsFind('#bench'); b.innerHTML = '';
       const c = document.createElement('hui-card'); c.hass = hass; c.config = cfg; b.appendChild(c);
       if (c.updateComplete) await c.updateComplete;
       await new Promise((r) => setTimeout(r, 1200));
       return c;
     };
     window.__read = (tag, prop) => {
-      const el = window.__all(document.querySelector('#bench hui-card'), tag)[0];
+      const el = window.__all(window.__cmsFind('#bench hui-card'), tag)[0];
       if (!el) return null;
       const cs = getComputedStyle(el);
       return prop.startsWith('--') ? cs.getPropertyValue(prop).trim() : cs[prop];

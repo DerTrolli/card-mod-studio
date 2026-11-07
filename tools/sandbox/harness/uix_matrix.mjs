@@ -63,17 +63,17 @@ const run = async () => {
     };
     const h = document.createElement('div'); h.id = 'bench';
     h.style.cssText = 'position:fixed;left:0;top:0;width:380px;z-index:2147483647;background:#0b0b0b;padding:12px';
-    document.body.appendChild(h);
+    window.__cmsMount(h);
     window.__render = async (cfg) => {
       const hass = document.querySelector('home-assistant').hass;
-      const b = document.getElementById('bench'); b.innerHTML = '';
+      const b = window.__cmsFind('#bench'); b.innerHTML = '';
       const c = document.createElement('hui-card'); c.hass = hass; c.config = cfg; b.appendChild(c);
       if (c.updateComplete) await c.updateComplete;
       await new Promise((r) => setTimeout(r, 1200));
       return c;
     };
     window.__readBg = () => {
-      const el = window.__all(document.querySelector('#bench hui-card'), 'ha-card')[0];
+      const el = window.__all(window.__cmsFind('#bench hui-card'), 'ha-card')[0];
       return el ? getComputedStyle(el).backgroundColor : null;
     };
   });
@@ -109,7 +109,7 @@ const run = async () => {
     const hass = document.querySelector('home-assistant').hass;
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:900px;height:900px;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const panel = document.createElement('cms-panel');
     panel.hass = hass; panel.config = config; host.appendChild(panel);
     await panel.updateComplete?.catch(() => {});

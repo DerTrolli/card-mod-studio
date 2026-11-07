@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-10-27 · **Pre-release:** v0.11.0-beta.1 — Font → Number size (gauge value, thermostat big number) + HA 2026.10 fixes · **Current stable:** v0.10.1 — a fix for translucent themes on top of v0.10.0 "Piercing + polish": dict-form styles editable (the `.` entry through the full module pipeline, pierced entries preserved byte-identically), Heading Style rebuilt for HA 2026.10, a hand-written-CSS audit, and a light/dark/phone overhaul of the editor UI. Next: v0.11 "Reach" (Font size unlocks + Mushroom/Bubble Card support) — plan: [`docs/V0.11_PLAN.md`](V0.11_PLAN.md). Previous cycle plan (historical): [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
+**Last updated:** 2026-11-07 · **Current version:** v0.10.2 — a maintenance release for HA 2026.11 (Marketplace install docs, four HA 2026.10+ styling fixes) on top of v0.10.1 (a fix for translucent themes) and v0.10.0 "Piercing + polish": dict-form styles editable (the `.` entry through the full module pipeline, pierced entries preserved byte-identically), Heading Style rebuilt for HA 2026.10, a hand-written-CSS audit, and a light/dark/phone overhaul of the editor UI. · **Pre-release:** v0.11.0-beta.1 — Font → Number size (gauge value, thermostat big number) + HA 2026.10 fixes. Next: v0.11 "Reach" (Font size unlocks + Mushroom/Bubble Card support) — plan: [`docs/V0.11_PLAN.md`](V0.11_PLAN.md). Previous cycle plan (historical): [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -29,6 +29,36 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | v0.11 | Reach — Font size unlocks + Mushroom/Bubble | **In progress** — beta.1 (2026-10-27): Number size for the gauge value (scales HA's own number box — a font-size there is refitted away by HA, measured) and the thermostat big number, plus HA 2026.10 fixes. Planned 2026-10-27 — [`docs/V0.11_PLAN.md`](V0.11_PLAN.md), evidence in [`docs/research/2026-10-v0.11.md`](research/2026-10-v0.11.md). (1) The Font module's size controls for the **gauge value number** and the **thermostat big number** on the v0.10 dict-form machinery — both targets re-probed reachable on HA 2026.10.4, both engines; needs Studio-owned pierced entries in the save logic. (2) **Mushroom** and **Bubble Card** (`button`/`separator` first) support via per-card profiles — today 24 controls do nothing on those cards (measured). Moved in from Post-1.0 by owner decision; a checkpoint after the first beta confirms the Mushroom/Bubble part. |
 | v1.0 | Structural completeness | The remaining container gaps (item #7 — `conditional` cards, containers nested in containers, per-row styling of nested entities cards) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
 | Post-1.0 | Stretch | Further custom cards beyond Mushroom/Bubble (now v0.11), Bubble pop-ups, UIX Forge/sparks support (item #28 — new in the 2026-08 engine audit), a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
+
+## Pre-release (v0.11.0-beta.1)
+
+First beta of v0.11 "Reach" (see [`CHANGELOG.md`](../CHANGELOG.md)). Tested
+live on HA 2026.10.4 with card-mod 4.2.1 and UIX 8.4.0.
+
+- **Font → Number size** on the gauge value (50–150 %) and the thermostat
+  big number (24–96px), written as a Studio-owned shadow-piercing
+  (dictionary-form) entry and kept editable.
+- **HA 2026.10 fixes:** Visual Filters' transition speed on sensor, entity
+  and area cards, and Accent Color on calendar and history-graph cards.
+- **Controls that do nothing are hidden:** Font's text-size slider on cards
+  that size their own text.
+
+## Recently shipped (v0.10.2)
+
+A maintenance release for Home Assistant 2026.11.0, which folds HACS into
+core as the **Marketplace**. Tested on HA 2026.11.0 with card-mod 4.2.1 and
+UIX 9.0.0; `hacs.json` needs no change.
+
+- **Four HA 2026.10+ styling fixes.** Filter transitions on tile, sensor,
+  entity and area cards get `!important` (their own transition won);
+  Accent Color now reaches the calendar card (`--primary-color`) and
+  history-graph lines (`--graph-color-1`); picture-glance is no longer
+  treated as a header-title card; Font hides its size row on alarm-panel,
+  area, humidifier, picture-entity, picture-glance and weather-forecast,
+  which size their own text.
+- **Install docs** cover the Marketplace (HA 2026.11+) and HACS (older HA).
+- **Engines:** UIX 9.0.0 requires HA 2026.11.0+, UIX 8.4.0 requires
+  2026.10.0+; card-mod's latest is still 4.2.1.
 
 ## Recently shipped (v0.10.1)
 

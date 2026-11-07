@@ -51,7 +51,7 @@ const run = async () => {
     await customElements.whenDefined('hui-card');
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:400px;height:200px;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
     const hass = document.querySelector('home-assistant').hass;
     const card = document.createElement('hui-card');
     card.hass = hass;

@@ -35,12 +35,12 @@ const { results, record } = makeRecorder();
 // emitted config-changed detail.
 const mountEditAndCapture = async (page, config, moduleTag, eventDetail) => page.evaluate(async ({ cfg, moduleTag, eventDetail }) => {
   const hass = document.querySelector('home-assistant').hass;
-  let host = document.getElementById('merge-check-host');
+  let host = window.__cmsFind('#merge-check-host');
   if (!host) {
     host = document.createElement('div');
     host.id = 'merge-check-host';
     host.style.cssText = 'position:fixed;left:0;top:0;width:900px;height:900px;z-index:2147483647;';
-    document.body.appendChild(host);
+    window.__cmsMount(host);
   }
   host.innerHTML = '';
   const panel = document.createElement('cms-panel');
@@ -154,12 +154,12 @@ const run = async () => {
   // -----------------------------------------------------------------------
   const rowResult = await page.evaluate(async () => {
     const hass = document.querySelector('home-assistant').hass;
-    let host = document.getElementById('merge-check-host');
+    let host = window.__cmsFind('#merge-check-host');
     if (!host) {
       host = document.createElement('div');
       host.id = 'merge-check-host';
       host.style.cssText = 'position:fixed;left:0;top:0;width:900px;height:900px;z-index:2147483647;';
-      document.body.appendChild(host);
+      window.__cmsMount(host);
     }
     host.innerHTML = '';
     const panel = document.createElement('cms-panel');

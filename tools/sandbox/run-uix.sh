@@ -20,10 +20,10 @@ CFG="${CFG:-$HERE/config-uix}"
 CONTAINER="${CONTAINER:-ha-sandbox-uix}"
 # Pinned, not :stable — a new HA release must never move the baseline
 # silently (docs/V0.11_PLAN.md D8); try a newer one with HA_IMAGE=….
-HA_IMAGE="${HA_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.10.4}"
+HA_IMAGE="${HA_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.11.0}"
 MUSHROOM_TAG="${MUSHROOM_TAG:-v5.2.3}"
-BUBBLE_TAG="${BUBBLE_TAG:-v3.4.2}"
-UIX_TAG="${UIX_TAG:-v8.4.0}"  # 8.4 needs HA >= 2026.10
+BUBBLE_TAG="${BUBBLE_TAG:-v3.4.3}"  # 3.4.3 is the Bubble Card fix for HA 2026.11
+UIX_TAG="${UIX_TAG:-v9.0.0}"
 HOST_PORT="${HOST_PORT:-8124}"
 HA_URL="http://127.0.0.1:${HOST_PORT}"
 TOKENS="${TOKENS:-$HERE/harness/tokens-uix.json}"

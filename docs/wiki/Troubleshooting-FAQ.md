@@ -5,12 +5,23 @@
    (older card editors have no spot for the button).
    With a manual install, also bump the `?v=` in the resource URL.
 2. Check the resource exists: **Settings → Dashboards → ⋮ → Resources**
-   (HACS installs it automatically; type must be *JavaScript Module*).
+   (HACS or the Marketplace installs it automatically; type must be
+   *JavaScript Module*)
 3. Check the browser console for a Card-Mod Studio warning: the button is
    injected into HA's card-edit dialog (`hui-dialog-edit-card`), and a major
    HA update can rename internals. If that happens, check
    [the issues](https://github.com/DerTrolli/card-mod-studio/issues) —
    compatibility fixes ship quickly after HA releases.
+
+## I can't find HACS on HA 2026.11
+
+HA 2026.11 folds HACS into core as the **Marketplace**, so there is no
+separate HACS to install or open. Existing HACS installs migrate
+automatically, with custom repositories and update entities carried over.
+Look for Card-Mod Studio in the Marketplace instead. If the Style button
+doesn't appear after installing and your dashboard resources are in **YAML
+mode**, add the resource manually — see
+[Installation](Installation#manual-install).
 
 ## The panel is hard to read — I can see HA's editor through it
 

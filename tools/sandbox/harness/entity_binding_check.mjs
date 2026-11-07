@@ -30,7 +30,7 @@ const { results, record } = makeRecorder();
 // the real product: cms-injector.ts always injects into HA's own dialog,
 // itself already a real descendant of <home-assistant>.
 const mountPanel = (config) => (page) => page.evaluate((cfg) => {
-  let host = document.getElementById('entity-binding-check-host');
+  let host = window.__cmsFind('#entity-binding-check-host');
   if (!host) {
     host = document.createElement('div');
     host.id = 'entity-binding-check-host';
@@ -65,7 +65,7 @@ const run = async () => {
   await page.waitForTimeout(700);
 
   const iconColorState = await page.evaluate(async () => {
-    const panel = document.querySelector('#entity-binding-check-host cms-panel');
+    const panel = window.__cmsFind('#entity-binding-check-host cms-panel');
     const mod = panel.shadowRoot.querySelector('cms-icon-color-module');
     if (!mod) return { found: false };
     await mod.updateComplete;
@@ -107,7 +107,7 @@ const run = async () => {
   await page.waitForTimeout(700);
 
   const backgroundState = await page.evaluate(async () => {
-    const panel = document.querySelector('#entity-binding-check-host cms-panel');
+    const panel = window.__cmsFind('#entity-binding-check-host cms-panel');
     const mod = panel.shadowRoot.querySelector('cms-background-module');
     if (!mod) return { found: false };
     await mod.updateComplete;
@@ -142,7 +142,7 @@ const run = async () => {
   await page.waitForTimeout(700);
 
   const thresholdBefore = await page.evaluate(async () => {
-    const panel = document.querySelector('#entity-binding-check-host cms-panel');
+    const panel = window.__cmsFind('#entity-binding-check-host cms-panel');
     const mod = panel.shadowRoot.querySelector('cms-threshold-module');
     await mod.updateComplete;
     const picker = mod.shadowRoot.querySelector('cms-entity-picker');
@@ -162,7 +162,7 @@ const run = async () => {
   record('Threshold "Apply to" renders one checkbox per property, unchecked for accent-color', thresholdBefore.accentCheckboxExists && !thresholdBefore.accentCheckboxChecked, JSON.stringify(thresholdBefore));
 
   const thresholdAfterCheck = await page.evaluate(async () => {
-    const panel = document.querySelector('#entity-binding-check-host cms-panel');
+    const panel = window.__cmsFind('#entity-binding-check-host cms-panel');
     const mod = panel.shadowRoot.querySelector('cms-threshold-module');
     const checks = [...mod.shadowRoot.querySelectorAll('.property-check')];
     const accentInput = checks.find((c) => c.textContent.includes('Accent Color')).querySelector('input');

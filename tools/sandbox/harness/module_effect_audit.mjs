@@ -133,7 +133,7 @@ const run = async () => {
       host: null,
       async mount(config) {
         const hass = document.querySelector('home-assistant').hass;
-        let host = document.getElementById('audit-host');
+        let host = window.__cmsFind('#audit-host');
         if (!host) {
           host = document.createElement('div'); host.id = 'audit-host';
           host.style.cssText = 'position:fixed;left:0;top:0;width:1100px;height:900px;z-index:2147483647;background:var(--card-background-color,#fff);';

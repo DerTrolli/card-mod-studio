@@ -18,8 +18,8 @@ mkdir -p "$OUT"
 export HA_URL="$URL" TOKENS_FILE="$TOK" TOKENS_IN="$TOK"
 if [ "$ENGINE" = uix ]; then export STYLE_KEY=uix; else export STYLE_KEY=card_mod; fi
 
-CM_CHECKS="compat_check animation_pack_check attr_palette_check beta2_fixes_check button_card_binding_check dialog_popover_check entity_binding_check font_module_check gauge_color_check gradient_mode_check gradient_typing_check gradient_uix_compat_check palette_check preset_stale_state_check preview_picker_check stack_child_check state_props_check dict_preserve_check dict_visual_check heading_check"
-UIX_CHECKS="uix_matrix animation_pack_check attr_palette_check beta2_fixes_check dialog_popover_check font_module_check gauge_color_check gradient_typing_check gradient_uix_only_compat_check legacy_adopt_check merge_check preset_stale_state_check preview_picker_check stack_child_check state_props_check dict_preserve_check dict_visual_check heading_check"
+CM_CHECKS="compat_check animation_pack_check attr_palette_check beta2_fixes_check button_card_binding_check dialog_popover_check entity_binding_check font_module_check gauge_color_check gradient_mode_check gradient_typing_check gradient_uix_compat_check palette_check preset_stale_state_check preview_picker_check stack_child_check state_props_check dict_preserve_check dict_visual_check heading_check pierce_check"
+UIX_CHECKS="uix_matrix animation_pack_check attr_palette_check beta2_fixes_check dialog_popover_check font_module_check gauge_color_check gradient_typing_check gradient_uix_only_compat_check legacy_adopt_check merge_check preset_stale_state_check preview_picker_check stack_child_check state_props_check dict_preserve_check dict_visual_check heading_check pierce_check"
 if [ "$ENGINE" = uix ]; then CHECKS="$UIX_CHECKS"; else CHECKS="$CM_CHECKS"; fi
 [ -n "${SUITE_ONLY:-}" ] && CHECKS="$SUITE_ONLY"
 

@@ -11,9 +11,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 # Pinned, not :stable — a new HA release must never move the baseline
 # silently (docs/V0.11_PLAN.md D8); try a newer one with HA_IMAGE=….
-HA_IMAGE="${HA_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.10.4}"
+HA_IMAGE="${HA_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.11.0}"
 MUSHROOM_TAG="${MUSHROOM_TAG:-v5.2.3}"
-BUBBLE_TAG="${BUBBLE_TAG:-v3.4.2}"
+BUBBLE_TAG="${BUBBLE_TAG:-v3.4.3}"  # 3.4.3 is the Bubble Card fix for HA 2026.11
 CARD_MOD_TAG="${CARD_MOD_TAG:-v4.2.1}"
 # Overridable so a second instance (e.g. HA_IMAGE=...:beta) can run beside
 # the default one: its own config dir, container, port and tokens file.

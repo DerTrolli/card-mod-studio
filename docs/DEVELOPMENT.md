@@ -11,7 +11,7 @@ This document explains how to set up a local development environment and test Ca
 | Node.js | 18 | 20 LTS recommended |
 | npm | 9 | Comes with Node |
 | Home Assistant | 2024.4.0 | Any install method works |
-| card-mod **or** UIX | card-mod 4.x / [UIX](https://uix.lf.technology/) 7.x or 8.x (latest tested: 8.3.1) | One of the two must be installed in HA — see [README's UIX section](../README.md#uix-support) |
+| card-mod **or** UIX | card-mod 4.x / [UIX](https://uix.lf.technology/) 7.x or 8.x (latest tested: 8.3.1; the 2026.11 sandbox pins UIX 9.0.0) | One of the two must be installed in HA — see [README's UIX section](../README.md#uix-support) |
 
 ---
 
@@ -310,7 +310,36 @@ Found while re-verifying against HA 2026.9.4 and 2026.10.0b0 with card-mod
   different containers, ports, config dirs and token files, and accept
   `CFG` / `CONTAINER` / `HOST_PORT` / `TOKENS` overrides — so a second
   instance of either (for example on the `:beta` HA image) can run beside the
-  default one. `run-uix.sh` now defaults to UIX v8.3.1.
+  default one. (Historical: `run-uix.sh` defaulted to UIX v8.3.1 in the 2026.9/2026.10 era; it now defaults to v9.0.0 — see "HA 2026.11 sandbox/harness notes" below. Pin `UIX_TAG=v8.3.1` for older HA.)
+
+### HA 2026.11 sandbox/harness notes
+
+- **Mount detached test cards inside `<home-assistant>`'s shadow root, never
+  under `document.body`.** Since 2026.11, glance, gauge, light, alarm-panel,
+  media-control and weather-forecast read `hass`, i18n and formatters through
+  Lit context. A card outside `<home-assistant>` throws "Cannot read
+  properties of undefined (reading 'localize')" and renders nothing. Harness
+  scripts call `window.__cmsMount(host)` (defined by `installMountHelper` in
+  `harness/harness-utils.mjs`, which `waitForHassReady` runs for you) instead
+  of `document.body.appendChild(host)`. Gauge, alarm-panel and media-control
+  also lazy-load their element definitions, so `waitForHassReady` pre-loads
+  them via `window.__cmsReady([...])`; call that yourself before polling for
+  any other lazily-defined card.
+- **HA will not start on a config folder that a newer HA has migrated.** To
+  test an older HA image, point `CFG=` at a fresh folder rather than reusing
+  `config/` or `config-uix/` (they are migrated by whichever HA ran last).
+- **The rigs are pinned.** `run.sh` and `run-uix.sh` default `HA_IMAGE` to
+  `ghcr.io/home-assistant/home-assistant:2026.11.0`, and `run-uix.sh` defaults
+  `UIX_TAG` to `v9.0.0` (UIX 9 requires HA 2026.11; 8.x is for older HA).
+  Both rigs also download Mushroom (`MUSHROOM_TAG`, default `v5.2.3`) and
+  Bubble Card (`BUBBLE_TAG`, default `v3.4.3` — the release fixed for HA
+  2026.11); `CUSTOM_CARDS=0` skips that.
+  Override per run, e.g. `HA_IMAGE=ghcr.io/home-assistant/home-assistant:beta
+  CFG=/tmp/ha-beta bash run.sh` or `UIX_TAG=v8.3.1 HA_IMAGE=...:2026.10.0
+  CFG=/tmp/ha-old bash run-uix.sh`.
+- `harness/run_suite.sh <label> <card-mod|uix> <url> <tokens> <outdir>` runs
+  the whole live suite against one rig; `harness-utils.mjs`'s `resetTheme`
+  resets a theme left behind by an earlier probe.
 
 ### hui-dialog-edit-card
 
