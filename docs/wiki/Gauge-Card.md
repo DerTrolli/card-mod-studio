@@ -32,9 +32,9 @@ the value number's size can be changed too.
 ## Limits
 
 - **Number size** (Font module, v0.11) scales the box HA fits the value
-  into — 50–150 % of HA's own size. HA always fits the number into that box,
-  so the number stops growing where the dial leaves no room (around 125–150 %,
-  depending on the card's width). It has its own switch in the Font module
+  into — 50–150 % of HA's own size. The number now grows all the way to 150 %
+  (v0.11.0-beta.2; beta.1 stopped at about 118–125 % because HA anchors the
+  box at 50 %, and beta.1 entries are upgraded on the next save). It has its own switch in the Font module
   and is written as a shadow-piercing (`$`) dictionary entry the Studio keeps
   editable; if you already wrote your own `ha-gauge$` CSS, the control shows
   as locked and your CSS stays as it is.

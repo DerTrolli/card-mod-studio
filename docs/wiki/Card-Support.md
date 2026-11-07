@@ -35,6 +35,8 @@ Exceptions and specials:
 | area | Icon Color hidden (the area icon doesn't take it); everything card-box-level works |
 | date (new in HA 2026.11) | Icon Color, Accent Color, Font size and Font text color hidden (and their Threshold targets) — measured on HA 2026.11.0; Font weight/family, Background, Border, Filters and Animation work |
 | entity-filter | Treated as a container: a style on the filter reaches nothing — Advanced CSS only; style its inner `card:` in YAML |
+| Mushroom (5.2.3, beta) | The 14 state cards: Font → primary/secondary text, icon size, Accent → the card's active colour (hidden when the card sets its own `icon_color`), Threshold, Background, Border. Template card is styled like a tile. Chips: chip text/icon size, chip background and border (no Accent, no text colour). Title card: title text only (no Background/Border/Icon/Accent). Empty card: nothing to style. |
+| Bubble Card (3.x, measured on 3.4.3, beta) | button (incl. slider button), separator, cover: Font → name/state, icon colour and size, Background and Border on the card's visible box. Accent and Threshold are hidden, except on slider buttons where Accent colours the slider fill. The card's own `styles:` is preserved untouched. Other Bubble card types keep all modules for now |
 | light | Icon Color gains "Match the light's color" mode |
 | alarm-panel / media-control | Icon Color available (verified working) |
 | iframe / webpage / map | Only border/radius/filter apply (cross-origin / map-library content) |
@@ -44,10 +46,12 @@ Exceptions and specials:
 - **Glance icons** can't be recolored (nested shadow root + inline state
   color — probed with shadow-piercing styles on both engines too: they don't
   reach it either). A documented limitation, not planned.
-- **Custom cards** (Mushroom, Bubble, …) have their own shadow-DOM layouts —
-  card-box-level modules generally work; icon/text specifics may need
-  [Advanced CSS](Advanced-CSS). Dedicated support is on the
-  [roadmap](https://github.com/DerTrolli/card-mod-studio/blob/main/docs/ROADMAP.md).
+- **Custom cards** — Mushroom and Bubble Card (button, separator, cover) are
+  supported in beta (see the table above); any other custom card still shows
+  every module and has its own shadow-DOM layout, so card-box-level modules
+  generally work while icon/text specifics may need
+  [Advanced CSS](Advanced-CSS). Dedicated Mushroom and Bubble wiki pages come
+  with v0.11.0, see the [roadmap](https://github.com/DerTrolli/card-mod-studio/blob/main/docs/ROADMAP.md).
 - **Nested containers / `conditional` cards** — see
   [Cards Inside Stacks](Styling-Cards-Inside-Stacks#not-covered-yet).
 - **Deep energy-card SVG styling** — Advanced CSS only.

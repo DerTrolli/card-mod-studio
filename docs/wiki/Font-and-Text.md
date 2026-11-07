@@ -33,7 +33,7 @@ switch — it works with or without the rest of the Font module:
 
 - **Gauge → Number size**, 50–150 %: scales the box HA fits the value into
   (HA fits the number into that box, so a plain font size wouldn't show).
-  It stops growing where the dial leaves no room.
+  It grows up to 150 % (v0.11.0-beta.2; beta.1 stopped at about 118–125 %).
 - **Thermostat → Temperature size**, 24–96px (HA's default is 57px).
 
 Both numbers sit inside nested shadow roots, so the Studio writes them as a

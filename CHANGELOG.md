@@ -5,6 +5,51 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0-beta.2] — 2026-11-08
+
+Second beta of v0.11 "Reach" (plan: `docs/V0.11_PLAN.md`): **Mushroom** and
+**Bubble Card** support, a gauge Number size that really reaches 150 %, and
+row labels that follow HA 2026.11's naming. Includes all of v0.10.2.
+Verified on **HA 2026.11.0** with **card-mod 4.2.1** and **UIX 9.0.0**:
+the module-effect audit finds 0 controls without effect on all built-in
+cards, all 18 Mushroom card types and 4 Bubble kinds; click-to-edit 24/24.
+
+### Added
+
+- **Mushroom support (5.2.3).** The 14 state cards get Font (→ primary and
+  secondary text), icon size, Accent (→ the card's active colour) and
+  Threshold; the template card is styled like a tile; chips and the title
+  card get the controls that reach them. The empty card has nothing to
+  style, so no controls are offered. Accent is hidden when the card's own
+  `icon_color` is set (it would do nothing), and HA palette swatches and
+  named colours convert.
+- **Bubble Card support (3.x, measured on 3.4.3).** Button (including
+  slider buttons, where Accent colours the slider fill), separator and
+  cover. The card's own `styles:` is preserved untouched. Threshold and
+  Accent are hidden where nothing is reached. Other Bubble card types keep
+  all modules for now.
+- **Click-to-edit in the preview for Mushroom and Bubble parts.** Known
+  limit: a click on a Bubble slider's fill opens Background.
+- Hand-written `!important` rules on custom cards stay in Advanced CSS.
+- Foundation for custom cards: one shared profile lookup (internal).
+
+### Fixed
+
+- **Gauge Number size now really grows to 150 %.** It stopped at about
+  118–125 % because HA anchors the value box at 50 %; the Studio now
+  re-centres the box. Beta.1 entries are recognised and upgraded on the
+  next save.
+- **Entities-card row labels follow HA 2026.11's naming** (device + entity
+  name, via `hass.formatEntityName`); older HA keeps the previous fallback.
+- **Alert card:** Accent, Font text colour and Threshold accent / text
+  colour are hidden (they had no effect).
+
+### Known limits
+
+- Mushroom and Bubble support is new in this beta. Unknown custom cards
+  still show every module (a notice is planned for v0.11.0).
+- Dedicated Mushroom and Bubble wiki pages come with v0.11.0.
+
 ## [0.11.0-beta.1] — 2026-10-27
 
 First beta of v0.11 "Reach" (plan: `docs/V0.11_PLAN.md`): the two big
@@ -1173,6 +1218,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.11.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.2
 [0.11.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.1
 [0.10.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.10.2
 [0.10.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.10.1

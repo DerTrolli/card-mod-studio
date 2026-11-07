@@ -41,9 +41,10 @@ effects, icon size).
   size / Temperature size) — in the first v0.11 beta. See the
   [Gauge](Gauge-Card) and [Thermostat](Thermostat-and-Humidifier-Cards)
   pages.
-- **Mushroom and Bubble Card support** — controls that actually reach those
-  custom cards (today several do nothing there), planned for later v0.11
-  betas.
+- ✅ **Mushroom and Bubble Card support** (beta, v0.11.0-beta.2) — controls
+  that reach Mushroom (5.2.3) cards and Bubble's button, separator and cover;
+  see [Card Support](Card-Support). Still to come in v0.11.0: dedicated
+  Mushroom and Bubble wiki pages and a notice on unknown custom cards.
 - Glance icon color stays out: even shadow-piercing styles don't reach it
   ([why](Glance-Card#why-no-icon-color)).
 
@@ -58,7 +59,7 @@ effects, icon size).
 
 ## Post-1.0 stretch
 
-- Official Mushroom / Bubble card support
+- Further custom cards beyond Mushroom / Bubble
 - A multi-entity AND/OR condition builder
 - A visual keyframe animation builder (beyond the built-in presets)
 - Bulk dashboard `card_mod:` → `uix:` key migration (parked deliberately:
