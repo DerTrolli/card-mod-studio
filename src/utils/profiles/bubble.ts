@@ -23,7 +23,10 @@
  */
 
 import type { CustomCardProfile, ProfileEmitters } from '../custom-card-profiles.js';
-import { claimsFromEmitters, conflictsFromEmitters } from './helpers.js';
+import {
+  claimsFromEmitters, conflictsFromEmitters, clickClass,
+  CLICK_FONT, CLICK_ICON, CLICK_ACCENT, CLICK_BACKGROUND,
+} from './helpers.js';
 
 /** Bubble 3.x class names (measured on 3.4.3). */
 export const BUBBLE_SELECTORS = {
@@ -75,6 +78,15 @@ const icon = {
   iconSize: { selector: S.icon, box: ['--mdc-icon-size'] },
 };
 
+/** Click-to-edit rows shared by the four kinds (deepest chain element wins). */
+const clicksFor = (box: string, ...more: ReturnType<typeof clickClass>[]) => [
+  ...more,
+  clickClass('bubble-name', CLICK_FONT),
+  clickClass('bubble-state', CLICK_FONT),
+  clickClass('bubble-icon', CLICK_ICON),
+  clickClass(box, CLICK_BACKGROUND),
+];
+
 /** Opacity stays at Bubble's 0.5 unless forced (measured): rides with Background. */
 const OPACITY_1 = { prop: 'opacity', value: '1', important: true };
 
@@ -89,6 +101,7 @@ const NO_THRESHOLD = { threshold: false, accentColor: false } as const;
 const button = profile('custom:bubble-card/button', {
   modules: { ...NO_THRESHOLD },
   iconSize: true,
+  clickToEdit: clicksFor('bubble-button-background'),
   emitters: {
     font: text([S.name, S.state]),
     ...icon,
@@ -106,6 +119,7 @@ const button = profile('custom:bubble-card/button', {
 const slider = profile('custom:bubble-card/button/slider', {
   modules: { threshold: false },
   iconSize: true,
+  clickToEdit: clicksFor('bubble-button-background', clickClass('bubble-range-fill', CLICK_ACCENT)),
   emitters: {
     font: text([S.name, S.state]),
     ...icon,
@@ -132,6 +146,7 @@ const separator = profile('custom:bubble-card/separator', {
   iconSize: true,
   // No entity behind the card: nothing for a state condition to read.
   stateAware: false,
+  clickToEdit: clicksFor('bubble-separator'),
   emitters: {
     font: text([S.name]),
     ...icon,
@@ -149,6 +164,7 @@ const separator = profile('custom:bubble-card/separator', {
 const cover = profile('custom:bubble-card/cover', {
   modules: { ...NO_THRESHOLD },
   iconSize: true,
+  clickToEdit: clicksFor('bubble-background'),
   emitters: {
     font: text([S.name, S.state]),
     ...icon,

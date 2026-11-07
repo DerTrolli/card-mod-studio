@@ -11,7 +11,7 @@
  */
 
 import { capsFor } from './card-caps.js';
-import { getCustomCardProfile, emitKeyOf } from './custom-card-profiles.js';
+import { getCustomCardProfile, emitKeyOf, type ProfileModule } from './custom-card-profiles.js';
 
 /** One element of the hovered element's ancestor chain (lowercased tag). */
 export interface PickChainElement {
@@ -81,6 +81,19 @@ const CARD_TEXT_MATCHERS: Record<string, (el: PickChainElement) => boolean> = {
     el.classes.includes('icon-name'),
   'picture-entity': (el) => el.classes.includes('footer'),
   'picture-glance': (el) => el.classes.includes('box'),
+};
+
+/** Panel module tag → the profile module that shows/hides it (click rules). */
+const MODULE_OF_TAG: Record<string, ProfileModule> = {
+  'cms-font-module': 'font',
+  'cms-icon-color-module': 'iconColor',
+  'cms-accent-color-module': 'accentColor',
+  'cms-background-module': 'background',
+  'cms-border-module': 'border',
+  'cms-threshold-module': 'threshold',
+  'cms-filter-module': 'filter',
+  'cms-animation-module': 'animation',
+  'cms-heading-style-module': 'headingStyle',
 };
 
 /** Chain-wide context computed once per lookup. */
@@ -249,13 +262,20 @@ export function mapElementToMatch(
   }
 
   // A custom-card profile's own click-to-edit rows win over the generic walk
-  // (deepest element first, like the rule table below).
+  // (deepest element first, like the rule table below). A row whose module the
+  // panel hides for this card (profile or config gate) is skipped — the picker
+  // never points at a module that isn't on screen.
   const clicks = getCustomCardProfile(cardType)?.clickToEdit;
   if (clicks?.length) {
+    const shown = capsFor(cardType, config).modules;
     for (let i = 0; i < chain.length; i++) {
       const el = chain[i];
       const hit = clicks.find(
-        (r) => (!r.tag || r.tag === el.tag) && (!r.className || el.classes.includes(r.className)) && (r.tag || r.className),
+        (r) =>
+          (!r.tag || r.tag === el.tag) &&
+          (!r.className || el.classes.includes(r.className)) &&
+          (r.tag || r.className) &&
+          (!MODULE_OF_TAG[r.module] || shown[MODULE_OF_TAG[r.module]]),
       );
       if (hit) return { target: { module: hit.module, label: hit.label }, index: i };
     }

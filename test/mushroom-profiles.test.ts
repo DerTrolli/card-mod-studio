@@ -339,11 +339,13 @@ describe('M-classic — the 14 state cards', () => {
       .toBeUndefined();
   });
 
-  it('a hand-written !important on a claimed variable is still claimed (and comes back plain)', () => {
-    const back = parse('ha-card { --card-primary-font-size: 20px !important; --rgb-state-light: 1, 2, 3 !important; }', key('light'));
-    expect(back.font).toMatchObject({ enabled: true, fontSize: 20 });
-    expect(back.accentColor).toMatchObject({ enabled: true, color: '#010203' });
-    expect(back.advanced.rawCss).toBe('');
+  it('a hand-written !important on a claimed variable stays in Advanced CSS (the generator would write it plain)', () => {
+    const css = 'ha-card { --card-primary-font-size: 20px !important; --rgb-state-light: 1, 2, 3 !important; }';
+    const back = parse(css, key('light'));
+    expect(back.font.enabled).toBe(false);
+    expect(back.accentColor.enabled).toBe(false);
+    expect(back.advanced.rawCss).toContain('--card-primary-font-size: 20px !important;');
+    expect(back.advanced.rawCss).toContain('--rgb-state-light: 1, 2, 3 !important;');
   });
 
   it('declarations that are not the emitters\' shape stay in Advanced CSS (hand-written ha-card font-size)', () => {

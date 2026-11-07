@@ -6,7 +6,16 @@
  * custom-card-profiles.ts (erased at build time: no runtime import cycle).
  */
 
-import type { ClaimRule, Companion, ConflictRow, ProfileEmitters } from '../custom-card-profiles.js';
+import type { ClaimRule, ClickRule, Companion, ConflictRow, ProfileEmitters } from '../custom-card-profiles.js';
+
+/** Click-to-edit rows (preview-map): a chain element → the panel module. */
+export const CLICK_FONT = { module: 'cms-font-module', label: 'Font' } as const;
+export const CLICK_ICON = { module: 'cms-icon-color-module', label: 'Icon Color' } as const;
+export const CLICK_ACCENT = { module: 'cms-accent-color-module', label: 'Accent Color' } as const;
+export const CLICK_BACKGROUND = { module: 'cms-background-module', label: 'Background & card surface' } as const;
+
+export const clickTag = (tag: string, to: Pick<ClickRule, 'module' | 'label'>): ClickRule => ({ tag, ...to });
+export const clickClass = (className: string, to: Pick<ClickRule, 'module' | 'label'>): ClickRule => ({ className, ...to });
 
 function companionClaim(module: ClaimRule['module'], selector: string, c: Companion): ClaimRule {
   return { module, selector, role: 'companion', props: [c.prop.toLowerCase()], equals: c.value };
@@ -48,12 +57,12 @@ export function claimsFromEmitters(e: ProfileEmitters): ClaimRule[] {
 
 export function conflictsFromEmitters(e: ProfileEmitters): ConflictRow[] {
   const out: ConflictRow[] = [];
-  // A comma list is one row per selector: the conflict check matches a rule's
-  // selector as a substring of the user's rule selector.
+  // A comma list is one row per selector; the conflict check matches each
+  // row's selector against the user's rule by selector tokens (`tokens`).
   const add = (module: ConflictRow['module'], selector: string, props: string[], property?: string) => {
     if (!props.length) return;
     for (const sel of selector.split(',').map((x) => x.trim()).filter(Boolean)) {
-      out.push({ module, selector: sel, props: props.map((p) => p.toLowerCase()), ...(property ? { property } : {}) });
+      out.push({ module, selector: sel, props: props.map((p) => p.toLowerCase()), tokens: true, ...(property ? { property } : {}) });
     }
   };
   const comp = (cs?: Companion[]) => (cs ?? []).map((c) => c.prop);

@@ -247,10 +247,10 @@ describe('Bubble 3 profiles — emitted CSS (literal) and round trip', () => {
     }
   });
 
-  it('declarations are claimed with or without !important', () => {
+  it('declarations the generator writes with !important are claimed with or without it', () => {
     const css = [
       '.bubble-button-background { background: #112244; opacity: 1; border-radius: 8px }',
-      '.bubble-icon { color: #112233; --mdc-icon-size: 40px !important }',
+      '.bubble-icon { color: #112233; --mdc-icon-size: 40px }',
     ].join('\n');
     const back = parse(css, BTN);
     expect(back.advanced.rawCss).toBe('');

@@ -443,7 +443,12 @@ function mapAnimation(
 
 /** `cardType` is the card's profile key (profileKeyOf(config)); equal to
  *  `config.type` for every built-in card. */
-export function mapToStudioState(parsed: CardModStyleState, cardType?: string): StudioState {
+export function mapToStudioState(fullParsed: CardModStyleState, cardType?: string): StudioState {
+  // Custom profiles only: a hand-written `!important` declaration that the
+  // generator would write back WITHOUT `!important` is not ours to claim — the
+  // module would regenerate it weaker. It stays in Advanced CSS (which is built
+  // from `fullParsed`); every recogniser below sees the filtered view.
+  const parsed = withoutUnclaimableImportant(fullParsed, cardType);
   const haCard = findTarget(parsed.targets, 'ha-card');
   const haStateIcon = findTarget(parsed.targets, 'ha-state-icon');
   const haIcon = findTarget(parsed.targets, 'ha-icon');
@@ -532,7 +537,7 @@ export function mapToStudioState(parsed: CardModStyleState, cardType?: string): 
   // Companion declarations ride only with their recognised module.
   if (pc && state.background.enabled) pc.claimCompanions('background', claimed);
   if (pc && state.accentColor.enabled) pc.claimCompanions('accentColor', claimed);
-  return { ...state, advanced: mapAdvanced(parsed, claimed) };
+  return { ...state, advanced: mapAdvanced(fullParsed, claimed) };
 }
 
 /**
@@ -625,6 +630,58 @@ function mergeRawCss(primary: string, secondary: string): string {
   if (!p) return s;
   if (!s || s === p) return p;
   return `${s}\n\n${p}`;
+}
+
+// ---------------------------------------------------------------------------
+// `!important` on a custom profile (review fix T2b)
+// ---------------------------------------------------------------------------
+
+const normSelector = (sel: string): string => sel.trim().toLowerCase().replace(/\s*,\s*/g, ',').replace(/\s+/g, ' ');
+
+/** Does the profile's generator write `prop` of a claim rule with `!important`? */
+function claimWritesImportant(profile: CustomCardProfile, rule: ClaimRule, prop: string): boolean {
+  const e = profile.emitters;
+  switch (rule.role) {
+    case 'iconColor': return true; // Icon Color is always `color: … !important`
+    case 'accent': return !!e?.accent?.important;
+    case 'borderDirect': return !!e?.border?.important?.includes(prop);
+    case 'companion': {
+      const list = [...(e?.accent?.companions ?? []), ...(e?.background?.companions ?? [])];
+      return list.some((c) => c.prop.toLowerCase() === prop && !!c.important);
+    }
+    default: return false;
+  }
+}
+
+/** Plain properties the built-in recognisers read off `ha-card`: none of them
+ *  is ever written with `!important`. */
+const HA_CARD_PLAIN_PROPS = new Set([
+  'background', 'background-color', 'background-image', 'border', 'border-radius', 'border-width',
+  'border-color', 'filter', '-webkit-filter', 'animation', 'animation-name', 'transition',
+  'font-size', 'font-weight', 'font-family', 'color',
+]);
+
+/**
+ * For a CUSTOM profile: `parsed` without the `!important` declarations whose
+ * regenerated form would lose the flag. Built-in cards (and unprofiled ones)
+ * get `parsed` back untouched.
+ */
+function withoutUnclaimableImportant(parsed: CardModStyleState, cardType?: string): CardModStyleState {
+  const profile = getCustomCardProfile(cardType ?? '');
+  if (!profile || !parsed.targets.some((t) => t.properties.some((p) => p.important))) return parsed;
+  const rules = profile.claims ?? [];
+  const targets = parsed.targets.map((t) => {
+    const sel = normSelector(t.selector);
+    const mine = rules.filter((r) => normSelector(r.selector) === sel);
+    const properties = t.properties.filter((p) => {
+      if (!p.important) return true;
+      const hit = mine.filter((r) => r.props.includes(p.property));
+      if (hit.length) return hit.some((r) => claimWritesImportant(profile, r, p.property));
+      return !(sel === 'ha-card' && HA_CARD_PLAIN_PROPS.has(p.property));
+    });
+    return properties.length === t.properties.length ? t : { ...t, properties };
+  });
+  return { ...parsed, targets };
 }
 
 // ---------------------------------------------------------------------------

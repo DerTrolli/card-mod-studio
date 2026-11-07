@@ -1072,7 +1072,7 @@ function thresholdBlock(s: ThresholdModuleState | undefined, ctx: EmitCtx): stri
   if (!s || !s.enabled || !s.entityId || s.properties.length === 0) return '';
   // A profile with its own emitters that hides Threshold (Bubble: no probed
   // target) writes none — a preset's threshold state would be dead CSS there.
-  if (ctx.em && !ctx.caps.modules.threshold) return '';
+  if (ctx.caps.custom && !ctx.caps.modules.threshold) return '';
 
   let rules = s.rules;
   let defaultColor = s.defaultColor;
@@ -1143,7 +1143,10 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // Only once Threshold actually writes something: an enabled-but-unfinished
   // Threshold (no entity / no rules yet) used to silently disable e.g.
   // Background on a thermostat or Accent on a gauge (its default property).
-  const thresholdProps = new Set(thresholdOwnedProperties(state.threshold));
+  // A custom profile that hides Threshold writes no threshold block (see
+  // thresholdBlock), so it owns nothing: a stray threshold state (a preset's)
+  // must not silence the static modules.
+  const thresholdProps = new Set(caps.custom && !caps.modules.threshold ? [] : thresholdOwnedProperties(state.threshold));
   // …but only for what is actually written: a profile's accent property with
   // nothing convertible (or gated off) emits no block, so it must not silence
   // the Accent module's own, valid value.

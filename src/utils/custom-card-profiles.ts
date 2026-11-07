@@ -168,6 +168,10 @@ export interface ConflictRow {
   property?: string;
   selector: string;
   props: string[];
+  /** Match `selector` against the user's rule by selector TOKENS (a class or
+   *  tag is a whole token: `.bubble-icon` is not in `.bubble-icon-container`)
+   *  instead of as a substring. Rows built from emitters set it. */
+  tokens?: boolean;
 }
 
 /** Click-to-edit: a chain element matching `tag`/`className` → module. */

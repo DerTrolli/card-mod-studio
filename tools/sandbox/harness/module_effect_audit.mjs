@@ -20,8 +20,22 @@
 // Threshold Colors is tested once per "Apply to" property the module offers
 // on that card (each property is its own control).
 //
+// Icon Color is audited as the two controls the panel can offer: its colour
+// (only where `allowColor`) and its size (only where `allowSize`, tested on top
+// of a colour already applied) — a size-only card (Mushroom chips) gets only
+// the size test, like Font's colour/size pair.
+//
 //   HA_URL=… TOKENS_FILE=… STYLE_KEY=card_mod|uix node module_effect_audit.mjs
 //   → module-effect-audit-<engine>-<haVersion>.json + .md
+//
+// AUDIT_CUSTOM=1   audit the custom-card profiles instead of the built-ins:
+//                  all 18 registered Mushroom types (14 state cards, template,
+//                  chips, title, empty) and the 4 Bubble profile kinds (button,
+//                  button+slider, separator, cover), entities taken from
+//                  hass.states. Writes module-effect-audit-custom-….json/.md.
+// AUDIT_CUSTOM=all the built-ins AND the custom cards in one run (same files
+//                  as the built-in audit).
+// Mushroom 5.x and Bubble Card 3.x must be installed on the rig.
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -78,6 +92,50 @@ const CARDS = {
 // AUDIT_EXTRA_CARDS='{"custom:mushroom-entity-card":{"entity":"light.ceiling_lights"}}'
 // adds card configs (e.g. custom cards installed on the rig) to the sweep.
 if (process.env.AUDIT_EXTRA_CARDS) Object.assign(CARDS, JSON.parse(process.env.AUDIT_EXTRA_CARDS));
+
+// Custom-card configs (AUDIT_CUSTOM). `_type` is the card's real `type:`; the
+// map key names the audit row. Entities come from hass.states (first match of
+// the preferred ids, else the first of the domain), so the same list runs on
+// every rig. `_entity` is the entity Threshold is pointed at.
+const MUSHROOM_CLASSIC = {
+  'alarm-control-panel': ['alarm_control_panel', []], climate: ['climate', ['climate.heatpump']],
+  cover: ['cover', ['cover.kitchen_window']], entity: ['light', ['light.ceiling_lights']],
+  fan: ['fan', ['fan.living_room_fan']], humidifier: ['humidifier', ['humidifier.humidifier']],
+  light: ['light', ['light.ceiling_lights']], lock: ['lock', ['lock.front_door']],
+  'media-player': ['media_player', ['media_player.living_room']], number: ['number', ['number.volume']],
+  person: ['person', []], select: ['select', []], update: ['update', []], vacuum: ['vacuum', []],
+};
+function customCards(states) {
+  // `states` = { entity_id: state }. Prefer the named entity, but never an
+  // inactive one while an active one exists: Mushroom's Accent colours the
+  // ACTIVE look (off/unavailable read --rgb-disabled), so on an `off` fan it
+  // would rightly show no change.
+  const ids = Object.keys(states);
+  const idle = (e) => ['off', 'unavailable', 'unknown', 'docked'].includes(states[e]);
+  const pick = (domain, prefer = []) => {
+    const pool = ids.filter((e) => e.startsWith(domain + '.'));
+    const named = prefer.filter((e) => pool.includes(e));
+    return [...named, ...pool].find((e) => !idle(e)) ?? named[0] ?? pool[0];
+  };
+  const light = pick('light', ['light.ceiling_lights']);
+  const cards = {};
+  for (const [t, [domain, prefer]] of Object.entries(MUSHROOM_CLASSIC)) {
+    const entity = pick(domain, prefer);
+    // secondary info on, so the secondary text (and its font variables) is on screen
+    cards[`custom:mushroom-${t}-card`] = { _entity: entity, entity, ...(t === 'entity' || t === 'select' ? { secondary_info: 'state' } : {}) };
+  }
+  cards['custom:mushroom-template-card'] = { _entity: light, entity: light, primary: 'Primary', secondary: 'Secondary', icon: 'mdi:home' };
+  cards['custom:mushroom-chips-card'] = { _entity: light, chips: [{ type: 'entity', entity: light }, { type: 'template', content: 'chip', icon: 'mdi:home' }] };
+  cards['custom:mushroom-title-card'] = { _entity: light, title: 'Title', subtitle: 'Subtitle' };
+  cards['custom:mushroom-empty-card'] = { _entity: light };
+  const cover = pick('cover', ['cover.kitchen_window']);
+  cards['custom:bubble-card/button'] = { _type: 'custom:bubble-card', _entity: light, card_type: 'button', entity: light, show_state: true };
+  cards['custom:bubble-card/button/slider'] = { _type: 'custom:bubble-card', _entity: light, card_type: 'button', button_type: 'slider', entity: light, show_state: true };
+  cards['custom:bubble-card/separator'] = { _type: 'custom:bubble-card', _entity: light, card_type: 'separator', name: 'Separator', icon: 'mdi:home' };
+  cards['custom:bubble-card/cover'] = { _type: 'custom:bubble-card', _entity: cover, card_type: 'cover', entity: cover, show_state: true };
+  return cards;
+}
+const AUDIT_CUSTOM = process.env.AUDIT_CUSTOM || '';
 
 const RED = '#ee1111';
 const GREEN = '#11ee11';
@@ -234,10 +292,28 @@ const run = async () => {
   };
 
   const results = [];
-  for (const [type, extra] of Object.entries(CARDS)) {
+  const readStates = () => page.evaluate(() => Object.fromEntries(Object.entries(document.querySelector('home-assistant').hass.states).map(([k, v]) => [k, v.state])));
+  let states = AUDIT_CUSTOM ? await readStates() : {};
+  // A demo rig can have every fan off / every vacuum docked: start one so the
+  // card has an active look to colour (Accent colours the active look only).
+  if (AUDIT_CUSTOM) {
+    let started = false;
+    for (const [domain, service, idleStates] of [['fan', 'turn_on', ['off']], ['vacuum', 'start', ['docked']]]) {
+      const ids = Object.keys(states).filter((k) => k.startsWith(domain + '.'));
+      if (ids.length && ids.every((k) => idleStates.includes(states[k]) || ['unavailable', 'unknown'].includes(states[k]))) {
+        await page.evaluate(([d, sv, id]) => document.querySelector('home-assistant').hass.callService(d, sv, { entity_id: id }), [domain, service, ids[0]]);
+        started = true;
+      }
+    }
+    if (started) { await page.waitForTimeout(1500); states = await readStates(); }
+  }
+  const custom = AUDIT_CUSTOM ? customCards(states) : {};
+  const sweep = AUDIT_CUSTOM === 'all' ? { ...CARDS, ...custom } : AUDIT_CUSTOM ? custom : CARDS;
+  for (const [type, spec] of Object.entries(sweep)) {
     if (ONLY.length && !ONLY.includes(type)) continue;
-    const config = { type, ...extra };
-    const entity = extra.entity || (Array.isArray(extra.entities) ? extra.entities[0] : null) || T;
+    const { _type, _entity, ...extra } = spec;
+    const config = { type: _type ?? type, ...extra };
+    const entity = _entity || extra.entity || (Array.isArray(extra.entities) ? extra.entities[0] : null) || T;
     const row = { type, shown: [], tests: [] };
     try {
       row.shown = await page.evaluate((c) => window.__audit.mount(c), config);
@@ -277,10 +353,19 @@ const run = async () => {
       row.thresholdOffers = thrOffered;
       const fontColorShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-font-module')?.allowColor !== false);
       const fontSizeShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-font-module')?.allowSize !== false);
+      const iconColorShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-icon-color-module')?.allowColor !== false);
+      const iconSizeShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-icon-color-module')?.allowSize === true);
       const initial = await page.evaluate(() => window.__audit.state());
       const cases = [
-        ...Object.entries(MODULES).map(([mod, f]) => ({ mod, label: mod.replace(/^cms-|-module$/g, ''), slice: f(initial), shown: row.shown.includes(mod) })),
+        ...Object.entries(MODULES).map(([mod, f]) => ({
+          mod, label: mod.replace(/^cms-|-module$/g, ''), slice: f(initial),
+          // Icon Color's colour control is offered only where the panel passes allowColor
+          shown: row.shown.includes(mod) && (mod !== 'cms-icon-color-module' || iconColorShown),
+        })),
         ...THRESHOLD_PROPS.map((p) => ({ mod: 'cms-threshold-module', label: `threshold:${p}`, slice: threshold(initial, p, entity), shown: row.shown.includes('cms-threshold-module') && thrOffered.includes(p) })),
+        // Icon Color's size on its own: the colour is already on at its test value,
+        // then only the size changes (offered only where the panel shows the slider).
+        { mod: 'cms-icon-color-module', label: 'icon:size', pre: { iconColor: { ...initial.iconColor, enabled: true, mode: 'plain', color: RED } }, slice: { iconColor: { ...initial.iconColor, enabled: true, mode: 'plain', color: RED, sizePx: 40 } }, shown: row.shown.includes('cms-icon-color-module') && iconSizeShown },
         // Font's colour picker on its own: Font already on at defaults, then only the colour changes.
         { mod: 'cms-font-module', label: 'font:color', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, color: RED } }, shown: row.shown.includes('cms-font-module') && fontColorShown },
         // …and its size on its own: the combined `font` case also changes the
@@ -316,7 +401,7 @@ const run = async () => {
   await browser.close();
   const dead = results.flatMap((r) => r.tests.filter((t) => t.shown && !t.visible).map((t) => `${r.type} › ${t.label}`));
   const missed = results.flatMap((r) => r.tests.filter((t) => !t.shown && t.visible).map((t) => `${r.type} › ${t.label}`));
-  const tag = `${meta.engine}-${meta.version}`;
+  const tag = `${AUDIT_CUSTOM === '1' ? 'custom-' : ''}${meta.engine}-${meta.version}`;
   writeFileSync(resolve(HERE, `module-effect-audit-${tag}.json`), JSON.stringify({ meta, results, dead, missed }, null, 2));
   const md = [`# Module effect audit — ${meta.engine} on HA ${meta.version}`, '',
     '✅ shown + works · ❌ shown but changes nothing (dead) · ⚠️ hidden but would work · `·` hidden, no effect', '',

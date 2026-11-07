@@ -13,7 +13,10 @@
  */
 
 import type { CustomCardProfile, ProfileEmitters } from '../custom-card-profiles.js';
-import { claimsFromEmitters, conflictsFromEmitters } from './helpers.js';
+import {
+  claimsFromEmitters, conflictsFromEmitters, clickTag, clickClass,
+  CLICK_FONT, CLICK_ICON, CLICK_BACKGROUND,
+} from './helpers.js';
 
 const HA_CARD = 'ha-card';
 
@@ -73,6 +76,14 @@ function classic(type: string): CustomCardProfile {
     // colour stays put under --rgb-state-* and under !important direct rules).
     configGates: [{ key: 'icon_color', hide: ['accentColor'] }],
     iconSize: true,
+    // Probed DOM: `span.primary` / `span.secondary` text, the shape + glyph;
+    // anything else falls through to the card box (Background).
+    clickToEdit: [
+      clickClass('primary', CLICK_FONT),
+      clickClass('secondary', CLICK_FONT),
+      clickTag('mushroom-shape-icon', CLICK_ICON),
+      clickTag('ha-state-icon', CLICK_ICON),
+    ],
     emitters: {
       font: {
         selector: HA_CARD,
@@ -96,6 +107,12 @@ const template = profile('custom:mushroom-template-card', {
   // Font / text colour / accent / tile text matchers: the tile's own.
   emitAs: 'tile',
   iconSize: true,
+  // The tile's own parts: info block (primary/secondary spans), tile icon.
+  clickToEdit: [
+    clickTag('ha-tile-info', CLICK_FONT),
+    clickTag('ha-tile-icon', CLICK_ICON),
+    clickTag('ha-state-icon', CLICK_ICON),
+  ],
   emitters: {
     // `ha-card { --tile-icon-size }` does nothing (even with !important): the
     // tile icon sets both on its own :host, so they ride on ha-tile-icon.
@@ -117,6 +134,13 @@ const chips = profile('custom:mushroom-chips-card', {
   fontColor: false,
   iconSize: true,
   stateAware: false,
+  // A chip's text → Font (size/weight), its glyph → Icon Color (size only
+  // here), the rest of the chip (`mushroom-chip`) → Background.
+  clickToEdit: [
+    clickTag('span', CLICK_FONT),
+    clickTag('ha-state-icon', CLICK_ICON),
+    clickTag('mushroom-chip', CLICK_BACKGROUND),
+  ],
   emitters: {
     font: {
       selector: HA_CARD,
@@ -146,6 +170,9 @@ const title = profile('custom:mushroom-title-card', {
   // title card (measured), the filter and the font are not
   modules: { iconColor: false, accentColor: false, background: false, border: false },
   stateAware: false,
+  // Only the title text: the subtitle's own variables are not written, so a
+  // subtitle click is not claimed (it falls to Advanced CSS: no box here).
+  clickToEdit: [clickClass('title', CLICK_FONT)],
   emitters: {
     // Font → the title (the subtitle's --subtitle-* twins are not touched)
     font: {
