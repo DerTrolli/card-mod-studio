@@ -18,7 +18,11 @@ CSS filter effects on the whole card:
 - **Brightness** — 0–200%
 - **Blur** — 0–20px
 - **Opacity** *(since v0.9.0)* — 10–100%, fades the whole card
-- **Transition speed** — how smoothly the filter animates on state change
+- **Transition speed** — how smoothly the filter animates on state change.
+  On tile, sensor, entity and area cards, whose own stylesheet would
+  otherwise override it, the Studio writes the transition with `!important`
+  so filter changes fade instead of snapping; a `transition` you write by
+  hand in [Advanced CSS](Advanced-CSS) still wins.
 
 Since v0.9.0, brightness/blur/opacity share a **"Reacts to"**
 condition (shown while grayscale is off — grayscale keeps its own control):

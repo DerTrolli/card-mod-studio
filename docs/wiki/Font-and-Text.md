@@ -18,7 +18,7 @@ this, it just works:
 | Card | What follows the Font module |
 |---|---|
 | entities / markdown / glance rows | Everything (plain inheritance) |
-| entities, glance, calendar, todo-list, logbook, history/statistics-graph | …plus the **card title** (at 1.5× your chosen size — the header's native ratio) |
+| entities, glance, calendar, todo-list, shopping-list, logbook, statistic, history/statistics-graph | …plus the **card title** (at 1.5× your chosen size — the header's native ratio) |
 | light | Name/state text and the brightness % |
 | button | The label |
 | sensor / entity | Name, unit, **and the big value** (value at 1.75× your size — its native ratio) |
@@ -49,12 +49,19 @@ unchanged.
 
 **Text color** is hidden (size/weight/family stay) where the card colours
 its own text and a colour set here would never show: alarm-panel,
-media-control, area, picture-entity, picture-glance, picture-elements and
-date (HA 2026.11).
+media-control, area, picture-entity, picture-glance, picture-elements,
+date and alert (the last two new in HA 2026.11).
 **Text size** is hidden where the card sizes its own text: alarm-panel,
 area, humidifier, picture-entity, picture-glance, weather-forecast and
 date (measured with the module-effect audit on HA 2026.6, 2026.10 and
 2026.11).
+
+### Mushroom and Bubble Card (new in 0.11, beta)
+
+On [Mushroom](Mushroom-Cards) cards Font styles the primary and secondary
+text (the chips card: chip text size/weight/family; the title card: the
+title). On [Bubble Card](Bubble-Card) buttons, separators and covers it styles
+the name and state text.
 
 ## The Heading Style module
 

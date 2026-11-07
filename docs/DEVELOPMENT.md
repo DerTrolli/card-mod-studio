@@ -10,8 +10,8 @@ This document explains how to set up a local development environment and test Ca
 |---|---|---|
 | Node.js | 18 | 20 LTS recommended |
 | npm | 9 | Comes with Node |
-| Home Assistant | 2024.4.0 | Any install method works |
-| card-mod **or** UIX | card-mod 4.x / [UIX](https://uix.lf.technology/) 7.x or 8.x (latest tested: 8.3.1; the 2026.11 sandbox pins UIX 9.0.0) | One of the two must be installed in HA — see [README's UIX section](../README.md#uix-support) |
+| Home Assistant | 2025.9.0 | The plugin's minimum (`hacs.json`); any install method works. The sandbox rigs pin 2026.11.0 |
+| card-mod **or** UIX | card-mod 4.x / [UIX](https://uix.lf.technology/) 7.x to 9.x (the 2026.11 sandbox pins UIX 9.0.0; 8.3.1 and 8.4.0 were the last on older HA) | One of the two must be installed in HA — see [README's UIX section](../README.md#uix-support) |
 
 ---
 
@@ -321,7 +321,10 @@ Found while re-verifying against HA 2026.9.4 and 2026.10.0b0 with card-mod
   properties of undefined (reading 'localize')" and renders nothing. Harness
   scripts call `window.__cmsMount(host)` (defined by `installMountHelper` in
   `harness/harness-utils.mjs`, which `waitForHassReady` runs for you) instead
-  of `document.body.appendChild(host)`. Gauge, alarm-panel and media-control
+  of `document.body.appendChild(host)`, and look the host up again with
+  `window.__cmsFind('#host-id cms-panel')` — a shadow-aware lookup, because
+  `document.getElementById` can't see into `<home-assistant>`'s shadow root.
+  Gauge, alarm-panel and media-control
   also lazy-load their element definitions, so `waitForHassReady` pre-loads
   them via `window.__cmsReady([...])`; call that yourself before polling for
   any other lazily-defined card.
@@ -338,8 +341,34 @@ Found while re-verifying against HA 2026.9.4 and 2026.10.0b0 with card-mod
   CFG=/tmp/ha-beta bash run.sh` or `UIX_TAG=v8.3.1 HA_IMAGE=...:2026.10.0
   CFG=/tmp/ha-old bash run-uix.sh`.
 - `harness/run_suite.sh <label> <card-mod|uix> <url> <tokens> <outdir>` runs
-  the whole live suite against one rig; `harness-utils.mjs`'s `resetTheme`
-  resets a theme left behind by an earlier probe.
+  the whole live suite against one rig (a failing check is retried once; set
+  `SUITE_ONLY="check_a check_b"` to run a subset). The list per engine includes
+  `pierce_check` (Font → Number size on the gauge and thermostat, through the
+  real editor). `harness-utils.mjs`'s `resetTheme` resets a theme left behind
+  by an earlier probe.
+- **Custom-card audit.** `module_effect_audit.mjs` audits the built-in cards by
+  default; `AUDIT_CUSTOM=1` audits the custom-card profiles instead — all 18
+  registered Mushroom types and the 4 Bubble kinds (button, button + slider,
+  separator, cover), with entities taken from `hass.states` — and writes
+  `module-effect-audit-custom-<engine>-<ha version>.json/.md`;
+  `AUDIT_CUSTOM=all` runs both in one go (same file names as the built-in
+  audit). Mushroom and Bubble must be installed on the rig (they are, unless
+  `CUSTOM_CARDS=0`). `AUDIT_CARDS=a,b` limits the sweep to those cards and
+  `AUDIT_EXTRA_CARDS='{"custom:…":{…}}'` adds cards. The audit run on the 2026.11
+  rigs (both engines) found 0 controls without effect.
+- **Icon Color is audited as two controls**: its *colour* (only where the panel
+  offers colour, `allowColor`) and its *size* (`icon:size`, only where
+  `allowSize`, tested on top of an already-applied colour). A size-only card
+  (Mushroom chips) therefore gets only the size test, the way Font's colour and
+  size are audited separately (`font:color`, `font:size`).
+- **Custom-card profiles are data.** Mushroom and Bubble knowledge lives in
+  `src/utils/profiles/mushroom.ts` and `bubble.ts` and is read through
+  `capsFor` in `src/utils/card-caps.ts` — never gate on a card type anywhere
+  else. The probe evidence for every selector and variable is in
+  `docs/research/2026-10-v0.11.md` §3.3.1; unit tests are
+  `test/mushroom-profiles.test.ts`, `test/bubble-profiles.test.ts` and
+  `test/custom-card-profiles.test.ts`. When Mushroom or Bubble ships a new
+  version, re-run `AUDIT_CUSTOM=1` on both rigs before trusting a profile.
 
 ### hui-dialog-edit-card
 

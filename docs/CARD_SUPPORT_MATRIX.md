@@ -9,7 +9,9 @@ live-verified on HA 2026.9.4 and HA 2026.10.0b0, each with card-mod 4.2.1 and
 with UIX 8.3.1 (full live-check suite + real-dialog visual QA) — see
 [COMPATIBILITY_AUDIT.md §11](COMPATIBILITY_AUDIT.md). The one HA 2026.10 change
 that affects this table's subject matter is the heading card's new markup
-(note under finding #2).
+(note under finding #2). **Later changes** (v0.10.2 → v0.11.0-beta.2: Font size
+gating, the date and alert cards, Mushroom and Bubble Card) are summarised in
+[Changes since v0.10.0](#changes-since-v0100-v0102--v0110-beta2) below.
 **Method:** real cards rendered in a real HA instance, each `card_mod` setting
 applied by real card-mod, verdict = did the target element's **computed style**
 actually change vs baseline. Reproduce with [`tools/sandbox`](../tools/sandbox/README.md).
@@ -93,6 +95,57 @@ colour picker hidden where a card colours its own text
 Font hidden on `picture`, Threshold's options following the matching
 module (`thresholdPropertyAllowed`), `entity-filter` treated as a container,
 and Threshold Text Color gained the tile/title colour companions.
+
+## Changes since v0.10.0 (v0.10.2 → v0.11.0-beta.2)
+
+The tables above and below were measured for v0.10.0 (HA 2026.9.4 / 2026.10.0b0,
+card-mod 4.2.1, UIX 8.3.1). Where later releases changed a gate, the **current**
+answer is the code in `src/utils/card-caps.ts` (`capsFor` and the sets next to
+it), summarised here. Verified on HA 2026.11.0 with card-mod 4.2.1 and UIX 9.0.0
+unless noted.
+
+| Card / control | Now | Since | Evidence |
+|---|---|---|---|
+| **Font → text size** on alarm-panel, area, humidifier, picture-entity, picture-glance, weather-forecast | hidden (`NO_FONT_SIZE_TYPES`); weight, family and, where allowed, colour stay | v0.10.2 (also listed under 0.11.0-beta.1) | module-effect audit `font:size` slice on HA 2026.6 and 2026.10.4 |
+| **date** (new in HA 2026.11) | Icon Color, Accent Color, Font size, Font text colour hidden, and Threshold's icon / accent / text targets with them; Background, Border, Filters, Animation and Font weight/family stay | v0.10.2 | module-effect audit, UIX 9 |
+| **alert** (HA 2026.11) | Accent Color, Font text colour and Threshold's accent / text targets hidden | v0.11.0-beta.2 | module-effect audit, HA 2026.11.0 + UIX 9.0.0 |
+| **picture-glance** | no longer a header-title card: Font's header size/colour did nothing there | v0.10.2 | module-effect audit |
+| **Filters → transition** | written with `!important` on tile, sensor, entity and area (`TRANSITION_IMPORTANT_TYPES`) | v0.10.2 | HA 2026.10 cards override a plain `transition` |
+| **Accent on calendar / history-graph** | also writes `--primary-color` (calendar) / `--graph-color-1` (history-graph), which HA 2026.10 reads; the old variable stays for older HA | v0.10.2 | live check on HA 2026.10.4 |
+| **gauge → Font → Number size** | 50–150 % (reaches 150 % since beta.2); **thermostat → Temperature size** 24–96px; both written as Studio-owned shadow-piercing entries | beta.1 / beta.2 | `pierce_check.mjs` |
+
+The matrix at the top of this file is a dated measurement (v0.10.0): it has no
+`date` or `alert` rows. A re-run of the full audit on the 2026.11 rig is in
+`tools/sandbox/harness/module-effect-audit-{card-mod,uix}-2026.11.0.md`.
+
+### Custom cards (v0.11.0-beta.2, beta)
+
+Per-card profiles in `src/utils/profiles/mushroom.ts` and `bubble.ts`, answered
+through the same `capsFor` lookup. Measured on **Mushroom 5.2.3** and
+**Bubble Card 3.4.3** (HA 2026.11.0, card-mod 4.2.1 and UIX 9.0.0, identical);
+evidence in `docs/research/2026-10-v0.11.md` §3.3.1 and
+`tools/sandbox/harness/module-effect-audit-custom-*-2026.11.0.md` (0 dead
+controls, 0 hidden-but-working). ✅ shown · `·` hidden. Filters are shown on
+all of them except Mushroom's empty card.
+
+| card (profile key) | font | icon color | accent | threshold | background | border | animation | notes |
+|---|---|---|---|---|---|---|---|---|
+| Mushroom classic ×14 (`custom:mushroom-<type>-card`: alarm-control-panel, climate, cover, entity, fan, humidifier, light, lock, media-player, number, person, select, update, vacuum) | ✅ primary + secondary text | ✅ colour + size | ✅ — hidden when the card config sets `icon_color` | ✅ (Accent target follows Accent) | ✅ | ✅ | ✅ | Accent writes `--rgb-state-*` triples; off/idle/unknown left alone |
+| `custom:mushroom-template-card` | ✅ (as tile) | ✅ colour + size | ✅ (as tile) | ✅ | ✅ | ✅ | ✅ | styled like a tile (`emitAs: 'tile'`); icon size rides on `ha-tile-icon` |
+| `custom:mushroom-chips-card` | ✅ size/weight/family, no text colour | size only | · | background / border targets only | ✅ chip background | ✅ chip border | ✅ | chip icons can't take a colour |
+| `custom:mushroom-title-card` | ✅ title only, with colour | · | · | text colour only | · | · | ✅ | no painted box, no icon |
+| `custom:mushroom-empty-card` | · | · | · | · | · | · | · | renders no `ha-card`; every module hidden |
+| `custom:bubble-card/button` | ✅ name + state | ✅ colour + size | · | · | ✅ `.bubble-button-background` (+ opacity 1) | ✅ on the same box | ✅ | `ha-card` is transparent |
+| `custom:bubble-card/button/slider` (`button_type: slider`) | ✅ | ✅ | ✅ slider fill only | · | ✅ | ✅ | ✅ | click on the fill opens Background (known limit) |
+| `custom:bubble-card/separator` | ✅ name only | ✅ | · | · | ✅ `.bubble-separator` | ✅ | ✅ | no entity; radius written with `!important` |
+| `custom:bubble-card/cover` | ✅ | ✅ | · | · | ✅ `.bubble-background` | ✅ | ✅ | buttons only, no slider |
+| any other Bubble `card_type`, or no `card_type`; any other custom card | all modules | | | | | | | no profile: today's default (a notice is planned for v0.11.0) |
+
+Precedence against a Bubble card's own `styles:` (probe B3, both engines): at
+equal specificity the Studio's rule wins (card-mod's `<style>` comes later);
+a user `!important` beats a plain Studio rule; a more specific user selector
+with `!important` beats the Studio's `!important`; a plain user rule loses to
+the Studio's `!important`. The `styles:` key itself is never written.
 
 > **UIX note (v0.6.0):** this matrix was measured against card-mod, but the CSS
 > the Studio generates is identical either way — UIX applies the same

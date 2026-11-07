@@ -3,7 +3,7 @@ Welcome to the **Card-Mod Studio** wiki — the detailed manual. The
 project is and how to install it; these pages cover how everything works,
 module by module, plus recipes, troubleshooting, and exact per-card support.
 
-**Current version:** v0.10.0
+**Current version:** v0.11.0-beta.2 (pre-release; the stable release is v0.10.2). These pages describe v0.11 and are published to the wiki when 0.11 is released.
 
 ## What is Card-Mod Studio?
 
@@ -39,6 +39,7 @@ through HA's normal save flow.
 - [Tile](Tile-Card) · [Gauge](Gauge-Card) · [Thermostat & Humidifier](Thermostat-and-Humidifier-Cards) · [Light](Light-Card) · [Button](Button-Card)
 - [Sensor & Entity](Sensor-and-Entity-Cards) · [Entities](Entities-Card) · [Glance](Glance-Card) · [Heading](Heading-Card) · [Markdown](Markdown-Card)
 - [Graphs & Data](Graph-and-Data-Cards) · [Picture](Picture-Cards) · [Media & Alarm](Media-and-Alarm-Cards) · [Containers](Container-Cards) · [iframe/map](Minimal-Support-Cards)
+- Custom cards, **new in 0.11 (beta)**: [Mushroom](Mushroom-Cards) (all 18 card types) · [Bubble Card](Bubble-Card) (button, slider button, separator, cover)
 
 **Reference**
 - [card-mod vs UIX](card-mod-vs-UIX) — engines, keys, migration

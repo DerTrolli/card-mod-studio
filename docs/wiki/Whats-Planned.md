@@ -22,7 +22,7 @@ The click-to-edit preview picker, more animation presets, value-conditional
 animations, and "Reacts to" conditions beyond color (border width, filter
 effects, icon size).
 
-## v0.10 ✅ (current) — piercing + polish
+## v0.10 ✅ — piercing + polish
 
 - **Dictionary-form (`$` shadow-piercing) styles are editable.** The `.` entry
   runs through the normal controls; every other entry is preserved
@@ -35,16 +35,18 @@ effects, icon size).
 - A 20-bug audit of how hand-written CSS survives an edit, a light/dark/phone
   overhaul of the editor, and keyboard access to every collapsible section.
 
-## v0.11 "Reach" — in progress
+## v0.11 "Reach" — in progress (current: v0.11.0-beta.2)
 
 - ✅ **Gauge value number and thermostat big number size** (Font → Number
-  size / Temperature size) — in the first v0.11 beta. See the
+  size / Temperature size) — in the first v0.11 beta; the gauge number reaches
+  150 % since beta.2. See the
   [Gauge](Gauge-Card) and [Thermostat](Thermostat-and-Humidifier-Cards)
   pages.
 - ✅ **Mushroom and Bubble Card support** (beta, v0.11.0-beta.2) — controls
-  that reach Mushroom (5.2.3) cards and Bubble's button, separator and cover;
-  see [Card Support](Card-Support). Still to come in v0.11.0: dedicated
-  Mushroom and Bubble wiki pages and a notice on unknown custom cards.
+  that reach all 18 Mushroom (5.2.3) card types and Bubble's button, slider
+  button, separator and cover; see the [Mushroom](Mushroom-Cards) and
+  [Bubble Card](Bubble-Card) guides and [Card Support](Card-Support). Still to
+  come in v0.11.0: a notice on unknown custom cards.
 - Glance icon color stays out: even shadow-piercing styles don't reach it
   ([why](Glance-Card#why-no-icon-color)).
 

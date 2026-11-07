@@ -35,6 +35,12 @@ When the Studio opens a card:
   are editable and preserved — see
   [below](#dictionary-form-styles-shadow-piercing).
 
+On **custom cards** (Mushroom, Bubble Card — see their
+[Mushroom](Mushroom-Cards) and [Bubble Card](Bubble-Card) guides) your
+hand-written rules, including ones with `!important`, stay here and are
+written back unchanged; on a Bubble card the card's own `styles:` option is
+never touched either.
+
 If a card opens with the note *"Some existing styles weren't recognised —
 preserved in Advanced CSS"*, that's this mechanism, working.
 

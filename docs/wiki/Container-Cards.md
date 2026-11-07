@@ -6,6 +6,8 @@
 Containers paint **no card box of their own**, so the panel shows **one
 styling section per child card** instead of dead container-level controls —
 the full story is on **[Styling Cards Inside Stacks](Styling-Cards-Inside-Stacks)**.
+Children can be built-in cards or custom cards the Studio knows
+([Mushroom](Mushroom-Cards), [Bubble Card](Bubble-Card)).
 
 At the container level itself, only [Advanced CSS](Advanced-CSS) is offered
 (for the rare layout tweak like `gap` between children).

@@ -13,7 +13,11 @@ into individual rows (each row is its own shadow-DOM element).
 - **Font (this row)** — a text size + weight override, layered on top of the
   card-level [Font module](Font-and-Text)
 
-A dot on the row header marks rows that carry styling.
+A dot on the row header marks rows that carry styling. Each row is labelled
+the way HA labels it: on HA 2026.11 and newer that is HA's own text for the
+row (it follows HA 2026.11's naming of device and entity); on older HA it
+falls back to the row's `name:`, then the entity's friendly name, then the
+entity id.
 
 ## Row forms — both work
 

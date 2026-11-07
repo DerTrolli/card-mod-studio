@@ -80,12 +80,46 @@ visually, consolidate it to one key (or make `.` a plain CSS string) in the
 YAML editor. Plain dictionary-form styles are *not* frozen — see
 [Advanced CSS](Advanced-CSS#dictionary-form-styles-shadow-piercing).
 
+## The Font module has no text-size slider on my card
+
+On cards that size their own text — alarm panel, area, humidifier,
+picture-entity, picture-glance, weather and the date card (HA 2026.11) — the
+slider changed nothing when it was measured, so it's hidden. Weight, family
+and (where the card doesn't colour its own text) colour stay. See
+[Font & Text](Font-and-Text#not-offered-on).
+
 ## Font size does nothing on my gauge / thermostat number
 
-That's a known limit for now — see
-[Card Support § Known limitations](Card-Support#known-limitations-v0100).
-Weight and color work on both; size doesn't yet. Size controls for both are
-planned for v0.11 ([What's Planned](Whats-Planned)).
+Use the dedicated control instead: with the Font module on, **Number size** (gauge,
+50–150 %) and **Temperature size** (thermostat, 24–96px) size those two numbers
+(v0.11). A plain text-size would be ignored there. If the row shows as locked,
+your card already has hand-written CSS for that number — it's preserved, and
+the control stays out of its way. See [Font & Text](Font-and-Text#number-size--gauge-value-and-thermostat-temperature-v011).
+A gauge that stops growing at about 118–125 % is a v0.11.0-beta.1 behaviour;
+update to beta.2 or newer.
+
+## There's no Accent Color on my Mushroom card
+
+Mushroom ignores the accent variables while the card sets its own `icon_color`,
+so the Studio hides Accent (and Threshold's Accent target) there. Remove
+`icon_color` from the YAML to get it back. If Accent is shown but a colour
+isn't written, it can't be converted to the red/green/blue form Mushroom
+needs — the module tells you; pick a hex, `rgb()`, `hsl()`, named or palette
+colour. See [Mushroom](Mushroom-Cards).
+
+## My Bubble Card shows every control, and some do nothing
+
+Only the button (including slider buttons), separator and cover kinds are
+supported so far; any other Bubble `card_type` (or none) still shows every
+module. Use [Advanced CSS](Advanced-CSS) for those. See [Bubble Card](Bubble-Card).
+
+## A Bubble Card setting isn't winning over my own `styles:`
+
+Between the Studio and the card's own Bubble `styles:`, equal-specificity rules
+go to the Studio, but your own `!important` beats a plain Studio rule, and a more
+specific selector of yours with `!important` beats the Studio's `!important`. Add `!important` to
+your value, or turn the Studio control off. See
+[Bubble Card](Bubble-Card#your-own-bubble-styles-and-the-studio).
 
 ## Accent color on a needle gauge
 

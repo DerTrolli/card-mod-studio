@@ -4,14 +4,14 @@
   - **Fully tested** on 2026.9.4 and 2026.10.0b0, with card-mod 4.2.1 and
     with UIX 8.3.1 (every control, every card type, light/dark, phone to
     desktop).
-  - **Tested** on 2026.11.0 (v0.10.2) with card-mod 4.2.1 and with UIX 9.0.0.
+  - **Tested** on 2026.11.0 (v0.10.2, and v0.11.0-beta.2 including Mushroom 5.2.3 and Bubble Card 3.4.3) with card-mod 4.2.1 and with UIX 9.0.0.
   - **Partially tested** (quick checks) on 2026.6.4 and 2026.2.3 with
     card-mod 4.2.1 — all controls pass — and on 2025.9.4 with card-mod
     3.4.5, where everything works except that Font doesn't change a *tile*
     card's name/state text.
   - Older than 2025.9 isn't supported: HA's older card editor has no spot
-    for the Style button (checked on 2025.3), and HACS won't offer the
-    plugin there.
+    for the Style button (checked on 2025.3), and the plugin declares 2025.9.0
+    as its minimum Home Assistant version.
 - On HA 2026.11 and newer, the **Marketplace** (HACS is folded into core
   there); on older HA, HACS
 - **card-mod** or **UIX** installed and working — Card-Mod Studio *generates*
@@ -61,7 +61,7 @@ to opt in. Betas are testing builds — the changelog marks them clearly.
    [latest release](https://github.com/DerTrolli/card-mod-studio/releases/latest)
 2. Copy it to `config/www/card-mod-studio.js`
 3. **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.10.2`
+   - URL: `/local/card-mod-studio.js?v=0.11.0-beta.2`
    - Type: *JavaScript Module*
 4. Hard-refresh the browser (Ctrl+Shift+R)
 
