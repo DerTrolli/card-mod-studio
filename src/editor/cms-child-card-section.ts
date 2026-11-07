@@ -351,6 +351,7 @@ export class CmsChildCardSection extends LitElement {
               .stateAware=${stateAware}
               .cardEntity=${entity}
               .cardType=${cardType}
+              .tripletAccent=${caps.accentTriplet}
               .hass=${this.hass}
               @state-changed=${(e: CustomEvent<AccentColorModuleState>) =>
                 this._emitChanged({ accentColor: e.detail })}
@@ -382,6 +383,7 @@ export class CmsChildCardSection extends LitElement {
               .cardEntity=${entity}
               .cardType=${cardType}
               .cardConfig=${c}
+              .tripletAccent=${caps.accentTriplet}
               .hass=${this.hass}
               @state-changed=${(e: CustomEvent<ThresholdModuleState>) =>
                 this._emitChanged({ threshold: e.detail })}

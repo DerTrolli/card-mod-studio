@@ -579,6 +579,7 @@ export class CmsPanel extends LitElement {
           ...(presetHasAdvanced || !currentAdvanced ? {} : { advanced: currentAdvanced }),
         },
         this._profileKey,
+        this.config as unknown as Record<string, unknown>,
       ),
       ...(currentDictSource ? { dictSource: currentDictSource } : {}),
     };
@@ -1017,6 +1018,7 @@ export class CmsPanel extends LitElement {
         ${this._pickerActive
           ? html`<cms-preview-picker
               .cardType=${this._profileKey}
+              .cardConfig=${this.config as unknown as Record<string, unknown>}
               .rows=${this._rowEntityIds()}
               @cms-pick=${this._onPreviewPick}
             ></cms-preview-picker>`
@@ -1263,6 +1265,7 @@ export class CmsPanel extends LitElement {
             .stateAware=${stateAware}
             .cardEntity=${this.config?.entity ?? ''}
             .cardType=${this._profileKey}
+            .tripletAccent=${this._caps.accentTriplet}
             .hass=${this.hass}
             @state-changed=${this._onAccentColorChanged}
           ></cms-accent-color-module>`
@@ -1292,6 +1295,7 @@ export class CmsPanel extends LitElement {
               .cardEntity=${this.config?.entity ?? ''}
               .cardType=${this._profileKey}
               .cardConfig=${this.config}
+              .tripletAccent=${this._caps.accentTriplet}
               .hass=${this.hass}
               @state-changed=${this._onThresholdChanged}
             ></cms-threshold-module>`

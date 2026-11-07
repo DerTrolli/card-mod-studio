@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { AccentColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ACCENT_COLOR } from '../parser/state-mapper.js';
+import { accentColorsWithoutTriplet, tripletHint } from '../utils/rgb-triplet.js';
 import { moduleStyles, renderOverrideBadge, renderOverrideHint, renderThresholdOwnedHint, onHeaderKeydown } from './module-base.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
@@ -27,6 +28,8 @@ export class AccentColorModule extends LitElement {
   @property({ attribute: false }) overriddenDetail = '';
   /** Threshold Colors is currently writing this module's property. */
   @property({ attribute: false }) thresholdOwned = false;
+  /** The card writes Accent as `R, G, B` (Mushroom) — unconvertible colours get a hint. */
+  @property({ type: Boolean, attribute: 'triplet-accent' }) tripletAccent = false;
 
   @state() private _open = false;
 
@@ -111,6 +114,9 @@ export class AccentColorModule extends LitElement {
             ? 'One color, shown all the time.'
             : 'One color while the controlling entity is on, another while off.'}
         </div>
+        ${this.tripletAccent && accentColorsWithoutTriplet(this.state).length
+          ? html`<div class="when-hint warn">${tripletHint(accentColorsWithoutTriplet(this.state))}</div>`
+          : nothing}
         ${this.cardType === 'gauge'
           ? html`<div class="when-hint">
               Colors the gauge dial — or, with <code>needle: true</code>, the needle and

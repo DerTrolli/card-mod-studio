@@ -62,9 +62,12 @@ function freshThreshold(): ThresholdModuleState {
 export function filterPresetStateForCardType(
   state: StudioState,
   cardType: string | undefined,
+  /** The target card's config — a profile's config gates (Mushroom's Accent
+   *  while `icon_color` is set) hide modules here too. */
+  config?: Record<string, unknown> | null,
 ): StudioState {
   const type = cardType ?? '';
-  const caps = capsFor(type);
+  const caps = capsFor(type, config);
   const mods = caps.modules;
 
   const next: StudioState = { ...state };

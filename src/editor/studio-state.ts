@@ -171,6 +171,7 @@ export function applyStudioState(
   const profileKey = profileKeyOf(config);
   const css = generateCss(state, profileKey, {
     gaugeNeedle: (config as { needle?: boolean }).needle === true,
+    config: config as unknown as Record<string, unknown>,
   });
   return applyCardModStyle(css, config, pickOutputKey(hass), state.dictSource, generateOwnedEntries(state, profileKey));
 }

@@ -8,6 +8,7 @@
  * change to the data fails a test rather than silently moving a variable.
  */
 import { describe, it, expect, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { generateCss } from '../src/generator/css-generator.js';
 import { mapToStudioState, DEFAULT_THRESHOLD } from '../src/parser/state-mapper.js';
 import { parseStyleValue } from '../src/parser/yaml-parser.js';
@@ -23,7 +24,13 @@ import { MUSHROOM_CLASSIC_TYPES } from '../src/utils/profiles/mushroom.js';
 import { findAdvancedCssConflicts } from '../src/utils/style-conflicts.js';
 import { filterPresetStateForCardType } from '../src/utils/preset-caps.js';
 import { mapElementToTarget } from '../src/utils/preview-map.js';
-import { toRgbTriplet, fromRgbTriplet } from '../src/utils/rgb-triplet.js';
+import {
+  toRgbTriplet,
+  fromRgbTriplet,
+  accentColorsWithoutTriplet,
+  thresholdColorsWithoutTriplet,
+  tripletHint,
+} from '../src/utils/rgb-triplet.js';
 import { buildMergedStudioState, applyStudioState } from '../src/editor/studio-state.js';
 import type { StudioState, ThresholdModuleState, CardModCardConfig } from '../src/types/index.js';
 
@@ -155,17 +162,99 @@ describe('M-classic — the 14 state cards', () => {
     expect(back.accentColor).toMatchObject({ mode: 'conditional', colorOn: '#ee1111', colorOff: '#222222', entityId: 'light.kitchen' });
   });
 
-  it('a colour with no exact R, G, B form writes nothing (and says so in the converter)', () => {
-    expect(toRgbTriplet('red')).toBeNull();
-    expect(toRgbTriplet('var(--error-color)')).toBeNull();
-    expect(toRgbTriplet('rgba(1, 2, 3, 0.5)')).toBeNull();
+  it('converts hex, rgb/rgba, hsl/hsla, named colours, HA palette vars and theme twins; alpha is dropped', () => {
     expect(toRgbTriplet('#abc')).toBe('170, 187, 204');
+    expect(toRgbTriplet('#11223344')).toBe('17, 34, 51');
     expect(toRgbTriplet('rgb(1, 2, 3)')).toBe('1, 2, 3');
+    expect(toRgbTriplet('rgba(1, 2, 3, 0.5)')).toBe('1, 2, 3');
+    expect(toRgbTriplet('rgb(10% 20% 30% / 50%)')).toBe('26, 51, 77');
+    expect(toRgbTriplet('hsl(0, 100%, 50%)')).toBe('255, 0, 0');
+    expect(toRgbTriplet('hsla(120, 100%, 25%, 0.4)')).toBe('0, 128, 0');
+    expect(toRgbTriplet('red')).toBe('255, 0, 0');
+    expect(toRgbTriplet('RebeccaPurple')).toBe('102, 51, 153');
+    expect(toRgbTriplet('var(--red-color)')).toBe('244, 67, 54');
     expect(toRgbTriplet('var(--primary-color)')).toBe('var(--rgb-primary-color)');
+    expect(toRgbTriplet('var(--error-color)')).toBe('var(--rgb-error-color)');
     expect(fromRgbTriplet('var(--rgb-primary-color)')).toBe('var(--primary-color)');
     expect(fromRgbTriplet('300, 0, 0')).toBeNull();
-    const css = generateCss(withState({ accentColor: { ...EMPTY.accentColor, enabled: true, mode: 'plain', color: 'red' } }), key('light'));
-    expect(css).toBe('');
+    // only a truly arbitrary reference has no form
+    expect(toRgbTriplet('var(--my-var)')).toBeNull();
+    expect(toRgbTriplet('notacolour')).toBeNull();
+    expect(toRgbTriplet('hsl(0, 100, 50)')).toBeNull();
+  });
+
+  it('every HA palette swatch of the colour picker converts (table matches HA_COLOR_PRESETS)', () => {
+    const src = readFileSync(new URL('../src/components/cms-color-picker.ts', import.meta.url), 'utf8');
+    const presets = [...src.matchAll(/variable: '(var\(--[\w-]+\))', hex: '(#[0-9A-Fa-f]{6})'/g)];
+    expect(presets).toHaveLength(10);
+    for (const [, variable, hex] of presets) {
+      expect(toRgbTriplet(variable), variable).toBe(toRgbTriplet(hex));
+      expect(generateCss(withState({ accentColor: { ...EMPTY.accentColor, enabled: true, mode: 'plain', color: variable } }), key('light'))).toContain(
+        `--rgb-state-light: ${toRgbTriplet(hex)};`,
+      );
+    }
+    // var(--red-color) → the preset's hex triplet, and it reads back as that hex
+    const css = generateCss(withState({ accentColor: { ...EMPTY.accentColor, enabled: true, mode: 'plain', color: 'var(--red-color)' } }), key('light'));
+    expect(css).toBe('ha-card {\n  --rgb-state-light: 244, 67, 54;\n}');
+    expect(parse(css, key('light')).accentColor.color).toBe('#f44336');
+  });
+
+  it('an arbitrary var() writes nothing, and the modules can say so', () => {
+    const acc = { ...EMPTY.accentColor, enabled: true, mode: 'plain' as const, color: 'var(--my-var)' };
+    expect(generateCss(withState({ accentColor: acc }), key('light'))).toBe('');
+    expect(accentColorsWithoutTriplet(acc)).toEqual(['var(--my-var)']);
+    expect(accentColorsWithoutTriplet({ ...acc, color: 'red' })).toEqual([]);
+    expect(accentColorsWithoutTriplet({ ...acc, mode: 'conditional', colorOn: '#fff', colorOff: 'var(--x)' })).toEqual(['var(--x)']);
+    const thr = { ...switchThreshold(['accent-color']), rules: [{ id: '0', operator: '>' as const, value: 1, color: 'var(--my-var)' }] };
+    expect(thresholdColorsWithoutTriplet(thr)).toEqual(['var(--my-var)']);
+    expect(thresholdColorsWithoutTriplet({ ...thr, properties: ['background'] })).toEqual([]);
+    expect(tripletHint(['var(--my-var)'])).toContain('var(--my-var)');
+    expect(capsFor(key('light')).accentTriplet).toBe(true);
+    expect(capsFor('tile').accentTriplet).toBe(false);
+    expect(capsFor(key('chips')).accentTriplet).toBe(false);
+  });
+
+  it('a Threshold accent rule with one bad colour keeps the others, and never silences the Accent module', () => {
+    const thr: ThresholdModuleState = {
+      ...switchThreshold(['accent-color']),
+      rules: [
+        { id: '0', operator: '>', value: 30, color: '#ee1111' },
+        { id: '1', operator: '>', value: 25, color: 'var(--my-var)' },
+        { id: '2', operator: '>', value: 20, color: '#ffaa00' },
+      ],
+    };
+    const css = generateCss(withState({ threshold: thr }), key('light'));
+    expect(css).toContain(`'238, 17, 17' if states('sensor.temp') | float(0) > 30`);
+    expect(css).toContain(`'255, 170, 0' if states('sensor.temp') | float(0) > 20`);
+    expect(css).not.toContain('> 25');
+
+    // nothing convertible: no accent block, and the module's own accent is written
+    const none: ThresholdModuleState = { ...thr, rules: [{ id: '0', operator: '>', value: 1, color: 'var(--my-var)' }] };
+    const both = generateCss(withState({ threshold: none, accentColor: { ...EMPTY.accentColor, ...ACCENT } }), key('light'));
+    expect(both).toBe('ha-card {\n  --rgb-state-light: 238, 17, 17;\n}');
+    // a bad default behaves the same
+    const badDefault = generateCss(
+      withState({ threshold: { ...thr, defaultColor: 'var(--my-var)' }, accentColor: { ...EMPTY.accentColor, ...ACCENT } }),
+      key('light'),
+    );
+    expect(badDefault).toBe('ha-card {\n  --rgb-state-light: 238, 17, 17;\n}');
+  });
+
+  it('the surviving rules of a partly convertible threshold read back with the full rule set (icon + accent)', () => {
+    const thr: ThresholdModuleState = {
+      ...switchThreshold(['icon-color', 'accent-color']),
+      rules: [
+        { id: '0', operator: '>', value: 30, color: '#ee1111' },
+        { id: '1', operator: '>', value: 25, color: 'var(--my-var)' },
+        { id: '2', operator: '>', value: 20, color: '#ffaa00' },
+      ],
+    };
+    const css = generateCss(withState({ threshold: thr }), key('light'));
+    const back = parse(css, key('light'));
+    expect(back.advanced.rawCss).toBe('');
+    expect(back.threshold.properties.slice().sort()).toEqual(['accent-color', 'icon-color']);
+    expect(back.threshold.rules.map((r) => r.value)).toEqual([30, 25, 20]);
+    expect(generateCss(back, key('light'))).toBe(css);
   });
 
   it('Threshold: text colour → --card-primary/secondary-color, accent → the type variables (triplets), both round-trip', () => {
@@ -587,5 +676,118 @@ describe('optional profile flags (G3)', () => {
     registerCustomCardProfile({ key: K, configGates: [{ key: 'hide_me', hide: ['font', 'border'] }] });
     expect(capsFor(K, {}).modules.font).toBe(true);
     expect(capsFor(K, { hide_me: true }).modules).toMatchObject({ font: false, border: false, background: true });
+  });
+});
+
+describe('F4 — the literal Accent variable table, all 14 classic types', () => {
+  // Spelled out here on purpose (measured on Mushroom 5.2.3 / HA 2026.11.0),
+  // NOT imported from the data module.
+  const TABLE: Record<string, string[]> = {
+    'alarm-control-panel': ['--rgb-state-alarm-disarmed', '--rgb-state-alarm-armed', '--rgb-state-alarm-triggered'],
+    climate: [
+      '--rgb-state-climate-auto', '--rgb-state-climate-cool', '--rgb-state-climate-dry',
+      '--rgb-state-climate-fan-only', '--rgb-state-climate-heat', '--rgb-state-climate-heat-cool',
+      '--rgb-state-climate-idle',
+    ],
+    cover: ['--rgb-state-cover-open', '--rgb-state-cover-closed'],
+    entity: ['--rgb-state-entity'],
+    fan: ['--rgb-state-fan'],
+    humidifier: ['--rgb-state-humidifier'],
+    light: ['--rgb-state-light'],
+    lock: ['--rgb-state-lock-locked', '--rgb-state-lock-unlocked', '--rgb-state-lock-pending'],
+    'media-player': ['--rgb-state-media-player'],
+    number: ['--rgb-state-number'],
+    person: ['--rgb-state-person-home', '--rgb-state-person-not-home', '--rgb-state-person-zone', '--rgb-state-person-unknown'],
+    select: ['--rgb-state-entity'],
+    update: ['--rgb-state-update-on', '--rgb-state-update-off', '--rgb-state-update-installing'],
+    vacuum: ['--rgb-state-vacuum'],
+  };
+
+  it('covers exactly the 14 classic types', () => {
+    expect(Object.keys(TABLE).sort()).toEqual([...MUSHROOM_CLASSIC_TYPES].sort());
+    expect(Object.keys(TABLE)).toHaveLength(14);
+  });
+
+  for (const [type, vars] of Object.entries(TABLE)) {
+    it(`${type}: emitter vars, claims and generated CSS are exactly the table`, () => {
+      const p = getCustomCardProfile(key(type))!;
+      expect(p.emitters?.accent?.vars).toEqual(vars);
+      expect(p.claims?.find((c) => c.role === 'accent')?.props).toEqual(vars);
+      const css = generateCss(withState({ accentColor: { ...EMPTY.accentColor, ...ACCENT } }), key(type));
+      expect(css).toBe(['ha-card {', ...vars.map((v) => `  ${v}: 238, 17, 17;`), '}'].join('\n'));
+    });
+  }
+});
+
+describe('F2 — the icon_color gate reaches the generator, the preset filter and click-to-edit', () => {
+  const gated = { type: key('light'), entity: 'light.x', icon_color: 'blue' } as Record<string, unknown>;
+
+  it('the generator writes no accent variables (Accent or Threshold) while the gate applies', () => {
+    const state = withState({
+      accentColor: { ...EMPTY.accentColor, ...ACCENT },
+      threshold: switchThreshold(['accent-color', 'text-color']),
+      font: { ...EMPTY.font, ...FONT },
+    });
+    expect(generateCss(state, key('light'))).toContain('--rgb-state-light');
+    const css = generateCss(state, key('light'), { config: gated });
+    expect(css).not.toContain('--rgb-state');
+    expect(css).toContain('--card-primary-color: {{ '); // the rest still writes
+    expect(css).toContain('--card-primary-font-size: 22px;');
+    // a stack child's config takes the same path (applyStudioState passes it)
+    const original = globalThis.customElements;
+    const reg = new Map<string, unknown>([['card-mod', class {}]]);
+    (globalThis as { customElements: unknown }).customElements = { get: (n: string) => reg.get(n), define: () => {} };
+    try {
+      const out = applyStudioState(state, gated as unknown as CardModCardConfig);
+      expect(JSON.stringify(out)).not.toContain('--rgb-state');
+      expect(JSON.stringify(out)).toContain('--card-primary-font-size');
+    } finally {
+      (globalThis as { customElements: unknown }).customElements = original;
+    }
+  });
+
+  it('filterPresetStateForCardType drops Accent for a gated card', () => {
+    const on = { ...EMPTY, accentColor: { ...EMPTY.accentColor, ...ACCENT }, threshold: switchThreshold(['accent-color', 'text-color']) };
+    expect(filterPresetStateForCardType(on, key('light')).accentColor.enabled).toBe(true);
+    const f = filterPresetStateForCardType(on, key('light'), gated);
+    expect(f.accentColor.enabled).toBe(false);
+    expect(f.threshold.properties).toEqual(['text-color']);
+  });
+
+  it('click-to-edit does not send an accent-ish click to a hidden Accent module', () => {
+    const chain = [{ tag: 'ha-gauge', classes: [] }, { tag: 'ha-card', classes: [] }];
+    expect(mapElementToTarget(chain, key('light'))?.module).toBe('cms-accent-color-module');
+    expect(mapElementToTarget(chain, key('light'), gated)?.module).not.toBe('cms-accent-color-module');
+  });
+});
+
+describe('F3 — a custom profile adopts nothing into a module its panel hides', () => {
+  it('title card: background/border/filter-less hand CSS stays in Advanced CSS', () => {
+    const back = parse('ha-card { background: red; border-radius: 4px; border: 2px solid red; }', key('title'));
+    expect(back.background.enabled).toBe(false);
+    expect(back.border.enabled).toBe(false);
+    expect(back.advanced.rawCss).toContain('background: red;');
+    expect(back.advanced.rawCss).toContain('border-radius: 4px;');
+    expect(back.advanced.rawCss).toContain('border: 2px solid red;');
+  });
+
+  it('empty card: nothing is adopted anywhere (filter, font, animation, icon, threshold)', () => {
+    const css = 'ha-card { filter: grayscale(100%); font-size: 20px; animation: cms-pulse 2s ease-in-out infinite; }\nha-state-icon { color: red !important; }';
+    const back = parse(css, key('empty'));
+    expect([back.filter, back.font, back.animation, back.iconColor].some((m) => m.enabled)).toBe(false);
+    expect(back.advanced.rawCss).toContain('filter: grayscale(100%);');
+    expect(back.advanced.rawCss).toContain('color: red !important;');
+  });
+
+  it('a threshold property the profile does not offer is not adopted (title: background)', () => {
+    const css = generateCss(withState({ threshold: switchThreshold(['background']) }), 'tile');
+    const back = parse(css, key('title'));
+    expect(back.threshold.enabled).toBe(false);
+    expect(back.advanced.rawCss).toContain('background: {{ ');
+  });
+
+  it('built-in cards still adopt as before (tile: hand-written ha-card background)', () => {
+    expect(parse('ha-card { background: red; }', 'tile').background.enabled).toBe(true);
+    expect(parse('ha-card { background: red; }', key('light')).background.enabled).toBe(true);
   });
 });

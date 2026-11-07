@@ -46,6 +46,8 @@ const HL_OUTSET = 3;
 export class CmsPreviewPicker extends LitElement {
   /** The preview card's `type:` — drives the module mapping. */
   @property({ attribute: false }) cardType = '';
+  /** The card's own config (profile config gates, e.g. Mushroom `icon_color`). */
+  @property({ attribute: false }) cardConfig?: Record<string, unknown>;
   /** Entities cards: entity_id per row, in config order (undefined for
    *  rows without one, so indices stay aligned with the DOM row order). */
   @property({ attribute: false }) rows: Array<string | undefined> = [];
@@ -233,7 +235,7 @@ export class CmsPreviewPicker extends LitElement {
       return null;
     }
 
-    const match = mapElementToMatch(chain.map(CmsPreviewPicker._describe), this.cardType);
+    const match = mapElementToMatch(chain.map(CmsPreviewPicker._describe), this.cardType, this.cardConfig);
     if (!match) {
       this._clear();
       return null;

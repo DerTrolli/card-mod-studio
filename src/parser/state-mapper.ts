@@ -468,22 +468,46 @@ export function mapToStudioState(parsed: CardModStyleState, cardType?: string): 
   // (C2.2); everything else keeps the built-in recognisers.
   const profile = getCustomCardProfile(cardType ?? '');
   const pc = profile ? new ProfileClaims(parsed.targets, profile) : null;
+  // On a custom profile a module its panel HIDES adopts nothing from the
+  // built-in recognisers: the state would be invisible (and un-editable), so
+  // those declarations stay in Advanced CSS. Built-in cards: unchanged.
+  const mods = profile ? capsFor(cardType).modules : null;
+  const hidden = (m: keyof NonNullable<typeof mods>): boolean => !!mods && !mods[m];
+  const caps = profile ? capsFor(cardType) : null;
 
   return {
-    filter: mapFilter(haCard, claimed),
-    iconColor: mapIconColor(haStateIcon, haIcon, haCard, hostTarget, haTileIcon, cardType, claimed, pc),
-    accentColor: pc?.has('accent')
-      ? mapAccentProfile(pc, claimed)
-      : mapAccentColor(haCard, haGauge, claimed, cardType),
-    background: mapBackground(haCard, claimed, pc?.has('background') ? pc : null),
-    animation: mapAnimation(haCard, claimed),
-    border: pc?.has('borderRadius') || pc?.has('borderWidth') ? mapBorderProfile(pc, claimed) : mapBorder(haCard, claimed),
-    headingStyle: mapHeadingStyle(titleP, headingIcon, container, headingFamily, claimed),
+    filter: hidden('filter') ? { ...DEFAULT_FILTER } : mapFilter(haCard, claimed),
+    iconColor: hidden('iconColor')
+      ? { ...DEFAULT_ICON_COLOR }
+      : mapIconColor(haStateIcon, haIcon, haCard, hostTarget, haTileIcon, cardType, claimed, pc),
+    accentColor: hidden('accentColor')
+      ? { ...DEFAULT_ACCENT_COLOR }
+      : pc?.has('accent')
+        ? mapAccentProfile(pc, claimed)
+        : mapAccentColor(haCard, haGauge, claimed, cardType),
+    background: hidden('background')
+      ? { ...DEFAULT_BACKGROUND }
+      : mapBackground(haCard, claimed, pc?.has('background') ? pc : null),
+    animation: hidden('animation') ? { ...DEFAULT_ANIMATION } : mapAnimation(haCard, claimed),
+    border: hidden('border')
+      ? { ...DEFAULT_BORDER }
+      : pc?.has('borderRadius') || pc?.has('borderWidth')
+        ? mapBorderProfile(pc, claimed)
+        : mapBorder(haCard, claimed),
+    headingStyle: hidden('headingStyle')
+      ? { ...DEFAULT_HEADING_STYLE }
+      : mapHeadingStyle(titleP, headingIcon, container, headingFamily, claimed),
     font: {
-      ...(pc?.has('fontSize') ? mapFontProfile(pc, claimed) : mapFont(parsed.targets, haCard, claimed)),
+      ...(hidden('font')
+        ? { ...DEFAULT_FONT }
+        : pc?.has('fontSize')
+          ? mapFontProfile(pc, claimed)
+          : mapFont(parsed.targets, haCard, claimed)),
       ...numberSize.font,
     },
-    threshold: mapThreshold(haCard, haStateIcon, haGauge, hostTarget, cardType, claimed, pc),
+    threshold: hidden('threshold')
+      ? { ...DEFAULT_THRESHOLD }
+      : mapThreshold(haCard, haStateIcon, haGauge, hostTarget, cardType, claimed, pc, caps),
     advanced: mapAdvanced(parsed, claimed),
     // Dict-form carrier (v0.10): threaded to the save path so the dict is
     // rebuilt byte-identically around the regenerated `.` entry.
@@ -1962,6 +1986,22 @@ export function mergeEntityRowStyles(primary: EntitiesRowStyle, secondary: Entit
   };
 }
 
+/** `part` is `whole` with some rules left out (same source and default). */
+function isRuleSubset(
+  whole: { entityId: string; attribute?: string; rules: ThresholdRule[]; defaultColor: string },
+  part: { entityId: string; attribute?: string; rules: ThresholdRule[]; defaultColor: string },
+): boolean {
+  if (whole.entityId !== part.entityId || (whole.attribute ?? '') !== (part.attribute ?? '')) return false;
+  if (!sameColor(whole.defaultColor, part.defaultColor)) return false;
+  let i = 0;
+  for (const r of part.rules) {
+    while (i < whole.rules.length && !(whole.rules[i].operator === r.operator && whole.rules[i].value === r.value && sameColor(whole.rules[i].color, r.color))) i++;
+    if (i === whole.rules.length) return false;
+    i++;
+  }
+  return true;
+}
+
 /** Same colour — spelled alike, or the same exact `R, G, B` (a profile's accent
  *  block stores colours as triplets and reads them back as lowercase hex). */
 function sameColor(a: string, b: string): boolean {
@@ -1991,6 +2031,8 @@ function mapThreshold(
   cardType: string | undefined,
   claimed: Set<string>,
   pc: ProfileClaims | null = null,
+  /** Custom profile: a property its panel doesn't offer is not adopted. */
+  caps: { thresholdProperty(p: string): boolean } | null = null,
 ): ThresholdModuleState {
   type Candidate = {
     target: CssTarget;
@@ -2065,6 +2107,17 @@ function mapThreshold(
     }
   }
 
+  // A profile's accent block may lack the rules whose colour has no exact
+  // `R, G, B` form (thresholdAccentJinja): read it LAST, against the full
+  // rule set the other properties carry, so those rules are not lost.
+  candidates.sort((a, b) => Number(a.profileRole === 'accent') - Number(b.profileRole === 'accent'));
+
+  if (caps) {
+    for (let i = candidates.length - 1; i >= 0; i--) {
+      if (!caps.thresholdProperty(candidates[i].thresholdProperty)) candidates.splice(i, 1);
+    }
+  }
+
   // Collect every candidate whose parsed rules match the *first* matching
   // candidate's rules — e.g. icon-color and accent-color both driven by the
   // same threshold rules become one ThresholdModuleState with two entries in
@@ -2089,7 +2142,7 @@ function mapThreshold(
       profileRole === 'accent' ? 'rgb-triplet' : 'css',
     );
     if (!parsed) continue;
-    if (base && !sameThreshold(base, parsed)) continue;
+    if (base && !sameThreshold(base, parsed) && !(profileRole === 'accent' && isRuleSubset(base, parsed))) continue;
 
     base ??= parsed;
     if (profileRole) {

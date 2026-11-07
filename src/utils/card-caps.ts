@@ -212,6 +212,9 @@ export interface CardCaps {
   /** Icon Color is a size-only control (the card's icons can't take its
    *  colour — Mushroom chips). */
   iconColorless: boolean;
+  /** The profile writes Accent as `R, G, B` variables (Mushroom): a colour
+   *  with no exact form can't be written — the modules say so. */
+  accentTriplet: boolean;
   /** Does a Threshold "Apply to" property do anything here? */
   thresholdProperty(property: string): boolean;
 }
@@ -228,9 +231,10 @@ function buildCaps(
     headerTitle?: boolean;
     transitionImportant?: boolean;
     iconColorless?: boolean;
+    accentTriplet?: boolean;
   },
 ): CardCaps {
-  const { headerTitle, transitionImportant, iconColorless, ...flags } = f;
+  const { headerTitle, transitionImportant, iconColorless, accentTriplet, ...flags } = f;
   return {
     key,
     custom,
@@ -244,6 +248,7 @@ function buildCaps(
     headerTitle: custom ? !!headerTitle : HEADER_TITLE_CARD_TYPES.has(key),
     transitionImportant: custom ? !!transitionImportant : TRANSITION_IMPORTANT_TYPES.has(key),
     iconColorless: !!iconColorless,
+    accentTriplet: !!accentTriplet,
     thresholdProperty(property: string): boolean {
       switch (property) {
         case 'icon-color': return m.iconColor && !iconColorless;
@@ -290,6 +295,7 @@ export function capsFor(profileKey: string | undefined, config?: Record<string, 
       headerTitle: profile.headerTitle,
       transitionImportant: profile.transitionImportant,
       iconColorless: profile.emitters?.iconSize?.colorless,
+      accentTriplet: !!profile.emitters?.accent,
     });
   }
   const entities = key === 'entities';

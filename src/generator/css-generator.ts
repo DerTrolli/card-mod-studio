@@ -317,6 +317,9 @@ function borderVarDecls(s: BorderModuleState, e: BorderEmitter, skipColor = fals
  * alone doesn't carry everything that changes what CSS is meaningful.
  */
 export interface GenerateCssOptions {
+  /** The card's own config: a profile's `configGates` (Mushroom's Accent while
+   *  the card sets `icon_color`) switch emission off here too. */
+  config?: Record<string, unknown> | null;
   /** The gauge card's `needle: true` — switches which ha-gauge variable the
    *  accent value drives (see gaugeColorBlock). */
   gaugeNeedle?: boolean;
@@ -946,8 +949,29 @@ export function decodeGradientStops(encoded: string): ColorStop[] | null {
   return stops;
 }
 
+/**
+ * A threshold's accent expression in `R, G, B` form for a profile's accent
+ * variables. A rule whose colour has no exact form is LEFT OUT (the others
+ * keep working); no convertible rule, or an unconvertible default, → null and
+ * nothing is written for that property.
+ */
+export function thresholdAccentJinja(s: ThresholdModuleState | undefined): string | null {
+  if (!s || !s.entityId) return null;
+  let rules = s.rules;
+  let defaultColor = s.defaultColor;
+  if (s.valueMode === 'gradient') {
+    if (s.colorStops.length < 2) return null;
+    ({ rules, defaultColor } = gradientToRules(s.colorStops));
+  }
+  const usable = rules.filter((r) => toRgbTriplet(r.color) !== null);
+  if (usable.length === 0 || toRgbTriplet(defaultColor) === null) return null;
+  return buildThresholdJinja(usable, defaultColor, s.entityId, s.attribute || undefined, (c) => toRgbTriplet(c)!);
+}
+
 /** What the generator knows about the card when it writes a module. */
 interface EmitCtx {
+  /** A profile's accent variables are switched off by a config gate. */
+  skipAccent?: boolean;
   /** The key built-in emitter choices compare against (the profile's `emitAs`). */
   emitType: string | undefined;
   caps: CardCaps;
@@ -1053,17 +1077,16 @@ function thresholdBlock(s: ThresholdModuleState | undefined, ctx: EmitCtx): stri
   }
 
   const jinja = buildThresholdJinja(rules, defaultColor, s.entityId, s.attribute || undefined);
-  // The accent variables of a profile take `R, G, B`; one colour without an
-  // exact triplet form leaves that property unwritten.
-  let tripletJinja: string | null = null;
-  if (ctx.em?.accent && [...rules.map((r) => r.color), defaultColor].every((c) => toRgbTriplet(c) !== null)) {
-    tripletJinja = buildThresholdJinja(rules, defaultColor, s.entityId, s.attribute || undefined, (c) => toRgbTriplet(c)!);
-  }
+  // The accent variables of a profile take `R, G, B` (thresholdAccentJinja:
+  // a rule with no exact form is left out, nothing convertible → no block).
+  const tripletJinja = ctx.em?.accent ? thresholdAccentJinja(s) : null;
   // Canonical property order, matching the parser's candidate-collection
   // order exactly — without this, a reopen reordered the blocks and broke
   // the byte-stable round-trip once (audit C1).
   const CANONICAL: ThresholdProperty[] = ['background', 'text-color', 'accent-color', 'border-color', 'icon-color'];
-  const ordered = [...s.properties].sort((a, b) => CANONICAL.indexOf(a) - CANONICAL.indexOf(b));
+  const ordered = [...s.properties]
+    .filter((p) => !(p === 'accent-color' && ctx.skipAccent && ctx.em?.accent))
+    .sort((a, b) => CANONICAL.indexOf(a) - CANONICAL.indexOf(b));
   return ordered
     .map((property) => thresholdPropertyBlock(property, jinja, s.borderWidth ?? 2, gradientMarker, ctx, tripletJinja))
     .filter(Boolean)
@@ -1087,10 +1110,13 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // What the card's profile says (C2.2): `emitAs` borrows a built-in card's
   // emitter choices, `emitters` replace a module's output with the profile's
   // own variables. Gating questions go through the capabilities lookup.
-  const caps = capsFor(cardType);
+  const caps = capsFor(cardType, opts?.config);
   const profile = getCustomCardProfile(cardType ?? '');
   const em = profile?.emitters;
-  const ctx: EmitCtx = { emitType: emitKeyOf(cardType) || undefined, caps, em, opts };
+  // A config gate that hides Accent (Mushroom `icon_color`) means the accent
+  // variables reach nothing — write none (also from a loaded preset).
+  const skipAccent = !!em?.accent && !caps.modules.accentColor;
+  const ctx: EmitCtx = { emitType: emitKeyOf(cardType) || undefined, caps, em, opts, skipAccent };
   const emitType = ctx.emitType;
 
   // Keyframes only ever ride along an actual `animation:` declaration — an
@@ -1107,7 +1133,11 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // Only once Threshold actually writes something: an enabled-but-unfinished
   // Threshold (no entity / no rules yet) used to silently disable e.g.
   // Background on a thermostat or Accent on a gauge (its default property).
-  const thresholdProps = thresholdOwnedProperties(state.threshold);
+  const thresholdProps = new Set(thresholdOwnedProperties(state.threshold));
+  // …but only for what is actually written: a profile's accent property with
+  // nothing convertible (or gated off) emits no block, so it must not silence
+  // the Accent module's own, valid value.
+  if (em?.accent && (skipAccent || thresholdAccentJinja(state.threshold) === null)) thresholdProps.delete('accent-color');
 
   // Profile emitters on a selector other than ha-card get their own block.
   const extraBlocks: string[] = [];
@@ -1122,7 +1152,9 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
     ...(thresholdProps.has('accent-color')
       ? []
       : em?.accent
-        ? onHaCard(em.accent.selector, accentVarDecls(state.accentColor, em.accent))
+        ? skipAccent
+          ? []
+          : onHaCard(em.accent.selector, accentVarDecls(state.accentColor, em.accent))
         : accentColorDecls(state.accentColor, emitType)),
     ...filterDecls(state.filter, caps, state.advanced.rawCss),
     ...(thresholdProps.has('background')

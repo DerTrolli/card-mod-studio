@@ -98,7 +98,7 @@ interface PickRule {
   test(el: PickChainElement, i: number, ctx: ChainContext): boolean;
   /** Resolve the target for this card type — null means "this module is
    *  hidden on this card type, fall through to later rules/elements". */
-  target(cardType: string): PickTarget | null;
+  target(cardType: string, config?: Record<string, unknown> | null): PickTarget | null;
   /** Which chain index to highlight (defaults to the matched element). */
   highlightIndex?(i: number, ctx: ChainContext): number;
 }
@@ -135,10 +135,10 @@ const RULES: PickRule[] = [
   {
     // ha-gauge internals (value text / needle / dial) → Accent Color.
     test: (el) => el.tag === 'ha-gauge' || el.classes.some((c) => GAUGE_CLASSES.has(c)),
-    target: (cardType) =>
+    target: (cardType, config) =>
       // Accent module is hidden on heading + entities cards (cms-panel).
       capsFor(cardType).isHeading || capsFor(cardType).isEntities ||
-      (capsFor(cardType).custom && !capsFor(cardType).modules.accentColor)
+      (capsFor(cardType, config).custom && !capsFor(cardType, config).modules.accentColor)
         ? null
         : {
             module: 'cms-accent-color-module',
@@ -231,6 +231,7 @@ function buildContext(chain: PickChainElement[], cardType: string): ChainContext
 export function mapElementToMatch(
   chain: PickChainElement[],
   cardType: string,
+  config?: Record<string, unknown> | null,
 ): PickMatch | null {
   if (!chain.length) return null;
   const ctx = buildContext(chain, cardType);
@@ -264,7 +265,7 @@ export function mapElementToMatch(
     const el = chain[i];
     for (const rule of RULES) {
       if (!rule.test(el, i, ctx)) continue;
-      const target = rule.target(cardType);
+      const target = rule.target(cardType, config);
       if (!target) continue; // module hidden for this card type — keep walking
       return { target, index: rule.highlightIndex ? rule.highlightIndex(i, ctx) : i };
     }
@@ -283,6 +284,7 @@ export function mapElementToMatch(
 export function mapElementToTarget(
   chain: PickChainElement[],
   cardType: string,
+  config?: Record<string, unknown> | null,
 ): PickTarget | null {
-  return mapElementToMatch(chain, cardType)?.target ?? null;
+  return mapElementToMatch(chain, cardType, config)?.target ?? null;
 }

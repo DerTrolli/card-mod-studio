@@ -7,6 +7,7 @@ import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown 
 import { sortThresholdRules } from '../generator/css-generator.js';
 import { previewHexFor } from '../components/cms-color-picker.js';
 import { thresholdPropertyAllowed } from '../utils/card-caps.js';
+import { thresholdColorsWithoutTriplet, tripletHint } from '../utils/rgb-triplet.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
@@ -34,6 +35,8 @@ export class ThresholdModule extends LitElement {
   /** The card's own config — some properties are dead while it sets e.g.
    *  `icon_color` (a custom profile's configGates). */
   @property({ attribute: false }) cardConfig?: object;
+  /** The card writes Accent as `R, G, B` (Mushroom) — unconvertible colours get a hint. */
+  @property({ type: Boolean, attribute: 'triplet-accent' }) tripletAccent = false;
 
   @property({ attribute: false }) hass?: HomeAssistant;
 
@@ -329,6 +332,9 @@ export class ThresholdModule extends LitElement {
     return html`
       <div class="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${this.tripletAccent && thresholdColorsWithoutTriplet(this.state).length
+          ? html`<div class="when-hint warn">${tripletHint(thresholdColorsWithoutTriplet(this.state))}</div>`
+          : nothing}
         <div class="control-row">
           <span class="control-label">Entity</span>
           <div class="control-right">
