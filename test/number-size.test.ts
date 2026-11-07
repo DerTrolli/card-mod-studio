@@ -28,7 +28,7 @@ afterEach(() => {
   engine = 'card-mod';
 });
 
-const GAUGE_ENTRY = '.text {\n  max-width: 66% !important;\n  max-height: 48% !important;\n}'; // 120 %
+const GAUGE_ENTRY = '.text {\n  max-width: 66% !important;\n  max-height: 48% !important;\n  left: 0 !important;\n  right: 0 !important;\n  margin: 0 auto !important;\n  transform: none !important;\n}'; // 120 %
 const THERMO_ENTRY = { 'ha-big-number$': '.value {\n  font-size: 30px !important;\n}' };
 const cfg = (c: Record<string, unknown>) => c as unknown as CardModCardConfig;
 const style = (c: CardModCardConfig) => c.card_mod?.style as unknown;

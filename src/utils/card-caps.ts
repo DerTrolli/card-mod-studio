@@ -100,6 +100,8 @@ export const NO_ACCENT_TYPES = new Set([
   'statistics-graph', 'todo-list', 'weather-forecast', 'logbook', 'picture-glance',
   // HA 2026.11 date card (module-effect audit, UIX 9): dead.
   'date',
+  // alert card: accent dead (module-effect audit, HA 2026.11.0 + UIX 9.0.0)
+  'alert',
 ]);
 
 /** Font's size slider changes nothing visible on these cards — they size
@@ -126,6 +128,8 @@ export const NO_TEXT_COLOR_TYPES = new Set([
   'picture-glance',
   // HA 2026.11 date card (module-effect audit, UIX 9)
   'date',
+  // alert card: Font text colour and Threshold text colour dead (same audit)
+  'alert',
 ]);
 
 /**

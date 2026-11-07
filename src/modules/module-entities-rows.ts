@@ -15,6 +15,33 @@ function defaultOnColor(): string {
   return getCachedPalette().defaults.onColor ?? '#2196F3';
 }
 
+/** `hass.formatEntityName` (HA 2026.11+): what HA's own entities-card row
+ *  calls — `formatEntityName(stateObj, row.name)` — so a row with no `name:`
+ *  reads "device name + entity name". Not in the shared HomeAssistant type. */
+type FormatEntityName = (stateObj: unknown, name?: unknown) => string;
+
+/**
+ * The label for an entities-card row. On HA 2026.11+ this IS HA's own text
+ * (verified live: identical to the rendered row for every entity tried);
+ * on older HA, or if the helper is missing or throws, the old precedence:
+ * explicit `name:`, the friendly name, then the object id.
+ */
+export function entityRowLabel(hass: HomeAssistant | undefined, entityId: string, name?: unknown): string {
+  const explicit = typeof name === 'string' && name ? name : undefined;
+  const stateObj = hass?.states?.[entityId];
+  const fmt = (hass as unknown as { formatEntityName?: FormatEntityName } | undefined)?.formatEntityName;
+  if (stateObj && typeof fmt === 'function') {
+    try {
+      const text = fmt.call(hass, stateObj, explicit);
+      if (typeof text === 'string' && text) return text;
+    } catch {
+      /* fall through to the old precedence */
+    }
+  }
+  const friendly = stateObj?.attributes?.friendly_name;
+  return explicit || (typeof friendly === 'string' && friendly) || entityId.split('.')[1] || entityId;
+}
+
 export class EntitiesRowsModule extends LitElement {
   /** May contain bare-string rows ('sensor.x') — the YAML shorthand form. */
   @property({ attribute: false }) rows: Array<EntitiesCardRow | string> = [];
@@ -278,10 +305,8 @@ export class EntitiesRowsModule extends LitElement {
   private _renderRow(row: EntitiesCardRow & { entity: string }, index: number, occurrence: number) {
     const rowKey = String(index);
     const id = row.entity;
-    // Same precedence as HA's own row: explicit `name:`, then the entity's
-    // friendly name, then the object id as a last resort.
-    const friendly = this.hass?.states?.[id]?.attributes?.friendly_name;
-    const baseLabel = row.name || (typeof friendly === 'string' && friendly) || id.split('.')[1] || id;
+    // HA's own row text (see entityRowLabel).
+    const baseLabel = entityRowLabel(this.hass, id, row.name);
     const label = occurrence > 1 ? `${baseLabel} (${occurrence})` : baseLabel;
     const isOpen = this._openRows.has(rowKey);
     const rowStyle = this.styles[rowKey] ?? { iconColor: '', textColor: '' };

@@ -26,14 +26,26 @@ const THERMOSTAT_INNER_KEY = 'ha-big-number$';
 /** HA's own box for the gauge value (ha-gauge's `.text` rule, HA 2026.10).
  *  The gauge fits its number into this box (it rewrites the SVG viewBox
  *  from the text), so a bigger font-size renders at the SAME size once HA
- *  refits — measured on HA 2026.10.4; scaling the box is what shows. */
+ *  refits — measured on HA 2026.10.4; scaling the box is what shows.
+ *
+ *  HA also anchors the box with `left: 50%; transform: translate(-50%)`,
+ *  and an absolutely positioned box can be at most as wide as the space
+ *  right of its `left` — half the gauge. So max-width alone stops growing
+ *  the number once it reaches 50 % of the gauge width (about 118–125 % in
+ *  the editor preview; measured on HA 2026.11.0). The rule therefore also
+ *  re-anchors the box with left/right: 0 and auto margins, which centres it
+ *  exactly as HA does at 100 % but lets it grow to max-width/max-height. */
 const GAUGE_BOX = { width: 55, height: 40 };
 
 /** At most one decimal, no trailing zeros. */
 const num = (n: number) => String(Math.round(n * 10) / 10);
 
-const gaugeRule = (pct: number) =>
-  `.text {\n  max-width: ${num((GAUGE_BOX.width * pct) / 100)}% !important;\n  max-height: ${num((GAUGE_BOX.height * pct) / 100)}% !important;\n}`;
+const GAUGE_ANCHOR = '  left: 0 !important;\n  right: 0 !important;\n  margin: 0 auto !important;\n  transform: none !important;\n';
+const gaugeBox = (pct: number) =>
+  `.text {\n  max-width: ${num((GAUGE_BOX.width * pct) / 100)}% !important;\n  max-height: ${num((GAUGE_BOX.height * pct) / 100)}% !important;\n`;
+const gaugeRule = (pct: number) => `${gaugeBox(pct)}${GAUGE_ANCHOR}}`;
+/** The shape written before the re-anchor (still recognised as the Studio's). */
+const gaugeRuleLegacy = (pct: number) => `${gaugeBox(pct)}}`;
 const thermostatRule = (px: number) => `.value {\n  font-size: ${num(px)}px !important;\n}`;
 
 /** The top-level dictionary key the card's entry lives under, or null. */
@@ -77,7 +89,8 @@ export function parseOwnedEntry(cardType: string | undefined, key: string, value
     size = Number(m[1]);
   }
   const built = cardType === 'gauge' ? gaugeRule(size) : thermostatRule(size);
-  return css.trim() === built ? size : null;
+  if (css.trim() === built) return size;
+  return cardType === 'gauge' && css.trim() === gaugeRuleLegacy(size) ? size : null;
 }
 
 /** The owned entries this state writes for this card (empty unless Number

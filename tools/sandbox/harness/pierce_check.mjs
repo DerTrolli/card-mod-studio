@@ -63,7 +63,9 @@ const CASES = {
     label: 'Number size', key: 'ha-gauge$',
     // slider value (% of HA's number box) → expected entry; rendered height vs HA's default
     steps: [[125, 'bigger'], [50, 'smaller'], [150, 'bigger']],
-    entry: (pct) => `.text {\n  max-width: ${Math.round(55 * pct / 10) / 10}% !important;\n  max-height: ${Math.round(40 * pct / 10) / 10}% !important;\n}`,
+    // 150 % must also be visibly bigger than 125 % (the box used to stop at half the gauge width)
+    // Includes the re-anchor (HA's `left: 50%` would cap the box at half the gauge width).
+    entry: (pct) => `.text {\n  max-width: ${Math.round(55 * pct / 10) / 10}% !important;\n  max-height: ${Math.round(40 * pct / 10) / 10}% !important;\n  left: 0 !important;\n  right: 0 !important;\n  margin: 0 auto !important;\n  transform: none !important;\n}`,
   },
   thermostat: {
     card: { type: 'thermostat', entity: 'climate.heatpump' },
@@ -75,6 +77,7 @@ const CASES = {
 
 for (const [kind, c] of Object.entries(CASES)) {
   T.section = kind;
+  const heights = {};
   await openEditor(T, `pierce-${kind}`, [{ ...c.card, [KEY]: { style: 'ha-card {\n  border: 2px solid rgb(1, 2, 3);\n}' } }]);
   if (kind === 'gauge') {
     const was = await resetTheme(page);
@@ -103,6 +106,8 @@ for (const [kind, c] of Object.entries(CASES)) {
       : m?.size === expect;
     const notClipped = kind === 'gauge' ? m?.overflow <= (base?.overflow ?? 0) + 1 : m?.inside;
     record(`[${kind}] preview number renders ${kind === 'gauge' ? expect : 'at ' + expect}, not clipped`, !!(m && sized && notClipped), JSON.stringify({ base, now: m }));
+    heights[v] = m?.h;
+    if (kind === 'gauge' && v === 150) record('[gauge] 150 % renders taller than 125 %', heights[150] > heights[125], JSON.stringify(heights));
     if (process.env.PIERCE_SHOTS) await page.locator('cms-panel').filter({ visible: true }).first().screenshot({ path: resolve(HERE, 'shots', `pierce-${kind}-${v}.png`) });
   }
 
