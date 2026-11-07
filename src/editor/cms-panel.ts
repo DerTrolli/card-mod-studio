@@ -314,8 +314,10 @@ export class CmsPanel extends LitElement {
     return profileKeyOf(this.config);
   }
 
+  /** The capabilities for this card — config-aware (a profile can hide a
+   *  module while the card config sets e.g. `icon_color`). */
   private get _caps() {
-    return capsFor(this._profileKey);
+    return capsFor(this._profileKey, this.config as unknown as Record<string, unknown>);
   }
 
   private get _isContainerCard(): boolean {
@@ -1241,14 +1243,16 @@ export class CmsPanel extends LitElement {
           ></cms-font-module>`
         : nothing}
 
-      <cms-filter-module
-        .overridden=${!!conflicts.filter}
-        .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
-        .state=${s.filter}
-        .stateAware=${stateAware}
-        .hass=${this.hass}
-        @state-changed=${this._onFilterChanged}
-      ></cms-filter-module>
+      ${this._caps.modules.filter
+        ? html`<cms-filter-module
+            .overridden=${!!conflicts.filter}
+            .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
+            .state=${s.filter}
+            .stateAware=${stateAware}
+            .hass=${this.hass}
+            @state-changed=${this._onFilterChanged}
+          ></cms-filter-module>`
+        : nothing}
 
       ${this._caps.modules.accentColor
         ? html`<cms-accent-color-module
@@ -1273,6 +1277,7 @@ export class CmsPanel extends LitElement {
             .stateAware=${stateAware}
             .isLightCard=${this._isLightCard}
             .allowSize=${this._caps.iconSize}
+            .allowColor=${!this._caps.iconColorless}
             .cardEntity=${this.config?.entity ?? ''}
             .hass=${this.hass}
             @state-changed=${this._onIconColorChanged}
@@ -1286,6 +1291,7 @@ export class CmsPanel extends LitElement {
               .state=${s.threshold}
               .cardEntity=${this.config?.entity ?? ''}
               .cardType=${this._profileKey}
+              .cardConfig=${this.config}
               .hass=${this.hass}
               @state-changed=${this._onThresholdChanged}
             ></cms-threshold-module>`

@@ -26,6 +26,9 @@ export class IconColorModule extends LitElement {
   /** When true the icon-size controls are offered (ICON_SIZE_TYPES only —
    *  the size variables are dead or harmful elsewhere, see card-caps.ts). */
   @property({ type: Boolean, attribute: 'allow-size' }) allowSize = false;
+  /** False when the card's icons can't take a colour (Mushroom chips): the
+   *  module is then a size-only control. */
+  @property({ type: Boolean, attribute: 'allow-color' }) allowColor = true;
   /** The card's own entity — used as the picker's placeholder and as the implicit default when entityId is unset. */
   @property({ type: String }) cardEntity = '';
 
@@ -91,6 +94,15 @@ export class IconColorModule extends LitElement {
   }
 
   private _renderBody() {
+    if (!this.allowColor) {
+      return html`
+        <div class="module-body">
+          ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+          <div class="when-hint">This card's icons can't take a colour from a style — only their size.</div>
+          ${this.allowSize ? this._renderSize() : nothing}
+        </div>
+      `;
+    }
     const mode = this.state.mode;
     // Only relevant once mode !== 'plain': does falling back to the card's
     // own entity (an empty "Controlled by" field) actually mean anything?

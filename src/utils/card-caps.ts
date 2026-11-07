@@ -209,6 +209,9 @@ export interface CardCaps {
   headerTitle: boolean;
   /** Filter's transition needs `!important` here. */
   transitionImportant: boolean;
+  /** Icon Color is a size-only control (the card's icons can't take its
+   *  colour — Mushroom chips). */
+  iconColorless: boolean;
   /** Does a Threshold "Apply to" property do anything here? */
   thresholdProperty(property: string): boolean;
 }
@@ -217,8 +220,17 @@ function buildCaps(
   key: string,
   custom: boolean,
   m: Record<ProfileModule, boolean>,
-  f: { fontColor: boolean; fontSize: boolean; iconSize: boolean; stateAwareByDefault: boolean },
+  f: {
+    fontColor: boolean;
+    fontSize: boolean;
+    iconSize: boolean;
+    stateAwareByDefault: boolean;
+    headerTitle?: boolean;
+    transitionImportant?: boolean;
+    iconColorless?: boolean;
+  },
 ): CardCaps {
+  const { headerTitle, transitionImportant, iconColorless, ...flags } = f;
   return {
     key,
     custom,
@@ -228,12 +240,13 @@ function buildCaps(
     isContainer: !custom && CONTAINER_CARD_TYPES.has(key),
     stylableChildren: !custom && STYLABLE_CHILDREN_CARD_TYPES.has(key),
     modules: m,
-    ...f,
-    headerTitle: !custom && HEADER_TITLE_CARD_TYPES.has(key),
-    transitionImportant: !custom && TRANSITION_IMPORTANT_TYPES.has(key),
+    ...flags,
+    headerTitle: custom ? !!headerTitle : HEADER_TITLE_CARD_TYPES.has(key),
+    transitionImportant: custom ? !!transitionImportant : TRANSITION_IMPORTANT_TYPES.has(key),
+    iconColorless: !!iconColorless,
     thresholdProperty(property: string): boolean {
       switch (property) {
-        case 'icon-color': return m.iconColor;
+        case 'icon-color': return m.iconColor && !iconColorless;
         case 'accent-color': return m.accentColor;
         case 'background': return m.background;
         case 'border-color': return m.border;
@@ -244,26 +257,40 @@ function buildCaps(
   };
 }
 
-/** The capabilities lookup — the ONE place per-card-type gating is decided. */
-export function capsFor(profileKey: string | undefined): CardCaps {
+/** Whether a card config sets `key` to something (a non-empty value). */
+function configSets(config: Record<string, unknown> | null | undefined, key: string): boolean {
+  const v = config?.[key];
+  return v !== undefined && v !== null && v !== '' && v !== false;
+}
+
+/**
+ * The capabilities lookup — the ONE place per-card-type gating is decided.
+ *
+ * `config` (optional) is the card's own config: a custom profile can hide a
+ * module depending on it (`configGates` — e.g. Mushroom's Accent while the
+ * card sets `icon_color`). Callers without a config get the config-free answer.
+ */
+export function capsFor(profileKey: string | undefined, config?: Record<string, unknown> | null): CardCaps {
   const key = profileKey ?? '';
   const profile = getCustomCardProfile(key);
   if (profile) {
-    return buildCaps(
-      key,
-      true,
-      {
-        iconColor: true, accentColor: true, font: true, threshold: true,
-        background: true, border: true, animation: true, headingStyle: false,
-        ...profile.modules,
-      },
-      {
-        fontColor: profile.fontColor ?? true,
-        fontSize: profile.fontSize ?? true,
-        iconSize: profile.iconSize ?? false,
-        stateAwareByDefault: profile.stateAware ?? true,
-      },
-    );
+    const modules: Record<ProfileModule, boolean> = {
+      iconColor: true, accentColor: true, font: true, threshold: true,
+      background: true, border: true, animation: true, headingStyle: false, filter: true,
+      ...profile.modules,
+    };
+    for (const gate of profile.configGates ?? []) {
+      if (configSets(config, gate.key)) for (const m of gate.hide) modules[m] = false;
+    }
+    return buildCaps(key, true, modules, {
+      fontColor: profile.fontColor ?? true,
+      fontSize: profile.fontSize ?? true,
+      iconSize: profile.iconSize ?? false,
+      stateAwareByDefault: profile.stateAware ?? true,
+      headerTitle: profile.headerTitle,
+      transitionImportant: profile.transitionImportant,
+      iconColorless: profile.emitters?.iconSize?.colorless,
+    });
   }
   const entities = key === 'entities';
   return buildCaps(
@@ -278,6 +305,7 @@ export function capsFor(profileKey: string | undefined): CardCaps {
       border: !NO_BORDER_TYPES.has(key),
       animation: !NO_ANIMATION_TYPES.has(key),
       headingStyle: key === 'heading',
+      filter: true,
     },
     {
       fontColor: !NO_TEXT_COLOR_TYPES.has(key),
@@ -288,15 +316,20 @@ export function capsFor(profileKey: string | undefined): CardCaps {
   );
 }
 
-export const showsAccentColor = (cardType: string): boolean => capsFor(cardType).modules.accentColor;
+export const showsAccentColor = (cardType: string, config?: Record<string, unknown> | null): boolean =>
+  capsFor(cardType, config).modules.accentColor;
 
 /**
  * Which Threshold Colors "Apply to" properties do something on a card type —
  * the same gating as the module each property mirrors, so Threshold never
  * offers a colour the matching module hides as dead.
  */
-export function thresholdPropertyAllowed(property: string, cardType: string): boolean {
-  return capsFor(cardType).thresholdProperty(property);
+export function thresholdPropertyAllowed(
+  property: string,
+  cardType: string,
+  config?: Record<string, unknown> | null,
+): boolean {
+  return capsFor(cardType, config).thresholdProperty(property);
 }
 
 /** Domains whose entities carry a binary on/off state usable in an

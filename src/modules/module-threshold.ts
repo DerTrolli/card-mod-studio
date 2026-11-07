@@ -31,6 +31,9 @@ export class ThresholdModule extends LitElement {
   /** The card's type — hides properties whose selectors don't exist there
    *  (e.g. Icon Color on a gauge) and labels Accent Color as the gauge dial. */
   @property({ type: String }) cardType = '';
+  /** The card's own config — some properties are dead while it sets e.g.
+   *  `icon_color` (a custom profile's configGates). */
+  @property({ attribute: false }) cardConfig?: object;
 
   @property({ attribute: false }) hass?: HomeAssistant;
 
@@ -240,6 +243,10 @@ export class ThresholdModule extends LitElement {
     this._open = !this._open;
   }
 
+  private get _cfg(): Record<string, unknown> | undefined {
+    return this.cardConfig as Record<string, unknown> | undefined;
+  }
+
   private _emit(changes: Partial<ThresholdModuleState>) {
     const newState = { ...this.state, ...changes };
     // Auto-set entityId to cardEntity when enabling if empty
@@ -255,11 +262,11 @@ export class ThresholdModule extends LitElement {
       newState.rules.length === 0 &&
       newState.properties.length === 1 &&
       newState.properties[0] === 'icon-color' &&
-      !thresholdPropertyAllowed('icon-color', this.cardType)
+      !thresholdPropertyAllowed('icon-color', this.cardType, this._cfg)
     ) {
       const first = this.cardType === 'gauge'
         ? 'accent-color'
-        : DEFAULT_PROPERTY_ORDER.find((p) => thresholdPropertyAllowed(p, this.cardType));
+        : DEFAULT_PROPERTY_ORDER.find((p) => thresholdPropertyAllowed(p, this.cardType, this._cfg));
       if (first) newState.properties = [first];
     }
     this.dispatchEvent(
@@ -309,7 +316,7 @@ export class ThresholdModule extends LitElement {
     return PROPERTY_OPTIONS.filter(
       (opt) =>
         !this.cardType ||
-        thresholdPropertyAllowed(opt.value, this.cardType) ||
+        thresholdPropertyAllowed(opt.value, this.cardType, this._cfg) ||
         this.state.properties.includes(opt.value),
     ).map((opt) =>
       opt.value === 'accent-color' && this.cardType === 'gauge'

@@ -45,8 +45,18 @@ import {
   sortThresholdRules,
   HEADING_FAMILY_SELECTOR,
   HEADING_ICON_SELECTOR,
+  GLYPH_SCALE,
+  iconSizeValue,
 } from '../generator/css-generator.js';
 import { capsFor } from '../utils/card-caps.js';
+import {
+  getCustomCardProfile,
+  emitKeyOf,
+  type ClaimRule,
+  type ClaimRole,
+  type CustomCardProfile,
+} from '../utils/custom-card-profiles.js';
+import { fromRgbTriplet, toRgbTriplet, TRIPLET_TOKEN_SRC } from '../utils/rgb-triplet.js';
 import { ownedEntryKey, parseOwnedEntry } from '../utils/owned-entries.js';
 
 // ---------------------------------------------------------------------------
@@ -243,7 +253,8 @@ function claimAccentAux(
   if (haCard) {
     // Only the variables accentAuxDecls writes for THIS card: a hand-written
     // --primary-color equal to the accent on any other card is the user's.
-    const vars = ACCENT_AUX_VARS.filter((v) => !(v in ACCENT_AUX_ONLY_ON) || ACCENT_AUX_ONLY_ON[v] === cardType);
+    const emitType = emitKeyOf(cardType);
+    const vars = ACCENT_AUX_VARS.filter((v) => !(v in ACCENT_AUX_ONLY_ON) || ACCENT_AUX_ONLY_ON[v] === emitType);
     for (const aux of vars) {
       const prop = findProp(haCard, aux);
       if (prop && prop.value.trim() === value) claimed.add(claimKey(haCard.selector, aux));
@@ -453,17 +464,26 @@ export function mapToStudioState(parsed: CardModStyleState, cardType?: string): 
 
   const claimed = new Set<string>();
   const numberSize = claimNumberSize(parsed.dictSource, cardType);
+  // A custom profile reads its own declarations back through its claims
+  // (C2.2); everything else keeps the built-in recognisers.
+  const profile = getCustomCardProfile(cardType ?? '');
+  const pc = profile ? new ProfileClaims(parsed.targets, profile) : null;
 
   return {
     filter: mapFilter(haCard, claimed),
-    iconColor: mapIconColor(haStateIcon, haIcon, haCard, hostTarget, haTileIcon, cardType, claimed),
-    accentColor: mapAccentColor(haCard, haGauge, claimed, cardType),
-    background: mapBackground(haCard, claimed),
+    iconColor: mapIconColor(haStateIcon, haIcon, haCard, hostTarget, haTileIcon, cardType, claimed, pc),
+    accentColor: pc?.has('accent')
+      ? mapAccentProfile(pc, claimed)
+      : mapAccentColor(haCard, haGauge, claimed, cardType),
+    background: mapBackground(haCard, claimed, pc?.has('background') ? pc : null),
     animation: mapAnimation(haCard, claimed),
-    border: mapBorder(haCard, claimed),
+    border: pc?.has('borderRadius') || pc?.has('borderWidth') ? mapBorderProfile(pc, claimed) : mapBorder(haCard, claimed),
     headingStyle: mapHeadingStyle(titleP, headingIcon, container, headingFamily, claimed),
-    font: { ...mapFont(parsed.targets, haCard, claimed), ...numberSize.font },
-    threshold: mapThreshold(haCard, haStateIcon, haGauge, hostTarget, cardType, claimed),
+    font: {
+      ...(pc?.has('fontSize') ? mapFontProfile(pc, claimed) : mapFont(parsed.targets, haCard, claimed)),
+      ...numberSize.font,
+    },
+    threshold: mapThreshold(haCard, haStateIcon, haGauge, hostTarget, cardType, claimed, pc),
     advanced: mapAdvanced(parsed, claimed),
     // Dict-form carrier (v0.10): threaded to the save path so the dict is
     // rebuilt byte-identically around the regenerated `.` entry.
@@ -561,6 +581,157 @@ function mergeRawCss(primary: string, secondary: string): string {
   if (!p) return s;
   if (!s || s === p) return p;
   return `${s}\n\n${p}`;
+}
+
+// ---------------------------------------------------------------------------
+// Custom-card profile claims (C2.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * A profile's claim rules applied to one parsed style. A rule names a selector
+ * and the properties that carry one role (font size, accent, …); `present()`
+ * returns those properties actually in the CSS, in the rule's order — the first
+ * is the anchor. `!important` is irrelevant here: the parser strips it into a
+ * flag, so a claimed declaration is recognised with or without it.
+ */
+class ProfileClaims {
+  constructor(
+    readonly targets: CssTarget[],
+    readonly profile: CustomCardProfile,
+  ) {}
+
+  rule(role: ClaimRole): ClaimRule | undefined {
+    return this.profile.claims?.find((c) => c.role === role);
+  }
+
+  has(role: ClaimRole): boolean {
+    return !!this.rule(role);
+  }
+
+  target(role: ClaimRole): CssTarget | null {
+    const r = this.rule(role);
+    return r ? findTargetNormalized(this.targets, r.selector) : null;
+  }
+
+  present(role: ClaimRole): Array<{ target: CssTarget; prop: CssProperty }> {
+    const r = this.rule(role);
+    const t = this.target(role);
+    if (!r || !t) return [];
+    return r.props.flatMap((name) => {
+      const prop = findProp(t, name);
+      return prop ? [{ target: t, prop }] : [];
+    });
+  }
+
+  /** Claims every present property of the role that carries `value` (the
+   *  anchor included); a different value is the user's and stays out. */
+  claimEqual(role: ClaimRole, value: string, claimed: Set<string>): void {
+    for (const { target, prop } of this.present(role)) {
+      if (prop.value.trim() === value.trim()) claimed.add(claimKey(target.selector, prop.property));
+    }
+  }
+}
+
+/** Font through a profile's claims: the first size variable anchors the
+ *  module (like `font-size` on ha-card does for built-in cards). */
+function mapFontProfile(pc: ProfileClaims, claimed: Set<string>): FontModuleState {
+  const plain = (role: ClaimRole) =>
+    pc.present(role).find(({ prop }) => !prop.hasCondition && prop.value.trim())?.prop;
+  const size = plain('fontSize');
+  const sizeMatch = size?.value.trim().match(/^(\d+(?:\.\d+)?)px$/);
+  if (!size || !sizeMatch) return { ...DEFAULT_FONT };
+
+  const state: FontModuleState = { ...DEFAULT_FONT, enabled: true, fontSize: parseFloat(sizeMatch[1]) };
+  pc.claimEqual('fontSize', size.value, claimed);
+
+  const weight = plain('fontWeight');
+  if (weight && FONT_WEIGHT_FROM_VALUE[weight.value.trim()]) {
+    state.fontWeight = FONT_WEIGHT_FROM_VALUE[weight.value.trim()];
+    pc.claimEqual('fontWeight', weight.value, claimed);
+  }
+  const color = plain('fontColor');
+  if (color) {
+    state.color = color.value.trim();
+    pc.claimEqual('fontColor', color.value, claimed);
+  }
+  const family = plain('fontFamily');
+  if (family) {
+    state.fontFamily = family.value.trim();
+    pc.claimEqual('fontFamily', family.value, claimed);
+  }
+  return state;
+}
+
+/** Accent through a profile's claims: the `R, G, B` variables, plain or as the
+ *  on/off ternary. A threshold-shaped value (multi-branch) is left for
+ *  mapThreshold, anything not exactly ours stays in Advanced CSS. */
+function mapAccentProfile(pc: ProfileClaims, claimed: Set<string>): AccentColorModuleState {
+  const anchor = pc.present('accent')[0]?.prop;
+  if (!anchor) return { ...DEFAULT_ACCENT_COLOR };
+  if (anchor.hasCondition) {
+    if (!anchor.onValue || !anchor.offValue) return { ...DEFAULT_ACCENT_COLOR };
+    const on = fromRgbTriplet(anchor.onValue);
+    const off = fromRgbTriplet(anchor.offValue);
+    if (!on || !off) return { ...DEFAULT_ACCENT_COLOR };
+    pc.claimEqual('accent', anchor.value, claimed);
+    return {
+      ...DEFAULT_ACCENT_COLOR,
+      enabled: true,
+      mode: 'conditional',
+      colorOn: on,
+      colorOff: off,
+      ...(anchor.entityId ? { entityId: anchor.entityId } : {}),
+    };
+  }
+  const color = fromRgbTriplet(anchor.value);
+  if (!color) return { ...DEFAULT_ACCENT_COLOR };
+  pc.claimEqual('accent', anchor.value, claimed);
+  return { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'plain', color };
+}
+
+/** Border through a profile's claims (radius / width / colour variables). The
+ *  width is left alone while the colour variable is threshold-shaped: then the
+ *  Threshold module wrote it (mapThreshold claims it with the colour). */
+function mapBorderProfile(pc: ProfileClaims, claimed: Set<string>): BorderModuleState {
+  const state: BorderModuleState = { ...DEFAULT_BORDER };
+  const plain = (role: ClaimRole) => pc.present(role).find(({ prop }) => !prop.hasCondition && prop.value.trim())?.prop;
+
+  const radius = plain('borderRadius');
+  const radiusMatch = radius?.value.trim().match(/^(\d+(?:\.\d+)?)px$/);
+  if (radius && radiusMatch) {
+    state.enabled = true;
+    state.radiusPx = parseFloat(radiusMatch[1]);
+    pc.claimEqual('borderRadius', radius.value, claimed);
+  }
+
+  const colorFirst = pc.present('borderColor')[0]?.prop;
+  const thresholdShaped = !!colorFirst?.hasCondition && !colorFirst.onValue;
+  const widthProp = thresholdShaped ? undefined : pc.present('borderWidth')[0]?.prop;
+  if (widthProp) {
+    const v = widthProp.value.trim();
+    const PX = /^(\d+)px$/;
+    const stat = !widthProp.hasCondition ? v.match(PX) : null;
+    const ternary = widthProp.hasCondition ? parseCondTernary(v) : null;
+    const on = ternary?.onValue.match(PX);
+    const off = ternary?.offValue.match(PX);
+    if (stat || (ternary && on && off)) {
+      state.enabled = true;
+      state.borderWidth = parseInt((stat ?? on!)[1], 10);
+      if (ternary && on && off) {
+        state.widthWhen = ternary.condition;
+        if (parseInt(off[1], 10) > 0) state.widthOffPx = parseInt(off[1], 10);
+      }
+      pc.claimEqual('borderWidth', widthProp.value, claimed);
+      const color = plain('borderColor');
+      if (color) {
+        state.borderColor = color.value.trim();
+        pc.claimEqual('borderColor', color.value, claimed);
+      }
+    }
+  }
+  // A width/colour with no radius must not gain the module's default radius.
+  if (state.enabled && !radius) state.radiusPx = 0;
+  return state;
 }
 
 // ---------------------------------------------------------------------------
@@ -804,7 +975,18 @@ function mapIconColor(
   haTileIcon: CssTarget | null,
   cardType: string | undefined,
   claimed: Set<string>,
+  pc: ProfileClaims | null = null,
 ): IconColorModuleState {
+  // A profile with its own icon-size claims reads the size through them (the
+  // size variables differ per card). A colourless profile (chips) has no
+  // colour to recognise: the module is "on" exactly when its size is set.
+  const sized = pc?.has('iconSize') ? pc : null;
+  if (sized && pc!.profile.emitters?.iconSize?.colorless) {
+    const bare = applyIconSizeProfile({ ...DEFAULT_ICON_COLOR }, sized, claimed);
+    return bare.sizePx !== undefined && bare.sizePx > 0 ? { ...bare, enabled: true } : { ...DEFAULT_ICON_COLOR };
+  }
+  const applyIconSize_ = (st: IconColorModuleState) =>
+    sized ? applyIconSizeProfile(st, sized, claimed) : applyIconSize(st, haCard, haTileIcon, cardType, claimed);
   const state = mapIconColorCore(haStateIcon, haIcon, haCard, hostTarget, cardType, claimed);
 
   if (!state.enabled) {
@@ -820,12 +1002,61 @@ function mapIconColor(
     const thresholdShaped =
       !!colorProp && colorProp.hasCondition && !colorProp.onValue && !colorProp.offValue;
     if (!thresholdShaped) return state;
-    applyIconSize(state, haCard, haTileIcon, cardType, claimed);
+    applyIconSize_(state);
     if (state.sizePx !== undefined && state.sizePx > 0) state.enabled = true;
     return state;
   }
 
-  return applyIconSize(state, haCard, haTileIcon, cardType, claimed);
+  return applyIconSize_(state);
+}
+
+/** `Npx`, or the quoted on/off ternary of `Npx` branches → the module's size
+ *  fields (sizePx, and sizeOffPx / sizeWhen for the conditional form). */
+function applySizeValue(state: IconColorModuleState, raw: string): boolean {
+  const staticMatch = raw.trim().match(/^(\d+(?:\.\d+)?)px$/);
+  if (staticMatch) {
+    state.sizePx = parseFloat(staticMatch[1]);
+    return true;
+  }
+  const ternary = parseCondTernary(raw.trim());
+  const on = ternary?.onValue.match(/^(\d+(?:\.\d+)?)px$/);
+  const off = ternary?.offValue.match(/^(\d+(?:\.\d+)?)px$/);
+  if (!ternary || !on || !off) return false;
+  state.sizePx = parseFloat(on[1]);
+  const offPx = parseFloat(off[1]);
+  if (offPx !== 24) state.sizeOffPx = offPx; // 24 = the generator's default else-branch
+  state.sizeWhen = ternary.condition;
+  return true;
+}
+
+/** Icon size through a profile's claims: the `box` variables carry the
+ *  module's value; `glyph` variables are claimed only when they carry exactly
+ *  the glyph share the generator would write for it. */
+function applyIconSizeProfile(
+  state: IconColorModuleState,
+  pc: ProfileClaims,
+  claimed: Set<string>,
+): IconColorModuleState {
+  const anchor = pc.present('iconSize')[0]?.prop;
+  if (!anchor) return state;
+  const probe = { ...state };
+  if (!applySizeValue(probe, anchor.value)) return state;
+  Object.assign(state, {
+    sizePx: probe.sizePx,
+    sizeOffPx: probe.sizeOffPx,
+    sizeWhen: probe.sizeWhen,
+  });
+  if (state.sizeOffPx === undefined) delete state.sizeOffPx;
+  if (state.sizeWhen === undefined) delete state.sizeWhen;
+  pc.claimEqual('iconSize', anchor.value, claimed);
+  const expected = iconSizeValue(state, GLYPH_SCALE);
+  if (expected) {
+    const norm = (v: string) => v.replace(/\s+/g, '');
+    for (const { target, prop } of pc.present('iconGlyph')) {
+      if (norm(prop.value) === norm(expected)) claimed.add(claimKey(target.selector, prop.property));
+    }
+  }
+  return state;
 }
 
 /** v0.9 icon size — the ha-card variable pair, or tile's ha-tile-icon
@@ -839,24 +1070,9 @@ function applyIconSize(
   cardType: string | undefined,
   claimed: Set<string>,
 ): IconColorModuleState {
-  const applySize = (raw: string): boolean => {
-    const staticMatch = raw.trim().match(/^(\d+(?:\.\d+)?)px$/);
-    if (staticMatch) {
-      state.sizePx = parseFloat(staticMatch[1]);
-      return true;
-    }
-    const ternary = parseCondTernary(raw.trim());
-    const on = ternary?.onValue.match(/^(\d+(?:\.\d+)?)px$/);
-    const off = ternary?.offValue.match(/^(\d+(?:\.\d+)?)px$/);
-    if (!ternary || !on || !off) return false;
-    state.sizePx = parseFloat(on[1]);
-    const offPx = parseFloat(off[1]);
-    if (offPx !== 24) state.sizeOffPx = offPx; // 24 = the generator's default else-branch
-    state.sizeWhen = ternary.condition;
-    return true;
-  };
+  const applySize = (raw: string): boolean => applySizeValue(state, raw);
 
-  if (cardType === 'tile') {
+  if (emitKeyOf(cardType) === 'tile') {
     const tileMdc = haTileIcon ? findProp(haTileIcon, '--mdc-icon-size') : undefined;
     if (haTileIcon && tileMdc && applySize(tileMdc.value)) {
       claimed.add(claimKey(haTileIcon.selector, '--mdc-icon-size'));
@@ -1051,18 +1267,29 @@ function parseLinearGradient(value: string): { angle: number; color1: string; co
 // ---------------------------------------------------------------------------
 
 function mapBackground(
-  haCard: CssTarget | null,
+  haCardTarget: CssTarget | null,
   claimed: Set<string>,
+  /** A profile whose background rides on variables (chips): they replace
+   *  `background` here — a plain `background` is not recognised then. */
+  pc: ProfileClaims | null = null,
 ): BackgroundModuleState {
+  const haCard = pc ? pc.target('background') : haCardTarget;
   if (!haCard) return { ...DEFAULT_BACKGROUND };
 
-  let bgProp = findProp(haCard, 'background');
+  let bgProp: CssProperty | null = pc ? (pc.present('background')[0]?.prop ?? null) : findProp(haCard, 'background');
+  // Claims the declaration(s) that carried the value: `background`, or every
+  // profile variable holding it.
+  const claimBg = () => {
+    if (pc && bgProp) pc.claimEqual('background', bgProp.value, claimed);
+    else claimed.add(claimKey(haCard.selector, 'background'));
+  };
 
   // Hand-written equivalent: `background-color: X` (the longhand). Adopted
   // as a solid background ONLY when it's a plain static value and no other
   // background-* longhand sits next to it — the module regenerates as the
   // `background` shorthand, which would reset a coexisting
   // background-image/position/size. Anything richer stays in Advanced CSS.
+  if (!bgProp && pc) return { ...DEFAULT_BACKGROUND };
   if (!bgProp) {
     const bgColorProp = findProp(haCard, 'background-color');
     const otherBgLonghands = haCard.properties.some(
@@ -1100,7 +1327,7 @@ function mapBackground(
       colorVal = offVal;
     }
     if (applyWhen && colorVal) {
-      claimed.add(claimKey(haCard.selector, 'background'));
+      claimBg();
       const customEntity = applyWhen === 'custom' ? { customEntity: bgProp.entityId } : {};
       const gradient = parseLinearGradient(colorVal);
       if (gradient) {
@@ -1121,7 +1348,7 @@ function mapBackground(
 
   const gradient = parseLinearGradient(value);
   if (gradient) {
-    claimed.add(claimKey(haCard.selector, 'background'));
+    claimBg();
     return {
       enabled: true,
       type: 'gradient',
@@ -1133,7 +1360,7 @@ function mapBackground(
   }
 
   if (value && !value.includes('url(') && !value.includes('{{')) {
-    claimed.add(claimKey(haCard.selector, 'background'));
+    claimBg();
     return { ...DEFAULT_BACKGROUND, enabled: true, type: 'solid', color1: value };
   }
 
@@ -1491,7 +1718,7 @@ function mapFont(targets: CssTarget[], haCard: CssTarget | null, claimed: Set<st
 // Threshold module
 // ---------------------------------------------------------------------------
 
-export function parseThresholdJinja(value: string): {
+export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet' = 'css'): {
   entityId: string;
   /** Set when the rules read state_attr(entity, attribute) instead of the state. */
   attribute?: string;
@@ -1511,13 +1738,21 @@ export function parseThresholdJinja(value: string): {
   // silently deleted on reopen (matched-and-claimed but never re-parsed).
   // The value source is either states('id') or state_attr('id', 'attr')
   // (attribute-based thresholds, roadmap #16).
-  const RULE_RE =
-    /'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)'\s+if\s+(?:states\('([^']+)'\)|state_attr\('([^']+)',\s*'([^']+)'\))\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+(?:\.\d+)?)/g;
+  // `rgb-triplet` (a profile's accent variables): colours are `R, G, B`
+  // (or HA's `var(--rgb-…)`), converted back to the Studio's colour below.
+  const COLOR_TOKEN =
+    format === 'rgb-triplet'
+      ? TRIPLET_TOKEN_SRC
+      : String.raw`#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+`;
+  const RULE_RE = new RegExp(
+    String.raw`'(${COLOR_TOKEN})'\s+if\s+(?:states\('([^']+)'\)|state_attr\('([^']+)',\s*'([^']+)'\))\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+(?:\.\d+)?)`,
+    'g',
+  );
   // Trailing anchor is `)` or `}` ONLY — the final else is always followed
   // by `}}` (or `)` inside a wrapping expression). With `\s` in the class
   // this used to match an INTERMEDIATE `else 'color' if …` of a multi-rule
   // chain, reading rule 2's color as the default.
-  const DEFAULT_RE = /else\s+'(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)'\s*[)}]/;
+  const DEFAULT_RE = new RegExp(String.raw`else\s+'(${COLOR_TOKEN})'\s*[)}]`);
 
   // The value must be exactly ONE {{ … }} expression — anything around it
   // (a `url()` after it, a second template) can't be regenerated.
@@ -1531,7 +1766,9 @@ export function parseThresholdJinja(value: string): {
   let match: RegExpExecArray | null;
 
   while ((match = RULE_RE.exec(trimmed)) !== null) {
-    const [, color, stateEntity, attrEntity, attrName, operator, numStr] = match;
+    const [, rawColor, stateEntity, attrEntity, attrName, operator, numStr] = match;
+    const color = format === 'rgb-triplet' ? fromRgbTriplet(rawColor) : rawColor;
+    if (color === null) return null;
     const ruleEntity = stateEntity ?? attrEntity;
     // Every rule must read the SAME source — rules on two entities used
     // to be silently rebound to the last one (audit v0.10 #2).
@@ -1552,7 +1789,8 @@ export function parseThresholdJinja(value: string): {
   // state, a template) used to be replaced by #888888 (audit v0.10 #2).
   const defaultMatch = DEFAULT_RE.exec(trimmed);
   if (!defaultMatch) return null;
-  const defaultColor = defaultMatch[1];
+  const defaultColor = format === 'rgb-triplet' ? fromRgbTriplet(defaultMatch[1]) : defaultMatch[1];
+  if (defaultColor === null) return null;
 
   // Claim only what the generator reproduces: same rule ORDER (the
   // generator sorts, which changes first-match semantics of a hand-written
@@ -1560,7 +1798,8 @@ export function parseThresholdJinja(value: string): {
   // parentheses. Extra logic (`and is_state(…)`, arithmetic) used to be
   // silently dropped on regenerate (audit v0.10 #2).
   if (sortThresholdRules(rules).some((r, i) => r !== rules[i])) return null;
-  if (!sameThresholdExpression(trimmed, buildThresholdJinja(rules, defaultColor, entityId, attribute))) return null;
+  const mapColor = format === 'rgb-triplet' ? (c: string) => toRgbTriplet(c) ?? c : undefined;
+  if (!sameThresholdExpression(trimmed, buildThresholdJinja(rules, defaultColor, entityId, attribute, mapColor))) return null;
 
   return { entityId, attribute, rules, defaultColor };
 }
@@ -1723,16 +1962,24 @@ export function mergeEntityRowStyles(primary: EntitiesRowStyle, secondary: Entit
   };
 }
 
+/** Same colour — spelled alike, or the same exact `R, G, B` (a profile's accent
+ *  block stores colours as triplets and reads them back as lowercase hex). */
+function sameColor(a: string, b: string): boolean {
+  if (a === b || a.toLowerCase() === b.toLowerCase()) return true;
+  const ta = toRgbTriplet(a);
+  return ta !== null && ta === toRgbTriplet(b);
+}
+
 /** True when two parsed threshold blocks are the same rule set (ignoring rule `id`s, which are re-minted per parse). */
 function sameThreshold(
   a: { entityId: string; attribute?: string; rules: ThresholdRule[]; defaultColor: string },
   b: { entityId: string; attribute?: string; rules: ThresholdRule[]; defaultColor: string },
 ): boolean {
-  if (a.entityId !== b.entityId || a.defaultColor !== b.defaultColor) return false;
+  if (a.entityId !== b.entityId || !sameColor(a.defaultColor, b.defaultColor)) return false;
   if ((a.attribute ?? '') !== (b.attribute ?? '')) return false;
   if (a.rules.length !== b.rules.length) return false;
   return a.rules.every(
-    (r, i) => r.operator === b.rules[i].operator && r.value === b.rules[i].value && r.color === b.rules[i].color,
+    (r, i) => r.operator === b.rules[i].operator && r.value === b.rules[i].value && sameColor(r.color, b.rules[i].color),
   );
 }
 
@@ -1743,35 +1990,50 @@ function mapThreshold(
   hostTarget: CssTarget | null,
   cardType: string | undefined,
   claimed: Set<string>,
+  pc: ProfileClaims | null = null,
 ): ThresholdModuleState {
   type Candidate = {
     target: CssTarget;
     cssProperty: string;
     thresholdProperty: ThresholdProperty;
+    /** A profile's variable: read through its claims (accent: `R, G, B`). */
+    profileRole?: ClaimRole;
   };
 
   const candidates: Candidate[] = [];
 
+  // A property a profile rides on its own variables is read ONLY there: the
+  // built-in `ha-card` shape reaches nothing on those cards and is not adopted.
+  const profileOwns = (role: ClaimRole) => !!pc?.has(role);
+  const profileCandidate = (role: ClaimRole, thresholdProperty: ThresholdProperty): void => {
+    const first = pc?.present(role).find(({ prop }) => prop.hasCondition && !prop.onValue);
+    if (first) candidates.push({ target: first.target, cssProperty: first.prop.property, thresholdProperty, profileRole: role });
+  };
+  profileCandidate('background', 'background');
+  profileCandidate('fontColor', 'text-color');
+  profileCandidate('accent', 'accent-color');
+  profileCandidate('borderColor', 'border-color');
+
   if (haCard) {
     const bgProp = findProp(haCard, 'background');
-    if (bgProp?.hasCondition && !bgProp.onValue)
+    if (!profileOwns('background') && bgProp?.hasCondition && !bgProp.onValue)
       candidates.push({ target: haCard, cssProperty: 'background', thresholdProperty: 'background' });
 
     const colorProp = findProp(haCard, 'color');
-    if (colorProp?.hasCondition && !colorProp.onValue)
+    if (!profileOwns('fontColor') && colorProp?.hasCondition && !colorProp.onValue)
       candidates.push({ target: haCard, cssProperty: 'color', thresholdProperty: 'text-color' });
 
     const accentProp = findProp(haCard, '--accent-color');
-    if (accentProp?.hasCondition && !accentProp.onValue)
+    if (!profileOwns('accent') && accentProp?.hasCondition && !accentProp.onValue)
       candidates.push({ target: haCard, cssProperty: '--accent-color', thresholdProperty: 'accent-color' });
 
     const borderColorProp = findProp(haCard, 'border-color');
-    if (borderColorProp?.hasCondition && !borderColorProp.onValue)
+    if (!profileOwns('borderColor') && borderColorProp?.hasCondition && !borderColorProp.onValue)
       candidates.push({ target: haCard, cssProperty: 'border-color', thresholdProperty: 'border-color' });
 
     // Also recognise "border: 2px solid {{ jinja }}" shorthand
     const borderShorthandProp = findProp(haCard, 'border');
-    if (borderShorthandProp?.hasCondition && !borderShorthandProp.onValue)
+    if (!profileOwns('borderColor') && borderShorthandProp?.hasCondition && !borderShorthandProp.onValue)
       candidates.push({ target: haCard, cssProperty: 'border', thresholdProperty: 'border-color' });
   }
 
@@ -1814,7 +2076,7 @@ function mapThreshold(
   let borderWidth: number | undefined;
   let gradientStops: ColorStop[] | null = null;
 
-  for (const { target, cssProperty, thresholdProperty } of candidates) {
+  for (const { target, cssProperty, thresholdProperty, profileRole } of candidates) {
     const prop = findProp(target, cssProperty)!;
     // The border shorthand is `Npx solid {{ … }}` (thresholdPropertyBlock);
     // any other prefix/style can't be regenerated, so it isn't claimed.
@@ -1822,22 +2084,40 @@ function mapThreshold(
       ? prop.value.trim().match(/^\d+px\s+solid\s+(\{\{[\s\S]*\}\})$/)
       : null;
     if (cssProperty === 'border' && !borderMatch) continue;
-    const parsed = parseThresholdJinja(borderMatch ? borderMatch[1] : prop.value);
+    const parsed = parseThresholdJinja(
+      borderMatch ? borderMatch[1] : prop.value,
+      profileRole === 'accent' ? 'rgb-triplet' : 'css',
+    );
     if (!parsed) continue;
     if (base && !sameThreshold(base, parsed)) continue;
 
     base ??= parsed;
-    claimed.add(claimKey(target.selector, cssProperty));
+    if (profileRole) {
+      // Every variable of the role carrying the same expression is the
+      // generator's twin of this one (classic Mushroom writes several).
+      pc!.claimEqual(profileRole, prop.value, claimed);
+      if (profileRole === 'borderColor') {
+        // the width the generator writes beside the colour variable
+        const w = pc!.present('borderWidth')[0]?.prop;
+        const wm = w && !w.hasCondition ? w.value.trim().match(/^(\d+)px$/) : null;
+        if (w && wm) {
+          borderWidth = parseInt(wm[1], 10);
+          pc!.claimEqual('borderWidth', w.value, claimed);
+        }
+      }
+    } else {
+      claimed.add(claimKey(target.selector, cssProperty));
+    }
     if (!properties.includes(thresholdProperty)) properties.push(thresholdProperty);
 
     // accent-color emits card-type companion variables carrying the same
     // Jinja expression (accentAuxDecls/gaugeColorBlock) — claim them with it.
-    if (thresholdProperty === 'accent-color') {
+    if (thresholdProperty === 'accent-color' && !profileRole) {
       claimAccentAux(haCard, haGauge, prop.value.trim(), claimed, cardType);
     }
     // text-color also writes the tile's text / the card title's colour
     // variables (thresholdPropertyBlock).
-    if (thresholdProperty === 'text-color') {
+    if (thresholdProperty === 'text-color' && !profileRole) {
       for (const v of ['--ha-tile-info-primary-color', '--ha-tile-info-secondary-color', '--ha-card-header-color']) {
         const aux = findProp(target, v);
         if (aux && aux.value.trim() === prop.value.trim()) claimed.add(claimKey(target.selector, v));

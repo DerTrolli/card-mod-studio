@@ -260,7 +260,7 @@ export class CmsChildCardSection extends LitElement {
     const s = this._studioState;
     if (!s) return nothing;
 
-    const caps = capsFor(profileKeyOf(c));
+    const caps = capsFor(profileKeyOf(c), c as unknown as Record<string, unknown>);
     if (caps.isContainer) {
       return html`<div class="child-note">
         This child is itself a "${c.type}" container — open it as its own card
@@ -331,14 +331,16 @@ export class CmsChildCardSection extends LitElement {
             ></cms-font-module>`
           : nothing}
 
-        <cms-filter-module
-          .overridden=${!!conflicts.filter}
-          .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
-          .state=${s.filter}
-          .stateAware=${stateAware}
-          .hass=${this.hass}
-          @state-changed=${(e: CustomEvent<FilterModuleState>) => this._emitChanged({ filter: e.detail })}
-        ></cms-filter-module>
+        ${mods.filter
+          ? html`<cms-filter-module
+              .overridden=${!!conflicts.filter}
+              .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
+              .state=${s.filter}
+              .stateAware=${stateAware}
+              .hass=${this.hass}
+              @state-changed=${(e: CustomEvent<FilterModuleState>) => this._emitChanged({ filter: e.detail })}
+            ></cms-filter-module>`
+          : nothing}
 
         ${mods.accentColor
           ? html`<cms-accent-color-module
@@ -364,6 +366,7 @@ export class CmsChildCardSection extends LitElement {
               .stateAware=${stateAware}
               .isLightCard=${caps.isLight}
               .allowSize=${caps.iconSize}
+              .allowColor=${!caps.iconColorless}
               .cardEntity=${entity}
               .hass=${this.hass}
               @state-changed=${(e: CustomEvent<IconColorModuleState>) =>
@@ -378,6 +381,7 @@ export class CmsChildCardSection extends LitElement {
               .state=${s.threshold}
               .cardEntity=${entity}
               .cardType=${cardType}
+              .cardConfig=${c}
               .hass=${this.hass}
               @state-changed=${(e: CustomEvent<ThresholdModuleState>) =>
                 this._emitChanged({ threshold: e.detail })}

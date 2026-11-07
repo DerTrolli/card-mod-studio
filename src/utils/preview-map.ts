@@ -11,7 +11,7 @@
  */
 
 import { capsFor } from './card-caps.js';
-import { getCustomCardProfile } from './custom-card-profiles.js';
+import { getCustomCardProfile, emitKeyOf } from './custom-card-profiles.js';
 
 /** One element of the hovered element's ancestor chain (lowercased tag). */
 export interface PickChainElement {
@@ -184,7 +184,8 @@ const RULES: PickRule[] = [
       (ctx.genericRowIndex !== -1 &&
         i < ctx.genericRowIndex &&
         el.classes.some((c) => GENERIC_ROW_TEXT_CLASSES.has(c))) ||
-      (CARD_TEXT_MATCHERS[ctx.cardType]?.(el) ?? false),
+      // a profile's `emitAs` borrows the built-in card's text matchers (D4)
+      (CARD_TEXT_MATCHERS[emitKeyOf(ctx.cardType)]?.(el) ?? false),
     target: (cardType) =>
       !capsFor(cardType).modules.font ? null : { module: 'cms-font-module', label: 'Font' },
   },

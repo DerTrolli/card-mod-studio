@@ -113,7 +113,7 @@ const EXTRA_TYPES = [
   'tile', 'entities', 'heading', 'light', 'entity', 'sensor', 'button', 'markdown', 'glance',
   'vertical-stack', 'horizontal-stack', 'grid', 'sections', 'conditional', 'entity-filter',
   'gauge', 'thermostat', 'area', 'date', 'picture-glance', 'logbook', 'alarm-panel',
-  '', 'custom:unknown-card', 'custom:mushroom-entity-card', 'custom:bubble-card',
+  '', 'custom:unknown-card', 'custom:other-mushroom-card', 'custom:bubble-card',
   'custom:bubble-card/button', 'not-a-card',
 ];
 const TYPES = [...new Set([...ALL_OLD.flatMap((s) => [...s]), ...EXTRA_TYPES])];

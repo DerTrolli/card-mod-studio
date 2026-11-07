@@ -22,7 +22,8 @@
  *   - animation     → hidden per NO_ANIMATION_TYPES
  *   - border        → hidden per NO_BORDER_TYPES
  *   - font          → hidden per NO_FONT_TYPES
- * filter and advanced are always visible, so they always survive.
+ * advanced is always visible and survives; filter too unless a custom profile
+ * hides it (the Mushroom empty card has no box to filter).
  */
 
 import type { StudioState, ThresholdModuleState } from '../types/index.js';
@@ -31,6 +32,7 @@ import {
   DEFAULT_ANIMATION,
   DEFAULT_BACKGROUND,
   DEFAULT_BORDER,
+  DEFAULT_FILTER,
   DEFAULT_FONT,
   DEFAULT_HEADING_STYLE,
   DEFAULT_ICON_COLOR,
@@ -80,6 +82,7 @@ export function filterPresetStateForCardType(
   }
   if (!mods.background) next.background = { ...DEFAULT_BACKGROUND };
   if (!mods.animation) next.animation = { ...DEFAULT_ANIMATION };
+  if (!mods.filter) next.filter = { ...DEFAULT_FILTER };
   if (!mods.border) next.border = { ...DEFAULT_BORDER };
   if (!mods.font) next.font = { ...DEFAULT_FONT };
   // A custom profile can name further modules to drop on a foreign preset.
@@ -91,6 +94,7 @@ export function filterPresetStateForCardType(
     else if (m === 'background') next.background = { ...DEFAULT_BACKGROUND };
     else if (m === 'border') next.border = { ...DEFAULT_BORDER };
     else if (m === 'animation') next.animation = { ...DEFAULT_ANIMATION };
+    else if (m === 'filter') next.filter = { ...DEFAULT_FILTER };
     else if (m === 'headingStyle') next.headingStyle = { ...DEFAULT_HEADING_STYLE };
   }
   // Number size is never part of a preset (v0.11) — the card keeps its own.

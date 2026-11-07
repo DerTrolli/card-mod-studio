@@ -34,6 +34,8 @@ export type ModuleConflicts = Partial<Record<ConflictableModule, string[]>>;
 
 interface Rule {
   module: ConflictableModule;
+  /** Threshold rows only: active while Threshold drives this property. */
+  property?: string;
   /** Substring the target selector must contain ('' = any selector). */
   selector: string;
   /** Property names (lowercase) that collide with the module's output. */
@@ -133,8 +135,13 @@ export function findAdvancedCssConflicts(
   }
 
   const extra: Rule[] = (profileKey ? getCustomCardProfile(profileKey)?.conflicts ?? [] : [])
-    .map((c) => ({ module: c.module, selector: c.selector, props: c.props }));
-  const activeRules: Rule[] = [...RULES, ...extra].filter((r) => isEnabled(state, r.module));
+    .map((c) => ({ module: c.module, selector: c.selector, props: c.props, property: c.property }));
+  const activeRules: Rule[] = [...RULES, ...extra].filter(
+    (r) =>
+      isEnabled(state, r.module) &&
+      // a profile's threshold row names the property it belongs to
+      (!r.property || (state.threshold.enabled && state.threshold.properties.includes(r.property as never))),
+  );
   if (state.threshold.enabled) {
     for (const p of state.threshold.properties) {
       activeRules.push(...(THRESHOLD_PROPS[p] ?? []));
