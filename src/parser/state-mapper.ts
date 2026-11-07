@@ -46,7 +46,7 @@ import {
   HEADING_FAMILY_SELECTOR,
   HEADING_ICON_SELECTOR,
 } from '../generator/css-generator.js';
-import { NO_ICON_COLOR_TYPES, ICON_SIZE_TYPES } from '../utils/card-caps.js';
+import { capsFor } from '../utils/card-caps.js';
 import { ownedEntryKey, parseOwnedEntry } from '../utils/owned-entries.js';
 
 // ---------------------------------------------------------------------------
@@ -430,6 +430,8 @@ function mapAnimation(
 // Public API
 // ---------------------------------------------------------------------------
 
+/** `cardType` is the card's profile key (profileKeyOf(config)); equal to
+ *  `config.type` for every built-in card. */
 export function mapToStudioState(parsed: CardModStyleState, cardType?: string): StudioState {
   const haCard = findTarget(parsed.targets, 'ha-card');
   const haStateIcon = findTarget(parsed.targets, 'ha-state-icon');
@@ -791,7 +793,7 @@ function iconAdoptionAllowed(cardType?: string): boolean {
   // No card type known (defensive callers) → don't adopt, only preserve.
   if (!cardType) return false;
   if (cardType === 'entities') return false; // rows, not a card icon
-  return !NO_ICON_COLOR_TYPES.has(cardType);
+  return capsFor(cardType).modules.iconColor;
 }
 
 function mapIconColor(
@@ -859,7 +861,7 @@ function applyIconSize(
     if (haTileIcon && tileMdc && applySize(tileMdc.value)) {
       claimed.add(claimKey(haTileIcon.selector, '--mdc-icon-size'));
     }
-  } else if (cardType && ICON_SIZE_TYPES.has(cardType) && haCard) {
+  } else if (cardType && capsFor(cardType).iconSize && haCard) {
     const mdc = findProp(haCard, '--mdc-icon-size');
     const haSize = findProp(haCard, '--ha-icon-size');
     if (mdc && haSize && mdc.value.trim() === haSize.value.trim() && applySize(mdc.value)) {

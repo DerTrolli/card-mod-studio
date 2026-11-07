@@ -17,6 +17,7 @@
 
 import { parseCss, parseAllRules } from '../parser/css-parser.js';
 import type { StudioState, EntitiesRowStyle } from '../types/index.js';
+import { getCustomCardProfile } from './custom-card-profiles.js';
 
 export type ConflictableModule =
   | 'iconColor'
@@ -112,7 +113,13 @@ function isEnabled(state: StudioState, module: ConflictableModule): boolean {
  * human-readable descriptions of the offending declarations
  * (e.g. "ha-card { background }") for the warning hint.
  */
-export function findAdvancedCssConflicts(rawCss: string, state: StudioState): ModuleConflicts {
+export function findAdvancedCssConflicts(
+  rawCss: string,
+  state: StudioState,
+  /** The card's profile key — a custom profile's `conflicts` rows are added
+   *  to the built-in ones (D2). Omitted/unprofiled: built-in rules only. */
+  profileKey?: string,
+): ModuleConflicts {
   const trimmed = rawCss.trim();
   if (!trimmed) return {};
 
@@ -125,7 +132,9 @@ export function findAdvancedCssConflicts(rawCss: string, state: StudioState): Mo
     return {};
   }
 
-  const activeRules: Rule[] = RULES.filter((r) => isEnabled(state, r.module));
+  const extra: Rule[] = (profileKey ? getCustomCardProfile(profileKey)?.conflicts ?? [] : [])
+    .map((c) => ({ module: c.module, selector: c.selector, props: c.props }));
+  const activeRules: Rule[] = [...RULES, ...extra].filter((r) => isEnabled(state, r.module));
   if (state.threshold.enabled) {
     for (const p of state.threshold.properties) {
       activeRules.push(...(THRESHOLD_PROPS[p] ?? []));

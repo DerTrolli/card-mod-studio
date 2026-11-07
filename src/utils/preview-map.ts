@@ -10,11 +10,8 @@
  * picker must never point at a module that isn't on screen).
  */
 
-import {
-  NO_ICON_COLOR_TYPES,
-  NO_BACKGROUND_TYPES,
-  NO_FONT_TYPES,
-} from './card-caps.js';
+import { capsFor } from './card-caps.js';
+import { getCustomCardProfile } from './custom-card-profiles.js';
 
 /** One element of the hovered element's ancestor chain (lowercased tag). */
 export interface PickChainElement {
@@ -122,7 +119,7 @@ const RULES: PickRule[] = [
       // Mirror cms-panel._showIconColor: hidden on NO_ICON_COLOR_TYPES and on
       // entities cards (rows carry their own per-row icon color instead — the
       // walk falls through to the entity-row rule there).
-      NO_ICON_COLOR_TYPES.has(cardType) || cardType === 'entities'
+      !capsFor(cardType).modules.iconColor
         ? null
         : { module: 'cms-icon-color-module', label: 'Icon Color' },
   },
@@ -130,7 +127,7 @@ const RULES: PickRule[] = [
     // Heading card title (.title wraps the p + ha-icon) → Heading Style.
     test: (_el, i, ctx) => ctx.titleIndex !== -1 && i <= ctx.titleIndex,
     target: (cardType) =>
-      cardType === 'heading'
+      capsFor(cardType).modules.headingStyle
         ? { module: 'cms-heading-style-module', label: 'Heading Style' }
         : null,
     highlightIndex: (_i, ctx) => ctx.titleIndex,
@@ -140,7 +137,8 @@ const RULES: PickRule[] = [
     test: (el) => el.tag === 'ha-gauge' || el.classes.some((c) => GAUGE_CLASSES.has(c)),
     target: (cardType) =>
       // Accent module is hidden on heading + entities cards (cms-panel).
-      cardType === 'heading' || cardType === 'entities'
+      capsFor(cardType).isHeading || capsFor(cardType).isEntities ||
+      (capsFor(cardType).custom && !capsFor(cardType).modules.accentColor)
         ? null
         : {
             module: 'cms-accent-color-module',
@@ -188,7 +186,7 @@ const RULES: PickRule[] = [
         el.classes.some((c) => GENERIC_ROW_TEXT_CLASSES.has(c))) ||
       (CARD_TEXT_MATCHERS[ctx.cardType]?.(el) ?? false),
     target: (cardType) =>
-      NO_FONT_TYPES.has(cardType) ? null : { module: 'cms-font-module', label: 'Font' },
+      !capsFor(cardType).modules.font ? null : { module: 'cms-font-module', label: 'Font' },
   },
   {
     // A row element on an entities card → the per-row styling module.
@@ -196,7 +194,7 @@ const RULES: PickRule[] = [
     // actual DOM order and the card's entity list — this mapper can't.
     test: (el) => ENTITY_ROW_TAG_RE.test(el.tag),
     target: (cardType) =>
-      cardType === 'entities'
+      capsFor(cardType).isEntities
         ? { module: 'cms-entities-rows-module', label: 'Entity Rows' }
         : null,
   },
@@ -204,7 +202,7 @@ const RULES: PickRule[] = [
 
 /** The catch-all: the card surface itself (or anything unrecognised). */
 function fallbackTarget(cardType: string): PickTarget {
-  return NO_BACKGROUND_TYPES.has(cardType)
+  return !capsFor(cardType).modules.background
     ? { module: 'cms-advanced-module', label: 'Advanced CSS' }
     : { module: 'cms-background-module', label: 'Background & card surface' };
 }
@@ -215,7 +213,7 @@ function buildContext(chain: PickChainElement[], cardType: string): ChainContext
     // Heading cards: `.content.title`, or `.content.subtitle` for
     // `heading_style: subtitle` — both are the Heading Style module's.
     titleIndex: chain.findIndex(
-      (el) => el.classes.includes('title') || (cardType === 'heading' && el.classes.includes('subtitle')),
+      (el) => el.classes.includes('title') || (capsFor(cardType).isHeading && el.classes.includes('subtitle')),
     ),
     genericRowIndex: chain.findIndex((el) => el.tag === 'hui-generic-entity-row'),
   };
@@ -226,7 +224,8 @@ function buildContext(chain: PickChainElement[], cardType: string): ChainContext
  *
  * @param chain the hovered element's ancestor chain, deepest first, ending at
  *              the preview card root; tags lowercased.
- * @param cardType the card's `type:` (e.g. 'tile', 'gauge', 'entities').
+ * @param cardType the card's profile key (profileKeyOf(config); e.g. 'tile',
+ *                 'gauge', 'entities', 'custom:bubble-card/button').
  */
 export function mapElementToMatch(
   chain: PickChainElement[],
@@ -239,11 +238,24 @@ export function mapElementToMatch(
   // that row (its section holds the row's icon/text colour and font). The
   // OUTERMOST row element is the row itself; HA nests a
   // hui-generic-entity-row inside every row, which the same pattern matches.
-  if (cardType === 'entities') {
+  if (capsFor(cardType).isEntities) {
     for (let i = chain.length - 1; i >= 0; i--) {
       if (ENTITY_ROW_TAG_RE.test(chain[i].tag)) {
         return { target: { module: 'cms-entities-rows-module', label: 'Entity Rows' }, index: i };
       }
+    }
+  }
+
+  // A custom-card profile's own click-to-edit rows win over the generic walk
+  // (deepest element first, like the rule table below).
+  const clicks = getCustomCardProfile(cardType)?.clickToEdit;
+  if (clicks?.length) {
+    for (let i = 0; i < chain.length; i++) {
+      const el = chain[i];
+      const hit = clicks.find(
+        (r) => (!r.tag || r.tag === el.tag) && (!r.className || el.classes.includes(r.className)) && (r.tag || r.className),
+      );
+      if (hit) return { target: { module: hit.module, label: hit.label }, index: i };
     }
   }
 

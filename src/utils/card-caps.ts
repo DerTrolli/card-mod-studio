@@ -7,7 +7,13 @@
  *
  * The sets are the product of live verification, not guesses — see
  * docs/CARD_SUPPORT_MATRIX.md and the notes next to each entry.
+ *
+ * D2: consumers do NOT read these sets directly — they ask `capsFor(key)`
+ * (bottom of this file), which answers from the sets for built-in cards and
+ * from a custom-card profile (custom-card-profiles.ts) where one exists.
  */
+
+import { getCustomCardProfile, type ProfileModule } from './custom-card-profiles.js';
 
 export const NON_STATE_CARD_TYPES = new Set([
   'sensor', 'gauge', 'history-graph', 'statistics-graph', 'statistic',
@@ -150,8 +156,135 @@ export const NO_FONT_TYPES = new Set([
   'picture',
 ]);
 
-export const showsAccentColor = (cardType: string): boolean =>
-  cardType !== 'heading' && cardType !== 'entities' && !NO_ACCENT_TYPES.has(cardType);
+/** Cards whose own stylesheet overrides a plain filter transition (see
+ *  the filter block in css-generator). */
+export const TRANSITION_IMPORTANT_TYPES = new Set(['tile', 'sensor', 'entity', 'area']);
+
+/**
+ * Card types whose title is rendered through ha-card's header slot
+ * (`.card-header`), styled inside ha-card's own shadow stylesheet via
+ * `--ha-card-header-{font-size,color,font-family}` — a plain inherited
+ * font-size never reaches it. Verified live for entities (slotted h1) and
+ * glance (h1 inside ha-card's shadow root); the rest use the identical
+ * `ha-card .header=` mechanism.
+ * (picture-glance left this list in v0.11: its title isn't a card header —
+ * the module-effect audit measured header size and colour dead there; the
+ * parser still claims the variables in older output.)
+ */
+export const HEADER_TITLE_CARD_TYPES = new Set([
+  'entities', 'glance', 'history-graph', 'statistics-graph', 'statistic',
+  'calendar', 'todo-list', 'shopping-list', 'logbook',
+]);
+
+/**
+ * Everything the code asks about a card, answered once per profile key.
+ * Built-in cards answer exactly as the sets above; a registered custom
+ * profile overrides; an unknown type keeps the default (every module — D7's
+ * notice is a later chunk).
+ */
+export interface CardCaps {
+  key: string;
+  /** True when a custom-card profile answered (not the built-in sets). */
+  custom: boolean;
+  isEntities: boolean;
+  isHeading: boolean;
+  isLight: boolean;
+  isContainer: boolean;
+  /** Container with a `cards: []` list the panel offers child sections for. */
+  stylableChildren: boolean;
+  /** Which panel modules show. */
+  modules: Record<ProfileModule, boolean>;
+  /** Font's colour picker / size slider reach something. */
+  fontColor: boolean;
+  fontSize: boolean;
+  /** Icon Color offers its size control. */
+  iconSize: boolean;
+  /** Card is assumed to have an on/off state when no entity says otherwise. */
+  stateAwareByDefault: boolean;
+  /** Title lives in ha-card's header slot (Font writes header variables). */
+  headerTitle: boolean;
+  /** Filter's transition needs `!important` here. */
+  transitionImportant: boolean;
+  /** Does a Threshold "Apply to" property do anything here? */
+  thresholdProperty(property: string): boolean;
+}
+
+function buildCaps(
+  key: string,
+  custom: boolean,
+  m: Record<ProfileModule, boolean>,
+  f: { fontColor: boolean; fontSize: boolean; iconSize: boolean; stateAwareByDefault: boolean },
+): CardCaps {
+  return {
+    key,
+    custom,
+    isEntities: !custom && key === 'entities',
+    isHeading: !custom && key === 'heading',
+    isLight: !custom && key === 'light',
+    isContainer: !custom && CONTAINER_CARD_TYPES.has(key),
+    stylableChildren: !custom && STYLABLE_CHILDREN_CARD_TYPES.has(key),
+    modules: m,
+    ...f,
+    headerTitle: !custom && HEADER_TITLE_CARD_TYPES.has(key),
+    transitionImportant: !custom && TRANSITION_IMPORTANT_TYPES.has(key),
+    thresholdProperty(property: string): boolean {
+      switch (property) {
+        case 'icon-color': return m.iconColor;
+        case 'accent-color': return m.accentColor;
+        case 'background': return m.background;
+        case 'border-color': return m.border;
+        case 'text-color': return m.font && f.fontColor;
+        default: return true;
+      }
+    },
+  };
+}
+
+/** The capabilities lookup — the ONE place per-card-type gating is decided. */
+export function capsFor(profileKey: string | undefined): CardCaps {
+  const key = profileKey ?? '';
+  const profile = getCustomCardProfile(key);
+  if (profile) {
+    return buildCaps(
+      key,
+      true,
+      {
+        iconColor: true, accentColor: true, font: true, threshold: true,
+        background: true, border: true, animation: true, headingStyle: false,
+        ...profile.modules,
+      },
+      {
+        fontColor: profile.fontColor ?? true,
+        fontSize: profile.fontSize ?? true,
+        iconSize: profile.iconSize ?? false,
+        stateAwareByDefault: profile.stateAware ?? true,
+      },
+    );
+  }
+  const entities = key === 'entities';
+  return buildCaps(
+    key,
+    false,
+    {
+      iconColor: !entities && !NO_ICON_COLOR_TYPES.has(key),
+      accentColor: key !== 'heading' && !entities && !NO_ACCENT_TYPES.has(key),
+      font: !NO_FONT_TYPES.has(key),
+      threshold: !entities && !NO_THRESHOLD_TYPES.has(key),
+      background: !NO_BACKGROUND_TYPES.has(key),
+      border: !NO_BORDER_TYPES.has(key),
+      animation: !NO_ANIMATION_TYPES.has(key),
+      headingStyle: key === 'heading',
+    },
+    {
+      fontColor: !NO_TEXT_COLOR_TYPES.has(key),
+      fontSize: !NO_FONT_SIZE_TYPES.has(key),
+      iconSize: ICON_SIZE_TYPES.has(key),
+      stateAwareByDefault: !NON_STATE_CARD_TYPES.has(key),
+    },
+  );
+}
+
+export const showsAccentColor = (cardType: string): boolean => capsFor(cardType).modules.accentColor;
 
 /**
  * Which Threshold Colors "Apply to" properties do something on a card type —
@@ -159,14 +292,7 @@ export const showsAccentColor = (cardType: string): boolean =>
  * offers a colour the matching module hides as dead.
  */
 export function thresholdPropertyAllowed(property: string, cardType: string): boolean {
-  switch (property) {
-    case 'icon-color': return cardType !== 'entities' && !NO_ICON_COLOR_TYPES.has(cardType);
-    case 'accent-color': return showsAccentColor(cardType);
-    case 'background': return !NO_BACKGROUND_TYPES.has(cardType);
-    case 'border-color': return !NO_BORDER_TYPES.has(cardType);
-    case 'text-color': return !NO_FONT_TYPES.has(cardType) && !NO_TEXT_COLOR_TYPES.has(cardType);
-    default: return true;
-  }
+  return capsFor(cardType).thresholdProperty(property);
 }
 
 /** Domains whose entities carry a binary on/off state usable in an
@@ -188,10 +314,10 @@ export function isStateAware(
   hass?: { states?: Record<string, { state: string }> },
 ): boolean {
   if (!entityId || !hass?.states) {
-    return !NON_STATE_CARD_TYPES.has(cardType ?? '');
+    return capsFor(cardType).stateAwareByDefault;
   }
   const entity = hass.states[entityId];
-  if (!entity) return !NON_STATE_CARD_TYPES.has(cardType ?? '');
+  if (!entity) return capsFor(cardType).stateAwareByDefault;
 
   const domain = entityId.split('.')[0];
   return BINARY_DOMAINS.includes(domain) || ['on', 'off'].includes(entity.state);

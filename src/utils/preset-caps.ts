@@ -12,6 +12,8 @@
  * panel would hide back to its DEFAULT (disabled) state, mirroring the
  * panel's own _show* gating exactly:
  *   - headingStyle  → only on 'heading' cards
+ *   (all gating below comes from capsFor(key).modules — card-caps.ts — so a
+ *   custom profile's hidden modules are reset the same way)
  *   - iconColor     → hidden on 'entities' and NO_ICON_COLOR_TYPES
  *   - accentColor   → hidden on 'heading', 'entities' and NO_ACCENT_TYPES
  *   - threshold     → hidden on 'entities' and NO_THRESHOLD_TYPES; elsewhere
@@ -35,16 +37,8 @@ import {
   DEFAULT_THRESHOLD,
 } from '../parser/state-mapper.js';
 import { withoutNumberSize } from './owned-entries.js';
-import {
-  NO_ANIMATION_TYPES,
-  NO_BACKGROUND_TYPES,
-  NO_BORDER_TYPES,
-  NO_FONT_TYPES,
-  NO_ICON_COLOR_TYPES,
-  NO_THRESHOLD_TYPES,
-  showsAccentColor,
-  thresholdPropertyAllowed,
-} from './card-caps.js';
+import { capsFor } from './card-caps.js';
+import { getCustomCardProfile } from './custom-card-profiles.js';
 
 /** DEFAULT_THRESHOLD carries arrays — copy them so a later in-place edit of
  *  the returned state can never mutate the shared default constant. */
@@ -68,26 +62,37 @@ export function filterPresetStateForCardType(
   cardType: string | undefined,
 ): StudioState {
   const type = cardType ?? '';
-  const isHeading = type === 'heading';
-  const isEntities = type === 'entities';
+  const caps = capsFor(type);
+  const mods = caps.modules;
 
   const next: StudioState = { ...state };
 
-  if (!isHeading) next.headingStyle = { ...DEFAULT_HEADING_STYLE };
-  if (isEntities || NO_ICON_COLOR_TYPES.has(type)) next.iconColor = { ...DEFAULT_ICON_COLOR };
-  if (!showsAccentColor(type)) next.accentColor = { ...DEFAULT_ACCENT_COLOR };
-  if (isEntities || NO_THRESHOLD_TYPES.has(type)) {
+  if (!mods.headingStyle) next.headingStyle = { ...DEFAULT_HEADING_STYLE };
+  if (!mods.iconColor) next.iconColor = { ...DEFAULT_ICON_COLOR };
+  if (!mods.accentColor) next.accentColor = { ...DEFAULT_ACCENT_COLOR };
+  if (!mods.threshold) {
     next.threshold = freshThreshold();
   } else if (next.threshold?.enabled && type) {
     // Threshold properties this card type doesn't offer would be invisible
     // styling the module can't untick — drop them (all gone → module off).
-    const props = next.threshold.properties.filter((p) => thresholdPropertyAllowed(p, type));
+    const props = next.threshold.properties.filter((p) => caps.thresholdProperty(p));
     next.threshold = props.length ? { ...next.threshold, properties: props } : freshThreshold();
   }
-  if (NO_BACKGROUND_TYPES.has(type)) next.background = { ...DEFAULT_BACKGROUND };
-  if (NO_ANIMATION_TYPES.has(type)) next.animation = { ...DEFAULT_ANIMATION };
-  if (NO_BORDER_TYPES.has(type)) next.border = { ...DEFAULT_BORDER };
-  if (NO_FONT_TYPES.has(type)) next.font = { ...DEFAULT_FONT };
+  if (!mods.background) next.background = { ...DEFAULT_BACKGROUND };
+  if (!mods.animation) next.animation = { ...DEFAULT_ANIMATION };
+  if (!mods.border) next.border = { ...DEFAULT_BORDER };
+  if (!mods.font) next.font = { ...DEFAULT_FONT };
+  // A custom profile can name further modules to drop on a foreign preset.
+  for (const m of getCustomCardProfile(type)?.presetDrop ?? []) {
+    if (m === 'iconColor') next.iconColor = { ...DEFAULT_ICON_COLOR };
+    else if (m === 'accentColor') next.accentColor = { ...DEFAULT_ACCENT_COLOR };
+    else if (m === 'font') next.font = { ...DEFAULT_FONT };
+    else if (m === 'threshold') next.threshold = freshThreshold();
+    else if (m === 'background') next.background = { ...DEFAULT_BACKGROUND };
+    else if (m === 'border') next.border = { ...DEFAULT_BORDER };
+    else if (m === 'animation') next.animation = { ...DEFAULT_ANIMATION };
+    else if (m === 'headingStyle') next.headingStyle = { ...DEFAULT_HEADING_STYLE };
+  }
   // Number size is never part of a preset (v0.11) — the card keeps its own.
   if (next.font) next.font = withoutNumberSize(next.font);
 

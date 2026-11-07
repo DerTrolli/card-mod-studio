@@ -26,6 +26,8 @@ import {
 import { generateCss, buildThresholdJinja, FONT_WEIGHT_VALUE } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
 import { generateOwnedEntries } from '../utils/owned-entries.js';
+import { capsFor } from '../utils/card-caps.js';
+import { profileKeyOf } from '../utils/custom-card-profiles.js';
 import {
   hasStyleContent,
   usesUixOnlyFeatures,
@@ -116,10 +118,11 @@ export function buildMergedStudioState(
   hass?: HomeAssistant,
 ): StudioState {
   const outputKey = pickOutputKey(hass);
+  const profileKey = profileKeyOf(config);
   const primaryStyle = outputKey === 'uix' ? config.uix?.style : config.card_mod?.style;
   const secondaryStyle = outputKey === 'uix' ? config.card_mod?.style : config.uix?.style;
 
-  const primaryState = mapToStudioState(parseStyleValue(primaryStyle), config.type);
+  const primaryState = mapToStudioState(parseStyleValue(primaryStyle), profileKey);
 
   if (isDictForm(secondaryStyle) && hasStyleContent(secondaryStyle)) {
     // v0.10: a dict-form SECONDARY that is the card's ONLY style is simply
@@ -128,7 +131,7 @@ export function buildMergedStudioState(
     // a uix: dict using UIX-only features, which stays under uix: (audit
     // v0.10 #6 — it used to be frozen behind a false "Mixed-form" banner).
     if (!hasStyleContent(primaryStyle)) {
-      const effective = mapToStudioState(parseStyleValue(secondaryStyle), config.type);
+      const effective = mapToStudioState(parseStyleValue(secondaryStyle), profileKey);
       const pin = outputKey === 'card_mod' && usesUixOnlyFeatures(config);
       return applyPaletteDefaults(
         pin && effective.dictSource ? { ...effective, dictSource: { ...effective.dictSource, pinKey: 'uix' } } : effective,
@@ -150,7 +153,7 @@ export function buildMergedStudioState(
   const secondaryUsable = outputKey === 'uix' || !usesUixOnlyFeatures(config);
   if (!hasStyleContent(secondaryStyle) || !secondaryUsable) return applyPaletteDefaults(primaryState);
 
-  const secondaryState = mapToStudioState(parseStyleValue(secondaryStyle), config.type);
+  const secondaryState = mapToStudioState(parseStyleValue(secondaryStyle), profileKey);
   return applyPaletteDefaults(mergeStudioStates(primaryState, secondaryState));
 }
 
@@ -165,10 +168,11 @@ export function applyStudioState(
   config: CardModCardConfig,
   hass?: HomeAssistant,
 ): CardModCardConfig {
-  const css = generateCss(state, config.type, {
+  const profileKey = profileKeyOf(config);
+  const css = generateCss(state, profileKey, {
     gaugeNeedle: (config as { needle?: boolean }).needle === true,
   });
-  return applyCardModStyle(css, config, pickOutputKey(hass), state.dictSource, generateOwnedEntries(state, config.type));
+  return applyCardModStyle(css, config, pickOutputKey(hass), state.dictSource, generateOwnedEntries(state, profileKey));
 }
 
 /**
@@ -289,7 +293,7 @@ export function initEntityRowStyles(
   config: CardModCardConfig,
   hass?: HomeAssistant,
 ): EntitiesRowStyles {
-  if (config.type !== 'entities') return {};
+  if (!capsFor(profileKeyOf(config)).isEntities) return {};
   const rows = (config as unknown as { entities?: EntitiesRowLike[] }).entities;
   if (!rows?.length) return {};
 

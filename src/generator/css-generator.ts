@@ -20,7 +20,7 @@ import type {
   ColorStop,
   StyleCondition,
 } from '../types/index.js';
-import { ICON_SIZE_TYPES } from '../utils/card-caps.js';
+import { capsFor } from '../utils/card-caps.js';
 
 /**
  * Renders the entity reference used inside an `is_state(...)`/`state_attr(...)`
@@ -125,10 +125,6 @@ export function conditionExpr(c: StyleCondition | undefined): string | null {
   return `${src} ${c.valueOperator} ${c.valueThreshold}`;
 }
 
-/** Cards whose own stylesheet overrides a plain filter transition (see
- *  the filter block below). */
-const TRANSITION_IMPORTANT_TYPES = new Set(['tile', 'sensor', 'entity', 'area']);
-
 function filterDecls(s: FilterModuleState, cardType?: string, rawCss = ''): string[] {
   if (!s.enabled) return [];
 
@@ -199,7 +195,7 @@ function filterDecls(s: FilterModuleState, cardType?: string, rawCss = ''): stri
     // HA 2026.10.4 (harmless where not needed). Same mechanism as the
     // button card's font size. Not when Advanced CSS sets a transition
     // itself: hand-written CSS must keep winning, as it does everywhere else.
-    const important = TRANSITION_IMPORTANT_TYPES.has(cardType ?? '') && !/(^|[\s;{])transition\s*:/.test(rawCss);
+    const important = capsFor(cardType).transitionImportant && !/(^|[\s;{])transition\s*:/.test(rawCss);
     decls.push(`transition: filter ${s.transitionMs}ms ease${important ? ' !important' : ''};`);
   }
 
@@ -485,22 +481,6 @@ export const FONT_WEIGHT_VALUE: Record<FontModuleState['fontWeight'], string> = 
   bold: 'bold',
 };
 
-/**
- * Card types whose title is rendered through ha-card's header slot
- * (`.card-header`), styled inside ha-card's own shadow stylesheet via
- * `--ha-card-header-{font-size,color,font-family}` — a plain inherited
- * font-size never reaches it. Verified live for entities (slotted h1) and
- * glance (h1 inside ha-card's shadow root); the rest use the identical
- * `ha-card .header=` mechanism.
- */
-const HEADER_TITLE_CARD_TYPES = new Set([
-  'entities', 'glance', 'history-graph', 'statistics-graph', 'statistic',
-  'calendar', 'todo-list', 'shopping-list', 'logbook',
-]);
-// (picture-glance left this list in v0.11: its title isn't a card header —
-// the module-effect audit measured header size and colour dead there; the
-// parser still claims the variables in older output.)
-
 /** Header title scales at 1.5× the body size (HA default: 24px header vs
  *  16px body), so "make the text bigger" keeps the hierarchy intact.
  *  Exported for the parser's companion-claiming (exact-string match). */
@@ -540,7 +520,7 @@ export function valueFontSize(sizePx: number): string {
  *   --ha-font-size-l / --ha-font-weight-medium; the big number (57px, two
  *   shadow roots deep) takes weight/color by inheritance and its size from
  *   Font → Temperature size (owned pierced entry, owned-entries.ts).
- * - header-title cards: see HEADER_TITLE_CARD_TYPES above.
+ * - header-title cards: see HEADER_TITLE_CARD_TYPES in card-caps.
  *
  * All returned as extra top-level blocks joined after the base ha-card block.
  */
@@ -635,7 +615,7 @@ function fontCompanionDecls(
     decls.push(`--ha-font-size-l: ${size};`, `--ha-font-weight-medium: ${weight};`);
   }
 
-  if (HEADER_TITLE_CARD_TYPES.has(cardType ?? '')) {
+  if (capsFor(cardType).headerTitle) {
     decls.push(`--ha-card-header-font-size: ${headerFontSize(sizePx)};`);
     if (color) decls.push(`--ha-card-header-color: ${color};`);
     if (family) decls.push(`--ha-card-header-font-family: ${family};`);
@@ -686,11 +666,11 @@ function iconSizeValue(s: IconColorModuleState): string | null {
  * Icon-size declarations for the ha-card block (entity/sensor/
  * picture-glance — the vars cascade to exactly the main state icon there,
  * live-verified) — tile instead needs the separate ha-tile-icon block
- * below. Gated on ICON_SIZE_TYPES: everywhere else the vars either do
+ * below. Gated on capsFor(key).iconSize (ICON_SIZE_TYPES): everywhere else the vars either do
  * nothing or hit the wrong icons (see card-caps.ts).
  */
 function iconSizeDecls(s: IconColorModuleState, cardType?: string): string[] {
-  if (!s.enabled || !cardType || cardType === 'tile' || !ICON_SIZE_TYPES.has(cardType)) return [];
+  if (!s.enabled || !cardType || cardType === 'tile' || !capsFor(cardType).iconSize) return [];
   const value = iconSizeValue(s);
   return value ? [`--mdc-icon-size: ${value};`, `--ha-icon-size: ${value};`] : [];
 }
@@ -903,7 +883,7 @@ function thresholdPropertyBlock(
       // — neither inherits ha-card's colour.
       const aux = cardType === 'tile'
         ? `  --ha-tile-info-primary-color: ${jinja};\n  --ha-tile-info-secondary-color: ${jinja};\n`
-        : HEADER_TITLE_CARD_TYPES.has(cardType ?? '')
+        : capsFor(cardType).headerTitle
           ? `  --ha-card-header-color: ${jinja};\n`
           : '';
       return `ha-card {\n${marker}  color: ${jinja};\n${aux}}`;
@@ -973,6 +953,13 @@ function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string, 
 // Public API
 // ---------------------------------------------------------------------------
 
+/**
+ * `cardType` is the card's PROFILE KEY (profileKeyOf(config); equal to
+ * `config.type` for every built-in card) — passed once, here. Gating reads go
+ * through capsFor(); the emitter choice below still compares the key against
+ * the built-in names, and a custom profile's `emitters` (later chunks) hook
+ * in at those same points.
+ */
 export function generateCss(state: StudioState, cardType?: string, opts?: GenerateCssOptions): string {
   const parts: string[] = [];
 

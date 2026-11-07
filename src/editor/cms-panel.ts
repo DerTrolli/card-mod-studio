@@ -30,20 +30,10 @@ import {
   hasUnsupportedDictRoot,
 } from '../utils/style-compat.js';
 import {
-  CONTAINER_CARD_TYPES,
-  STYLABLE_CHILDREN_CARD_TYPES,
-  NO_ANIMATION_TYPES,
-  NO_BACKGROUND_TYPES,
-  NO_BORDER_TYPES,
-  NO_ICON_COLOR_TYPES,
-  NO_FONT_TYPES,
-  NO_THRESHOLD_TYPES,
-  NO_TEXT_COLOR_TYPES,
-  NO_FONT_SIZE_TYPES,
-  ICON_SIZE_TYPES,
+  capsFor,
   isStateAware,
-  showsAccentColor,
 } from '../utils/card-caps.js';
+import { profileKeyOf } from '../utils/custom-card-profiles.js';
 import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles, refreshPaletteDefaults, applyStudioState, refreshCarrier } from './studio-state.js';
 import { numberSizeOf, withoutNumberSize, userEntries, numberSizeKind } from '../utils/owned-entries.js';
 import './cms-child-card-section.js';
@@ -299,7 +289,7 @@ export class CmsPanel extends LitElement {
       next = { ...next, card_mod: { ...this.config.card_mod, style: this.config.uix!.style! } };
     }
 
-    if (this.config.type === 'entities') {
+    if (this._caps.isEntities) {
       const rows = (this.config as unknown as { entities?: EntitiesCardRow[] }).entities;
       if (rows?.length) {
         const updatedRows = rows.map((row) =>
@@ -318,13 +308,22 @@ export class CmsPanel extends LitElement {
   // Card-type helpers
   // ---------------------------------------------------------------------------
 
+  /** The card's profile key (D2) — derived once from the config; every
+   *  gating read below goes through capsFor(this._profileKey). */
+  private get _profileKey(): string {
+    return profileKeyOf(this.config);
+  }
+
+  private get _caps() {
+    return capsFor(this._profileKey);
+  }
+
   private get _isContainerCard(): boolean {
-    return CONTAINER_CARD_TYPES.has(this.config?.type ?? '');
+    return this._caps.isContainer;
   }
 
   private get _showIconColor(): boolean {
-    if (this.config?.type === 'entities') return false;
-    return !NO_ICON_COLOR_TYPES.has(this.config?.type ?? '');
+    return this._caps.modules.iconColor;
   }
 
   /** A dict-form style the Studio can't rewrite faithfully (mixed-form, or
@@ -345,35 +344,35 @@ export class CmsPanel extends LitElement {
   }
 
   private get _isEntitiesCard(): boolean {
-    return this.config?.type === 'entities';
+    return this._caps.isEntities;
   }
 
   private get _showAnimation(): boolean {
-    return !NO_ANIMATION_TYPES.has(this.config?.type ?? '');
+    return this._caps.modules.animation;
   }
 
   private get _showBackground(): boolean {
-    return !NO_BACKGROUND_TYPES.has(this.config?.type ?? '');
+    return this._caps.modules.background;
   }
 
   private get _showBorder(): boolean {
-    return !NO_BORDER_TYPES.has(this.config?.type ?? '');
+    return this._caps.modules.border;
   }
 
   private get _showHeadingStyle(): boolean {
-    return this.config?.type === 'heading';
+    return this._caps.modules.headingStyle;
   }
 
   private get _showFont(): boolean {
-    return !NO_FONT_TYPES.has(this.config?.type ?? '');
+    return this._caps.modules.font;
   }
 
   private get _isLightCard(): boolean {
-    return this.config?.type === 'light';
+    return this._caps.isLight;
   }
 
   private get _isStateAware(): boolean {
-    return isStateAware(this.config?.type, this.config?.entity as string | undefined, this.hass);
+    return isStateAware(this._profileKey, this.config?.entity as string | undefined, this.hass);
   }
 
   // ---------------------------------------------------------------------------
@@ -482,7 +481,7 @@ export class CmsPanel extends LitElement {
   private _emitConfigChanged() {
     if (!this.config || !this._studioState) return;
     let newConfig = applyStudioState(this._studioState, this.config, this.hass);
-    if (this.config.type === 'entities') {
+    if (this._caps.isEntities) {
       newConfig = this._applyEntityRowStyles(newConfig);
     }
     this._written = newConfig;
@@ -577,7 +576,7 @@ export class CmsPanel extends LitElement {
           ...presetState,
           ...(presetHasAdvanced || !currentAdvanced ? {} : { advanced: currentAdvanced }),
         },
-        this.config?.type,
+        this._profileKey,
       ),
       ...(currentDictSource ? { dictSource: currentDictSource } : {}),
     };
@@ -1015,7 +1014,7 @@ export class CmsPanel extends LitElement {
         )}
         ${this._pickerActive
           ? html`<cms-preview-picker
-              .cardType=${this.config.type ?? ''}
+              .cardType=${this._profileKey}
               .rows=${this._rowEntityIds()}
               @cms-pick=${this._onPreviewPick}
             ></cms-preview-picker>`
@@ -1027,7 +1026,7 @@ export class CmsPanel extends LitElement {
   /** Entities cards: entity_id per row in config order (undefined for rows
    *  without one, keeping indices aligned with the DOM row order). */
   private _rowEntityIds(): Array<string | undefined> {
-    if (this.config?.type !== 'entities') return [];
+    if (!this._caps.isEntities) return [];
     const rows = (this.config as unknown as { entities?: Array<EntitiesCardRow | string> }).entities ?? [];
     return rows.map((r) => (typeof r === 'string' ? r : r?.entity));
   }
@@ -1211,7 +1210,7 @@ export class CmsPanel extends LitElement {
     const showFont = this._showFont;
     const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
     // "Custom CSS is overriding this control" warnings (style-conflicts.ts)
-    const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s);
+    const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s, this._profileKey);
     const thresholdOwned = thresholdOwnedProperties(s.threshold);
 
     return html`
@@ -1232,9 +1231,9 @@ export class CmsPanel extends LitElement {
 
       ${showFont
         ? html`<cms-font-module
-            .allowColor=${!NO_TEXT_COLOR_TYPES.has(this.config?.type ?? '')}
-            .allowSize=${!NO_FONT_SIZE_TYPES.has(this.config?.type ?? '')}
-            .numberSize=${numberSizeKind(this.config?.type)}
+            .allowColor=${this._caps.fontColor}
+            .allowSize=${this._caps.fontSize}
+            .numberSize=${numberSizeKind(this._profileKey)}
             .overridden=${!!conflicts.font}
             .overriddenDetail=${(conflicts.font ?? []).join(", ")}
             .state=${s.font}
@@ -1251,7 +1250,7 @@ export class CmsPanel extends LitElement {
         @state-changed=${this._onFilterChanged}
       ></cms-filter-module>
 
-      ${showsAccentColor(this.config?.type ?? '')
+      ${this._caps.modules.accentColor
         ? html`<cms-accent-color-module
             .overridden=${!!conflicts.accentColor}
             .overriddenDetail=${(conflicts.accentColor ?? []).join(", ")}
@@ -1259,7 +1258,7 @@ export class CmsPanel extends LitElement {
             .state=${s.accentColor}
             .stateAware=${stateAware}
             .cardEntity=${this.config?.entity ?? ''}
-            .cardType=${this.config?.type ?? ''}
+            .cardType=${this._profileKey}
             .hass=${this.hass}
             @state-changed=${this._onAccentColorChanged}
           ></cms-accent-color-module>`
@@ -1273,20 +1272,20 @@ export class CmsPanel extends LitElement {
             .state=${s.iconColor}
             .stateAware=${stateAware}
             .isLightCard=${this._isLightCard}
-            .allowSize=${ICON_SIZE_TYPES.has(this.config?.type ?? '')}
+            .allowSize=${this._caps.iconSize}
             .cardEntity=${this.config?.entity ?? ''}
             .hass=${this.hass}
             @state-changed=${this._onIconColorChanged}
           ></cms-icon-color-module>`
         : nothing}
 
-      ${!this._isEntitiesCard && !NO_THRESHOLD_TYPES.has(this.config?.type ?? '')
+      ${this._caps.modules.threshold
         ? html`<cms-threshold-module
               .overridden=${!!conflicts.threshold}
               .overriddenDetail=${(conflicts.threshold ?? []).join(", ")}
               .state=${s.threshold}
               .cardEntity=${this.config?.entity ?? ''}
-              .cardType=${this.config?.type ?? ''}
+              .cardType=${this._profileKey}
               .hass=${this.hass}
               @state-changed=${this._onThresholdChanged}
             ></cms-threshold-module>`
@@ -1339,7 +1338,7 @@ export class CmsPanel extends LitElement {
   }
 
   private _renderEntityRowsModule() {
-    return this.config?.type === 'entities'
+    return this._caps.isEntities
       ? html`<cms-entities-rows-module
             .hass=${this.hass}
             .rows=${(this.config as unknown as { entities?: EntitiesCardRow[] }).entities ?? []}
@@ -1363,7 +1362,7 @@ export class CmsPanel extends LitElement {
   private _renderContainerCard(s: StudioState) {
     const cardType = this.config?.type ?? 'layout';
     const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
-    const childCards = STYLABLE_CHILDREN_CARD_TYPES.has(cardType)
+    const childCards = this._caps.stylableChildren
       ? ((this.config as unknown as { cards?: CardModCardConfig[] }).cards ?? [])
       : null;
 
