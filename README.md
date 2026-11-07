@@ -207,9 +207,9 @@ Every module was checked on every built-in card type, with card-mod and with UIX
 
 ## Requirements
 
-- Home Assistant **2025.9 or newer** — fully tested on 2026.9 and 2026.10, 2026.2 or newer recommended (see [Compatibility](#compatibility))
+- Home Assistant **2025.9 or newer** — fully tested on 2026.9 and 2026.10, also tested on 2026.11, 2026.2 or newer recommended (see [Compatibility](#compatibility))
 - [card-mod](https://github.com/thomasloven/lovelace-card-mod) or [UIX](https://uix.lf.technology/) must be installed and working
-- HACS (for installation)
+- The Marketplace (HA 2026.11 or newer) or HACS (older HA), for installation
 
 Card-Mod Studio **generates** the YAML. card-mod/UIX **applies** it. One of the two is required.
 
@@ -217,7 +217,22 @@ Card-Mod Studio **generates** the YAML. card-mod/UIX **applies** it. One of the 
 
 ## Installation
 
-### Via HACS (recommended)
+### Via the Marketplace (HA 2026.11 and newer)
+
+Home Assistant 2026.11 folds HACS into core as the **Marketplace**; a separate
+HACS install is no longer possible there, and existing HACS installs migrate
+automatically (custom repositories and update entities carry over).
+
+1. Open the Marketplace → search for **Card-Mod Studio**
+2. Click it → install
+3. The Marketplace installs the plugin into `www/community/card-mod-studio/`
+   and adds it as a dashboard resource
+4. Reload the browser (Ctrl+Shift+R)
+
+> If your dashboard resources are in **YAML mode**, add the resource manually
+> (see [Manual](#manual)).
+
+### Via HACS (HA before 2026.11)
 
 Card-Mod Studio is in the **HACS default store** — no custom repository needed.
 
@@ -234,7 +249,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.10.1`
+   - URL: `/local/card-mod-studio.js?v=0.10.2`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -254,17 +269,18 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 
 | HA Version | Engine | Status |
 |---|---|---|
+| 2026.11 | card-mod 4.2.1, UIX 9.0.0 | ✅ **Tested** — v0.10.2 targets **2026.11.0** (the first release with the Marketplace); the test rigs now run HA 2026.11.0 with UIX v9.0.0 (UIX 9.0 requires HA ≥ 2026.11.0) |
 | 2026.9 – 2026.10 | card-mod 4.2.1, UIX 8.3.1 | ✅ **Fully tested** — v0.10.0 was live-verified on **2026.9.4** and **2026.10.0b0**, each with card-mod and with UIX (v0.10.1 re-checked on the **2026.10.4** release): every control in the real card editor, every module on every built-in card type, light and dark mode, six screen sizes from phone to desktop |
 | 2026.2 – 2026.8 | card-mod 4.2.1 | 🟡 **Partially tested** — quick checks on **2026.2.3** and **2026.6.4**: every module's controls in the real card editor (397/397 checks each), the scripted live checks, and a light/dark × desktop/phone visual pass (all clean). UIX 8.x itself needs HA ≥ 2026.8, so UIX was only tested on the versions above |
-| 2025.9 – 2026.1 | card-mod 3.4.5 | 🟡 **Partially tested** — quick checks on **2025.9.4**: the Style button, live preview, colour pickers, entity pickers, presets and saving work (392/397 functional checks — the 5 misses are the gap below), the scripted live checks pass and the visual pass is clean. Known gap: on tile cards the Font module doesn't change the tile's name/state text there (HA added the tile text variables Studio uses after 2025.9) — everything else on the tile, and Font on other cards, works |
+| 2025.9 – 2026.1 | card-mod 3.4.5 | 🟡 **Partially tested** — quick checks on **2025.9.4**: the Style button, live preview, colour pickers, entity pickers, presets and saving work (392/397 functional checks — the 5 misses are the gap below), the scripted live checks pass apart from the gaps below and the visual pass is clean. Known gaps: on tile cards the Font module doesn't change the tile's name/state text there (HA added the tile text variables Studio uses after 2025.9) — everything else on the tile, and Font on other cards, works; and on gauge cards Accent colour (and its threshold gradient) doesn't recolour the arc on 2025.9.4 (re-measured with v0.10.1 and v0.10.2) |
 | Older than 2025.9 | — | ❌ **Not supported** — on 2025.3 the Style button doesn't appear (HA's older card-editor dialog), so HACS only offers Card-Mod Studio from 2025.9 |
 
 Card-mod compatibility follows card-mod's own compatibility table. See [card-mod releases](https://github.com/thomasloven/lovelace-card-mod/releases).
 
 | Engine | Version tested | Status |
 |---|---|---|
-| card-mod | 4.2.1 (3.4.5 on HA before 2026.2) | ✅ Fully tested on HA 2026.9.4 and 2026.10.0b0; quick-checked on 2026.6.4 and 2026.2.3 (4.2.1) and 2025.9.4 (3.4.5 — card-mod 4.2.1 needs HA ≥ 2026.2). 4.2.1 is still the newest card-mod release, but it is effectively unmaintained — see the caveat below. See [`docs/COMPATIBILITY_AUDIT.md`](docs/COMPATIBILITY_AUDIT.md) |
-| UIX | 8.3.1 | ✅ Tested against a real running integration in Docker on HA 2026.9.4 and 2026.10.0b0 (note: UIX 8.x itself requires HA ≥ 2026.8.0, and UIX 8.4, currently in beta, will require HA ≥ 2026.10; the `uix:`/`card_mod:` styling contract is unchanged from 7.x), see [`docs/COMPATIBILITY_AUDIT.md` §9](docs/COMPATIBILITY_AUDIT.md) and [`tools/sandbox/run-uix.sh`](tools/sandbox/run-uix.sh) |
+| card-mod | 4.2.1 (3.4.5 on HA before 2026.2) | ✅ Fully tested on HA 2026.9.4 and 2026.10.0b0, and tested on 2026.11.0; quick-checked on 2026.6.4 and 2026.2.3 (4.2.1) and 2025.9.4 (3.4.5 — card-mod 4.2.1 needs HA ≥ 2026.2). 4.2.1 is still the newest card-mod release, but it is effectively unmaintained — see the caveat below. See [`docs/COMPATIBILITY_AUDIT.md`](docs/COMPATIBILITY_AUDIT.md) |
+| UIX | 8.3.1, 9.0.0 | ✅ Tested against a real running integration in Docker on HA 2026.9.4 and 2026.10.0b0 (8.3.1), and on HA 2026.11.0 (9.0.0) (note: UIX 8.x itself requires HA ≥ 2026.8.0, UIX 8.4.0 requires HA ≥ 2026.10.0 and UIX 9.0.0 requires HA ≥ 2026.11.0; the `uix:`/`card_mod:` styling contract is unchanged from 7.x), see [`docs/COMPATIBILITY_AUDIT.md` §9](docs/COMPATIBILITY_AUDIT.md) and [`tools/sandbox/run-uix.sh`](tools/sandbox/run-uix.sh) |
 
 > **card-mod caveat — consider UIX:** card-mod 4.2.1 still works with Card-Mod Studio on the HA versions above, but it is effectively unmaintained: on HA ≥ 2026.8 it hangs if your active *theme* defines `card-mod-*-yaml` variables ([card-mod #606](https://github.com/thomasloven/lovelace-card-mod/issues/606), [#617](https://github.com/thomasloven/lovelace-card-mod/issues/617)). If your theme does, [UIX](https://uix.lf.technology/) is a drop-in replacement for card-mod, and Card-Mod Studio supports both equally.
 

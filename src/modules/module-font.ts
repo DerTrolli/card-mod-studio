@@ -28,6 +28,8 @@ export class FontModule extends LitElement {
   /** False on cards whose text carries its own colour (NO_TEXT_COLOR_TYPES)
    *  — the colour picker would be a dead control there. */
   @property({ attribute: false }) allowColor = true;
+  /** False on cards that size their own text (NO_FONT_SIZE_TYPES). */
+  @property({ attribute: false }) allowSize = true;
 
   @state() private _open = false;
   @state() private _fontSize = DEFAULT_FONT.fontSize;
@@ -101,7 +103,7 @@ export class FontModule extends LitElement {
     return html`
       <div class="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
-        <div class="control-row">
+        ${this.allowSize ? html`<div class="control-row">
           <span class="control-label">Text size</span>
           <div class="control-right">
             <ha-slider
@@ -119,7 +121,7 @@ export class FontModule extends LitElement {
             ></ha-slider>
             <span class="value-label">${this._fontSize}px</span>
           </div>
-        </div>
+        </div>` : nothing}
 
         <div class="control-row">
           <span class="control-label">Weight</span>

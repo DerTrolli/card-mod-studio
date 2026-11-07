@@ -57,6 +57,7 @@ import {
   NO_FONT_TYPES,
   NO_THRESHOLD_TYPES,
   NO_TEXT_COLOR_TYPES,
+  NO_FONT_SIZE_TYPES,
   ICON_SIZE_TYPES,
   isStateAware,
   showsAccentColor,
@@ -319,6 +320,7 @@ export class CmsChildCardSection extends LitElement {
         ${!NO_FONT_TYPES.has(cardType)
           ? html`<cms-font-module
               .allowColor=${!NO_TEXT_COLOR_TYPES.has(cardType)}
+              .allowSize=${!NO_FONT_SIZE_TYPES.has(cardType)}
               .overridden=${!!conflicts.font}
               .overriddenDetail=${(conflicts.font ?? []).join(", ")}
               .state=${s.font}

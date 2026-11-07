@@ -33,6 +33,7 @@ Exceptions and specials:
 | Font text color | Hidden where the card colours its own text (alarm-panel, media-control, area, picture-entity, picture-glance, picture-elements) — size/weight/family still offered. On chart cards it colours the title (graph labels are drawn by the chart) |
 | Threshold Colors | Its "Apply to" list only offers the colours the matching module offers on that card |
 | area | Icon Color hidden (the area icon doesn't take it); everything card-box-level works |
+| date (new in HA 2026.11) | Icon Color, Accent Color, Font size and Font text color hidden (and their Threshold targets) — measured on HA 2026.11.0; Font weight/family, Background, Border, Filters and Animation work |
 | entity-filter | Treated as a container: a style on the filter reaches nothing — Advanced CSS only; style its inner `card:` in YAML |
 | light | Icon Color gains "Match the light's color" mode |
 | alarm-panel / media-control | Icon Color available (verified working) |

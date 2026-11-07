@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { installMountHelper } from './harness-utils.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HA = process.env.HA_URL || 'http://127.0.0.1:8123';
@@ -40,10 +41,11 @@ const run = async () => {
     return !!(ha && ha.hass && ha.hass.states && Object.keys(ha.hass.states).length > 10);
   }, { timeout: 60000 });
   await page.evaluate(() => customElements.whenDefined('hui-card'));
+  await installMountHelper(page);
 
   const results = await page.evaluate(async (CARDS) => {
     const hass = document.querySelector('home-assistant').hass;
-    const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:380px;z-index:9999'; document.body.appendChild(h);
+    const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:380px;z-index:9999'; window.__cmsMount(h);
     const all = (root, tag) => { const o = []; const s = [root]; tag = tag.toLowerCase();
       while (s.length) { const n = s.pop(); if (n.tagName && n.tagName.toLowerCase() === tag) o.push(n);
         if (n.shadowRoot) s.push(...n.shadowRoot.children); if (n.children) s.push(...n.children); } return o; };

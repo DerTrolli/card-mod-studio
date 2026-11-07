@@ -18,7 +18,7 @@ this, it just works:
 | Card | What follows the Font module |
 |---|---|
 | entities / markdown / glance rows | Everything (plain inheritance) |
-| entities, glance, calendar, todo-list, logbook, history/statistics-graph, picture-glance | …plus the **card title** (at 1.5× your chosen size — the header's native ratio) |
+| entities, glance, calendar, todo-list, logbook, history/statistics-graph | …plus the **card title** (at 1.5× your chosen size — the header's native ratio) |
 | light | Name/state text and the brightness % |
 | button | The label |
 | sensor / entity | Name, unit, **and the big value** (value at 1.75× your size — its native ratio) |
@@ -41,6 +41,12 @@ the Font module can't generate them yet. Size controls for both are
 **planned for v0.11** (they need a new generated-dictionary path in the save
 logic, and the gauge's SVG text needs a scale-based control design). See
 [What's Planned](Whats-Planned).
+
+### Size row hidden on some cards
+
+The text-size row is hidden (weight, family and color stay) on cards that
+size their own text, where the slider changed nothing: alarm-panel, area,
+humidifier, picture-entity, picture-glance and weather-forecast.
 
 ### Not offered on
 

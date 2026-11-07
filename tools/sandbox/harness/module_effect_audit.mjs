@@ -75,6 +75,9 @@ const CARDS = {
   'vertical-stack': { cards: [{ type: 'tile', entity: L }] },
   grid: { cards: [{ type: 'tile', entity: L }] },
 };
+// AUDIT_EXTRA_CARDS='{"custom:mushroom-entity-card":{"entity":"light.ceiling_lights"}}'
+// adds card configs (e.g. custom cards installed on the rig) to the sweep.
+if (process.env.AUDIT_EXTRA_CARDS) Object.assign(CARDS, JSON.parse(process.env.AUDIT_EXTRA_CARDS));
 
 const RED = '#ee1111';
 const GREEN = '#11ee11';
@@ -130,7 +133,7 @@ const run = async () => {
       host: null,
       async mount(config) {
         const hass = document.querySelector('home-assistant').hass;
-        let host = document.getElementById('audit-host');
+        let host = window.__cmsFind('#audit-host');
         if (!host) {
           host = document.createElement('div'); host.id = 'audit-host';
           host.style.cssText = 'position:fixed;left:0;top:0;width:1100px;height:900px;z-index:2147483647;background:var(--card-background-color,#fff);';
@@ -273,12 +276,16 @@ const run = async () => {
       const thrOffered = row.shown.includes('cms-threshold-module') ? await page.evaluate(() => window.__audit.thresholdOptions()) : [];
       row.thresholdOffers = thrOffered;
       const fontColorShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-font-module')?.allowColor !== false);
+      const fontSizeShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-font-module')?.allowSize !== false);
       const initial = await page.evaluate(() => window.__audit.state());
       const cases = [
         ...Object.entries(MODULES).map(([mod, f]) => ({ mod, label: mod.replace(/^cms-|-module$/g, ''), slice: f(initial), shown: row.shown.includes(mod) })),
         ...THRESHOLD_PROPS.map((p) => ({ mod: 'cms-threshold-module', label: `threshold:${p}`, slice: threshold(initial, p, entity), shown: row.shown.includes('cms-threshold-module') && thrOffered.includes(p) })),
         // Font's colour picker on its own: Font already on at defaults, then only the colour changes.
         { mod: 'cms-font-module', label: 'font:color', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, color: RED } }, shown: row.shown.includes('cms-font-module') && fontColorShown },
+        // …and its size on its own: the combined `font` case also changes the
+        // family, which reaches custom cards whose text ignores the size.
+        { mod: 'cms-font-module', label: 'font:size', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontSize: 26 } }, shown: row.shown.includes('cms-font-module') && fontSizeShown },
       ];
       for (const c of cases) {
         let cBase = base;
