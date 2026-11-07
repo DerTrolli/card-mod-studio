@@ -29,6 +29,7 @@ import {
   type FontEmitter,
   type IconSizeEmitter,
   type ProfileEmitters,
+  type Companion,
 } from '../utils/custom-card-profiles.js';
 import { toRgbTriplet } from '../utils/rgb-triplet.js';
 
@@ -288,11 +289,20 @@ function accentTripletValue(s: AccentColorModuleState): string | null {
   return on && off ? `{{ '${on}' if is_state(${entityRef(s.entityId)}, 'on') else '${off}' }}` : null;
 }
 
-/** Accent through a profile emitter: each variable gets the `R, G, B` value. */
+/** A profile's companion declarations (`opacity: 1 !important`), written only
+ *  next to declarations their module actually wrote. */
+function companionDecls(decls: string[], companions: Companion[] | undefined): string[] {
+  if (!decls.length || !companions?.length) return decls;
+  return [...decls, ...companions.map((c) => `${c.prop}: ${c.value}${c.important ? ' !important' : ''};`)];
+}
+
+/** Accent through a profile emitter: each variable gets the `R, G, B` value —
+ *  or, with `triplet: false`, the colour as written (optionally `!important`). */
 function accentVarDecls(s: AccentColorModuleState, e: AccentEmitter): string[] {
   if (!s.enabled) return [];
-  const value = accentTripletValue(s);
-  return value ? e.vars.map((v) => `${v}: ${value};`) : [];
+  const value = e.triplet === false ? accentValue(s) : accentTripletValue(s);
+  const imp = e.important ? ' !important' : '';
+  return value ? companionDecls(e.vars.map((v) => `${v}: ${value}${imp};`), e.companions) : [];
 }
 
 /** Border through a profile emitter (radius / width / colour as variables). A
@@ -768,29 +778,26 @@ function tileIconSizeBlock(s: IconColorModuleState, cardType?: string): string {
   return value ? `ha-tile-icon {\n  --mdc-icon-size: ${value};\n}` : '';
 }
 
-function iconColorBlock(s: IconColorModuleState): string {
-  if (!s.enabled) return '';
-
-  if (s.mode === 'plain') {
-    return `ha-state-icon {\n  color: ${s.color} !important;\n}`;
-  }
+/** Icon Color's colour declaration (always `!important`: Bubble and HA both
+ *  set the icon colour on the element itself). */
+function iconColorDecl(s: IconColorModuleState): string | null {
+  if (!s.enabled) return null;
+  if (s.mode === 'plain') return `color: ${s.color} !important;`;
 
   const ref = entityRef(s.entityId);
-
   if (s.mode === 'light') {
-    const jinja =
-      `{{ 'rgb(' ~ (state_attr(${ref}, 'rgb_color') | join(', ')) ~ ')' ` +
+    return (
+      `color: {{ 'rgb(' ~ (state_attr(${ref}, 'rgb_color') | join(', ')) ~ ')' ` +
       `if is_state(${ref}, 'on') and state_attr(${ref}, 'rgb_color') ` +
-      `else '${s.colorOff}' }}`;
-    return `ha-state-icon {\n  color: ${jinja} !important;\n}`;
+      `else '${s.colorOff}' }} !important;`
+    );
   }
+  return `color: {{ '${s.colorOn}' if is_state(${ref}, 'on') else '${s.colorOff}' }} !important;`;
+}
 
-  // Conditional mode
-  return (
-    `ha-state-icon {\n` +
-    `  color: {{ '${s.colorOn}' if is_state(${ref}, 'on') else '${s.colorOff}' }} !important;\n` +
-    `}`
-  );
+function iconColorBlock(s: IconColorModuleState): string {
+  const decl = iconColorDecl(s);
+  return decl ? `ha-state-icon {\n  ${decl}\n}` : '';
 }
 
 /**
@@ -1063,6 +1070,9 @@ export function thresholdOwnedProperties(s: ThresholdModuleState | undefined): S
  */
 function thresholdBlock(s: ThresholdModuleState | undefined, ctx: EmitCtx): string {
   if (!s || !s.enabled || !s.entityId || s.properties.length === 0) return '';
+  // A profile with its own emitters that hides Threshold (Bubble: no probed
+  // target) writes none — a preset's threshold state would be dead CSS there.
+  if (ctx.em && !ctx.caps.modules.threshold) return '';
 
   let rules = s.rules;
   let defaultColor = s.defaultColor;
@@ -1139,11 +1149,13 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // the Accent module's own, valid value.
   if (em?.accent && (skipAccent || thresholdAccentJinja(state.threshold) === null)) thresholdProps.delete('accent-color');
 
-  // Profile emitters on a selector other than ha-card get their own block.
-  const extraBlocks: string[] = [];
+  // Profile emitters on a selector other than ha-card get their own block —
+  // one per selector, in first-use order (Bubble: background + border share
+  // `.bubble-button-background`, icon colour + size share `.bubble-icon`).
+  const extraBlocks = new Map<string, string[]>();
   const onHaCard = (selector: string, decls: string[]): string[] => {
     if (selector.trim().toLowerCase() === 'ha-card') return decls;
-    if (decls.length > 0) extraBlocks.push(varLines(selector, '', decls));
+    if (decls.length > 0) extraBlocks.set(selector, [...(extraBlocks.get(selector) ?? []), ...decls]);
     return [];
   };
 
@@ -1160,12 +1172,32 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
     ...(thresholdProps.has('background')
       ? []
       : em?.background
-        ? onHaCard(em.background.selector, backgroundDecls(state.background, em.background.vars))
+        ? onHaCard(
+            em.background.selector,
+            companionDecls(backgroundDecls(state.background, em.background.vars), em.background.companions),
+          )
         : backgroundDecls(state.background)),
     ...(em?.border
-      ? onHaCard(em.border.selector, borderVarDecls(state.border, em.border, thresholdProps.has('border-color')))
+      ? onHaCard(
+          em.border.selector,
+          em.border.direct
+            ? borderDecls(state.border, thresholdProps.has('border-color')).map((d) =>
+                em.border!.important?.some((p) => d.startsWith(`${p}:`)) ? d.replace(/;$/, ' !important;') : d,
+              )
+            : borderVarDecls(state.border, em.border, thresholdProps.has('border-color')),
+        )
       : borderDecls(state.border, thresholdProps.has('border-color'))),
     ...animDecls,
+    // Icon colour on a profile's own selector (Bubble `.bubble-icon`): joins the
+    // icon-size block below instead of writing `ha-state-icon`.
+    ...(em?.iconColor
+      ? onHaCard(
+          em.iconColor.selector,
+          [!(thresholdProps.has('icon-color') || caps.iconColorless) ? iconColorDecl(state.iconColor) : null].filter(
+            (d): d is string => !!d,
+          ),
+        )
+      : []),
     ...(em?.iconSize
       ? onHaCard(em.iconSize.selector, iconSizeVarDecls(state.iconColor, em.iconSize))
       : iconSizeDecls(state.iconColor, emitType, caps)),
@@ -1175,7 +1207,7 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
     parts.push(`ha-card {\n${body}\n}`);
   }
   // (the extra blocks above were queued while building the ha-card list)
-  parts.push(...extraBlocks);
+  for (const [selector, decls] of extraBlocks) parts.push(varLines(selector, '', decls));
 
   // Gauge dial color needs its own ha-gauge block (see gaugeColorBlock).
   if (!thresholdProps.has('accent-color') && state.accentColor.enabled) {
@@ -1186,7 +1218,8 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // Skip icon-color module when threshold is already driving icon color — both
   // emit ha-state-icon { color } and the second block would silently win.
   // (A colourless profile — chips — has no icon the colour could reach.)
-  const iconColor = thresholdProps.has('icon-color') || caps.iconColorless ? '' : iconColorBlock(state.iconColor);
+  const iconColor =
+    em?.iconColor || thresholdProps.has('icon-color') || caps.iconColorless ? '' : iconColorBlock(state.iconColor);
   if (iconColor) parts.push(iconColor);
 
   const tileIconSize = em?.iconSize ? '' : tileIconSizeBlock(state.iconColor, emitType);

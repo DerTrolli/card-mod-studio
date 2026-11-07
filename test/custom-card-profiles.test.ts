@@ -114,7 +114,7 @@ const EXTRA_TYPES = [
   'vertical-stack', 'horizontal-stack', 'grid', 'sections', 'conditional', 'entity-filter',
   'gauge', 'thermostat', 'area', 'date', 'picture-glance', 'logbook', 'alarm-panel',
   '', 'custom:unknown-card', 'custom:other-mushroom-card', 'custom:bubble-card',
-  'custom:bubble-card/button', 'not-a-card',
+  'custom:bubble-card/pop-up', 'custom:bubble-card/climate', 'not-a-card',
 ];
 const TYPES = [...new Set([...ALL_OLD.flatMap((s) => [...s]), ...EXTRA_TYPES])];
 
@@ -215,10 +215,17 @@ describe('profileKeyOf', () => {
     expect(profileKeyOf({ type: 'custom:bubble-card', card_type: 'cover' })).toBe('custom:bubble-card/cover');
     expect(profileKeyOf({ type: 'custom:bubble-card', card_type: 'separator' })).toBe('custom:bubble-card/separator');
   });
-  it('treats a missing/empty Bubble card_type as button (assumed default)', () => {
-    expect(profileKeyOf({ type: 'custom:bubble-card' })).toBe('custom:bubble-card/button');
-    expect(profileKeyOf({ type: 'custom:bubble-card', card_type: '' })).toBe('custom:bubble-card/button');
-    expect(profileKeyOf({ type: 'custom:bubble-card', card_type: 5 })).toBe('custom:bubble-card/button');
+  it('keys a Bubble card without card_type as the bare type (measured: Bubble 3.4.3 renders a "Configuration error" card, not a button)', () => {
+    expect(profileKeyOf({ type: 'custom:bubble-card' })).toBe('custom:bubble-card');
+    expect(profileKeyOf({ type: 'custom:bubble-card', card_type: '' })).toBe('custom:bubble-card');
+    expect(profileKeyOf({ type: 'custom:bubble-card', card_type: 5 })).toBe('custom:bubble-card');
+  });
+  it('splits a Bubble slider button from the plain button', () => {
+    expect(profileKeyOf({ type: 'custom:bubble-card', card_type: 'button' })).toBe('custom:bubble-card/button');
+    expect(profileKeyOf({ type: 'custom:bubble-card', card_type: 'button', button_type: 'switch' })).toBe('custom:bubble-card/button');
+    expect(profileKeyOf({ type: 'custom:bubble-card', card_type: 'button', button_type: 'slider' })).toBe('custom:bubble-card/button/slider');
+    // only a button has a slider variant
+    expect(profileKeyOf({ type: 'custom:bubble-card', card_type: 'cover', button_type: 'slider' })).toBe('custom:bubble-card/cover');
   });
   it('is empty for missing configs or types', () => {
     expect(profileKeyOf({})).toBe('');

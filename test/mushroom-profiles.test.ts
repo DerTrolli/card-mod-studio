@@ -74,8 +74,11 @@ describe('registry (G1)', () => {
     expect(MUSHROOM_CLASSIC_TYPES).toHaveLength(14);
   });
 
-  it('Bubble stays unprofiled (C3) and built-ins are untouched', () => {
-    expect(getCustomCardProfile('custom:bubble-card/button')).toBeUndefined();
+  it('Bubble card_types without a measured profile stay unprofiled and built-ins are untouched', () => {
+    for (const t of ['pop-up', 'climate', 'media-player', 'horizontal-buttons-stack', 'select', 'calendar', 'empty-column', 'sub-buttons']) {
+      expect(getCustomCardProfile(`custom:bubble-card/${t}`)).toBeUndefined();
+    }
+    expect(getCustomCardProfile('custom:bubble-card')).toBeUndefined();
     expect(capsFor('tile').custom).toBe(false);
   });
 

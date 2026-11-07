@@ -5,10 +5,8 @@
  * A *profile key* identifies what the Studio is styling:
  *   - `config.type` for every card ('tile', 'gauge', 'custom:mushroom-entity-card'…)
  *   - `config.type + '/' + card_type` for `custom:bubble-card`
- *     ('custom:bubble-card/button'). A Bubble card without `card_type` is
- *     keyed as `button` — ASSUMPTION: Bubble's own default is `button` (the
- *     research note lists `button` first and uses it as the example; the
- *     default itself is not stated there and has not been verified live).
+ *     ('custom:bubble-card/button'; a slider button is '…/button/slider').
+ *     See profileKeyOf for a missing `card_type` (measured, not assumed).
  *
  * Profile DATA lives in its own modules under `./profiles/` and is imported
  * statically below (C2.2/G1). Those modules import this file's TYPES only
@@ -29,6 +27,7 @@
  */
 
 import { MUSHROOM_PROFILES } from './profiles/mushroom.js';
+import { BUBBLE_PROFILES } from './profiles/bubble.js';
 
 /** The panel modules a profile can show or hide. `filter` was always shown
  *  for built-ins; a profile may hide it (Mushroom's empty card has no box). */
@@ -66,17 +65,41 @@ export interface IconSizeEmitter {
   colorless?: boolean;
 }
 
+/** An extra declaration a module writes next to its own, on the same
+ *  selector (Bubble: the button background is dead at its default 0.5
+ *  opacity unless `opacity: 1 !important` rides along). The parser claims it
+ *  only when it carries exactly `value` and the module itself was recognised. */
+export interface Companion {
+  prop: string;
+  value: string;
+  important?: boolean;
+}
+
 /** Accent: each variable gets the accent colour as `R, G, B` (Mushroom's
- *  `--rgb-state-*` contract). */
+ *  `--rgb-state-*` contract). With `triplet: false` the variables take the
+ *  colour as written (`background-color` on Bubble's slider fill); `important`
+ *  appends `!important` to every one. */
 export interface AccentEmitter {
   selector: string;
   vars: string[];
+  triplet?: boolean;
+  important?: boolean;
+  companions?: Companion[];
 }
 
-/** Background: the variable(s) replace `background` on the selector. */
+/** Background: the variable(s) replace `background` on the selector
+ *  (`vars: ['background']` keeps the plain property on another selector). */
 export interface BackgroundEmitter {
   selector: string;
   vars: string[];
+  companions?: Companion[];
+}
+
+/** Icon colour: Icon Color's `color: … !important` lands on this selector
+ *  instead of `ha-state-icon` (Bubble: `.bubble-icon`). Hand-written
+ *  `ha-icon` / `--state-icon-color` equivalents are not adopted there. */
+export interface IconColorEmitter {
+  selector: string;
 }
 
 /** Border: radius / width / colour as variables instead of `border-radius` /
@@ -86,6 +109,13 @@ export interface BorderEmitter {
   radius?: string[];
   width?: string[];
   color?: string[];
+  /** Write the module's own `border-radius` / `border: Npx solid C` on
+   *  `selector` (Bubble's visible box is a class, not `ha-card`); the variable
+   *  lists above are not used. */
+  direct?: boolean;
+  /** `direct` only: properties that get `!important` (Bubble's separator
+   *  radius loses to the card's own rule on UIX 9 without it). */
+  important?: string[];
 }
 
 /** How each module's output is emitted for this card (everything omitted keeps
@@ -93,6 +123,7 @@ export interface BorderEmitter {
 export interface ProfileEmitters {
   font?: FontEmitter;
   iconSize?: IconSizeEmitter;
+  iconColor?: IconColorEmitter;
   accent?: AccentEmitter;
   background?: BackgroundEmitter;
   border?: BorderEmitter;
@@ -106,11 +137,14 @@ export type ClaimRole =
   | 'fontFamily'
   | 'iconSize'
   | 'iconGlyph'
+  | 'iconColor'
   | 'accent'
   | 'background'
   | 'borderRadius'
   | 'borderWidth'
-  | 'borderColor';
+  | 'borderColor'
+  | 'borderDirect'
+  | 'companion';
 
 /** Which declarations parse back into which module (claim rules). */
 export interface ClaimRule {
@@ -123,6 +157,8 @@ export interface ClaimRule {
    *  properties the FIRST present one is the anchor, the others are claimed
    *  when they carry the same value. */
   props: string[];
+  /** `companion` rules only: the exact value the generator writes. */
+  equals?: string;
 }
 
 /** An "Advanced CSS overrides this control" row (style-conflicts). `threshold`
@@ -182,7 +218,7 @@ export interface CustomCardProfile {
 
 /** The shipped registry: profile data modules are listed here (G1). */
 const REGISTRY = new Map<string, CustomCardProfile>(
-  [...MUSHROOM_PROFILES].map((p) => [p.key, p] as [string, CustomCardProfile]),
+  [...MUSHROOM_PROFILES, ...BUBBLE_PROFILES].map((p) => [p.key, p] as [string, CustomCardProfile]),
 );
 
 export function getCustomCardProfile(key: string): CustomCardProfile | undefined {
@@ -207,16 +243,24 @@ export function emitKeyOf(key: string | undefined): string {
 }
 
 export const BUBBLE_CARD_TYPE = 'custom:bubble-card';
-/** Bubble's `card_type` when the config omits it (assumed, see header). */
-export const BUBBLE_DEFAULT_CARD_TYPE = 'button';
 
 /**
  * The ONE key every consumer derives from a card config. `config.type`, plus
- * `/card_type` for Bubble Card. Returns '' for a config without a type.
+ * `/card_type` for Bubble Card, plus `/slider` for a Bubble button with
+ * `button_type: slider` (its parts differ: a range fill and track).
+ * Returns '' for a config without a type.
+ *
+ * A Bubble card WITHOUT `card_type` is NOT keyed as `button`: measured on
+ * Bubble 3.4.3 (HA 2026.11.0, card-mod 4.2.1 and UIX 9.0.0) it renders HA's
+ * "Configuration error" card — no `.bubble-*` part exists — so it gets the
+ * bare `custom:bubble-card` key, which has no profile (today's default).
  */
-export function profileKeyOf(config: { type?: unknown; card_type?: unknown } | null | undefined): string {
+export function profileKeyOf(
+  config: { type?: unknown; card_type?: unknown; button_type?: unknown } | null | undefined,
+): string {
   const type = typeof config?.type === 'string' ? config.type : '';
   if (type !== BUBBLE_CARD_TYPE) return type;
-  const sub = typeof config?.card_type === 'string' && config.card_type ? config.card_type : BUBBLE_DEFAULT_CARD_TYPE;
-  return `${type}/${sub}`;
+  const sub = typeof config?.card_type === 'string' ? config.card_type : '';
+  if (!sub) return type;
+  return sub === 'button' && config?.button_type === 'slider' ? `${type}/${sub}/slider` : `${type}/${sub}`;
 }

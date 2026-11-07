@@ -6,7 +6,11 @@
  * custom-card-profiles.ts (erased at build time: no runtime import cycle).
  */
 
-import type { ClaimRule, ConflictRow, ProfileEmitters } from '../custom-card-profiles.js';
+import type { ClaimRule, Companion, ConflictRow, ProfileEmitters } from '../custom-card-profiles.js';
+
+function companionClaim(module: ClaimRule['module'], selector: string, c: Companion): ClaimRule {
+  return { module, selector, role: 'companion', props: [c.prop.toLowerCase()], equals: c.value };
+}
 
 export function claimsFromEmitters(e: ProfileEmitters): ClaimRule[] {
   const out: ClaimRule[] = [];
@@ -23,9 +27,18 @@ export function claimsFromEmitters(e: ProfileEmitters): ClaimRule[] {
     add('iconColor', e.iconSize.selector, 'iconSize', e.iconSize.box);
     add('iconColor', e.iconSize.selector, 'iconGlyph', e.iconSize.glyph);
   }
-  if (e.accent) add('accentColor', e.accent.selector, 'accent', e.accent.vars);
-  if (e.background) add('background', e.background.selector, 'background', e.background.vars);
-  if (e.border) {
+  if (e.iconColor) add('iconColor', e.iconColor.selector, 'iconColor', ['color']);
+  if (e.accent) {
+    add('accentColor', e.accent.selector, 'accent', e.accent.vars);
+    for (const c of e.accent.companions ?? []) out.push(companionClaim('accentColor', e.accent.selector, c));
+  }
+  if (e.background) {
+    add('background', e.background.selector, 'background', e.background.vars);
+    for (const c of e.background.companions ?? []) out.push(companionClaim('background', e.background.selector, c));
+  }
+  if (e.border?.direct) {
+    add('border', e.border.selector, 'borderDirect', ['border-radius', 'border']);
+  } else if (e.border) {
     add('border', e.border.selector, 'borderRadius', e.border.radius);
     add('border', e.border.selector, 'borderWidth', e.border.width);
     add('border', e.border.selector, 'borderColor', e.border.color);
@@ -35,24 +48,33 @@ export function claimsFromEmitters(e: ProfileEmitters): ClaimRule[] {
 
 export function conflictsFromEmitters(e: ProfileEmitters): ConflictRow[] {
   const out: ConflictRow[] = [];
+  // A comma list is one row per selector: the conflict check matches a rule's
+  // selector as a substring of the user's rule selector.
   const add = (module: ConflictRow['module'], selector: string, props: string[], property?: string) => {
-    if (props.length) out.push({ module, selector, props: props.map((p) => p.toLowerCase()), ...(property ? { property } : {}) });
+    if (!props.length) return;
+    for (const sel of selector.split(',').map((x) => x.trim()).filter(Boolean)) {
+      out.push({ module, selector: sel, props: props.map((p) => p.toLowerCase()), ...(property ? { property } : {}) });
+    }
   };
+  const comp = (cs?: Companion[]) => (cs ?? []).map((c) => c.prop);
   if (e.font) {
     const f = e.font;
     add('font', f.selector, [...(f.size ?? []), ...(f.weight ?? []), ...(f.color ?? [])]);
     add('threshold', f.selector, f.color ?? [], 'text-color');
   }
   if (e.iconSize) add('iconColor', e.iconSize.selector, [...e.iconSize.box, ...(e.iconSize.glyph ?? [])]);
+  if (e.iconColor) add('iconColor', e.iconColor.selector, ['color']);
   if (e.accent) {
-    add('accentColor', e.accent.selector, e.accent.vars);
+    add('accentColor', e.accent.selector, [...e.accent.vars, ...comp(e.accent.companions)]);
     add('threshold', e.accent.selector, e.accent.vars, 'accent-color');
   }
   if (e.background) {
-    add('background', e.background.selector, e.background.vars);
+    add('background', e.background.selector, [...e.background.vars, ...comp(e.background.companions)]);
     add('threshold', e.background.selector, e.background.vars, 'background');
   }
-  if (e.border) {
+  if (e.border?.direct) {
+    add('border', e.border.selector, ['border-radius', 'border']);
+  } else if (e.border) {
     const b = e.border;
     add('border', b.selector, [...(b.radius ?? []), ...(b.width ?? []), ...(b.color ?? [])]);
     add('threshold', b.selector, [...(b.width ?? []), ...(b.color ?? [])], 'border-color');

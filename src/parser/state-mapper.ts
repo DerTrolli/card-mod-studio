@@ -475,11 +475,26 @@ export function mapToStudioState(parsed: CardModStyleState, cardType?: string): 
   const hidden = (m: keyof NonNullable<typeof mods>): boolean => !!mods && !mods[m];
   const caps = profile ? capsFor(cardType) : null;
 
-  return {
+  // A profile that writes Icon Color on its own selector (Bubble `.bubble-icon`)
+  // reads it back from there only: the built-in `ha-state-icon` / `ha-icon` /
+  // `--state-icon-color` equivalents are not its output and are not adopted.
+  const ownIcon = pc?.has('iconColor') ? pc : null;
+  const iconTarget = ownIcon ? ownIcon.target('iconColor') : haStateIcon;
+
+  const state: Omit<StudioState, 'advanced'> = {
     filter: hidden('filter') ? { ...DEFAULT_FILTER } : mapFilter(haCard, claimed),
     iconColor: hidden('iconColor')
       ? { ...DEFAULT_ICON_COLOR }
-      : mapIconColor(haStateIcon, haIcon, haCard, hostTarget, haTileIcon, cardType, claimed, pc),
+      : mapIconColor(
+          iconTarget,
+          ownIcon ? null : haIcon,
+          ownIcon ? null : haCard,
+          ownIcon ? null : hostTarget,
+          haTileIcon,
+          cardType,
+          claimed,
+          pc,
+        ),
     accentColor: hidden('accentColor')
       ? { ...DEFAULT_ACCENT_COLOR }
       : pc?.has('accent')
@@ -491,9 +506,11 @@ export function mapToStudioState(parsed: CardModStyleState, cardType?: string): 
     animation: hidden('animation') ? { ...DEFAULT_ANIMATION } : mapAnimation(haCard, claimed),
     border: hidden('border')
       ? { ...DEFAULT_BORDER }
-      : pc?.has('borderRadius') || pc?.has('borderWidth')
-        ? mapBorderProfile(pc, claimed)
-        : mapBorder(haCard, claimed),
+      : pc?.has('borderDirect')
+        ? mapBorder(pc.target('borderDirect'), claimed)
+        : pc?.has('borderRadius') || pc?.has('borderWidth')
+          ? mapBorderProfile(pc, claimed)
+          : mapBorder(haCard, claimed),
     headingStyle: hidden('headingStyle')
       ? { ...DEFAULT_HEADING_STYLE }
       : mapHeadingStyle(titleP, headingIcon, container, headingFamily, claimed),
@@ -508,11 +525,14 @@ export function mapToStudioState(parsed: CardModStyleState, cardType?: string): 
     threshold: hidden('threshold')
       ? { ...DEFAULT_THRESHOLD }
       : mapThreshold(haCard, haStateIcon, haGauge, hostTarget, cardType, claimed, pc, caps),
-    advanced: mapAdvanced(parsed, claimed),
     // Dict-form carrier (v0.10): threaded to the save path so the dict is
     // rebuilt byte-identically around the regenerated `.` entry.
     ...(numberSize.dictSource ? { dictSource: numberSize.dictSource } : {}),
   };
+  // Companion declarations ride only with their recognised module.
+  if (pc && state.background.enabled) pc.claimCompanions('background', claimed);
+  if (pc && state.accentColor.enabled) pc.claimCompanions('accentColor', claimed);
+  return { ...state, advanced: mapAdvanced(parsed, claimed) };
 }
 
 /**
@@ -647,6 +667,21 @@ class ProfileClaims {
     });
   }
 
+  /** A recognised module's companion declarations (`opacity: 1 !important`):
+   *  claimed only when they carry exactly the value the generator writes. */
+  claimCompanions(module: ClaimRule['module'], claimed: Set<string>): void {
+    for (const rule of this.profile.claims ?? []) {
+      if (rule.role !== 'companion' || rule.module !== module) continue;
+      const target = findTargetNormalized(this.targets, rule.selector);
+      for (const name of rule.props) {
+        const prop = target ? findProp(target, name) : null;
+        if (target && prop && !prop.hasCondition && prop.value.trim() === rule.equals) {
+          claimed.add(claimKey(target.selector, prop.property));
+        }
+      }
+    }
+  }
+
   /** Claims every present property of the role that carries `value` (the
    *  anchor included); a different value is the user's and stays out. */
   claimEqual(role: ClaimRole, value: string, claimed: Set<string>): void {
@@ -692,10 +727,13 @@ function mapFontProfile(pc: ProfileClaims, claimed: Set<string>): FontModuleStat
 function mapAccentProfile(pc: ProfileClaims, claimed: Set<string>): AccentColorModuleState {
   const anchor = pc.present('accent')[0]?.prop;
   if (!anchor) return { ...DEFAULT_ACCENT_COLOR };
+  // `triplet: false` (Bubble): the variable carries the colour as written.
+  const direct = pc.profile.emitters?.accent?.triplet === false;
+  const asColor = (v: string): string | null => (direct ? v.trim() || null : fromRgbTriplet(v));
   if (anchor.hasCondition) {
     if (!anchor.onValue || !anchor.offValue) return { ...DEFAULT_ACCENT_COLOR };
-    const on = fromRgbTriplet(anchor.onValue);
-    const off = fromRgbTriplet(anchor.offValue);
+    const on = asColor(anchor.onValue);
+    const off = asColor(anchor.offValue);
     if (!on || !off) return { ...DEFAULT_ACCENT_COLOR };
     pc.claimEqual('accent', anchor.value, claimed);
     return {
@@ -707,7 +745,7 @@ function mapAccentProfile(pc: ProfileClaims, claimed: Set<string>): AccentColorM
       ...(anchor.entityId ? { entityId: anchor.entityId } : {}),
     };
   }
-  const color = fromRgbTriplet(anchor.value);
+  const color = asColor(anchor.value);
   if (!color) return { ...DEFAULT_ACCENT_COLOR };
   pc.claimEqual('accent', anchor.value, claimed);
   return { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'plain', color };

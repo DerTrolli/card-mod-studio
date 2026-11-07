@@ -1,0 +1,161 @@
+/**
+ * bubble.ts — profile DATA for Bubble Card 3.x (docs/V0.11_PLAN.md D5/D9/D12,
+ * docs/research/2026-10-v0.11.md §3.3.1). Measured on Bubble 3.4.3, HA
+ * 2026.11.0, card-mod 4.2.1 and UIX 9.0.0 (identical on both).
+ *
+ * Bubble's ha-card is transparent: the visible parts are `.bubble-*` classes
+ * that share Bubble's shadow root with card-mod's `<style>`, so plain
+ * selectors reach them (no `$` pierce). `!important` is written only where
+ * the probe measured it necessary: the icon colour, the slider fill and the
+ * button background's `opacity` (Bubble leaves it at 0.5 otherwise).
+ *
+ * Precedence against the card's own Bubble `styles:` key (probe B3, equal
+ * specificity): our rule wins (card-mod's <style> comes after Bubble's);
+ * a user's `!important` beats our plain rule and a more specific user selector
+ * beats our `!important`. The key itself is never written — only preserved.
+ *
+ * The selector map is versioned per Bubble MAJOR (D5): a later major gets its
+ * own entry and the audit re-runs before it is adopted. Only `card_type`s with
+ * measured parts have a profile; every other Bubble card keeps today's default.
+ *
+ * Imports TYPES from custom-card-profiles.ts only (erased at build time), so
+ * the registry module can import this one statically without a cycle.
+ */
+
+import type { CustomCardProfile, ProfileEmitters } from '../custom-card-profiles.js';
+import { claimsFromEmitters, conflictsFromEmitters } from './helpers.js';
+
+/** Bubble 3.x class names (measured on 3.4.3). */
+export const BUBBLE_SELECTORS = {
+  3: {
+    name: '.bubble-name',
+    state: '.bubble-state',
+    icon: '.bubble-icon',
+    /** button / slider button */
+    buttonBackground: '.bubble-button-background',
+    /** cover card */
+    coverBackground: '.bubble-background',
+    /** separator card container */
+    separator: '.bubble-separator',
+    /** slider button: the value fill */
+    rangeFill: '.bubble-range-fill',
+  },
+} as const;
+
+/** The Bubble major the profiles below were measured on. */
+export const BUBBLE_MAJOR = 3;
+const S = BUBBLE_SELECTORS[BUBBLE_MAJOR];
+
+function profile(key: string, p: Omit<CustomCardProfile, 'key'>): CustomCardProfile {
+  const e: ProfileEmitters = p.emitters ?? {};
+  return {
+    key,
+    ...p,
+    claims: [...claimsFromEmitters(e), ...(p.claims ?? [])],
+    conflicts: [...conflictsFromEmitters(e), ...(p.conflicts ?? [])],
+  };
+}
+
+/** Name and state text share one rule (the generator writes a selector list
+ *  one per line). Measured: size, weight and colour all work without
+ *  `!important`; the separator has a name and no state element. */
+const text = (selectors: string[]) => ({
+  selector: selectors.join(',\n'),
+  size: ['font-size'],
+  weight: ['font-weight'],
+  color: ['color'],
+  family: true,
+});
+
+/** Icon colour needs `!important` on button and cover (Bubble sets it on the
+ *  element), the separator does not mind — one shape for all three. The size is
+ *  `--mdc-icon-size` on the same selector (svg 24 → 40px, box 38 → 40px). */
+const icon = {
+  iconColor: { selector: S.icon },
+  iconSize: { selector: S.icon, box: ['--mdc-icon-size'] },
+};
+
+/** Opacity stays at Bubble's 0.5 unless forced (measured): rides with Background. */
+const OPACITY_1 = { prop: 'opacity', value: '1', important: true };
+
+// Threshold and Accent have no probed target on any of these cards, except the
+// slider's fill (D12): hidden, hand-written CSS for them stays in Advanced CSS.
+const NO_THRESHOLD = { threshold: false, accentColor: false } as const;
+
+// ---------------------------------------------------------------------------
+// button — name/state, icon, `.bubble-button-background` box
+// ---------------------------------------------------------------------------
+
+const button = profile('custom:bubble-card/button', {
+  modules: { ...NO_THRESHOLD },
+  iconSize: true,
+  emitters: {
+    font: text([S.name, S.state]),
+    ...icon,
+    // An ha-card border draws a separate box next to the visible pill, so
+    // border and radius ride on the pill itself.
+    background: { selector: S.buttonBackground, vars: ['background'], companions: [OPACITY_1] },
+    border: { selector: S.buttonBackground, direct: true },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// button + button_type: slider — the same parts, and Accent → the value fill
+// ---------------------------------------------------------------------------
+
+const slider = profile('custom:bubble-card/button/slider', {
+  modules: { threshold: false },
+  iconSize: true,
+  emitters: {
+    font: text([S.name, S.state]),
+    ...icon,
+    // `.bubble-range-fill { background-color }` is ignored without
+    // `!important`; its 0.7 opacity needs forcing too.
+    accent: {
+      selector: S.rangeFill,
+      vars: ['background-color'],
+      triplet: false,
+      important: true,
+      companions: [OPACITY_1],
+    },
+    background: { selector: S.buttonBackground, vars: ['background'], companions: [OPACITY_1] },
+    border: { selector: S.buttonBackground, direct: true },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// separator — a name, an icon and a line; no entity
+// ---------------------------------------------------------------------------
+
+const separator = profile('custom:bubble-card/separator', {
+  modules: { ...NO_THRESHOLD },
+  iconSize: true,
+  // No entity behind the card: nothing for a state condition to read.
+  stateAware: false,
+  emitters: {
+    font: text([S.name]),
+    ...icon,
+    background: { selector: S.separator, vars: ['background'] },
+    // Measured on UIX 9.0.0 only: a plain `border-radius` here loses to
+    // Bubble's own rule (card-mod 4.2.1 takes it plain); `!important` wins on both.
+    border: { selector: S.separator, direct: true, important: ['border-radius'] },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// cover — buttons only (no slider element)
+// ---------------------------------------------------------------------------
+
+const cover = profile('custom:bubble-card/cover', {
+  modules: { ...NO_THRESHOLD },
+  iconSize: true,
+  emitters: {
+    font: text([S.name, S.state]),
+    ...icon,
+    // Opacity is already 1 here (measured): no companion.
+    background: { selector: S.coverBackground, vars: ['background'] },
+    border: { selector: S.coverBackground, direct: true },
+  },
+});
+
+export const BUBBLE_PROFILES: CustomCardProfile[] = [button, slider, separator, cover];

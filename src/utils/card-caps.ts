@@ -295,7 +295,7 @@ export function capsFor(profileKey: string | undefined, config?: Record<string, 
       headerTitle: profile.headerTitle,
       transitionImportant: profile.transitionImportant,
       iconColorless: profile.emitters?.iconSize?.colorless,
-      accentTriplet: !!profile.emitters?.accent,
+      accentTriplet: !!profile.emitters?.accent && profile.emitters.accent.triplet !== false,
     });
   }
   const entities = key === 'entities';
