@@ -315,6 +315,62 @@ describe('two-step remove', () => {
   });
 });
 
+describe('an edit inside the debounce window survives a page unload / tab hide', () => {
+  const g = globalThis as unknown as { window: Record<string, unknown>; document?: unknown };
+  let saved: Record<string, unknown>;
+  let on: Map<string, Set<(e?: unknown) => void>>;
+  let visibility = 'visible';
+  // The stub exists only while a handler runs: lit's own update would trip over it.
+  const emit = (type: string) => {
+    g.document = { visibilityState: visibility };
+    try { on.get(type)?.forEach((fn) => fn({})); } finally { delete g.document; }
+  };
+  beforeEach(() => {
+    saved = { ...g.window };
+    visibility = 'visible';
+    on = new Map();
+    g.window.addEventListener = (t: string, fn: (e?: unknown) => void) => {
+      if (!on.has(t)) on.set(t, new Set());
+      on.get(t)!.add(fn);
+    };
+    g.window.removeEventListener = (t: string, fn: (e?: unknown) => void) => { on.get(t)?.delete(fn); };
+  });
+  afterEach(() => Object.assign(g.window, saved));
+  const edit = () => find(el, A, 'name-input').on.change(ev('Navy'));
+  const connect = () => {
+    (el as unknown as { update(): void }).update = () => {}; // no real DOM here to render into
+    el.connectedCallback();
+  };
+
+  it('pagehide writes the waiting edit at once', async () => {
+    connect();
+    edit();
+    expect(writes()).toHaveLength(0);
+    emit('pagehide');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(lastWrite().colors[0].name).toBe('Navy');
+  });
+
+  it('visibilitychange writes only once the page is hidden', async () => {
+    connect();
+    edit();
+    emit('visibilitychange');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(writes()).toHaveLength(0);
+    visibility = 'hidden';
+    emit('visibilitychange');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(lastWrite().colors[0].name).toBe('Navy');
+  });
+
+  it('the listeners go away with the component', () => {
+    connect();
+    el.disconnectedCallback();
+    expect(on.get('pagehide')?.size ?? 0).toBe(0);
+    expect(on.get('visibilitychange')?.size ?? 0).toBe(0);
+  });
+});
+
 describe('remove disarms without focus events (Safari does not focus a clicked button)', () => {
   const del = (row = A) => find(el, row, 'del-btn');
   const armedLabel = `aria-label=Remove 'Brand blue'?`;

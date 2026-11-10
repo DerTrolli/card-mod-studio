@@ -173,14 +173,24 @@ export class CmsPaletteManager extends LitElement {
 
   private _paletteChangedHandler = () => this.requestUpdate();
 
+  /** A page unload or tab hide inside the debounce window would drop the edit. */
+  private _flushNow = () => this._flush();
+  private _flushIfHidden = () => {
+    if (document.visibilityState === 'hidden') this._flush();
+  };
+
   override connectedCallback() {
     super.connectedCallback();
     window.addEventListener(PALETTE_CHANGED_EVENT, this._paletteChangedHandler);
+    window.addEventListener('pagehide', this._flushNow);
+    window.addEventListener('visibilitychange', this._flushIfHidden); // fires on document, bubbles to window
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener(PALETTE_CHANGED_EVENT, this._paletteChangedHandler);
+    window.removeEventListener('pagehide', this._flushNow);
+    window.removeEventListener('visibilitychange', this._flushIfHidden);
     this._armGuard.stop();
     this._flush(); // a commit still waiting on the debounce must not be lost
   }
