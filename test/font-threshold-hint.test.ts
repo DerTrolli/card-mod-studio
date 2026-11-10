@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { FakeCustomElementRegistry, templateText } from './v010-audit-helpers.js';
 import { DEFAULT_FONT, DEFAULT_THRESHOLD, mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseStyleValue } from '../src/parser/yaml-parser.js';
-import { generateCss, thresholdOwnedProperties } from '../src/generator/css-generator.js';
+import { generateCss, cardThresholdOwned } from '../src/generator/css-generator.js';
 import { capsFor } from '../src/utils/card-caps.js';
 import type { FontModuleState, ThresholdModuleState } from '../src/types/index.js';
 
@@ -62,11 +62,30 @@ describe('generator drops the Font colour exactly where the hint says', () => {
   const types = ['tile', 'entity', 'custom:mushroom-template-card', 'custom:bubble-card/button'];
   for (const type of types) {
     it(`${type}: Font colour is not written when Threshold owns text-color`, () => {
-      const caps = capsFor(type);
       const css = generateCss({ ...BLANK, font, threshold }, type);
-      const owned = thresholdOwnedProperties(threshold).has('text-color') && !(caps.custom && !caps.modules.threshold);
+      const owned = cardThresholdOwned(threshold, capsFor(type)).has('text-color');
       if (owned) expect(css).not.toContain('#00ff00');
       else expect(css).toContain('#00ff00');
     });
   }
+});
+
+describe('cardThresholdOwned (what the panel hints use)', () => {
+  const threshold: ThresholdModuleState = {
+    ...DEFAULT_THRESHOLD, enabled: true, entityId: 'sensor.t',
+    properties: ['text-color', 'accent-color', 'icon-color', 'background', 'border-color'],
+    rules: [{ id: '0', operator: '>', value: 20, color: '#ff0000' }],
+  };
+  it('a tile with Threshold text colour owns it', () => {
+    const t: ThresholdModuleState = { ...threshold, properties: ['text-color'] };
+    expect(cardThresholdOwned(t, capsFor('tile')).has('text-color')).toBe(true);
+  });
+  it('a Bubble button (Threshold hidden) owns nothing, for every property', () => {
+    expect(cardThresholdOwned(threshold, capsFor('custom:bubble-card/button')).size).toBe(0);
+  });
+  it('matches the generator: a tile owns what Threshold has, an unfinished one nothing', () => {
+    expect([...cardThresholdOwned(threshold, capsFor('tile'))].sort()).toEqual([...threshold.properties].sort());
+    expect(cardThresholdOwned({ ...threshold, rules: [] }, capsFor('tile')).size).toBe(0);
+    expect(cardThresholdOwned(undefined, capsFor('tile')).size).toBe(0);
+  });
 });

@@ -1231,6 +1231,20 @@ export function thresholdOwnedProperties(s: ThresholdModuleState | undefined): S
 }
 
 /**
+ * What the Threshold module owns on THIS card: thresholdOwnedProperties, but
+ * empty where the generator writes no threshold CSS — a custom-card profile
+ * that hides Threshold (a stray threshold state, e.g. a preset's, overrides
+ * nothing there). generateCss and the panel's "Threshold Colors is setting
+ * this" hints both use it.
+ */
+export function cardThresholdOwned(
+  s: ThresholdModuleState | undefined,
+  caps: Pick<CardCaps, 'custom' | 'modules'>,
+): Set<ThresholdProperty> {
+  return caps.custom && !caps.modules.threshold ? new Set() : thresholdOwnedProperties(s);
+}
+
+/**
  * Threshold rules can drive more than one CSS property at once (e.g. icon
  * color AND accent color changing together off the same rule set) — one
  * block is emitted per selected property, all sharing the same computed
@@ -1317,7 +1331,7 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // A custom profile that hides Threshold writes no threshold block (see
   // thresholdBlock), so it owns nothing: a stray threshold state (a preset's)
   // must not silence the static modules.
-  const thresholdProps = new Set(caps.custom && !caps.modules.threshold ? [] : thresholdOwnedProperties(state.threshold));
+  const thresholdProps = cardThresholdOwned(state.threshold, caps);
   // …but only for what is actually written: a profile's accent property with
   // nothing convertible (or gated off) emits no block, so it must not silence
   // the Accent module's own, valid value.

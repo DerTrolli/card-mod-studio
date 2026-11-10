@@ -58,7 +58,7 @@ import {
 import { childKindLabel, profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
-import { thresholdOwnedProperties, settleEntityless } from '../generator/css-generator.js';
+import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
 import { hasDictFormStyle, hasUnsupportedDictRoot } from '../utils/style-compat.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
 
@@ -321,7 +321,7 @@ export class CmsChildCardSection extends LitElement {
     const isEntities = caps.isEntities;
     const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
     const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s, cardType);
-    const thresholdOwned = thresholdOwnedProperties(s.threshold);
+    const thresholdOwned = cardThresholdOwned(s.threshold, caps);
 
     return html`
       <div class="child-body">
@@ -346,7 +346,7 @@ export class CmsChildCardSection extends LitElement {
         ${mods.font
           ? html`<cms-font-module
               .allowColor=${caps.fontColor}
-              .thresholdOwned=${thresholdOwned.has('text-color') && !(caps.custom && !caps.modules.threshold)}
+              .thresholdOwned=${thresholdOwned.has('text-color')}
               .allowSize=${caps.fontSize}
               .numberSize=${numberSizeKind(cardType)}
               .cardType=${cardType}

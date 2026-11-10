@@ -48,7 +48,7 @@ import { ConfigEchoGuard } from '../utils/config-echo.js';
 import { initPaletteCache, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
-import { thresholdOwnedProperties, settleEntityless } from '../generator/css-generator.js';
+import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
 import { cmsTokens } from '../modules/module-base.js';
 import { hasTopLevelJinjaStatement, templateStatementNote, anyModuleOn } from '../utils/css-lint.js';
 import { uixStyleUsesMacro } from '../utils/uix-macro-use.js';
@@ -1404,7 +1404,7 @@ export class CmsPanel extends LitElement {
     const hasUnrecognisedCss = loadedCss && !this._nothingToStyle;
     // "Custom CSS is overriding this control" warnings (style-conflicts.ts)
     const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s, this._profileKey);
-    const thresholdOwned = thresholdOwnedProperties(s.threshold);
+    const thresholdOwned = cardThresholdOwned(s.threshold, this._caps);
 
     return html`
       ${hasUnrecognisedCss && this._loadedWholeStyleKept
@@ -1430,7 +1430,7 @@ export class CmsPanel extends LitElement {
       ${showFont
         ? html`<cms-font-module
             .allowColor=${this._caps.fontColor}
-            .thresholdOwned=${thresholdOwned.has('text-color') && !(this._caps.custom && !this._caps.modules.threshold)}
+            .thresholdOwned=${thresholdOwned.has('text-color')}
             .allowSize=${this._caps.fontSize}
             .numberSize=${numberSizeKind(this._profileKey)}
             .cardType=${this._profileKey}
