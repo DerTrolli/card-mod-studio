@@ -6,15 +6,15 @@ and the `energy-*` cards.
 
 | Module | Available | Notes |
 |---|---|---|
-| Font | ✅ | Body text **plus the card title** (all except weather/energy). Text color reaches the card title and HTML text — graph axis labels are drawn by the chart itself (measured, v0.10.0) |
+| Font | ✅ | Body text **plus the card title** (all except weather/energy). Text color reaches the card title and HTML text — graph axis labels are drawn by the chart itself (measured, v0.10.0). Weight reaches the title through Home Assistant's normal-weight token, which on the logbook (entries, "Show more"), the graphs (legend, tooltips) and the calendar (grid, toolbar, events) also changes the weight of those parts. On the statistic card Font reaches name, value and unit like the sensor card |
 | Visual Filters | ✅ | |
 | Background | ✅ | |
 | Border & Radius | ✅ | |
 | Threshold Colors | ✅ | Background/text/border color from any entity (text where Font's colour works; accent where Accent works) |
 | Advanced CSS | ✅ | |
-| Icon Color | — hidden | No single card icon to color |
+| Icon Color | statistic only | The statistic card's one icon takes a fixed colour and a size (12–64px; v0.11.0-beta.3). Hidden elsewhere: no single card icon to color |
 | Accent Color | history-graph, statistic, calendar | Recolours their accent-drawn parts; hidden on statistics-graph, todo-list, logbook and weather-forecast, where nothing reads it (measured, v0.10.0) |
-| Animation | — hidden | Interferes with chart rendering |
+| Animation | ✅ (not shopping-list, energy) | Offered since v0.11.0-beta.3 — tapping a tile, tooltips, calendar days and events, the logbook and the to-do tick still work while a preset runs. Spin is left out on the map |
 
 ## Notes
 

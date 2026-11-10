@@ -22,16 +22,16 @@ Bubble picks its kind with `card_type:`. The Studio recognises:
 | **Separator** | `card_type: separator` |
 | **Cover** | `card_type: cover` |
 
-**Any other `card_type`** (and a Bubble card with no `card_type`) is not covered yet: it keeps showing every module, as an unknown custom card does, and may need [Advanced CSS](Advanced-CSS).
+**Any other `card_type`** (and a Bubble card with no `card_type`) is not covered yet: it keeps showing every module, as an unknown custom card does — with a notice that some controls may not reach the card (v0.11.0-beta.3) — and may need [Advanced CSS](Advanced-CSS). Pop-up cards open Bubble's own editor, so the Studio isn't reachable there.
 
 ## Available options
 
 | Module | Button / slider button / cover | Separator | What it styles |
 |---|---|---|---|
-| Font | ✅ | ✅ (name only) | The **name** and the **state** text: size, weight, family and colour. A separator has a name and no state |
-| Icon Color | ✅ | ✅ | The icon's colour, plus an **Icon size** slider |
-| Background | ✅ | ✅ | The card's visible box — the pill (button, slider button), the cover card's background, or the separator's box. Bubble leaves the button background at half opacity, so the Studio sets it to full opacity along with your colour |
-| Border & Radius | ✅ | ✅ | Border and corner radius, drawn on that same visible box |
+| Font | ✅ | ✅ (name only) | The **name** and the **state** text: size, weight, family and colour. A separator has a name and no state. Hidden when neither is shown: `show_name: false` without a state line (Bubble shows one for `button_type: state`, `show_last_changed`, `show_last_updated`, a shown attribute or `state_content`) |
+| Icon Color | ✅ | ✅ | The icon's colour, plus an **Icon size** slider that stops where the icon still fits (50px, 56px in the large layout; separator 40px, 33px large). The default mode is "Keep the card's colour". Hidden with `show_icon: false` |
+| Background | ✅ | ✅ | The card's visible box — the pill (button), the cover card's background, or the separator's box. Bubble leaves the button background at half opacity, so the Studio sets it to full opacity along with your colour. On a slider button the Background sits **under** the fill, so the fill stays visible |
+| Border & Radius | ✅ | ✅ | Border and corner radius, drawn around the whole card; the radius also works in the large layouts (`card_layout: large`, `large-2-rows`, sections views) |
 | Accent Color | slider button only | — hidden | The **slider's fill** (and its opacity) |
 | Threshold Colors | — hidden | — hidden | Nothing reachable to colour from a value |
 | Visual Filters, Animation | ✅ | ✅ | The whole card |
@@ -41,7 +41,9 @@ Why those are hidden: Bubble's own `ha-card` is transparent, so Accent has no ac
 
 ## Card-specific behavior
 
-- **Border and Background go on the visible box.** A border on Bubble's outer `ha-card` would draw a second, separate frame next to the real pill, so the Studio writes both to the pill itself.
+- **Border and Background go on the visible box.** A border on Bubble's outer `ha-card` would draw a second, separate frame next to the real pill, so the Studio writes them inside it: the border and radius on Bubble's own clipping container (so the whole card shows the border), the Background under a slider's fill. Styles written by v0.11.0-beta.2 are recognised and saved in this form the next time you save the card.
+- **Animation:** Gradient Shift isn't offered on Bubble cards: the background is painted on an inner element, so the shifting gradient wouldn't move.
+- **Stack children** are named by their kind ("Bubble slider", "Bubble button") in the child header.
 - **Accent on a slider button colours the fill only.** Turn on Accent Color, pick a colour, and the filled part of the slider changes — nothing else on the card.
 - **A separator has no entity.** There's no state to read on it, so for state-driven colours use the **Controlled by** picker, as on any entity-less card.
 - **A cover card has buttons, no slider.**
@@ -63,14 +65,14 @@ The Studio writes `!important` only where Bubble's own rule would otherwise win:
 
 Point at the preview and the highlight names the control that styles that part; a click jumps to it.
 
-- The **name** and **state** text → Font
-- The **icon** → Icon Color
-- The pill / box behind everything → Background
+- The **name** and **state** text → Font, but only over the words themselves
+- The **icon** and its circle → Icon Color
+- A slider's **fill** (the visible filled part) → Accent
+- Everything else inside the card — the empty pill, the unfilled track, a cover's arrow buttons → Background
 
 ## Limits
 
-- **Tested versions:** Bubble Card 3.4.3 (3.x) on HA 2026.11.0 with card-mod 4.2.1 and UIX 9.0.0.
-- **Slider fill:** a click on a slider button's fill opens **Background**, not Accent Color — use the Accent Color module directly.
+- **Tested versions:** Bubble Card 3.4.3 (3.x) on HA 2026.11.0 with card-mod 4.2.1 and UIX 9.0.0 (v0.11.0-beta.2). <!-- QA-PENDING: beta.3 verification result -->
 - **Other Bubble card types** (any `card_type` besides button, separator and cover) keep showing every module for now, so some controls there may do nothing.
 - **Later Bubble majors:** the controls were measured on Bubble 3.x only; a new major can change Bubble's internals and needs a fresh audit.
 

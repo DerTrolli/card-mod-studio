@@ -10,7 +10,7 @@
 | Icon Color | ✅ | Has the extra **"Match the light's color"** mode |
 | Threshold Colors | ✅ | Icon / Background / Text / Border Color — e.g. color by `brightness` attribute |
 | Background | ✅ | Gradient-while-on = "glow" effect |
-| Animation | — hidden | Interferes with the dial rendering |
+| Animation | ✅ (not Spin) | Offered since v0.11.0-beta.3. **Spin** is left out: a rotating card drags the dial's handle away from the pointer |
 | Border & Radius | ✅ | |
 | Advanced CSS | ✅ | |
 

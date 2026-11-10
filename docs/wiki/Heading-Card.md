@@ -27,6 +27,13 @@ for size, color and weight: it sets HA's own public
 `--ha-heading-card-{title,subtitle}-*` variables, which work on HA 2026.9 and
 2026.10 alike, with card-mod and with UIX:
 
+Only what you set is written. Switching Heading Style on changes nothing:
+each control starts as "Default" showing the card's own value (for example 16px
+for a title and 14px for a subtitle), and a property you don't touch keeps
+Home Assistant's own look — including the badges' spacing, which used to jump
+to the left when the module was switched on. The example below is what a
+fully set style looks like.
+
 ```yaml
 card_mod:
   style: |
@@ -61,7 +68,8 @@ card_mod:
 Heading styles written by v0.9.x and earlier (`.title p { … }` and
 `.title ha-icon { … }`) are **recognised and adopted** when you open the card
 in the Studio, and rewritten in the shape above the next time you save — so
-**open the card in the Studio and save once** to migrate it. On HA 2026.10
+**open the card in the Studio, change something and save** to migrate it
+(Home Assistant keeps Save disabled until something is changed). On HA 2026.10
 the old `.title p` rule matches nothing, so until you do, the text styling
 (size, color, weight, family) of an old-style heading won't apply there (the
 card isn't damaged — the icon and alignment rules still match — it just

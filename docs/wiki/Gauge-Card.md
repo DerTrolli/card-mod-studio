@@ -15,7 +15,7 @@ the value number's size can be changed too.
 | Icon Color | — hidden | A gauge has no icon |
 | Threshold Colors | ✅ | Enabling it defaults to the Accent property here; **Fade mode** gives a smoothly blending dial |
 | Background | ✅ | |
-| Animation | — hidden | Interferes with the gauge's own rendering |
+| Animation | ✅ | Offered since v0.11.0-beta.3 (the gauge still opens its dialog while a preset runs) |
 | Border & Radius | ✅ | |
 | Advanced CSS | ✅ | |
 
@@ -36,9 +36,16 @@ the value number's size can be changed too.
 ## Limits
 
 - **Number size** (Font module, v0.11) scales the box HA fits the value
-  into — 50–150 % of HA's own size. The number now grows all the way to 150 %
-  (v0.11.0-beta.2; beta.1 stopped at about 118–125 % because HA anchors the
-  box at 50 %, and beta.1 entries are upgraded on the next save). It has its own switch in the Font module
-  and is written as a shadow-piercing (`$`) dictionary entry the Studio keeps
-  editable; if you already wrote your own `ha-gauge$` CSS, the control shows
-  as locked and your CSS stays as it is.
+  into — 50–130 % of HA's own size. 100 % is exactly what Home Assistant
+  draws, and wide values such as "123 °C" stop growing a little earlier
+  (about 112 %) so the number never touches the arc. It has its own switch in
+  the Font module and is written, as a shadow-piercing (`$`) dictionary
+  entry the Studio keeps editable, only while the Font module is on:
+  switching Number size on switches Font on, and a card that already has the
+  entry opens with Font on. If you already wrote your own `ha-gauge$` CSS,
+  the control shows as locked and your CSS stays as it is.
+- **Styles from beta.1 and beta.2** (which went up to 150 %, with 100 %
+  about 10 % larger than Home Assistant's own number) load at the same
+  percentage and are rewritten the next time you save: a number set to 100 %
+  looks about 10 % smaller for wide values, and anything above 130 % reads as
+  130 %.

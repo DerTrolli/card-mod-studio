@@ -17,17 +17,37 @@ The layout:
   narrower than about 720px (phones, small windows, tablet split view) the
   preview stacks below the controls instead.
 
-The panel follows your theme in light and dark mode (new text colors start
-from your theme's own text color, not a fixed light grey). Every collapsible
-section is keyboard-accessible: Tab to it, Enter or Space to open and close.
+The panel follows your theme in light and dark mode. Each module has a
+**toggle** (enables its output) and a collapsible body. A module that's off
+contributes nothing to the generated YAML, and a module that's on but where you
+haven't set anything writes nothing either — Heading Style, Font and Icon
+Color start from "Default", the card's own look.
 
-Each module has a **toggle** (enables its output) and a collapsible body.
-A module that's off contributes nothing to the generated YAML.
+**Using the keyboard.** Tab moves through the controls: a module header is a
+button (Enter or Space opens and closes it) and its enable switch is the next
+Tab stop. Every switch, slider, selection list and colour field has a name a
+screen reader reads out. A row of colour swatches is one Tab stop — use the
+arrow keys, Home and End to move along it. Enter in a field commits the value
+and stays in the Studio. The live preview is deliberately not reachable with
+Tab and can't be operated: neither keys nor clicks reach your real entities.
+On a touch screen the controls are larger, and a vertical swipe that starts on
+a slider scrolls the panel.
 
 **Not sure which control styles what?** Since v0.9.0, just point at it:
-hovering any part of the preview shows a highlight box naming the control
-that styles that element, and clicking jumps straight to it (the preview
-stays safe — clicks never reach your real entities).
+hovering a part of the preview shows a highlight box naming the control that
+styles that element (on an entities card, "Entity Rows — " plus the row's
+label), and clicking jumps straight to it. A part that nothing styles names the
+card's **Background** (or **Border**, or **Visual Filters**, on cards where
+Background is hidden). Click-to-edit works on the card itself and on its
+parts, but not on the children of a stack in the preview.
+
+**Show code editor.** The Studio covers both of HA's editors; pressing HA's
+"Show code editor" (or "Show visual editor") closes the Studio so you can see
+the YAML — click **Style** to come back.
+
+**Custom cards.** On a `custom:` card the Studio has no profile for (anything
+other than Mushroom and Bubble Card's button, separator and cover), a notice
+says some controls may not reach the card; Advanced CSS always works.
 
 ## Saving
 

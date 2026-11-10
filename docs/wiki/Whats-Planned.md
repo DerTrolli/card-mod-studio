@@ -45,10 +45,15 @@ effects, icon size).
   (other Bubble card types aren't profiled yet); see the
   [Mushroom](Mushroom-Cards) and [Bubble Card](Bubble-Card) guides and
   [Card Support](Card-Support).
-<!-- v0.11.0 release step: when plan item C4.1 (the notice on unprofiled
-custom:* cards, incl. Bubble types without a profile) has shipped, add it
-here as a bullet. Don't list it before it ships (this page goes live on
-merge to main). -->
+- **A notice on custom cards the Studio has no profile for** (including
+  Bubble cards of a type without one): some controls may not reach the card,
+  Advanced CSS always works (v0.11.0-beta.3).
+- **Release review fixes** (v0.11.0-beta.3): controls you switch on but don't
+  touch write nothing; a conditional Background or Border keeps the card's
+  own look while off; Animation, card-level Threshold Colors (entities) and
+  Icon Color (statistic) on more cards; Advanced CSS and input checks;
+  keyboard, screen-reader and touch work. See the
+  [changelog](https://github.com/DerTrolli/card-mod-studio/blob/main/CHANGELOG.md).
 
 - Glance icon color stays out: even shadow-piercing styles don't reach it
   ([why](Glance-Card#why-no-icon-color)).

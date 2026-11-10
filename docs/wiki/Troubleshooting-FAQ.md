@@ -13,6 +13,36 @@
    [the issues](https://github.com/DerTrolli/card-mod-studio/issues) —
    compatibility fixes ship quickly after HA releases.
 
+## My cards are unstyled after a reload, but fine after I navigate away and back
+
+That is card-mod (or UIX) loading too late, not the Studio and not your
+styles. When card-mod is a plain dashboard resource, it can finish loading
+after the first cards of the dashboard have been drawn, and those cards stay
+unstyled until the next navigation. Reloading again often shows the cards
+styled, which makes it look random. card-mod's own installation advice is to
+load it through `frontend: extra_module_url` instead; this avoids it on almost
+every page load (not literally every one). Add this to `configuration.yaml`,
+remove card-mod from the dashboard resources and restart Home Assistant:
+
+```yaml
+frontend:
+  extra_module_url:
+    - /hacsfiles/lovelace-card-mod/card-mod.js
+```
+
+(`/local/card-mod.js` if you keep a copy in `config/www/`.) A `?v=` on the
+resource URL doesn't fix it, and you have to update the URL yourself if
+card-mod's file moves. Details: [Installation](Installation#loading-card-mod-reliably-recommended).
+
+## I pressed Enter and the card dialog saved and closed
+
+On Home Assistant 2025.9 to 2026.2, Enter anywhere in the card-edit dialog
+counts as Save, so pressing Enter in a Studio colour or number field saved the
+card with the old value. **Fixed in v0.11.0-beta.3:** Enter in a Studio field
+or on a Studio control now stays in the Studio (the typed value is kept).
+Update and hard-refresh the browser. Newer Home Assistant versions never did
+this.
+
 ## I can't find HACS on HA 2026.11
 
 HA 2026.11 folds HACS into core as the **Marketplace**, so there is no
@@ -82,21 +112,25 @@ YAML editor. Plain dictionary-form styles are *not* frozen — see
 
 ## The Font module has no text-size slider on my card
 
-On cards that size their own text — alarm panel, area, humidifier,
-picture-entity, picture-glance, weather and the date card (HA 2026.11) — the
-slider changed nothing when it was measured, so it's hidden. Weight, family
-and (where the card doesn't colour its own text) colour stay. See
+On cards that size their own text — area, humidifier, picture-entity,
+picture-glance, weather, the date card and the alert card (HA 2026.11) — the
+slider changed nothing when it was measured, so it's hidden. Family and
+(where the card doesn't colour its own text) colour stay; the weight row is
+hidden on area, date and alert for the same reason. See
 [Font & Text](Font-and-Text#not-offered-on).
 
 ## Font size does nothing on my gauge / thermostat number
 
 Use the dedicated control instead: with the Font module on, **Number size** (gauge,
-50–150 %) and **Temperature size** (thermostat, 24–96px) size those two numbers
+50–130 %) and **Temperature size** (thermostat, 24–96px) size those two numbers
 (v0.11). A plain text-size would be ignored there. If the row shows as locked,
 your card already has hand-written CSS for that number — it's preserved, and
 the control stays out of its way. See [Font & Text](Font-and-Text#number-size--gauge-value-and-thermostat-temperature-v011).
-A gauge that stops growing at about 118–125 % is a v0.11.0-beta.1 behaviour;
-update to beta.2 or newer.
+Number size is written only while the Font switch is on. 100 % is exactly the
+size Home Assistant draws; very wide values such as "123 °C" stop growing a
+little before 130 % so they never touch the arc. (Before v0.11.0-beta.3 the
+range went to 150 %; those styles still load, with anything above 130 % read
+as 130 %.)
 
 ## There's no Accent Color on my Mushroom card
 
@@ -105,13 +139,33 @@ so the Studio hides Accent (and Threshold's Accent target) there. Remove
 `icon_color` from the YAML to get it back. If Accent is shown but a colour
 isn't written, it can't be converted to the red/green/blue form Mushroom
 needs — the module tells you; pick a hex, `rgb()`, `hsl()`, named or palette
-colour. See [Mushroom](Mushroom-Cards).
+colour. An Accent you pick from the palette is stored as a fixed colour and
+doesn't follow a later theme change. See [Mushroom](Mushroom-Cards).
+
+## The panel says "doesn't know this custom card yet"
+
+The notice (v0.11.0-beta.3) appears on a `custom:` card the Studio has no
+profile for. Nothing is hidden: every module is offered, but some may not
+reach the card's own inner parts, so a control can do nothing visible.
+Advanced CSS always works. The supported custom cards are Mushroom 5.2.3
+and Bubble Card's button (incl. slider button), separator and cover.
 
 ## My Bubble Card shows every control, and some do nothing
 
 Only the button (including slider buttons), separator and cover kinds are
 supported so far; any other Bubble `card_type` (or none) still shows every
-module. Use [Advanced CSS](Advanced-CSS) for those. See [Bubble Card](Bubble-Card).
+module, with the notice above. Use [Advanced CSS](Advanced-CSS) for those.
+See [Bubble Card](Bubble-Card).
+
+## "Only while entity is ON / OFF" isn't offered on my card
+
+It is offered only when the card has an entity of its own and that entity can
+be on or off. Cards with no `entity:` (entities, glance, markdown, heading,
+picture, …) have nothing to watch; for them pick another entity under
+"Controlled by", or use Threshold Colors. Lock, cover, alarm panel, person,
+timer and input-button entities are never "on", and climate and water heater
+can be "off" but never "on", so ON isn't offered for them. See
+[Icon Color & Accent Color](Icon-Color-and-Accent-Color).
 
 ## A Bubble Card setting isn't winning over my own `styles:`
 

@@ -31,6 +31,10 @@ cards:
   child.
 - A dot marks children that carry styling; reopening the editor restores
   every child's settings.
+- Each child header names its kind: the card type, or for Bubble and Mushroom
+  cards a readable name such as "Bubble slider" or "Mushroom light".
+- A custom child card the Studio has no profile for gets the same notice as a
+  standalone one.
 
 Because the output is per-child standard YAML, a card moved out of the stack
 keeps its styling, and cards styled standalone keep theirs when moved in.

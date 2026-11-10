@@ -4,7 +4,7 @@
   - **Fully tested** on 2026.9.4 and 2026.10.0b0, with card-mod 4.2.1 and
     with UIX 8.3.1 (every control, every card type, light/dark, phone to
     desktop).
-  - **Tested** on 2026.11.0 (v0.10.2, and v0.11.0-beta.2 including Mushroom 5.2.3 and Bubble Card 3.4.3) with card-mod 4.2.1 and with UIX 9.0.0.
+  - **Tested** on 2026.11.0 (v0.10.2, and v0.11.0-beta.2 including Mushroom 5.2.3 and Bubble Card 3.4.3) with card-mod 4.2.1 and with UIX 9.0.0. <!-- QA-PENDING: beta.3 verification result -->
   - **Partially tested** (quick checks) on 2026.6.4 and 2026.2.3 with
     card-mod 4.2.1 — all controls pass — and on 2025.9.4 with card-mod
     3.4.5, where everything works except that Font doesn't change a *tile*
@@ -61,12 +61,39 @@ to opt in. Betas are testing builds — the changelog marks them clearly.
    [latest release](https://github.com/DerTrolli/card-mod-studio/releases/latest)
 2. Copy it to `config/www/card-mod-studio.js`
 3. **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.11.0-beta.2`
+   - URL: `/local/card-mod-studio.js?v=0.11.0-beta.3`
    - Type: *JavaScript Module*
 4. Hard-refresh the browser (Ctrl+Shift+R)
 
 When updating manually, bump the `?v=` query string so browsers don't serve
 the cached old bundle.
+
+## Loading card-mod reliably (recommended)
+
+card-mod's own installation advice is to load it through Home Assistant's
+`frontend: extra_module_url` list rather than as a dashboard resource. As a
+plain dashboard resource, card-mod can finish loading after the first cards of
+a dashboard have already been drawn; those cards then stay unstyled until you
+navigate away and back or reload again. Loading it as an extra module avoids
+that on almost every page load. This applies to card-mod itself, whether or
+not Card-Mod Studio is installed, and UIX can show the same behaviour.
+
+Add this to `configuration.yaml` and restart Home Assistant:
+
+```yaml
+frontend:
+  extra_module_url:
+    - /hacsfiles/lovelace-card-mod/card-mod.js
+```
+
+- `/hacsfiles/lovelace-card-mod/card-mod.js` is where HACS puts card-mod; for
+  a copy you placed in `config/www/` use `/local/card-mod.js`. For any other
+  install, use the same URL that your dashboard resources list for card-mod.
+- Then remove card-mod from **Settings → Dashboards → Resources**, so it
+  isn't loaded twice.
+- A `?v=` query string doesn't help here, and Home Assistant doesn't update
+  the URL for you: when card-mod updates, check that the path still exists.
+- Card-Mod Studio itself stays a dashboard resource.
 
 ## Verifying it works
 

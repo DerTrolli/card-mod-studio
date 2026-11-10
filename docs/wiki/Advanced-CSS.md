@@ -42,7 +42,31 @@ written back unchanged; on a Bubble card the card's own `styles:` option is
 never touched either.
 
 If a card opens with the note *"Some existing styles weren't recognised —
-preserved in Advanced CSS"*, that's this mechanism, working.
+preserved in Advanced CSS"*, that's this mechanism, working. (Containers and
+other cards that have no modules don't show it: their CSS lives here by
+design.)
+
+**Template statements switch the modules off.** If your style contains a
+top-level `{% … %}` statement (outside a rule's braces), the Studio keeps
+the whole style as written in Advanced CSS and leaves every module switched
+off — the card looks the same, but the controls can't take it over. The panel
+says so in a note. `{{ … }}` values and statements inside a rule don't
+trigger it. A style that calls a UIX macro or billet keeps the part that
+calls it here as well, and the panel notes that too.
+
+## Warnings under the editor
+
+A one-line, non-blocking warning appears under the editor when the text will
+break the card (v0.11.0-beta.3), with the line number: an unbalanced `{` or
+`}`, a Jinja block (`if`, `for`, `macro`, `call`, `filter`, `block`, `with`,
+`set`) that is never closed or has no start, an unterminated `{{`, `{%` or
+`{#`, or an unterminated comment or string. This matters because card-mod
+renders the templates before it reads the CSS: a template that fails to
+render drops the **whole** style of the card, while an unclosed `{` only
+spoils the rules after it. The text is never blocked or rewritten.
+
+The editor itself is Home Assistant's code editor; it can auto-indent or add a
+stray `%}` while you type a block — check the result.
 
 ## Dictionary-form styles (shadow-piercing)
 

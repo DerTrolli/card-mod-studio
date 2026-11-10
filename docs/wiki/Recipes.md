@@ -24,7 +24,7 @@ Same idea works for **Text / state color** — or both together.
 ## 3. Pulse while the washing machine runs
 
 1. Open the machine's card → **Animation** → enable
-2. Preset **Pulse**, speed to taste
+2. Preset **Pulse**, **Duration** to taste (seconds per cycle — lower is faster)
 3. **Apply when:** *Only while entity is ON* — or *While another entity is
    ON…* and pick e.g. `binary_sensor.washer_running`
 
