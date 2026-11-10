@@ -46,6 +46,8 @@ export class CmsPaletteManager extends LitElement {
   @state() private _invalid = new Set<string>();
   /** The entry whose remove button is armed ("Remove 'x'?"). */
   @state() private _armed: string | null = null;
+  /** The last edit is in memory only (storage full and Home Assistant out of reach). */
+  @state() private _unsaved = false;
 
   /** Commits waiting on the debounce, keyed per field so the last edit wins. */
   /** Disarms the remove button on a press elsewhere or after a few seconds
@@ -215,15 +217,19 @@ export class CmsPaletteManager extends LitElement {
     for (const key of this._pending.keys()) this._live.delete(key);
     this._pending.clear();
     // Applied to the palette as stored (re-read first), not this page's cache.
-    void updatePalette(edits, this.hass);
+    void updatePalette(edits, this.hass, this._onSync);
     this.requestUpdate();
   }
 
   /** Add / remove are single deliberate actions: applied at once, after any waiting edit. */
   private _saveNow(edit: PaletteEdit) {
     this._flush();
-    void updatePalette(edit, this.hass);
+    void updatePalette(edit, this.hass, this._onSync);
   }
+
+  private _onSync = (reachedHa: boolean, kept: boolean) => {
+    this._unsaved = !reachedHa && !kept;
+  };
 
   private _focus(selector: string) {
     (this.renderRoot?.querySelector?.(selector) as HTMLElement | null | undefined)?.focus();
@@ -335,6 +341,9 @@ export class CmsPaletteManager extends LitElement {
             : nothing}
         </div>
         ${this._open ? this._renderBody(palette) : nothing}
+        ${this._unsaved
+          ? html`<div class="hint" role="status">Couldn't save this change — this browser's storage is full and Home Assistant wasn't reachable. It will be lost when the page reloads.</div>`
+          : nothing}
       </div>
     `;
   }

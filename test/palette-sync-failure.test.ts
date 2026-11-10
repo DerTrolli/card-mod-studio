@@ -97,12 +97,13 @@ describe('updatePalette after a failed Home Assistant read / write', () => {
     expect(names(stored)).toEqual(['z:Zed', 'q:Queue']);
   });
 
-  it('no Home Assistant connection: unchanged behaviour (local only, no backlog to replay)', async () => {
+  it('no Home Assistant connection: nothing is written, and the edit is kept and replays once hass is there', async () => {
     const out = await mod.updatePalette(rename('z', 'Zed'), undefined);
     expect(out.colors).toEqual([]); // nothing stored locally to rename: cache was empty
     expect(writes).toEqual([]);
     await mod.updatePalette(rename('q', 'Queue'), hass());
-    expect(names(stored)).toEqual(['z:z', 'q:Queue']);
+    // The earlier rename (made with no hass) was kept and is replayed now.
+    expect(names(stored)).toEqual(['z:Zed', 'q:Queue']);
   });
 
   it('a healthy read and write still writes stored + change', async () => {

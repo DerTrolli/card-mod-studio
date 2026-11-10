@@ -109,7 +109,9 @@ export function initPaletteCache(hass: HassSub | undefined): Promise<void> {
     // Only when there is something to replay: queued behind running writes,
     // so the replay and a writer's own replay never interleave.
     let loaded: CustomPalette;
+    let replayed = false;
     if (initWithHass && readUnsynced().length > 0) {
+      replayed = true;
       const task = writeQueue.then(() => replayBacklog(hass), () => replayBacklog(hass));
       writeQueue = task.then(() => undefined, () => undefined);
       loaded = await task;
@@ -119,7 +121,14 @@ export function initPaletteCache(hass: HassSub | undefined): Promise<void> {
     // A savePalette that landed while the load was in flight already put
     // newer data in the cache (and persisted it) — keep it. Assigning the
     // just-loaded palette here would clobber that save with stale data.
-    if (cacheDirty) return;
+    // Edits still kept after a read/write that failed: let the next call
+    // (the panel calls this whenever it gets `hass`) try the replay again.
+    if (initWithHass && readUnsynced().length > 0) initPromise = null;
+    // The replay ran behind every write, so with none pending its result holds
+    // this page's own edits too (kept ones included) and is the newer copy:
+    // edits made before `hass` existed set cacheDirty but the cache then lacks
+    // what Home Assistant holds.
+    if (cacheDirty && !(replayed && pendingUpdates === 0)) return;
     cache = loaded;
     window.dispatchEvent(new CustomEvent(PALETTE_CHANGED_EVENT));
   })();
@@ -135,7 +144,12 @@ async function replayBacklog(hass: HassSub | undefined): Promise<CustomPalette> 
   storeLocal(next);
   if (hassAvailable(hass)) {
     try {
-      await hass.connection.sendMessagePromise({ type: 'frontend/set_user_data', key: HA_KEY, value: next });
+      writing++;
+      try {
+        await hass.connection.sendMessagePromise({ type: 'frontend/set_user_data', key: HA_KEY, value: next });
+      } finally {
+        writing--;
+      }
       writeUnsynced(flushed ? inFlight : []);
     } catch (err) {
       console.warn('[Card-Mod Studio] Palette sync to HA failed (saved to localStorage only):', err);
@@ -290,19 +304,25 @@ function readUnsynced(): PaletteEdit[] {
   }
 }
 
-function writeUnsynced(list: PaletteEdit[]): void {
+/** False when the list could not be persisted (it is then kept in memory). */
+function writeUnsynced(list: PaletteEdit[]): boolean {
   const next = compact(list);
   try {
     localStorage.setItem(LS_UNSYNCED, JSON.stringify(next));
     memUnsynced = null;
+    return true;
   } catch {
     memUnsynced = next; // quota exceeded: kept for this page's lifetime
+    return false;
   }
 }
 
 let pendingUpdates = 0;
 /** Updates whose read of Home Assistant has started and not finished. */
 let reading = 0;
+/** Writes to Home Assistant that have been sent and not answered. A page
+ *  that leaves meanwhile must not send its cache read-less on top of one. */
+let writing = 0;
 /** Changes of updates that have not finished. Only written to the kept list
  *  when the page is hidden or leaving (see flushPaletteOnUnload). */
 let inFlight: PaletteEdit[] = [];
@@ -312,11 +332,14 @@ let flushed = false;
 // palette and the later write would drop the earlier.
 let writeQueue: Promise<unknown> = Promise.resolve();
 
-function storeLocal(palette: CustomPalette): void {
+/** False when the browser refused the write (quota); the palette then only
+ *  lives in memory unless Home Assistant or the kept list has it. */
+function storeLocal(palette: CustomPalette): boolean {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(palette));
+    return true;
   } catch {
-    // quota exceeded — silently continue
+    return false;
   }
 }
 
@@ -334,11 +357,15 @@ function storeLocal(palette: CustomPalette): void {
  * with the next successful read — in this page or after a reload. A failed
  * write is retried the same way.
  */
-export function updatePalette(change: PaletteEdit | PaletteEdit[], hass: HassSub | undefined): Promise<CustomPalette> {
+export function updatePalette(
+  change: PaletteEdit | PaletteEdit[],
+  hass: HassSub | undefined,
+  onSync?: (reachedHa: boolean, kept: boolean) => void,
+): Promise<CustomPalette> {
   const edits = Array.isArray(change) ? change : [change];
   cache = sanitize(edits.reduce(applyPaletteEdit, cache));
   cacheDirty = true;
-  storeLocal(cache);
+  let local = storeLocal(cache);
   window.dispatchEvent(new CustomEvent(PALETTE_CHANGED_EVENT));
 
   pendingUpdates++;
@@ -346,6 +373,8 @@ export function updatePalette(change: PaletteEdit | PaletteEdit[], hass: HassSub
   if (flushed) writeUnsynced([...readUnsynced(), ...edits]);
   const run = async (): Promise<CustomPalette> => {
     let next: CustomPalette;
+    let reached = false;
+    let onList = false;
     try {
       reading++;
       let read: Awaited<ReturnType<typeof readPalette>>;
@@ -356,23 +385,33 @@ export function updatePalette(change: PaletteEdit | PaletteEdit[], hass: HassSub
       }
       const { palette, readFailed } = read;
       if (readFailed) {
-        writeUnsynced([...readUnsynced(), ...edits]);
+        onList = writeUnsynced([...readUnsynced(), ...edits]);
         next = sanitize(edits.reduce(applyPaletteEdit, palette));
-        storeLocal(next);
+        local = storeLocal(next);
       } else {
         const backlog = readUnsynced();
         const all = [...backlog, ...edits];
         next = sanitize(all.reduce(applyPaletteEdit, palette));
-        storeLocal(next);
-        if (hassAvailable(hass)) {
+        local = storeLocal(next);
+        if (!hassAvailable(hass)) {
+          // Nothing to sync with yet (no `hass`): keep the edit so it replays
+          // when `hass` arrives, exactly as after a failed read.
+          onList = writeUnsynced(all);
+        } else {
           try {
-            await hass.connection.sendMessagePromise({ type: 'frontend/set_user_data', key: HA_KEY, value: next });
+            writing++;
+            try {
+              await hass.connection.sendMessagePromise({ type: 'frontend/set_user_data', key: HA_KEY, value: next });
+            } finally {
+              writing--;
+            }
+            reached = true;
             // Written: what was kept is in Home Assistant now. Edits of other
             // updates still running stay kept if they were persisted.
             inFlight = inFlight.filter((e) => !edits.includes(e));
             writeUnsynced(flushed ? inFlight : []);
           } catch (err) {
-            writeUnsynced(all);
+            onList = writeUnsynced(all);
             console.warn('[Card-Mod Studio] Palette sync to HA failed (saved to localStorage only):', err);
           }
         }
@@ -387,6 +426,7 @@ export function updatePalette(change: PaletteEdit | PaletteEdit[], hass: HassSub
       cache = next;
       window.dispatchEvent(new CustomEvent(PALETTE_CHANGED_EVENT));
     }
+    onSync?.(reached, reached || local || onList);
     return next;
   };
   const result = writeQueue.then(run, run);
@@ -410,8 +450,9 @@ export function updatePalette(change: PaletteEdit | PaletteEdit[], hass: HassSub
  * it is never done for a tab that merely went to the background (the page
  * lives on, the queued update re-reads what the write just clobbered and a
  * colour added on another device in between would be lost), nor while a
- * queued update's own read is already running (let it finish; the kept list
- * covers a page that dies first), nor after a failed read (the cache is
+ * queued update's own read or write is already running (let it finish; the
+ * kept list covers a page that dies first: a write that did not land is
+ * replayed on the next load, and one that did is idempotent), nor after a failed read (the cache is
  * then only this browser's older copy, see updatePalette).
  */
 export function flushPaletteOnUnload(hass: HassSub | undefined, leaving = true): void {
@@ -420,7 +461,7 @@ export function flushPaletteOnUnload(hass: HassSub | undefined, leaving = true):
   const keptBefore = readUnsynced().filter((k) => !inFlight.some((f) => sameEdit(f, k)));
   writeUnsynced([...readUnsynced(), ...inFlight]);
   flushed = true;
-  if (!leaving || reading > 0 || keptBefore.length > 0 || !hassAvailable(hass)) return;
+  if (!leaving || reading > 0 || writing > 0 || keptBefore.length > 0 || !hassAvailable(hass)) return;
   hass.connection
     .sendMessagePromise({ type: 'frontend/set_user_data', key: HA_KEY, value: cache })
     .catch(() => undefined);
