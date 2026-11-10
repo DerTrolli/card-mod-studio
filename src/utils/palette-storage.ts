@@ -86,6 +86,11 @@ let initPromise: Promise<void> | null = null;
  *  would revert the cache to the pre-save palette, and the NEXT save would
  *  then persist that stale palette (permanent loss of the first save). */
 let cacheDirty = false;
+/** The cache holds a palette that was read (from Home Assistant, or the local
+ *  copy when that was all there was) or saved, not just the initial empty one.
+ *  Only then is it the best knowledge this page has when Home Assistant
+ *  cannot be read. */
+let cacheLoaded = false;
 
 /** Synchronous read for hot paths (picker renders, state building). Returns
  *  the empty palette until initPaletteCache has completed. */
@@ -130,6 +135,7 @@ export function initPaletteCache(hass: HassSub | undefined): Promise<void> {
     // what Home Assistant holds.
     if (cacheDirty && !(replayed && pendingUpdates === 0)) return;
     cache = loaded;
+    cacheLoaded = true;
     window.dispatchEvent(new CustomEvent(PALETTE_CHANGED_EVENT));
   })();
   return initPromise;
@@ -141,7 +147,7 @@ async function replayBacklog(hass: HassSub | undefined): Promise<CustomPalette> 
   const backlog = readUnsynced();
   // Not read: `palette` is only this browser's older copy. The kept edits go on
   // top, so what the caller shows still has them (nothing is written).
-  if (readFailed) return sanitize(backlog.reduce(applyPaletteEdit, palette));
+  if (readFailed) return sanitize(backlog.reduce(applyPaletteEdit, fallbackBase(palette)));
   if (backlog.length === 0) return palette;
   const next = sanitize(backlog.reduce(applyPaletteEdit, palette));
   storeLocal(next);
@@ -164,6 +170,15 @@ async function replayBacklog(hass: HassSub | undefined): Promise<CustomPalette> 
 // ---------------------------------------------------------------------------
 // Load / save
 // ---------------------------------------------------------------------------
+
+/** What an edit is built on when Home Assistant could not be read: this
+ *  page's own cache once it has been loaded (the last successful read plus
+ *  pending edits), else the locally stored copy. The local copy can be empty
+ *  or missing (the browser may refuse to store anything) while the page has
+ *  known the real palette all along. */
+function fallbackBase(local: CustomPalette): CustomPalette {
+  return cacheLoaded ? cache : local;
+}
 
 /** A read that also says whether Home Assistant was asked and failed. */
 async function readPalette(hass: HassSub | undefined): Promise<{ palette: CustomPalette; readFailed: boolean }> {
@@ -198,6 +213,7 @@ export async function loadPalette(hass: HassSub | undefined): Promise<CustomPale
 export async function savePalette(palette: CustomPalette, hass: HassSub | undefined): Promise<void> {
   cache = sanitize(palette);
   cacheDirty = true;
+  cacheLoaded = true;
   window.dispatchEvent(new CustomEvent(PALETTE_CHANGED_EVENT));
 
   try {
@@ -378,6 +394,7 @@ export function updatePalette(
     let next: CustomPalette;
     let reached = false;
     let onList = false;
+    let readFailedRun = false;
     try {
       reading++;
       let read: Awaited<ReturnType<typeof readPalette>>;
@@ -388,8 +405,9 @@ export function updatePalette(
       }
       const { palette, readFailed } = read;
       if (readFailed) {
+        readFailedRun = true;
         onList = writeUnsynced([...readUnsynced(), ...edits]);
-        next = sanitize(edits.reduce(applyPaletteEdit, palette));
+        next = sanitize(edits.reduce(applyPaletteEdit, fallbackBase(palette)));
         local = storeLocal(next);
       } else {
         const backlog = readUnsynced();
@@ -427,6 +445,7 @@ export function updatePalette(
     // A later change already showed itself in the cache; its own run refreshes it.
     if (pendingUpdates === 0) {
       cache = next;
+      if (!readFailedRun) cacheLoaded = true;
       window.dispatchEvent(new CustomEvent(PALETTE_CHANGED_EVENT));
     }
     onSync?.(reached, reached || local || onList);

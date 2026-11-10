@@ -213,7 +213,7 @@ let writeQueue: Promise<unknown> = Promise.resolve();
  * the page closes). Not called when there is no Home Assistant connection to
  * sync with, unless the change was not kept; that change is put on the kept
  * list so it replays once `hass` exists. `base` is the list the caller shows,
- * used when neither Home Assistant nor localStorage could be read.
+ * used when Home Assistant could not be read and localStorage has nothing.
  */
 export function updatePresets(
   change: PresetChange,
@@ -224,10 +224,14 @@ export function updatePresets(
   const run = async (): Promise<StylePreset[]> => {
     const read = await readPresets(hass);
     const { readFailed } = read;
-    // Neither Home Assistant nor localStorage could be read: the change goes
-    // onto the list the caller already shows, not onto an empty one (the
-    // panel would then show just this one preset).
-    const list = read.unreadable && (readFailed || !hassAvailable(hass)) && base ? base : read.list;
+    // Home Assistant could not be read and the local copy is missing, empty
+    // or unreadable (the browser may refuse to store anything): the change
+    // goes onto the list the caller already shows, not onto an empty one (the
+    // panel would then show just this one preset). Never when Home Assistant
+    // was read: a stale list must not win over what it holds.
+    const list = base && (readFailed || !hassAvailable(hass)) && (read.unreadable || read.list.length === 0)
+      ? base
+      : read.list;
     // Earlier changes that never reached Home Assistant go back on top of
     // what it holds now, then this one. A name saved both here during the
     // outage and elsewhere keeps the version saved here (applied last); a
