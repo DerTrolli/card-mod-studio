@@ -549,6 +549,9 @@ export function renderModuleHeader(o: ModuleHeaderOptions): TemplateResult {
   `;
 }
 
+/** The name each switch was last given (see nameSwitches). */
+const namedSwitches = new WeakMap<HTMLElement, string>();
+
 /** Marks the screen-reader-only text added to a switch whose inner input
  *  cannot be reached (see nameSwitch). */
 const SWITCH_NAME_FALLBACK = 'data-cms-switch-name';
@@ -567,6 +570,7 @@ const SWITCH_NAME_FALLBACK = 'data-cms-switch-name';
 export function nameSwitch(sw: HTMLElement): void {
   const name = (sw.getAttribute('aria-label') ?? '').trim();
   if (!name) return;
+  namedSwitches.set(sw, name);
   const inner = (): Element | null => sw.shadowRoot?.querySelector('[role="switch"]') ?? null;
   const settle = (): void => {
     const input = inner();
@@ -575,7 +579,7 @@ export function nameSwitch(sw: HTMLElement): void {
       input.setAttribute('aria-label', name);
       fallback?.remove();
     } else if (fallback) {
-      fallback.textContent = name;
+      if (fallback.textContent !== name) fallback.textContent = name;
     } else {
       const span = sw.ownerDocument.createElement('span');
       span.className = 'sr-only';
@@ -601,9 +605,14 @@ export function nameSwitch(sw: HTMLElement): void {
   }
 }
 
-/** nameSwitch for every `ha-switch[aria-label]` under `root` — call after render. */
+/** nameSwitch for every `ha-switch[aria-label]` under `root` — call after render.
+ *  A switch already given its current name is left alone (no shadow-root
+ *  query per update); a re-created switch or a changed label is handled. */
 export function nameSwitches(root: ParentNode | null | undefined): void {
-  root?.querySelectorAll?.<HTMLElement>('ha-switch[aria-label]').forEach(nameSwitch);
+  root?.querySelectorAll?.<HTMLElement>('ha-switch[aria-label]').forEach((sw) => {
+    if (namedSwitches.get(sw) === (sw.getAttribute('aria-label') ?? '').trim()) return;
+    nameSwitch(sw);
+  });
 }
 
 const guardedRoots = new WeakSet<object>();

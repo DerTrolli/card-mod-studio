@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mapElementToTarget, mapElementToMatch } from '../src/utils/preview-map.js';
+import { mapElementToTarget, mapElementToMatch, needsUnder } from '../src/utils/preview-map.js';
 import type { PickChainElement } from '../src/utils/preview-map.js';
 
 /** Shorthand chain-element builder. */
@@ -327,5 +327,15 @@ describe('onlyModules (a locked entities card shows just its rows)', () => {
     expect(mapElementToTarget(header, 'entities', {})?.module).toBe('cms-font-module');
     expect(mapElementToTarget(surface, 'entities', {})?.module).toBe('cms-background-module');
     expect(mapElementToTarget(row, 'entities', {})?.module).toBe('cms-entities-rows-module');
+  });
+});
+
+describe('needsUnder', () => {
+  it('is true only for card profiles with `under` click rules', () => {
+    expect(needsUnder('custom:bubble-card/button/slider')).toBe(true);
+    expect(needsUnder('custom:bubble-card/button')).toBe(false);
+    expect(needsUnder('tile')).toBe(false);
+    expect(needsUnder('custom:mushroom-light-card')).toBe(false);
+    expect(needsUnder('custom:unknown-card')).toBe(false);
   });
 });

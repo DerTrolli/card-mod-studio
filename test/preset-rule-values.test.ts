@@ -30,6 +30,14 @@ describe('migrateStudioState: threshold values', () => {
     expect(generateCss(s, 'tile')).not.toMatch(/NaN|undefined/);
   });
 
+  it('takes only decimal numbers from text', () => {
+    const texts = [' 12 ', '-.5', '1e3', '+4', '7.', '0x10', '12px', '', 'Infinity', '1 2', '1e', '0b11', '--5'];
+    const s = old({ rules: texts.map((value, i) => ({ id: `r${i}`, operator: '>', value, color: '#ff0000' })) });
+    expect(s.threshold.rules.map((r) => [r.id, r.value])).toEqual([
+      ['r0', 12], ['r1', -0.5], ['r2', 1000], ['r3', 4], ['r4', 7],
+    ]);
+  });
+
   it('drops a rule whose value cannot be a number, keeps the others', () => {
     const s = old({ rules: [
       { id: 'a', operator: '>', value: 'warm', color: '#ff0000' },

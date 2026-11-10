@@ -114,4 +114,50 @@ describe('nameSwitch', () => {
     expect(a.input.attrs['aria-label']).toBe('Enable Font');
     expect(b.input.attrs['aria-label']).toBe('Grayscale');
   });
+
+  it('nameSwitches skips a switch that already has its name, and redoes a changed or new one', () => {
+    let reads = 0;
+    const f = fakeSwitch({ inner: true });
+    const sw = f.sw as unknown as { shadowRoot: unknown };
+    const real = Object.getOwnPropertyDescriptor(sw, 'shadowRoot')!.get!;
+    Object.defineProperty(sw, 'shadowRoot', { get: () => { reads++; return real.call(sw); } });
+    let list = [f.sw];
+    const root = { querySelectorAll: () => list } as unknown as ParentNode;
+    nameSwitches(root);
+    const first = reads;
+    expect(first).toBeGreaterThan(0);
+    nameSwitches(root);
+    nameSwitches(root);
+    expect(reads).toBe(first); // not re-queried
+    // a re-created switch is a new element: named
+    const g = fakeSwitch({ inner: true, label: 'Other' });
+    list = [f.sw, g.sw];
+    nameSwitches(root);
+    expect(g.input.attrs['aria-label']).toBe('Other');
+    expect(reads).toBe(first);
+  });
+
+  it('nameSwitches names a switch again when its label changed', () => {
+    let label = 'First';
+    const f = fakeSwitch({ inner: true });
+    (f.sw as unknown as { getAttribute: () => string }).getAttribute = () => label;
+    const root = { querySelectorAll: () => [f.sw] } as unknown as ParentNode;
+    nameSwitches(root);
+    expect(f.input.attrs['aria-label']).toBe('First');
+    label = 'Second';
+    nameSwitches(root);
+    expect(f.input.attrs['aria-label']).toBe('Second');
+  });
+
+  it('the fallback text is only written when it differs', () => {
+    const f = fakeSwitch({ inner: false });
+    nameSwitch(f.sw);
+    let writes = 0;
+    const span = f.children[0];
+    let text = span.textContent;
+    Object.defineProperty(span, 'textContent', { get: () => text, set: (v: string) => { writes++; text = v; } });
+    nameSwitch(f.sw);
+    nameSwitch(f.sw);
+    expect(writes).toBe(0);
+  });
 });

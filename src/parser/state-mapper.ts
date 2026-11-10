@@ -160,6 +160,11 @@ export const DEFAULT_THRESHOLD: ThresholdModuleState = {
   ],
 };
 
+/** A decimal number written as text: sign, digits with an optional fraction,
+ *  optional exponent. Not hex ("0x10"), units ("12px") or "Infinity", which
+ *  Number() would take. */
+const DECIMAL_TEXT = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i;
+
 /**
  * Gives each entry's `value` the number the editor and generator expect: a
  * numeric string ("12.5") becomes the number. An entry whose value is not a
@@ -175,7 +180,7 @@ function coerceNumericValues<T extends { value: unknown }>(items: T[]): T[] {
     const v = item.value;
     if (typeof v === 'number') {
       if (Number.isFinite(v)) out.push(item);
-    } else if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) {
+    } else if (typeof v === 'string' && DECIMAL_TEXT.test(v.trim()) && Number.isFinite(Number(v))) {
       out.push({ ...item, value: Number(v) });
     }
   }

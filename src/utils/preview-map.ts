@@ -155,6 +155,13 @@ const MODULE_OF_TAG: Record<string, ProfileModule> = {
   'cms-heading-style-module': 'headingStyle',
 };
 
+/** Does this card's profile have click rules that read `pointer.under`? Only
+ *  those need the elements under the pointer measured (a box and a class copy
+ *  per element, on every pointer move). */
+export function needsUnder(cardType: string): boolean {
+  return getCustomCardProfile(cardType)?.clickToEdit?.some((r) => !!r.under) ?? false;
+}
+
 /** Chain-wide context computed once per lookup. */
 interface ChainContext {
   /** The card's `type:` — lets rules match card-specific DOM shapes. */

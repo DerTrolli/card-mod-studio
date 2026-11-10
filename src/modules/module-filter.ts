@@ -204,13 +204,13 @@ export class FilterModule extends LitElement {
             })
           : nothing}
 
-        <!-- Transition speed -->
+        <!-- Transition duration (ms: a larger number is slower) -->
         <div class="control-row">
-          <span class="control-label">Transition speed</span>
+          <span class="control-label">Transition duration</span>
           <div class="control-right">
             <ha-slider
-              label="Transition speed"
-              aria-label="Transition speed"
+              label="Transition duration"
+              aria-label="Transition duration"
               min="0"
               max="2000"
               step="50"
@@ -226,6 +226,7 @@ export class FilterModule extends LitElement {
             <span class="value-label">${this._transitionMs}ms</span>
           </div>
         </div>
+        <div class="when-hint">Milliseconds — lower is faster.</div>
       </div>
     `;
   }

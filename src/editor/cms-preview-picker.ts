@@ -14,6 +14,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import {
   mapElementToMatch,
+  needsUnder,
   ENTITY_ROW_TAG_RE,
   type PickChainElement,
   type PickPointer,
@@ -310,15 +311,17 @@ export class CmsPreviewPicker extends LitElement {
    *  (also cached in _target), or null when the point hits nothing pickable. */
   private _updateFromPoint(x: number, y: number): PickEventDetail | null {
     const cardEl = this._resolvedCardEl;
+    // Only profiles with `under` click rules read the elements under the pointer.
+    const wantUnder = needsUnder(this.cardType);
     const underEls: Element[] = [];
-    const deepest = cardEl ? this._deepElementFromPoint(x, y, underEls) : null;
+    const deepest = cardEl ? this._deepElementFromPoint(x, y, wantUnder ? underEls : undefined) : null;
     const chain = deepest && cardEl ? this._buildChain(deepest, cardEl) : null;
     if (!chain || !cardEl) {
       this._clear();
       return null;
     }
 
-    const pointer: PickPointer = { x, y, under: underEls.map(CmsPreviewPicker._describe) };
+    const pointer: PickPointer = { x, y, ...(wantUnder ? { under: underEls.map(CmsPreviewPicker._describe) } : {}) };
     const match = mapElementToMatch(chain.map(CmsPreviewPicker._describe), this.cardType, this.cardConfig, pointer, this.onlyModules);
     if (!match) {
       this._clear();
