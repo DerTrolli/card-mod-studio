@@ -353,6 +353,8 @@ const run = async () => {
       row.thresholdOffers = thrOffered;
       const fontColorShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-font-module')?.allowColor !== false);
       const fontSizeShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-font-module')?.allowSize !== false);
+      // Weight's row is offered through capsFor (module-font `_allowWeight`: the card's caps, or a weight already stored)
+      const fontWeightShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-font-module')?._allowWeight !== false);
       const iconColorShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-icon-color-module')?.allowColor !== false);
       const iconSizeShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-icon-color-module')?.allowSize === true);
       const initial = await page.evaluate(() => window.__audit.state());
@@ -371,6 +373,10 @@ const run = async () => {
         // …and its size on its own: the combined `font` case also changes the
         // family, which reaches custom cards whose text ignores the size.
         { mod: 'cms-font-module', label: 'font:size', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontSize: 26 } }, shown: row.shown.includes('cms-font-module') && fontSizeShown },
+        // …and weight and family each on their own: a row can be dead on one card while the others work
+        // (area: only the family reaches its text; alert: family only), which the combined `font` case hides.
+        { mod: 'cms-font-module', label: 'font:weight', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontWeight: 'bold' } }, shown: row.shown.includes('cms-font-module') && fontWeightShown },
+        { mod: 'cms-font-module', label: 'font:family', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontFamily: 'monospace' } }, shown: row.shown.includes('cms-font-module') },
       ];
       for (const c of cases) {
         let cBase = base;

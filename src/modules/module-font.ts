@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { FontModuleState } from '../types/index.js';
 import { DEFAULT_FONT } from '../parser/state-mapper.js';
+import { capsFor } from '../utils/card-caps.js';
 import { GAUGE_SIZE, NUMBER_SIZE_DEFAULT } from '../utils/owned-entries.js';
 import {
   moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown, renderResetButton, renderDefaultOption,
@@ -97,6 +98,13 @@ export class FontModule extends LitElement {
     }
   }
 
+  /** The weight row is shown where it reaches text (capsFor), and also while
+   *  an older style still stores a weight here, so it can be seen and reset
+   *  instead of silently riding along. */
+  private get _allowWeight(): boolean {
+    return capsFor(this.cardType).fontWeight || !!this.state.fontWeight;
+  }
+
   private _toggleOpen() {
     this._open = !this._open;
   }
@@ -179,7 +187,7 @@ export class FontModule extends LitElement {
           </div>
         </div>` : nothing}
 
-        <div class="control-row">
+        ${this._allowWeight ? html`        <div class="control-row">
           <span class="control-label">Weight</span>
           <div class="control-right">
             <select
@@ -196,7 +204,7 @@ export class FontModule extends LitElement {
               <option value="bold" ?selected=${this.state.fontWeight === 'bold'}>Bold</option>
             </select>
           </div>
-        </div>
+        </div>` : nothing}
 
         <div class="control-row">
           <span class="control-label">Font family</span>

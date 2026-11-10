@@ -120,6 +120,17 @@ export const NO_FONT_SIZE_TYPES = new Set([
 ]);
 
 /**
+ * Font's weight row changes nothing visible on these cards — the text the
+ * user means keeps its own weight (measured on Home Assistant 2026.11, card-mod
+ * and UIX: area name, date text and alert text stay put; only the family
+ * reaches them). A weight already stored in an older style is still read,
+ * written back and shown (module-font) until the user changes it.
+ */
+export const NO_FONT_WEIGHT_TYPES = new Set([
+  'area', 'date', 'alert',
+]);
+
+/**
  * A card-level text colour (Font's colour picker, Threshold's Text Color)
  * reaches no visible text on these — their text carries its own colour
  * (measured, see NO_ACCENT_TYPES). Font's weight (and size, outside
@@ -218,6 +229,8 @@ export interface CardCaps {
   /** Font's colour picker / size slider reach something. */
   fontColor: boolean;
   fontSize: boolean;
+  /** Font's weight select reaches something. */
+  fontWeight: boolean;
   /** Icon Color offers its size control. */
   iconSize: boolean;
   /** …and how far its slider goes. */
@@ -249,6 +262,7 @@ function buildCaps(
   f: {
     fontColor: boolean;
     fontSize: boolean;
+    fontWeight?: boolean;
     iconSize: boolean;
     stateAwareByDefault: boolean;
     headerTitle?: boolean;
@@ -258,7 +272,7 @@ function buildCaps(
     textOnlyCard?: boolean;
   },
 ): CardCaps {
-  const { headerTitle, transitionImportant, iconColorless, accentTriplet, textOnlyCard, ...flags } = f;
+  const { headerTitle, transitionImportant, iconColorless, accentTriplet, textOnlyCard, fontWeight, ...flags } = f;
   return {
     key,
     custom,
@@ -270,6 +284,7 @@ function buildCaps(
     modules: m,
     ...flags,
     iconSizeMax: !custom && key === 'tile' ? TILE_ICON_SIZE_MAX : DEFAULT_ICON_SIZE_MAX,
+    fontWeight: fontWeight !== false,
     headerTitle: custom ? !!headerTitle : HEADER_TITLE_CARD_TYPES.has(key),
     transitionImportant: custom ? !!transitionImportant : TRANSITION_IMPORTANT_TYPES.has(key),
     iconColorless: !!iconColorless,
@@ -342,6 +357,7 @@ export function capsFor(profileKey: string | undefined, config?: Record<string, 
     {
       fontColor: !NO_TEXT_COLOR_TYPES.has(key),
       fontSize: !NO_FONT_SIZE_TYPES.has(key),
+      fontWeight: !NO_FONT_WEIGHT_TYPES.has(key),
       iconSize: ICON_SIZE_TYPES.has(key),
       stateAwareByDefault: !NON_STATE_CARD_TYPES.has(key),
       textOnlyCard: key === 'markdown' && configSets(config, 'text_only'),

@@ -5,12 +5,19 @@
  * type only, and re-saves byte for byte; rows that reach nothing on a card are
  * hidden there, while a weight stored by an older style stays in the style.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { generateCss } from '../src/generator/css-generator.js';
 import { mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseStyleValue } from '../src/parser/yaml-parser.js';
-import { capsFor } from '../src/utils/card-caps.js';
+import { DEFAULT_FONT } from '../src/parser/state-mapper.js';
+import { capsFor, NO_FONT_WEIGHT_TYPES } from '../src/utils/card-caps.js';
 import type { FontModuleState, StudioState } from '../src/types/index.js';
+import { FakeCustomElementRegistry, templateText } from './v010-audit-helpers.js';
+
+const registry = new FakeCustomElementRegistry();
+(globalThis as { customElements: unknown }).customElements = registry;
+registry.define('card-mod', class {});
+(globalThis as { ResizeObserver?: unknown }).ResizeObserver = class { observe() {} disconnect() {} };
 
 const EMPTY = mapToStudioState(parseStyleValue(''));
 const gen = (f: Partial<FontModuleState>, type: string) =>
@@ -129,6 +136,46 @@ describe('picture-glance: the title follows the weight', () => {
     expect(gen(WEIGHT, 'picture-glance')).toContain('.title {\n  font-weight: bold !important;\n}');
     expect(gen(SIZE, 'picture-glance')).not.toContain('.title');
     roundTrips(gen(WEIGHT, 'picture-glance'), 'picture-glance');
+    expect(capsFor('picture-glance').fontWeight).toBe(true);
   });
 });
 
+describe('weight row gating', () => {
+  it('is hidden exactly where weight reaches nothing', () => {
+    expect([...NO_FONT_WEIGHT_TYPES].sort()).toEqual(['alert', 'area', 'date']);
+    for (const t of NO_FONT_WEIGHT_TYPES) expect(capsFor(t).fontWeight, t).toBe(false);
+    for (const t of ['tile', 'glance', 'markdown', 'humidifier', 'custom:mushroom-entity-card']) expect(capsFor(t).fontWeight, t).toBe(true);
+  });
+
+  type FontEl = { state: unknown; cardType?: string; _renderBody(): unknown };
+  let Font: new () => FontEl;
+  beforeAll(async () => {
+    await import('../src/modules/module-font.js');
+    Font = registry.get('cms-font-module') as new () => FontEl;
+  });
+  const body = (cardType: string, state: Partial<FontModuleState> = {}) => {
+    const el = new Font();
+    el.cardType = cardType;
+    el.state = { ...DEFAULT_FONT, enabled: true, ...state };
+    return templateText(el._renderBody());
+  };
+  it('the rendered module has no Weight row on area / date / alert, and has it elsewhere', () => {
+    for (const t of ['area', 'date', 'alert']) expect(body(t), t).not.toContain('Weight');
+    for (const t of ['tile', 'glance', 'picture-entity']) expect(body(t), t).toContain('Weight');
+  });
+  it('a weight stored by an older style keeps its row (so it can be seen and reset)', () => {
+    expect(body('area', { fontWeight: 'bold' })).toContain('Weight');
+  });
+  it('an old stored weight survives open + save on a card that no longer offers the row', () => {
+    for (const t of ['area', 'date', 'alert']) {
+      const old = 'ha-card {\n  font-size: 16px;\n  font-weight: bold;\n  color: var(--primary-text-color);\n  font-family: serif;\n}';
+      const back = parse(old, t);
+      expect(back.font, t).toMatchObject({ enabled: true, fontWeight: 'bold' });
+      expect(generateCss(back, t), t).toBe(old);
+      // weight-only too
+      const wOnly = gen(WEIGHT, t);
+      expect(wOnly, t).toBe('ha-card {\n  font-weight: bold;\n}');
+      expect(generateCss(parse(wOnly, t), t), t).toBe(wOnly);
+    }
+  });
+});
