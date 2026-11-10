@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { FakeCustomElementRegistry, templateText } from './v010-audit-helpers.js';
 import { initEntityRowStyles, generateEntityRowCss, rowStyleHasContent } from '../src/editor/studio-state.js';
-import { parseEntityRowCss } from '../src/parser/state-mapper.js';
+import { parseEntityRowCss, mergeEntityRowStyles } from '../src/parser/state-mapper.js';
 import type { CardModCardConfig, EntitiesRowStyles } from '../src/types/index.js';
 
 const registry = new FakeCustomElementRegistry();
@@ -118,5 +118,15 @@ describe('a 0px row size is a value, not "unset"', () => {
     expect(style.fontSizePx).toBe(0);
     expect(rowStyleHasContent(style)).toBe(true);
     expect(generateEntityRowCss(style, 'sensor.a')).toBe(css);
+  });
+});
+
+describe('merging the card_mod and uix row styles keeps a 0px size', () => {
+  const blank = { iconMode: 'static', textMode: 'static' } as never;
+  it('either direction', () => {
+    expect(mergeEntityRowStyles({ ...blank, fontSizePx: 0 }, blank).fontSizePx).toBe(0);
+    expect(mergeEntityRowStyles(blank, { ...blank, fontSizePx: 0 }).fontSizePx).toBe(0);
+    expect(mergeEntityRowStyles({ ...blank, fontSizePx: 0 }, { ...blank, fontSizePx: 12 }).fontSizePx).toBe(0);
+    expect('fontSizePx' in mergeEntityRowStyles(blank, blank)).toBe(false);
   });
 });
