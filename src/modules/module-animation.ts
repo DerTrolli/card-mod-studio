@@ -136,11 +136,11 @@ export class AnimationModule extends LitElement {
         </div>
 
         <div class="control-row">
-          <span class="control-label">Speed</span>
+          <span class="control-label">Duration</span>
           <div class="control-right">
             <ha-slider
-              label="Speed"
-              aria-label="Speed"
+              label="Duration"
+              aria-label="Duration"
               min="0.5"
               max="10"
               step="0.5"
@@ -156,6 +156,7 @@ export class AnimationModule extends LitElement {
             <span class="value-label">${this._speedS}s</span>
           </div>
         </div>
+        <div class="when-hint">Seconds per cycle — lower is faster.</div>
 
         ${this._renderTrigger()}
 
