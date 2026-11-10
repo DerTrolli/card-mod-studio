@@ -10,19 +10,19 @@ function styleStrings(style: unknown): string[] {
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * True when the card's uix style CALLS a macro or billet — a Jinja tag with
- * `macros.x` / `billets.x`, or a call to one of the names defined in
- * `uix.macros`. Having the key alone is not "using" it. The Studio keeps
- * such a style verbatim in Advanced CSS, and `uix.macros` / `billets` are
- * never rewritten (yaml-generator: only `.style` is replaced), so this
- * only drives an informational banner.
+ * True when the card's uix style uses a macro or billet. UIX references both
+ * by BARE name: for each key of `uix.macros` / `uix.billets` it matches
+ * `\bname\b` over the style and injects the import / `set`. So a key counts
+ * as used when its name appears inside a `{{ … }}` / `{% … %}` tag; the same
+ * word in plain CSS text does not. The Studio keeps such a style verbatim in
+ * Advanced CSS and never rewrites `macros` / `billets`, so this only drives
+ * an informational banner.
  */
 export function uixStyleUsesMacro(uix: UixConfig | undefined): boolean {
-  if (!uix?.macros && !uix?.billets) return false;
-  const names = uix.macros && typeof uix.macros === 'object' ? Object.keys(uix.macros) : [];
-  const call = names.length ? `|\\b(?:${names.map(escape).join('|')})\\s*\\(` : '';
-  const re = new RegExp(`\\b(?:macros|billets)\\s*\\.\\s*\\w+${call}`);
-  for (const text of styleStrings(uix.style)) {
+  const keys = [uix?.macros, uix?.billets].flatMap((m) => (m && typeof m === 'object' ? Object.keys(m) : []));
+  if (!keys.length) return false;
+  const re = new RegExp(`\\b(?:${keys.map(escape).join('|')})\\b`);
+  for (const text of styleStrings(uix?.style)) {
     for (const tag of text.match(/\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}/g) ?? []) {
       if (re.test(tag)) return true;
     }

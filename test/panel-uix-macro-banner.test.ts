@@ -63,6 +63,9 @@ describe('UIX target: macros banner', () => {
     expect(banner({ billets: { b: 1 }, style: 'a { b: {{ billets.b }}; }' })).toContain(KEPT);
     expect(banner({ macros: { foo: {} }, style: { '.': MACRO_STYLE, 'x$': 'y {}' } })).toContain(KEPT);
   });
+  it('a billet used by bare name (UIX has no billets.x syntax) shows the note', () => {
+    expect(banner({ billets: { b1: 1 }, style: 'a { b: {{ b1 }}; }' })).toContain(KEPT);
+  });
   it('a macro NAME in plain text or a different function call does not count', () => {
     expect(banner({ macros: { foo: {} }, style: 'a { content: "foo()"; b: {{ states("x") }}; }' })).toBe('');
   });
@@ -101,7 +104,11 @@ describe('uixStyleUsesMacro', () => {
     [{ style: MACRO_STYLE }, false], // no macros/billets key at all
     [{ macros: { foo: {} }, style: PLAIN }, false],
     [{ macros: { foo: {} }, style: MACRO_STYLE }, true],
-    [{ macros: 'raw string', style: 'a { b: {{ macros.x() }}; }' }, true],
+    [{ macros: 'raw string', style: 'a { b: {{ x() }}; }' }, false], // not a map: no names
+    [{ billets: { b1: 1 }, style: 'a { b: {{ b1 }}; }' }, true], // billet by bare name
+    [{ billets: { b1: 1 }, style: 'a { b1: red; }' }, false], // plain CSS text, not a tag
+    [{ billets: { b1: 1 }, style: { '.': PLAIN, 'x$': '{% if b1 %}y{% endif %}' } }, true], // pierced entry
+    [{ macros: { foo: {} }, billets: { b1: 1 }, style: 'a { b: {{ foobar }} {{ b10 }}; }' }, false], // word boundary
     [{ macros: { 'a.b': {} }, style: 'a { b: {{ a.b() }}; }' }, true], // names are escaped, not regex
     [{ macros: { 'a.b': {} }, style: 'a { b: {{ aXb() }}; }' }, false],
     [{ macros: { foo: {} }, style: '{% call foo() %}x{% endcall %}' }, true],
