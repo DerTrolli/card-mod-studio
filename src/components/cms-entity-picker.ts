@@ -12,7 +12,7 @@
  * brief window during panel init, or a standalone test harness) so nothing
  * crashes — `ha-entity-picker` requires `.hass` to function at all.
  */
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { HomeAssistant } from '../types/index.js';
 
@@ -40,6 +40,8 @@ export class CmsEntityPicker extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
   @property() value = '';
   @property() label = 'Entity';
+  /** Accessible name when no visible `label` is shown (the row label sits beside the picker). */
+  @property({ attribute: 'accessible-name' }) accessibleName = '';
   /** Shown as the fallback input's placeholder, and as ha-entity-picker's default-entity hint. */
   @property() placeholder = '';
   /** Restricts ha-entity-picker's list to these domains (e.g. TOGGLE_DOMAINS
@@ -83,6 +85,7 @@ export class CmsEntityPicker extends LitElement {
           .hass=${this.hass}
           .value=${this.value}
           .label=${this.label}
+          aria-label=${this.accessibleName || nothing}
           .includeDomains=${this.includeDomains}
           .allowCustomEntity=${true}
           @value-changed=${(e: CustomEvent<{ value?: string }>) => {
@@ -98,6 +101,7 @@ export class CmsEntityPicker extends LitElement {
         class="fallback-input"
         type="text"
         .value=${this.value}
+        aria-label=${this.accessibleName || this.label || 'Entity'}
         placeholder=${this.placeholder || 'sensor.example'}
         @change=${(e: Event) => this._emit((e.target as HTMLInputElement).value.trim())}
       />

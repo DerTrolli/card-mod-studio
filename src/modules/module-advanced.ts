@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { property } from 'lit/decorators.js';
 import type { AdvancedModuleState, PiercedEntry } from '../types/index.js';
-import { moduleStyles, onHeaderKeydown } from './module-base.js';
+import { moduleStyles, onHeaderKeydown, nameCodeEditor } from './module-base.js';
 import { lintAdvancedCss } from '../utils/css-lint.js';
 
 export class AdvancedModule extends LitElement {
@@ -70,6 +70,11 @@ export class AdvancedModule extends LitElement {
     if (changed.has('autoOpen') && this.autoOpen) this.open = true;
   }
 
+  override updated() {
+    const ed = this.renderRoot.querySelector('ha-code-editor');
+    if (ed) nameCodeEditor(ed, 'Advanced CSS');
+  }
+
   private _onValueChanged(e: CustomEvent<{ value: string }>) {
     this.dispatchEvent(
       new CustomEvent<AdvancedModuleState>('state-changed', {
@@ -98,6 +103,8 @@ export class AdvancedModule extends LitElement {
           ? html`
               <div class="editor-wrap">
                 <ha-code-editor
+                  label="Advanced CSS"
+                  aria-label="Advanced CSS"
                   mode="jinja2"
                   .value=${this.state.rawCss}
                   @value-changed=${this._onValueChanged}

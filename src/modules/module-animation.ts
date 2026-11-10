@@ -98,11 +98,12 @@ export class AnimationModule extends LitElement {
           <span class="module-title">✨ Animation</span>
           ${renderOverrideBadge(this.overridden)}
           <ha-switch
+            aria-label="Enable Animation"
             .checked=${this.state.enabled}
             @click=${(e: Event) => e.stopPropagation()}
             @change=${(e: Event) =>
               this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
+          ><span class="sr-only">Enable Animation</span></ha-switch>
         </div>
         ${this._open ? this._renderBody() : nothing}
       </div>
@@ -114,9 +115,10 @@ export class AnimationModule extends LitElement {
       <div class="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         <div class="control-row">
-          <span class="control-label">Preset</span>
+          <span class="control-label" id="lbl-preset">Preset</span>
           <div class="control-right">
             <select
+              aria-labelledby="lbl-preset"
               .value=${this.state.preset}
               @change=${(e: Event) =>
                 this._emit({
@@ -138,6 +140,8 @@ export class AnimationModule extends LitElement {
           <span class="control-label">Speed</span>
           <div class="control-right">
             <ha-slider
+              label="Speed"
+              aria-label="Speed"
               min="0.5"
               max="10"
               step="0.5"
@@ -187,9 +191,10 @@ export class AnimationModule extends LitElement {
 
     return html`
       <div class="control-row">
-        <span class="control-label">Apply when</span>
+        <span class="control-label" id="lbl-apply-when">Apply when</span>
         <div class="control-right">
           <select
+            aria-labelledby="lbl-apply-when"
             .value=${this.state.trigger}
             @change=${(e: Event) =>
               this._onTriggerChange((e.target as HTMLSelectElement).value as AnimationTrigger)}
@@ -213,6 +218,7 @@ export class AnimationModule extends LitElement {
                   .value=${this.state.customEntity ?? ''}
                   .includeDomains=${TOGGLE_DOMAINS}
                   label=""
+                  accessible-name="Entity to watch"
                   placeholder="input_boolean.my_entity"
                   @value-changed=${(e: CustomEvent<{ value: string }>) =>
                     this._emit({ customEntity: e.detail.value.trim() })}
@@ -263,9 +269,10 @@ export class AnimationModule extends LitElement {
     if (options.length === 0 && !this.state.valueAttribute) return nothing;
     return html`
       <div class="control-row">
-        <span class="control-label">Value read from</span>
+        <span class="control-label" id="lbl-value-read-from">Value read from</span>
         <div class="control-right">
           <select
+            aria-labelledby="lbl-value-read-from"
             .value=${this.state.valueAttribute ?? ''}
             @change=${(e: Event) =>
               this._emit({ valueAttribute: (e.target as HTMLSelectElement).value })}
@@ -291,6 +298,7 @@ export class AnimationModule extends LitElement {
             .hass=${this.hass}
             .value=${this.state.valueEntity ?? ''}
             label=""
+            accessible-name="Entity to read the value from"
             placeholder="sensor.temperature"
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
               this._emit({ valueEntity: e.detail.value.trim(), valueAttribute: '' })}
@@ -299,9 +307,10 @@ export class AnimationModule extends LitElement {
       </div>
       ${this._renderAttributeSelect()}
       <div class="control-row">
-        <span class="control-label">Condition</span>
+        <span class="control-label" id="lbl-condition">Condition</span>
         <div class="control-right">
           <select
+            aria-labelledby="lbl-condition"
             .value=${this.state.valueOperator ?? '>'}
             @change=${(e: Event) =>
               this._emit({

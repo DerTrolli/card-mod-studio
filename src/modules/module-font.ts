@@ -142,11 +142,12 @@ export class FontModule extends LitElement {
           <span class="module-title">🔠 Font</span>
           ${renderOverrideBadge(this.overridden)}
           <ha-switch
+            aria-label="Enable Font"
             .checked=${this.state.enabled}
             @click=${(e: Event) => e.stopPropagation()}
             @change=${(e: Event) =>
               this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
+          ><span class="sr-only">Enable Font</span></ha-switch>
         </div>
         ${this._open ? this._renderBody() : nothing}
       </div>
@@ -165,6 +166,7 @@ export class FontModule extends LitElement {
           <span class="control-label">Text size</span>
           <div class="control-right">
             <ha-slider
+              label="Text size"
               aria-label="Text size"
               min="10"
               max="48"
@@ -207,9 +209,10 @@ export class FontModule extends LitElement {
         </div>` : nothing}
 
         <div class="control-row">
-          <span class="control-label">Font family</span>
+          <span class="control-label" id="lbl-font-family">Font family</span>
           <div class="control-right">
             <select
+              aria-labelledby="lbl-font-family"
               .value=${isCustom ? 'custom' : family}
               @change=${(e: Event) => {
                 const v = (e.target as HTMLSelectElement).value;
@@ -258,6 +261,7 @@ export class FontModule extends LitElement {
               <span class="control-label">Text color</span>
               <div class="control-right">
                 <cms-color-picker
+                  label="Text color"
                   clearable
                   .placeholder=${'Default'}
                   .value=${this.state.color ?? ''}
@@ -301,14 +305,16 @@ export class FontModule extends LitElement {
       <div class="control-right">
         <ha-switch
           .checked=${on}
-          aria-label="${label}"
+          aria-label="Custom ${label.toLowerCase()}"
           @change=${(e: Event) => {
             const checked = (e.target as HTMLInputElement).checked;
             // Written only while Font is on, so switching it on switches Font on.
             this._emit({ numberSizeEnabled: checked, numberSize: size, ...(checked ? { enabled: true } : {}) });
           }}
-        ></ha-switch>
+        ><span class="sr-only">Custom ${label.toLowerCase()}</span></ha-switch>
         <ha-slider
+          label=${label}
+          aria-label=${label}
           min=${isGauge ? GAUGE_SIZE.min : 24}
           max=${isGauge ? GAUGE_SIZE.max : 96}
           step=${isGauge ? GAUGE_SIZE.step : 1}

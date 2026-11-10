@@ -74,11 +74,12 @@ export class AccentColorModule extends LitElement {
           <span class="module-title">🌈 Accent Color</span>
           ${renderOverrideBadge(this.overridden)}
           <ha-switch
+            aria-label="Enable Accent Color"
             .checked=${this.state.enabled}
             @click=${(e: Event) => e.stopPropagation()}
             @change=${(e: Event) =>
               this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
+          ><span class="sr-only">Enable Accent Color</span></ha-switch>
         </div>
         ${this._open ? this._renderBody() : nothing}
       </div>
@@ -94,9 +95,10 @@ export class AccentColorModule extends LitElement {
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         ${renderThresholdOwnedHint(this.thresholdOwned, 'accent color', 'Accent Color')}
         <div class="control-row">
-          <span class="control-label">Color mode</span>
+          <span class="control-label" id="lbl-color-mode">Color mode</span>
           <div class="control-right">
             <select
+              aria-labelledby="lbl-color-mode"
               .value=${mode}
               @change=${(e: Event) =>
                 this._emit({
@@ -136,6 +138,7 @@ export class AccentColorModule extends LitElement {
                     .includeDomains=${TOGGLE_DOMAINS}
                     .placeholder=${this.stateAware ? this.cardEntity : 'binary_sensor.example'}
                     label=""
+                    accessible-name="Entity to watch"
                     @value-changed=${(e: CustomEvent<{ value: string }>) =>
                       this._emit({ entityId: e.detail.value.trim() })}
                   ></cms-entity-picker>
@@ -151,6 +154,7 @@ export class AccentColorModule extends LitElement {
                 <span class="control-label">Color</span>
                 <div class="control-right">
                   <cms-color-picker
+                    label="Accent color"
                     .value=${this.state.color}
                     @color-changed=${(e: CustomEvent) => this._emit({ color: e.detail.value })}
                   ></cms-color-picker>
@@ -162,6 +166,7 @@ export class AccentColorModule extends LitElement {
                 <span class="control-label">Color when ON</span>
                 <div class="control-right">
                   <cms-color-picker
+                    label="Accent color when ON"
                     .value=${this.state.colorOn}
                     @color-changed=${(e: CustomEvent) => this._emit({ colorOn: e.detail.value })}
                   ></cms-color-picker>
@@ -171,6 +176,7 @@ export class AccentColorModule extends LitElement {
                 <span class="control-label">Color when OFF</span>
                 <div class="control-right">
                   <cms-color-picker
+                    label="Accent color when OFF"
                     .value=${this.state.colorOff}
                     @color-changed=${(e: CustomEvent) => this._emit({ colorOff: e.detail.value })}
                   ></cms-color-picker>

@@ -73,11 +73,12 @@ export class BorderModule extends LitElement {
           <span class="module-title">📐 Border & Radius</span>
           ${renderOverrideBadge(this.overridden)}
           <ha-switch
+            aria-label="Enable Border & Radius"
             .checked=${this.state.enabled}
             @click=${(e: Event) => e.stopPropagation()}
             @change=${(e: Event) =>
               this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
+          ><span class="sr-only">Enable Border & Radius</span></ha-switch>
         </div>
         ${this._open ? this._renderBody() : nothing}
       </div>
@@ -93,6 +94,8 @@ export class BorderModule extends LitElement {
           <span class="control-label">Border radius</span>
           <div class="control-right">
             <ha-slider
+              label="Border radius"
+              aria-label="Border radius"
               min="0"
               max="50"
               step="1"
@@ -113,6 +116,8 @@ export class BorderModule extends LitElement {
           <span class="control-label">Border width</span>
           <div class="control-right">
             <ha-slider
+              label="Border width"
+              aria-label="Border width"
               min="0"
               max="8"
               step="1"
@@ -135,6 +140,7 @@ export class BorderModule extends LitElement {
                 <span class="control-label">Border color</span>
                 <div class="control-right">
                   <cms-color-picker
+                    label="Border color"
                     .value=${this.state.borderColor}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ borderColor: e.detail.value })}
@@ -155,6 +161,8 @@ export class BorderModule extends LitElement {
                       <span class="control-label">Width otherwise</span>
                       <div class="control-right">
                         <ha-slider
+                          label="Width otherwise"
+                          aria-label="Width otherwise"
                           min="0"
                           max="8"
                           step="1"

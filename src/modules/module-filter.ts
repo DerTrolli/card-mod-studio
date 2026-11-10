@@ -87,11 +87,12 @@ export class FilterModule extends LitElement {
           <span class="module-title">🎚️ Visual Filters</span>
           ${renderOverrideBadge(this.overridden)}
           <ha-switch
+            aria-label="Enable Visual Filters"
             .checked=${this.state.enabled}
             @click=${(e: Event) => e.stopPropagation()}
             @change=${(e: Event) =>
               this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
+          ><span class="sr-only">Enable Visual Filters</span></ha-switch>
         </div>
         ${this._open ? this._renderBody() : nothing}
       </div>
@@ -107,9 +108,10 @@ export class FilterModule extends LitElement {
           <span class="control-label">Grayscale</span>
           <div class="control-right">
             <ha-switch
+              aria-label="Grayscale"
               .checked=${this.state.grayscale}
               @change=${(e: Event) => this._emit(this._grayscaleChanges((e.target as HTMLInputElement).checked))}
-            ></ha-switch>
+            ><span class="sr-only">Grayscale</span></ha-switch>
           </div>
         </div>
 
@@ -133,6 +135,8 @@ export class FilterModule extends LitElement {
           <span class="control-label">Brightness</span>
           <div class="control-right">
             <ha-slider
+              label="Brightness"
+              aria-label="Brightness"
               min="0"
               max="200"
               step="5"
@@ -154,6 +158,8 @@ export class FilterModule extends LitElement {
           <span class="control-label">Blur</span>
           <div class="control-right">
             <ha-slider
+              label="Blur"
+              aria-label="Blur"
               min="0"
               max="20"
               step="1"
@@ -173,6 +179,8 @@ export class FilterModule extends LitElement {
           <span class="control-label">Opacity</span>
           <div class="control-right">
             <ha-slider
+              label="Opacity"
+              aria-label="Opacity"
               min="10"
               max="100"
               step="5"
@@ -203,6 +211,8 @@ export class FilterModule extends LitElement {
           <span class="control-label">Transition speed</span>
           <div class="control-right">
             <ha-slider
+              label="Transition speed"
+              aria-label="Transition speed"
               min="0"
               max="2000"
               step="50"

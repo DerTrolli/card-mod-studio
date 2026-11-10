@@ -295,11 +295,12 @@ export class ThresholdModule extends LitElement {
           <span class="module-title">🎯 Threshold Colors</span>
           ${renderOverrideBadge(this.overridden)}
           <ha-switch
+            aria-label="Enable Threshold Colors"
             .checked=${this.state.enabled}
             @click=${(e: Event) => e.stopPropagation()}
             @change=${(e: Event) =>
               this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
+          ><span class="sr-only">Enable Threshold Colors</span></ha-switch>
         </div>
         ${this._open ? this._renderBody() : nothing}
       </div>
@@ -344,6 +345,7 @@ export class ThresholdModule extends LitElement {
               .value=${this.state.entityId}
               .placeholder=${this.cardEntity || 'sensor.temperature'}
               label=""
+              accessible-name="Entity to read the value from"
               @value-changed=${(e: CustomEvent<{ value: string }>) =>
                 this._emit({ entityId: e.detail.value.trim(), attribute: '' })}
             ></cms-entity-picker>
@@ -380,6 +382,8 @@ export class ThresholdModule extends LitElement {
                 <span class="control-label">Border width</span>
                 <div class="control-right">
                   <ha-slider
+                    label="Border width"
+                    aria-label="Border width"
                     min="1"
                     max="16"
                     step="1"
@@ -396,9 +400,10 @@ export class ThresholdModule extends LitElement {
           : nothing}
 
         <div class="control-row" style="margin-top: 12px;">
-          <span class="control-label">Value mode</span>
+          <span class="control-label" id="lbl-value-mode">Value mode</span>
           <div class="control-right">
             <select
+              aria-labelledby="lbl-value-mode"
               .value=${this.state.valueMode}
               @change=${(e: Event) =>
                 this._emit({
@@ -441,9 +446,10 @@ export class ThresholdModule extends LitElement {
     if (options.length === 0 && !this.state.attribute) return nothing;
     return html`
       <div class="control-row" style="margin-top: 8px;">
-        <span class="control-label">Value read from</span>
+        <span class="control-label" id="lbl-value-read-from">Value read from</span>
         <div class="control-right">
           <select
+            aria-labelledby="lbl-value-read-from"
             .value=${this.state.attribute ?? ''}
             @change=${(e: Event) => this._emit({ attribute: (e.target as HTMLSelectElement).value })}
           >
@@ -468,9 +474,10 @@ export class ThresholdModule extends LitElement {
       </div>
 
       <div class="control-row" style="margin-top: 12px;">
-        <span class="control-label">Default color</span>
+        <span class="control-label" id="lbl-default-color">Default color</span>
         <div class="control-right">
           <cms-color-picker
+            label="Default color"
             compact
             .value=${this.state.defaultColor}
             @color-changed=${(e: CustomEvent) => this._emit({ defaultColor: e.detail.value })}
@@ -565,6 +572,7 @@ export class ThresholdModule extends LitElement {
       <div class="rule">
         <span class="rule-label">If value</span>
         <select
+          aria-label="Rule ${index + 1} operator"
           .value=${rule.operator}
           @change=${(e: Event) =>
             this._onOperatorChange(index, (e.target as HTMLSelectElement).value)}
@@ -590,11 +598,12 @@ export class ThresholdModule extends LitElement {
         />
         <span class="rule-label">→</span>
         <cms-color-picker
+          label="Rule ${index + 1} color"
           compact
           .value=${rule.color}
           @color-changed=${(e: CustomEvent) => this._onRuleColorChange(index, e.detail.value)}
         ></cms-color-picker>
-        <button aria-label="Remove rule" title="Remove rule" @click=${() => this._removeRule(index)}>×</button>
+        <button aria-label="Remove rule ${index + 1}" title="Remove rule" @click=${() => this._removeRule(index)}>×</button>
       </div>
     `;
   }
@@ -609,14 +618,14 @@ export class ThresholdModule extends LitElement {
             @click=${() => this._swapStop(sortedIndex, -1)}
             ?disabled=${sortedIndex === 0}
             title="Swap with the point above"
-            aria-label="Move point up"
+            aria-label="Move fade point ${index + 1} up"
           >▲</button>
           <button
             class="move-btn"
             @click=${() => this._swapStop(sortedIndex, 1)}
             ?disabled=${sortedIndex === sortedCount - 1}
             title="Swap with the point below"
-            aria-label="Move point down"
+            aria-label="Move fade point ${index + 1} down"
           >▼</button>
         </div>
         <span class="rule-label">At value</span>
@@ -634,6 +643,7 @@ export class ThresholdModule extends LitElement {
         />
         <span class="rule-label">→</span>
         <cms-color-picker
+          label="Fade point ${index + 1} color"
           compact
           .value=${stop.color}
           @color-changed=${(e: CustomEvent) => this._onStopColorChange(index, e.detail.value)}
@@ -642,7 +652,7 @@ export class ThresholdModule extends LitElement {
           @click=${() => this._removeStop(index)}
           ?disabled=${this.state.colorStops.length <= 2}
           title=${this.state.colorStops.length <= 2 ? 'At least 2 points are required' : 'Remove point'}
-          aria-label="Remove point"
+          aria-label="Remove fade point ${index + 1}"
         >×</button>
       </div>
     `;

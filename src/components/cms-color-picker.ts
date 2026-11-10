@@ -249,6 +249,9 @@ const popoverStyles = css`
 @customElement('cms-color-picker')
 export class CmsColorPicker extends LitElement {
   @property() value = '#ffffff';
+  /** What this picker sets (e.g. "Color when ON"): prefixes the names of its
+   *  trigger and fields so several pickers in one module read differently. */
+  @property() label = '';
   /** Compact mode: renders a single small swatch button that opens a floating popover on click, instead of always showing the full picker inline. Use where many pickers appear in a dense list (e.g. one per threshold rule) and the always-expanded form would be too tall. */
   @property({ type: Boolean }) compact = false;
   /** Opt-in "not set" state: an empty `value` means "leave the card's own
@@ -332,6 +335,11 @@ export class CmsColorPicker extends LitElement {
     this._destroyPortal();
   }
 
+  /** An accessible name for one of this picker's controls, led by `label`. */
+  private _name(text: string): string {
+    return this.label ? `${this.label}: ${text}` : text;
+  }
+
   render() {
     if (!this.compact) {
       return this._renderPickerBody();
@@ -343,7 +351,7 @@ export class CmsColorPicker extends LitElement {
         class="swatch-trigger"
         style="background: ${previewHexFor(this.value)}"
         title="${this.value}"
-        aria-label="Color ${this.value} — change"
+        aria-label="${this._name(`Color ${this.value} — change`)}"
         aria-haspopup="dialog"
         aria-expanded="${this._popoverOpen}"
         @click=${this._toggleCompactPopover}
@@ -392,8 +400,8 @@ export class CmsColorPicker extends LitElement {
             </div>`
           : nothing}
         <div class="custom">
-          <input type="color" aria-label="Pick a custom color" .value=${this._toHex(this.value || (this.clearable ? this.placeholderColor : ''))} @input=${this._onColorInput} />
-          <input type="text" aria-label="Color value" aria-invalid=${this._invalid ? 'true' : 'false'} aria-describedby=${this._invalid ? 'cms-color-hint' : nothing} spellcheck="false" autocomplete="off" .value=${this.value ?? ''} @input=${this._onTextInput} @change=${this._onTextChange} @blur=${this._onTextBlur} placeholder=${this.clearable ? (this.placeholder || 'Default') : 'Color or var(--name)'} />
+          <input type="color" aria-label="${this._name('Pick a custom color')}" .value=${this._toHex(this.value || (this.clearable ? this.placeholderColor : ''))} @input=${this._onColorInput} />
+          <input type="text" aria-label="${this._name('Color value')}" aria-invalid=${this._invalid ? 'true' : 'false'} aria-describedby=${this._invalid ? 'cms-color-hint' : nothing} spellcheck="false" autocomplete="off" .value=${this.value ?? ''} @input=${this._onTextInput} @change=${this._onTextChange} @blur=${this._onTextBlur} placeholder=${this.clearable ? (this.placeholder || 'Default') : 'Color or var(--name)'} />
           ${this.clearable && this.value
             ? html`<button type="button" class="clear" aria-label="Reset color to default" title="Reset to default" @click=${this._onClear}>Default</button>`
             : nothing}

@@ -121,6 +121,7 @@ export class IconColorModule extends LitElement {
           <span class="module-title">🎨 Icon Color</span>
           ${renderOverrideBadge(this.overridden)}
           <ha-switch
+            aria-label="Enable Icon Color"
             .checked=${this.state.enabled}
             @click=${(e: Event) => e.stopPropagation()}
             @change=${(e: Event) =>
@@ -134,7 +135,7 @@ export class IconColorModule extends LitElement {
                     )
                   : { enabled: false },
               )}
-          ></ha-switch>
+          ><span class="sr-only">Enable Icon Color</span></ha-switch>
         </div>
         ${this._open ? this._renderBody() : nothing}
       </div>
@@ -167,9 +168,10 @@ export class IconColorModule extends LitElement {
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         ${renderThresholdOwnedHint(this.thresholdOwned, 'icon color', 'Icon Color')}
         <div class="control-row">
-          <span class="control-label">Color mode</span>
+          <span class="control-label" id="lbl-color-mode">Color mode</span>
           <div class="control-right">
             <select
+              aria-labelledby="lbl-color-mode"
               .value=${mode}
               @change=${(e: Event) =>
                 this._emit({
@@ -221,6 +223,7 @@ export class IconColorModule extends LitElement {
                     .includeDomains=${mode === 'light' ? ['light'] : TOGGLE_DOMAINS}
                     .placeholder=${this.stateAware ? this.cardEntity : 'binary_sensor.example'}
                     label=""
+                    accessible-name="Entity to watch"
                     @value-changed=${(e: CustomEvent<{ value: string }>) =>
                       this._emit({ entityId: e.detail.value.trim() })}
                   ></cms-entity-picker>
@@ -238,6 +241,7 @@ export class IconColorModule extends LitElement {
                 <span class="control-label">Color</span>
                 <div class="control-right">
                   <cms-color-picker
+                    label="Icon color"
                     .value=${this.state.color}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ color: e.detail.value })}
@@ -251,6 +255,7 @@ export class IconColorModule extends LitElement {
                 <span class="control-label">Color when OFF</span>
                 <div class="control-right">
                   <cms-color-picker
+                    label="Icon color when OFF"
                     .value=${this.state.colorOff}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ colorOff: e.detail.value })}
@@ -264,6 +269,7 @@ export class IconColorModule extends LitElement {
                 <span class="control-label">Color when ON</span>
                 <div class="control-right">
                   <cms-color-picker
+                    label="Icon color when ON"
                     .value=${this.state.colorOn}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ colorOn: e.detail.value })}
@@ -274,6 +280,7 @@ export class IconColorModule extends LitElement {
                 <span class="control-label">Color when OFF</span>
                 <div class="control-right">
                   <cms-color-picker
+                    label="Icon color when OFF"
                     .value=${this.state.colorOff}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ colorOff: e.detail.value })}
@@ -296,6 +303,8 @@ export class IconColorModule extends LitElement {
         <span class="control-label">Icon size</span>
         <div class="control-right">
           <ha-slider
+            label="Icon size"
+            aria-label="Icon size"
             min="0"
             max=${this.sizeMax}
             step="2"
@@ -327,6 +336,8 @@ export class IconColorModule extends LitElement {
                     <span class="control-label">Size otherwise</span>
                     <div class="control-right">
                       <ha-slider
+                        label="Size otherwise"
+                        aria-label="Size otherwise"
                         min="16"
                         max=${this.sizeMax}
                         step="2"

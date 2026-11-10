@@ -400,7 +400,7 @@ export class EntitiesRowsModule extends LitElement {
             : nothing}
           ${hasStyle ? html`<span class="style-dot" title="This row has styling"></span>` : nothing}
         </div>
-        ${isOpen ? (rowStyle.frozen ? this._renderFrozen() : this._renderBody(rowKey, rowStyle, conflicts, row.state_color === false)) : nothing}
+        ${isOpen ? (rowStyle.frozen ? this._renderFrozen() : this._renderBody(rowKey, rowStyle, conflicts, row.state_color === false, label)) : nothing}
       </div>
     `;
   }
@@ -417,7 +417,9 @@ export class EntitiesRowsModule extends LitElement {
     </div>`;
   }
 
-  private _renderBody(rowKey: string, rowStyle: EntitiesRowStyle, conflicts: string[] = [], stateColorOff = false) {
+  private _renderBody(rowKey: string, rowStyle: EntitiesRowStyle, conflicts: string[] = [], stateColorOff = false, rowLabel = '') {
+    // Every row repeats these controls: the row's name tells them apart.
+    const named = (what: string) => (rowLabel ? `${what} (${rowLabel})` : what);
     const hasFont = rowStyle.fontSizePx != null || !!rowStyle.fontWeight;
     // The switch only reveals the controls; nothing is written until one is set.
     const fontOn = hasFont || this._fontOpen.has(rowKey);
@@ -440,15 +442,20 @@ export class EntitiesRowsModule extends LitElement {
               ? html`<div class="mode-toggle">
                     <button
                       class="mode-btn ${!iconIsThreshold ? 'active' : ''}"
+                      aria-pressed=${!iconIsThreshold ? 'true' : 'false'}
+                      aria-label=${named('Static icon color')}
                       @click=${(e: Event) => { e.stopPropagation(); this._setMode(rowKey, 'icon', 'static'); }}
                     >Static</button>
                     <button
                       class="mode-btn ${iconIsThreshold ? 'active' : ''}"
+                      aria-pressed=${iconIsThreshold ? 'true' : 'false'}
+                      aria-label=${named('Threshold icon color')}
                       @click=${(e: Event) => { e.stopPropagation(); this._setMode(rowKey, 'icon', 'threshold'); }}
                     >Threshold</button>
                   </div>`
               : nothing}
             <ha-switch
+              aria-label=${named('Icon color')}
               .checked=${iconEnabled}
               @change=${(e: Event) => {
                 const on = (e.target as HTMLInputElement).checked;
@@ -456,17 +463,18 @@ export class EntitiesRowsModule extends LitElement {
                   ? { iconColor: defaultOnColor(), iconMode: 'static' }
                   : { iconColor: '', iconMode: undefined, iconRules: undefined, iconDefault: undefined });
               }}
-            ></ha-switch>
+            ><span class="sr-only">${named('Icon color')}</span></ha-switch>
           </div>
         </div>
         ${iconEnabled && !iconIsThreshold
           ? html`<cms-color-picker
+                label=${named('Icon color')}
                 .value=${rowStyle.iconColor}
                 @color-changed=${(e: CustomEvent) => this._updateRow(rowKey, { iconColor: e.detail.value })}
               ></cms-color-picker>`
           : nothing}
         ${iconEnabled && iconIsThreshold
-          ? this._renderRuleBuilder(rowKey, 'icon', rowStyle.iconRules ?? [], rowStyle.iconDefault ?? '#888888')
+          ? this._renderRuleBuilder(rowKey, 'icon', rowStyle.iconRules ?? [], rowStyle.iconDefault ?? '#888888', rowLabel)
           : nothing}
         ${iconEnabled && !stateColorOff && !rowStyle.iconWhileOn
           ? html`<div class="when-hint warn while-on">
@@ -489,15 +497,20 @@ export class EntitiesRowsModule extends LitElement {
               ? html`<div class="mode-toggle">
                     <button
                       class="mode-btn ${!textIsThreshold ? 'active' : ''}"
+                      aria-pressed=${!textIsThreshold ? 'true' : 'false'}
+                      aria-label=${named('Static text color')}
                       @click=${(e: Event) => { e.stopPropagation(); this._setMode(rowKey, 'text', 'static'); }}
                     >Static</button>
                     <button
                       class="mode-btn ${textIsThreshold ? 'active' : ''}"
+                      aria-pressed=${textIsThreshold ? 'true' : 'false'}
+                      aria-label=${named('Threshold text color')}
                       @click=${(e: Event) => { e.stopPropagation(); this._setMode(rowKey, 'text', 'threshold'); }}
                     >Threshold</button>
                   </div>`
               : nothing}
             <ha-switch
+              aria-label=${named('Text / state color')}
               .checked=${textEnabled}
               @change=${(e: Event) => {
                 const on = (e.target as HTMLInputElement).checked;
@@ -505,17 +518,18 @@ export class EntitiesRowsModule extends LitElement {
                   ? { textColor: THEME_TEXT_COLOR, textMode: 'static' }
                   : { textColor: '', textMode: undefined, textRules: undefined, textDefault: undefined });
               }}
-            ></ha-switch>
+            ><span class="sr-only">${named('Text / state color')}</span></ha-switch>
           </div>
         </div>
         ${textEnabled && !textIsThreshold
           ? html`<cms-color-picker
+                label=${named('Text / state color')}
                 .value=${rowStyle.textColor}
                 @color-changed=${(e: CustomEvent) => this._updateRow(rowKey, { textColor: e.detail.value })}
               ></cms-color-picker>`
           : nothing}
         ${textEnabled && textIsThreshold
-          ? this._renderRuleBuilder(rowKey, 'text', rowStyle.textRules ?? [], rowStyle.textDefault ?? '#888888')
+          ? this._renderRuleBuilder(rowKey, 'text', rowStyle.textRules ?? [], rowStyle.textDefault ?? '#888888', rowLabel)
           : nothing}
 
         <hr class="divider" />
@@ -525,7 +539,7 @@ export class EntitiesRowsModule extends LitElement {
           <span class="control-label">Font (this row)</span>
           <div class="control-right">
             <ha-switch
-              aria-label="Font (this row)"
+              aria-label=${named('Font (this row)')}
               .checked=${fontOn}
               @change=${(e: Event) => {
                 const on = (e.target as HTMLInputElement).checked;
@@ -541,7 +555,7 @@ export class EntitiesRowsModule extends LitElement {
                 // save over every row for no change.
                 if (hasFont) this._updateRow(rowKey, { fontSizePx: undefined, fontWeight: undefined });
               }}
-            ></ha-switch>
+            ><span class="sr-only">${named('Font (this row)')}</span></ha-switch>
           </div>
         </div>
         ${fontOn
@@ -550,7 +564,8 @@ export class EntitiesRowsModule extends LitElement {
                 <span class="control-label">Text size</span>
                 <div class="control-right">
                   <ha-slider
-                    aria-label="Text size (this row)"
+                    label=${named('Text size (this row)')}
+                    aria-label=${named('Text size (this row)')}
                     min="8"
                     max="48"
                     step="1"
@@ -579,7 +594,7 @@ export class EntitiesRowsModule extends LitElement {
                 <span class="control-label">Weight</span>
                 <div class="control-right">
                   <select
-                    aria-label="Weight (this row)"
+                    aria-label=${named('Weight (this row)')}
                     .value=${rowStyle.fontWeight ?? ''}
                     @change=${(e: Event) => {
                       this._keepFontOpen(rowKey);
@@ -611,7 +626,10 @@ export class EntitiesRowsModule extends LitElement {
     prop: 'icon' | 'text',
     rules: ThresholdRule[],
     defaultColor: string,
+    rowLabel = '',
   ) {
+    const kind = prop === 'icon' ? 'Icon' : 'Text';
+    const named = (what: string) => (rowLabel ? `${what} (${rowLabel})` : what);
     return html`
       <div class="rules-container">
         <span class="rule-label">Rules — order doesn't matter, they're sorted automatically:</span>
@@ -619,6 +637,7 @@ export class EntitiesRowsModule extends LitElement {
           <div class="rule">
             <span class="rule-label">If value</span>
             <select
+              aria-label=${named(`${kind} rule ${i + 1} operator`)}
               .value=${rule.operator}
               @change=${(e: Event) => this._updateRule(rowKey, prop, i, {
                 operator: (e.target as HTMLSelectElement).value as ThresholdRule['operator'],
@@ -634,7 +653,7 @@ export class EntitiesRowsModule extends LitElement {
             <input
               type="text"
               class="num"
-              aria-label="${prop === 'icon' ? 'Icon' : 'Text'} rule ${i + 1} value"
+              aria-label="${kind} rule ${i + 1} value"
               aria-invalid="false"
               spellcheck="false"
               autocomplete="off"
@@ -649,18 +668,20 @@ export class EntitiesRowsModule extends LitElement {
             />
             <span class="rule-label">→</span>
             <cms-color-picker
+              label=${named(`${kind} rule ${i + 1} color`)}
               compact
               .value=${rule.color}
               @color-changed=${(e: CustomEvent) => this._updateRule(rowKey, prop, i, { color: e.detail.value })}
             ></cms-color-picker>
-            <button @click=${() => this._removeRule(rowKey, prop, i)}>×</button>
+            <button aria-label=${named(`Remove ${kind.toLowerCase()} rule ${i + 1}`)} @click=${() => this._removeRule(rowKey, prop, i)}>×</button>
           </div>
         `)}
-        <button class="add-rule-btn" @click=${() => this._addRule(rowKey, prop)}>+ Add Rule</button>
+        <button class="add-rule-btn" aria-label=${named(`Add Rule: ${kind} color`)} @click=${() => this._addRule(rowKey, prop)}>+ Add Rule</button>
         <div class="control-row" style="margin-top:4px">
           <span class="control-label">Default color</span>
           <div class="control-right">
             <cms-color-picker
+              label=${named(`${kind} default color`)}
               compact
               .value=${defaultColor}
               @color-changed=${(e: CustomEvent) => {

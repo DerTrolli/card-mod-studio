@@ -87,11 +87,12 @@ export class HeadingStyleModule extends LitElement {
           <span class="module-title">🔤 Heading Style</span>
           ${renderOverrideBadge(this.overridden)}
           <ha-switch
+            aria-label="Enable Heading Style"
             .checked=${this.state.enabled}
             @click=${(e: Event) => e.stopPropagation()}
             @change=${(e: Event) =>
               this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
+          ><span class="sr-only">Enable Heading Style</span></ha-switch>
         </div>
         ${this._open ? this._renderBody() : nothing}
       </div>
@@ -114,6 +115,7 @@ export class HeadingStyleModule extends LitElement {
           <span class="control-label">Text size</span>
           <div class="control-right">
             <ha-slider
+              label="Text size"
               aria-label="Text size"
               min="12"
               max="48"
@@ -156,9 +158,10 @@ export class HeadingStyleModule extends LitElement {
         </div>
 
         <div class="control-row">
-          <span class="control-label">Font family</span>
+          <span class="control-label" id="lbl-font-family">Font family</span>
           <div class="control-right">
             <select
+              aria-labelledby="lbl-font-family"
               .value=${isCustom ? 'custom' : family}
               @change=${(e: Event) => {
                 const v = (e.target as HTMLSelectElement).value;
@@ -178,9 +181,10 @@ export class HeadingStyleModule extends LitElement {
         ${isCustom
           ? html`
               <div class="control-row">
-                <span class="control-label">Custom family</span>
+                <span class="control-label" id="lbl-custom-family">Custom family</span>
                 <div class="control-right">
                   <input
+                    aria-labelledby="lbl-custom-family"
                     type="text"
                     style="width:100%;box-sizing:border-box;"
                     .value=${family}
@@ -197,6 +201,7 @@ export class HeadingStyleModule extends LitElement {
           <span class="control-label">Text color</span>
           <div class="control-right">
             <cms-color-picker
+              label="Text color"
               clearable
               .placeholder=${`Default (${native.colorLabel})`}
               .placeholderColor=${native.color}
@@ -211,6 +216,7 @@ export class HeadingStyleModule extends LitElement {
           <span class="control-label">Icon size</span>
           <div class="control-right">
             <ha-slider
+              label="Icon size"
               aria-label="Icon size"
               min="12"
               max="48"
@@ -237,6 +243,7 @@ export class HeadingStyleModule extends LitElement {
           <span class="control-label">Icon color</span>
           <div class="control-right">
             <cms-color-picker
+              label="Icon color"
               clearable
               .placeholder=${`Default (${native.colorLabel})`}
               .placeholderColor=${native.color}

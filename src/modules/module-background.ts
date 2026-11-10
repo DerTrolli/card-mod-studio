@@ -69,11 +69,12 @@ export class BackgroundModule extends LitElement {
           <span class="module-title">🖼️ Background</span>
           ${renderOverrideBadge(this.overridden)}
           <ha-switch
+            aria-label="Enable Background"
             .checked=${this.state.enabled}
             @click=${(e: Event) => e.stopPropagation()}
             @change=${(e: Event) =>
               this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
+          ><span class="sr-only">Enable Background</span></ha-switch>
         </div>
         ${this._open ? this._renderBody() : nothing}
       </div>
@@ -86,9 +87,10 @@ export class BackgroundModule extends LitElement {
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         ${renderThresholdOwnedHint(this.thresholdOwned, 'background', 'Background')}
         <div class="control-row">
-          <span class="control-label">Type</span>
+          <span class="control-label" id="lbl-type">Type</span>
           <div class="control-right">
             <select
+              aria-labelledby="lbl-type"
               .value=${this.state.type}
               @change=${(e: Event) =>
                 this._emit({
@@ -109,6 +111,7 @@ export class BackgroundModule extends LitElement {
           </span>
           <div class="control-right">
             <cms-color-picker
+              label=${this.state.type === 'gradient' ? 'Gradient color 1' : 'Background color'}
               .validation=${this.state.type === 'gradient' ? 'stop' : 'background'}
               .value=${this.state.color1}
               @color-changed=${(e: CustomEvent) =>
@@ -123,6 +126,7 @@ export class BackgroundModule extends LitElement {
                 <span class="control-label">Color 2</span>
                 <div class="control-right">
                   <cms-color-picker
+                    label="Gradient color 2"
                     .validation=${'stop'}
                     .value=${this.state.color2}
                     @color-changed=${(e: CustomEvent) =>
@@ -135,6 +139,8 @@ export class BackgroundModule extends LitElement {
                 <span class="control-label">Angle</span>
                 <div class="control-right">
                   <ha-slider
+                    label="Angle"
+                    aria-label="Angle"
                     min="0"
                     max="360"
                     step="5"

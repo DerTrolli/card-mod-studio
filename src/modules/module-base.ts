@@ -81,6 +81,34 @@ export const moduleStyles = [
     outline-offset: -2px;
   }
 
+  /* Text kept for assistive technology only (names the control it sits in). */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /* HA's switch (2026.x) indents its label slot by .5em even when the
+     slotted text is the screen-reader-only name above. */
+  ha-switch::part(label) {
+    margin-inline-start: 0;
+  }
+  /* HA's slider (2026.x) takes its name from a label part it would show
+     above the track; the row already shows the label, so keep the part out
+     of the layout (a hidden part still names the slider) and give back the
+     track's own offset that the part's presence replaces. */
+  ha-slider::part(label) {
+    display: none;
+  }
+  ha-slider::part(slider) {
+    margin-block-start: -14px;
+  }
+
   .module-chevron {
     font-size: 10px;
     color: var(--secondary-text-color, #727272);
@@ -377,6 +405,28 @@ export function renderDefaultOption(selected: boolean, native = ''): TemplateRes
 }
 
 /**
+ * Names the text box inside HA's code editor. `ha-code-editor` (2026.x) takes
+ * no label and its `.cm-content` role=textbox stays unnamed, so the name is
+ * set on that node once CodeMirror has created it (it may not exist yet at the
+ * first render). The editor's shadow root is open, so this needs no HA API.
+ */
+export function nameCodeEditor(editor: Element, name: string): void {
+  const root = editor.shadowRoot;
+  if (!root) return;
+  const apply = (): boolean => {
+    const box = root.querySelector('.cm-content');
+    if (!box) return false;
+    if (box.getAttribute('aria-label') !== name) box.setAttribute('aria-label', name);
+    return true;
+  };
+  if (apply() || typeof MutationObserver === 'undefined') return;
+  const mo = new MutationObserver(() => {
+    if (apply()) mo.disconnect();
+  });
+  mo.observe(root, { childList: true, subtree: true });
+}
+
+/**
  * Keyboard support for the collapsible headers (module / child / row):
  * they're `role="button" tabindex="0"` divs, so Enter / Space must toggle
  * them like a click. Key events coming from a control INSIDE the header
@@ -464,9 +514,10 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
     ${showSelect
       ? html`
           <div class="control-row">
-            <span class="control-label">Apply when</span>
+            <span class="control-label" id="when-label">Apply when</span>
             <div class="control-right">
               <select
+                aria-labelledby="when-label"
                 .value=${o.value}
                 @change=${(e: Event) =>
                   o.onChange((e.target as HTMLSelectElement).value as WhenValue)}
@@ -492,6 +543,7 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
                 .value=${o.customEntity ?? ''}
                 .includeDomains=${TOGGLE_DOMAINS}
                 label=""
+                accessible-name="Entity to watch"
                 placeholder="input_boolean.my_entity"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>
                   o.onCustomEntity?.(e.detail.value.trim())}
@@ -673,9 +725,10 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
 
   return html`
     <div class="control-row">
-      <span class="control-label">Reacts to</span>
+      <span class="control-label" id="cond-label">Reacts to</span>
       <div class="control-right">
         <select
+          aria-labelledby="cond-label"
           .value=${when}
           @change=${(e: Event) => pick((e.target as HTMLSelectElement).value as StyleCondition['when'])}
         >
@@ -696,6 +749,7 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
                 .value=${c?.customEntity ?? ''}
                 .includeDomains=${TOGGLE_DOMAINS}
                 label=""
+                accessible-name="Entity to watch"
                 placeholder="input_boolean.my_entity"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>
                   change({ customEntity: e.detail.value.trim() })}
@@ -713,6 +767,7 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
                 .hass=${o.hass}
                 .value=${c?.valueEntity ?? ''}
                 label=""
+                accessible-name="Entity to read the value from"
                 placeholder="sensor.temperature"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>
                   change({ valueEntity: e.detail.value.trim(), valueAttribute: '' })}
@@ -722,9 +777,10 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
           ${attrNames.length > 0 || c?.valueAttribute
             ? html`
                 <div class="control-row">
-                  <span class="control-label">Value read from</span>
+                  <span class="control-label" id="cond-read-label">Value read from</span>
                   <div class="control-right">
                     <select
+                      aria-labelledby="cond-read-label"
                       .value=${c?.valueAttribute ?? ''}
                       @change=${(e: Event) =>
                         change({ valueAttribute: (e.target as HTMLSelectElement).value })}
@@ -742,9 +798,10 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
               `
             : nothing}
           <div class="control-row">
-            <span class="control-label">Condition</span>
+            <span class="control-label" id="cond-op-label">Condition</span>
             <div class="control-right">
               <select
+                aria-labelledby="cond-op-label"
                 .value=${c?.valueOperator ?? '>'}
                 @change=${(e: Event) =>
                   change({
