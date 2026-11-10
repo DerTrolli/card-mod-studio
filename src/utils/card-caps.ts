@@ -380,3 +380,16 @@ export function isStateAware(
   const domain = entityId.split('.')[0];
   return BINARY_DOMAINS.includes(domain) || ['on', 'off'].includes(entity.state);
 }
+
+/**
+ * The state-aware flag both panels (top level and stack children) hand to the
+ * modules: the card's own entity has an on/off state to condition on. No entity
+ * of its own → no state of its own to react to, whatever the type.
+ */
+export function panelStateAware(
+  profileKey: string | undefined,
+  config: Record<string, unknown> | null | undefined,
+  hass?: { states?: Record<string, { state: string }> },
+): boolean {
+  return hasOwnEntity(config) && isStateAware(profileKey, config?.entity as string | undefined, hass);
+}

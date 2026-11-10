@@ -245,17 +245,18 @@ export function settleEntityless(state: StudioState, config?: Record<string, unk
 /**
  * Icon Color / Accent in their on/off (or light) mode with no entity picked
  * fall back to the card's own entity — which an entity-less card doesn't
- * have. That entity can never be "on", so the colour shown is the OFF one:
- * write exactly that, as a fixed colour. Not part of settleEntityless: the
- * panel keeps the mode, so the user can still pick the entity to watch.
+ * have, so there is nothing to watch yet: write NO colour (the OFF grey used
+ * to be written as a fixed colour nobody chose). The icon size is a separate
+ * setting and is still written. Not part of settleEntityless: the panel keeps
+ * the mode, so the user can still pick the entity to watch.
  */
 function withoutUnwatchedEntity(state: StudioState, config?: Record<string, unknown> | null): StudioState {
   if (config == null || hasOwnEntity(config)) return state;
   const { iconColor: ic, accentColor: ac } = state;
   return {
     ...state,
-    iconColor: (ic.mode === 'conditional' || ic.mode === 'light') && !ic.entityId ? { ...ic, mode: 'plain', color: ic.colorOff } : ic,
-    accentColor: ac.mode === 'conditional' && !ac.entityId ? { ...ac, mode: 'plain', color: ac.colorOff } : ac,
+    iconColor: (ic.mode === 'conditional' || ic.mode === 'light') && !ic.entityId ? { ...ic, mode: 'none' } : ic,
+    accentColor: ac.mode === 'conditional' && !ac.entityId ? { ...ac, enabled: false } : ac,
   };
 }
 

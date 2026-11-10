@@ -31,8 +31,7 @@ import {
 } from '../utils/style-compat.js';
 import {
   capsFor,
-  isStateAware,
-  hasOwnEntity,
+  panelStateAware,
 } from '../utils/card-caps.js';
 import { profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
 import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles, refreshPaletteDefaults, applyStudioState, refreshCarrier } from './studio-state.js';
@@ -375,9 +374,7 @@ export class CmsPanel extends LitElement {
   }
 
   private get _isStateAware(): boolean {
-    // No entity of its own → no state of its own to react to (whatever the type).
-    return hasOwnEntity(this.config as unknown as Record<string, unknown>)
-      && isStateAware(this._profileKey, this.config?.entity as string | undefined, this.hass);
+    return panelStateAware(this._profileKey, this.config as unknown as Record<string, unknown>, this.hass);
   }
 
   // ---------------------------------------------------------------------------

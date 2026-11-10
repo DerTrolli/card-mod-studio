@@ -221,7 +221,7 @@ export class IconColorModule extends LitElement {
                   : ownEntityUseless
                   ? this.cardEntity
                     ? `This card's entity (${this.cardEntity}) has no on/off state of its own — pick a toggleable entity above, or this mode won't do anything.`
-                    : "This card has no entity of its own — pick the entity whose on/off state drives the colors above. Until then the OFF color is used."
+                    : "This card has no entity of its own — pick the entity to watch, or choose One fixed color. Until then no color is written."
                   : "Leave empty to use this card's own entity."}
               </div>
             `

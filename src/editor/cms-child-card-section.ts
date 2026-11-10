@@ -52,8 +52,7 @@ import {
 import { PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
 import {
   capsFor,
-  isStateAware,
-  hasOwnEntity,
+  panelStateAware,
 } from '../utils/card-caps.js';
 import { profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
@@ -313,7 +312,7 @@ export class CmsChildCardSection extends LitElement {
     const cardType = profileKeyOf(c);
     const mods = caps.modules;
     const entity = (c.entity as string | undefined) ?? '';
-    const stateAware = hasOwnEntity(c as unknown as Record<string, unknown>) && isStateAware(cardType, entity, this.hass);
+    const stateAware = panelStateAware(cardType, c as unknown as Record<string, unknown>, this.hass);
     const showHeading = mods.headingStyle;
     const isEntities = caps.isEntities;
     const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
