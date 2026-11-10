@@ -563,7 +563,7 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
   const containerDecls = [
     ...(s.alignment ? [`justify-content: ${alignMap[s.alignment] ?? 'flex-start'} !important;`] : []),
     ...(['title', 'subtitle'] as const).flatMap((kind) => [
-      ...(s.fontSize ? [`--ha-heading-card-${kind}-font-size: ${s.fontSize}px;`] : []),
+      ...(s.fontSize != null ? [`--ha-heading-card-${kind}-font-size: ${s.fontSize}px;`] : []),
       ...(s.textColor ? [`--ha-heading-card-${kind}-color: ${s.textColor};`] : []),
       ...(s.fontWeight ? [`--ha-heading-card-${kind}-font-weight: ${FONT_WEIGHT_VALUE[s.fontWeight]};`] : []),
     ]),
@@ -580,7 +580,7 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
   // HA's own usage grew); the pre-v0.10 `--ha-icon-size` twin was inert and
   // is no longer emitted (still recognised when reading older configs).
   const iconDecls = [
-    ...(s.iconSize ? [`--mdc-icon-size: ${s.iconSize}px;`] : []),
+    ...(s.iconSize != null ? [`--mdc-icon-size: ${s.iconSize}px;`] : []),
     ...(s.iconColor ? [`color: ${s.iconColor} !important;`] : []),
   ];
   const icon = iconDecls.length

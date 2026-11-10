@@ -17,6 +17,14 @@ describe('renderResetButton / renderDefaultOption', () => {
     expect(t).toContain('type="button"');
     expect(t).toContain('aria-label=');
   });
+  it('clicking the reset button calls onClick', () => {
+    let calls = 0;
+    const r = renderResetButton(() => { calls++; }) as unknown as { values: unknown[] };
+    const click = r.values.find((v) => typeof v === 'function') as () => void;
+    expect(click).toBeTypeOf('function');
+    click();
+    expect(calls).toBe(1);
+  });
   it('a custom reset label is used as the accessible name', () => {
     const r = renderResetButton(() => {}, 'Reset text size') as unknown as { values: unknown[] };
     expect(r.values).toContain('Reset text size');

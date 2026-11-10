@@ -127,3 +127,31 @@ describe('Heading Style — hand-written partials round-trip as the same partial
     expect(s.headingStyle.alignment).toBeUndefined();
   });
 });
+
+describe('Heading Style — zero sizes are values, not "unset"', () => {
+  const ICON0 = '.content ha-icon {\n  --mdc-icon-size: 0px;\n}';
+  const FONT0 =
+    '.container {\n  --ha-heading-card-title-font-size: 0px;\n  --ha-heading-card-subtitle-font-size: 0px;\n}';
+  it.each([
+    ['icon size 0px (hides the icon)', ICON0, { iconSize: 0 }],
+    ['font size 0px', FONT0, { fontSize: 0 }],
+  ])('%s survives load → state → save byte-identically', (_n, style, expected) => {
+    const s = load(style);
+    expect(s.advanced.rawCss).toBe('');
+    expect(s.headingStyle).toMatchObject(expected);
+    expect(generateCss(s, 'heading')).toBe(style);
+  });
+  it('a dictionary-form style keeps the 0px declaration too', () => {
+    const s = mapToStudioState(
+      parseCardModConfig({ type: 'heading', card_mod: { style: { '.': ICON0 } } }),
+      'heading',
+    );
+    expect(s.headingStyle).toMatchObject({ enabled: true, iconSize: 0 });
+    expect(generateCss(s, 'heading')).toContain('--mdc-icon-size: 0px;');
+  });
+  it('the generator writes 0 when set, nothing when undefined', () => {
+    expect(css({ iconSize: 0 })).toBe(ICON0);
+    expect(css({ fontSize: 0 })).toBe(FONT0);
+    expect(css({ iconSize: undefined, fontSize: undefined })).toBe('');
+  });
+});
