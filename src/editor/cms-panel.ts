@@ -49,6 +49,7 @@ import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
 import { thresholdOwnedProperties, settleEntityless } from '../generator/css-generator.js';
 import { cmsTokens } from '../modules/module-base.js';
+import { hasTopLevelJinjaStatement } from '../utils/css-lint.js';
 
 import '../modules/module-filter.js';
 import '../modules/module-icon-color.js';
@@ -119,6 +120,9 @@ export class CmsPanel extends LitElement {
    *  CSS) — drives the "weren't recognised" note, which must not appear
    *  just because the user types their own CSS. */
   @state() private _loadedRawCss = false;
+  /** The loaded style has a top-level `{% … %}` statement: the parser kept all
+   *  of it in Advanced CSS and every module is off (explained by a banner). */
+  @state() private _loadedWholeStyleKept = false;
   /** True when the panel is too narrow for the side-by-side preview. */
   @state() private _narrow = false;
 
@@ -196,6 +200,7 @@ export class CmsPanel extends LitElement {
 
     this._studioState = this._buildMergedState(this.config);
     this._loadedRawCss = !!this._studioState.advanced.rawCss.trim();
+    this._loadedWholeStyleKept = hasTopLevelJinjaStatement(this._studioState.advanced.rawCss);
     this._initEntityRowStyles();
   }
 
@@ -1372,11 +1377,16 @@ export class CmsPanel extends LitElement {
     const thresholdOwned = thresholdOwnedProperties(s.threshold);
 
     return html`
-      ${hasUnrecognisedCss
+      ${hasUnrecognisedCss && this._loadedWholeStyleKept
         ? html`<div class="info-banner">
-            ℹ️ Some existing styles weren't recognised — preserved in Advanced CSS.
+            ℹ️ This style uses template statements ({% … %}), so the Studio keeps all of it as written in
+            Advanced CSS and the modules stay off.
           </div>`
-        : nothing}
+        : hasUnrecognisedCss
+          ? html`<div class="info-banner">
+              ℹ️ Some existing styles weren't recognised — preserved in Advanced CSS.
+            </div>`
+          : nothing}
 
       ${showHeadingStyle
         ? html`<cms-heading-style-module
