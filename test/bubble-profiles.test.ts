@@ -95,6 +95,10 @@ describe('Bubble 3 profiles — emitted CSS (literal) and round trip', () => {
         '.bubble-button-background {',
         '  background: #112244;',
         '  opacity: 1 !important;',
+        '  border-radius: 0 !important;',
+        '}',
+        '',
+        '.bubble-container {',
         '  border-radius: 8px;',
         '  border: 3px solid #11ee11;',
         '}',
@@ -113,6 +117,7 @@ describe('Bubble 3 profiles — emitted CSS (literal) and round trip', () => {
         '}',
       ].join('\n'),
     );
+    expect(back.advanced.rawCss).toBe('');
     expect(back.font).toMatchObject(FONT);
     expect(back.iconColor).toMatchObject(ICON);
     expect(back.background).toMatchObject(BG);
@@ -128,11 +133,20 @@ describe('Bubble 3 profiles — emitted CSS (literal) and round trip', () => {
         '  opacity: 1 !important;',
         '}',
         '',
-        '.bubble-button-background {',
+        // Background goes on the container, BELOW the fill (the pill element
+        // paints above it): the fill stays visible.
+        '.bubble-container {',
         '  background: #112244;',
-        '  opacity: 1 !important;',
         '  border-radius: 8px;',
         '  border: 3px solid #11ee11;',
+        '}',
+        '',
+        '.bubble-button-background {',
+        '  border-radius: 0 !important;',
+        '}',
+        '',
+        '.bubble-range-slider {',
+        '  border-radius: 0 !important;',
         '}',
         '',
         '.bubble-icon {',
@@ -149,6 +163,9 @@ describe('Bubble 3 profiles — emitted CSS (literal) and round trip', () => {
         '}',
       ].join('\n'),
     );
+    expect(back.advanced.rawCss).toBe('');
+    expect(back.border).toMatchObject(BORDER);
+    expect(back.background).toMatchObject(BG);
     expect(back.accentColor).toMatchObject(ACCENT);
   });
 
@@ -200,6 +217,10 @@ describe('Bubble 3 profiles — emitted CSS (literal) and round trip', () => {
       [
         '.bubble-background {',
         '  background: #112244;',
+        '  border-radius: 0 !important;',
+        '}',
+        '',
+        '.bubble-container {',
         '  border-radius: 8px;',
         '  border: 3px solid #11ee11;',
         '}',
@@ -266,6 +287,81 @@ describe('Bubble 3 profiles — emitted CSS (literal) and round trip', () => {
   });
 });
 
+describe('Bubble 3 profiles — styles written by 0.11.0-beta.2 (border and slider Background on the pill)', () => {
+  const PILL_OLD = [
+    '.bubble-button-background {',
+    '  background: #112244;',
+    '  opacity: 1 !important;',
+    '  border-radius: 8px;',
+    '  border: 3px solid #11ee11;',
+    '}',
+  ].join('\n');
+
+  for (const [name, key, old] of [
+    ['button', BTN, PILL_OLD],
+    ['slider', SLIDER, PILL_OLD],
+    ['cover', COVER, '.bubble-background {\n  background: #112244;\n  border-radius: 8px;\n  border: 3px solid #11ee11;\n}'],
+  ] as const) {
+    it(`${name}: the old shape parses into the same controls and re-saves in the current shape`, () => {
+      const back = parse(old, key);
+      expect(back.advanced.rawCss).toBe('');
+      expect(back.background).toMatchObject(BG);
+      expect(back.border).toMatchObject(BORDER);
+      const css = generateCss(back, key);
+      expect(css).toContain('.bubble-container {');
+      expect(css).toContain('border: 3px solid #11ee11;');
+      // the new shape is a fixed point
+      const again = parse(css, key);
+      expect(again.advanced.rawCss).toBe('');
+      expect(generateCss(again, key)).toBe(css);
+    });
+  }
+
+  it('slider: an old Background alone (with its opacity companion) is claimed whole', () => {
+    const back = parse('.bubble-button-background {\n  background: #112244;\n  opacity: 1 !important;\n}', SLIDER);
+    expect(back.background).toMatchObject(BG);
+    expect(back.advanced.rawCss).toBe('');
+    expect(generateCss(back, SLIDER)).toBe('.bubble-container {\n  background: #112244;\n}');
+  });
+
+  it('a pill radius with `!important` was never written by any version: it stays the user\'s', () => {
+    const other = parse('.bubble-button-background { border-radius: 8px !important; }', SLIDER);
+    expect(other.border.enabled).toBe(false);
+    expect(other.advanced.rawCss).toContain('border-radius: 8px !important;');
+  });
+
+  it('a Border without width still resets the pieces (no corner slivers when only the radius is set)', () => {
+    const css = generateCss(withState({ border: { ...EMPTY.border, enabled: true, radiusPx: 6, borderWidth: 0 } }), SLIDER);
+    expect(css).toBe(
+      [
+        '.bubble-container {',
+        '  border-radius: 6px;',
+        '}',
+        '',
+        '.bubble-button-background {',
+        '  border-radius: 0 !important;',
+        '}',
+        '',
+        '.bubble-range-slider {',
+        '  border-radius: 0 !important;',
+        '}',
+      ].join('\n'),
+    );
+    expect(parse(css, SLIDER).advanced.rawCss).toBe('');
+  });
+
+  it('a conditional Background on the slider needs no opacity companion', () => {
+    const state = withState({
+      background: { ...EMPTY.background, ...BG, applyWhen: 'on', entityId: 'input_boolean.x' } as never,
+    });
+    const css = generateCss(state, SLIDER);
+    expect(css).not.toContain('opacity');
+    expect(css.startsWith('.bubble-container {')).toBe(true);
+    expect(parse(css, SLIDER).background.enabled).toBe(true);
+    expect(parse(css, SLIDER).advanced.rawCss).toBe('');
+  });
+});
+
 describe('Bubble 3 profiles — hidden modules, hand-written CSS and conflicts', () => {
   it('hand-written CSS for a hidden module stays verbatim in Advanced CSS', () => {
     const raw = [
@@ -320,14 +416,15 @@ describe('Bubble 3 profiles — hidden modules, hand-written CSS and conflicts',
       '.bubble-name { font-size: 30px }',
       '.bubble-state { color: red }',
       '.bubble-icon { color: red }',
-      '.bubble-button-background { background: red; border: 1px solid blue; opacity: 0.2 }',
+      '.bubble-button-background { background: red; opacity: 0.2 }',
+      '.bubble-container { border: 1px solid blue }',
     ].join('\n');
     const state = full(false);
     expect(findAdvancedCssConflicts(raw, state, BTN)).toEqual({
       font: ['.bubble-name { font-size }', '.bubble-state { color }'],
       iconColor: ['.bubble-icon { color }'],
       background: ['.bubble-button-background { background }', '.bubble-button-background { opacity }'],
-      border: ['.bubble-button-background { border }'],
+      border: ['.bubble-container { border }'],
     });
     // a module that is off raises nothing
     expect(findAdvancedCssConflicts(raw, EMPTY, BTN)).toEqual({});

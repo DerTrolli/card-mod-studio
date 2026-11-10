@@ -534,6 +534,7 @@ export function mapToStudioState(fullParsed: CardModStyleState, cardType?: strin
   // Companion declarations ride only with their recognised module.
   if (pc && state.background.enabled) pc.claimCompanions('background', claimed);
   if (pc && state.accentColor.enabled) pc.claimCompanions('accentColor', claimed);
+  if (pc && state.border.enabled) pc.claimCompanions('border', claimed);
   return { ...state, advanced: mapAdvanced(fullParsed, claimed) };
 }
 
@@ -648,7 +649,11 @@ function claimWritesImportant(profile: CustomCardProfile, rule: ClaimRule, prop:
     case 'accent': return !!e?.accent?.important;
     case 'borderDirect': return !!e?.border?.important?.includes(prop);
     case 'companion': {
-      const list = [...(e?.accent?.companions ?? []), ...(e?.background?.companions ?? [])];
+      const list = [
+        ...(e?.accent?.companions ?? []),
+        ...(e?.background?.companions ?? []),
+        ...(e?.border?.companions ?? []),
+      ];
       return list.some((c) => c.prop.toLowerCase() === prop && !!c.important);
     }
     default: return false;
@@ -678,7 +683,15 @@ function withoutUnclaimableImportant(parsed: CardModStyleState, cardType?: strin
     const properties = t.properties.filter((p) => {
       if (!p.important) return true;
       const hit = mine.filter((r) => r.props.includes(p.property));
-      if (hit.length) return hit.some((r) => claimWritesImportant(profile, r, p.property));
+      // A companion keeps its `!important` only with the value the generator
+      // writes (`border-radius: 8px !important` on Bubble's pill is the user's).
+      if (hit.length) {
+        return hit.some(
+          (r) =>
+            claimWritesImportant(profile, r, p.property) &&
+            (r.role !== 'companion' || p.hasCondition || p.value.trim() === r.equals),
+        );
+      }
       return !(sel === 'ha-card' && HA_CARD_PLAIN_PROPS.has(p.property));
     });
     return properties.length === t.properties.length ? t : { ...t, properties };
@@ -703,8 +716,13 @@ class ProfileClaims {
     readonly profile: CustomCardProfile,
   ) {}
 
+  /** The role's rule whose selector is present in the CSS, else its first
+   *  rule. A profile lists a role's older selectors after the current one, so
+   *  styles written by an earlier version still parse (and re-save in the
+   *  current shape). */
   rule(role: ClaimRole): ClaimRule | undefined {
-    return this.profile.claims?.find((c) => c.role === role);
+    const rules = (this.profile.claims ?? []).filter((c) => c.role === role);
+    return rules.find((r) => findTargetNormalized(this.targets, r.selector)) ?? rules[0];
   }
 
   has(role: ClaimRole): boolean {

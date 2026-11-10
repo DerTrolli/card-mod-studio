@@ -18,7 +18,7 @@ export const clickTag = (tag: string, to: Pick<ClickRule, 'module' | 'label'>): 
 export const clickClass = (className: string, to: Pick<ClickRule, 'module' | 'label'>): ClickRule => ({ className, ...to });
 
 function companionClaim(module: ClaimRule['module'], selector: string, c: Companion): ClaimRule {
-  return { module, selector, role: 'companion', props: [c.prop.toLowerCase()], equals: c.value };
+  return { module, selector: c.selector ?? selector, role: 'companion', props: [c.prop.toLowerCase()], equals: c.value };
 }
 
 export function claimsFromEmitters(e: ProfileEmitters): ClaimRule[] {
@@ -47,6 +47,7 @@ export function claimsFromEmitters(e: ProfileEmitters): ClaimRule[] {
   }
   if (e.border?.direct) {
     add('border', e.border.selector, 'borderDirect', ['border-radius', 'border']);
+    for (const c of e.border.companions ?? []) out.push(companionClaim('border', e.border.selector, c));
   } else if (e.border) {
     add('border', e.border.selector, 'borderRadius', e.border.radius);
     add('border', e.border.selector, 'borderWidth', e.border.width);
@@ -83,6 +84,7 @@ export function conflictsFromEmitters(e: ProfileEmitters): ConflictRow[] {
   }
   if (e.border?.direct) {
     add('border', e.border.selector, ['border-radius', 'border']);
+    for (const c of e.border.companions ?? []) add('border', c.selector ?? e.border.selector, [c.prop]);
   } else if (e.border) {
     const b = e.border;
     add('border', b.selector, [...(b.radius ?? []), ...(b.width ?? []), ...(b.color ?? [])]);

@@ -73,6 +73,10 @@ export interface Companion {
   prop: string;
   value: string;
   important?: boolean;
+  /** Border emitter only: write the declaration on THIS selector instead of
+   *  the module's (Bubble: the pill's own radius is reset so the card's
+   *  clipping box — the one carrying the border — decides the corners). */
+  selector?: string;
 }
 
 /** Accent: each variable gets the accent colour as `R, G, B` (Mushroom's
@@ -116,6 +120,9 @@ export interface BorderEmitter {
   /** `direct` only: properties that get `!important` (Bubble's separator
    *  radius loses to the card's own rule on UIX 9 without it). */
   important?: string[];
+  /** `direct` only: extra declarations written next to the border (see
+   *  Companion.selector), only while the module writes something. */
+  companions?: Companion[];
 }
 
 /** How each module's output is emitted for this card (everything omitted keeps

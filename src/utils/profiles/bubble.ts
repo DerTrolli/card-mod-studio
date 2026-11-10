@@ -22,7 +22,7 @@
  * the registry module can import this one statically without a cycle.
  */
 
-import type { CustomCardProfile, ProfileEmitters } from '../custom-card-profiles.js';
+import type { ClaimRule, CustomCardProfile, ProfileEmitters } from '../custom-card-profiles.js';
 import {
   claimsFromEmitters, conflictsFromEmitters, clickClass,
   CLICK_FONT, CLICK_ICON, CLICK_ACCENT, CLICK_BACKGROUND,
@@ -42,6 +42,11 @@ export const BUBBLE_SELECTORS = {
     separator: '.bubble-separator',
     /** slider button: the value fill */
     rangeFill: '.bubble-range-fill',
+    /** the card's clipping box (`overflow: clip`, own radius): border and,
+     *  on a slider, Background live here */
+    container: '.bubble-container',
+    /** slider button: the clipped track holding the fill */
+    rangeSlider: '.bubble-range-slider',
   },
 } as const;
 
@@ -87,6 +92,26 @@ const clicksFor = (box: string, ...more: ReturnType<typeof clickClass>[]) => [
   clickClass(box, CLICK_BACKGROUND),
 ];
 
+/** The border sits on `.bubble-container`: a real border on Bubble's absolutely
+ *  positioned pill is cut by the container's `overflow: clip` (measured: only
+ *  a sliver of the left edge shows). The container's clip is then the pill's
+ *  shape, so the pieces inside lose their own 28px radius — else they leave
+ *  container-coloured slivers in the corners. Plain `border-radius` on the
+ *  container works on both engines; the pieces need `!important` (Bubble's
+ *  slider rules win otherwise). */
+const borderOn = (...inner: string[]) => ({
+  selector: S.container,
+  direct: true,
+  companions: inner.map((selector) => ({ selector, prop: 'border-radius', value: '0', important: true })),
+});
+
+/** 0.11.0-beta.2 wrote border + radius (and, on a slider, Background) on the
+ *  pill element itself. Listed AFTER the current selectors: the parser reads
+ *  whichever is present, the next save writes the current shape. */
+const legacyBorder = (selector: string): ClaimRule => ({
+  module: 'border', selector, role: 'borderDirect', props: ['border-radius', 'border'],
+});
+
 /** Opacity stays at Bubble's 0.5 unless forced (measured): rides with Background. */
 const OPACITY_1 = { prop: 'opacity', value: '1', important: true };
 
@@ -105,11 +130,12 @@ const button = profile('custom:bubble-card/button', {
   emitters: {
     font: text([S.name, S.state]),
     ...icon,
-    // An ha-card border draws a separate box next to the visible pill, so
-    // border and radius ride on the pill itself.
+    // An ha-card border draws a separate box next to the visible pill; the
+    // pill's own box is the container (see borderOn).
     background: { selector: S.buttonBackground, vars: ['background'], companions: [OPACITY_1] },
-    border: { selector: S.buttonBackground, direct: true },
+    border: borderOn(S.buttonBackground),
   },
+  claims: [legacyBorder(S.buttonBackground)],
 });
 
 // ---------------------------------------------------------------------------
@@ -132,9 +158,20 @@ const slider = profile('custom:bubble-card/button/slider', {
       important: true,
       companions: [OPACITY_1],
     },
-    background: { selector: S.buttonBackground, vars: ['background'], companions: [OPACITY_1] },
-    border: { selector: S.buttonBackground, direct: true },
+    // Bubble paints the slider's `.bubble-button-background` ABOVE the fill
+    // (it is a later sibling), so a Background there hides the value. The
+    // container sits below the fill: the Background colours the track and the
+    // fill stays on top (measured, both engines). The slider's own
+    // background element is always transparent (Bubble sets it so), so no
+    // opacity companion is needed.
+    background: { selector: S.container, vars: ['background'] },
+    border: borderOn(S.buttonBackground, S.rangeSlider),
   },
+  claims: [
+    { module: 'background', selector: S.buttonBackground, role: 'background', props: ['background'] },
+    { module: 'background', selector: S.buttonBackground, role: 'companion', props: ['opacity'], equals: '1' },
+    legacyBorder(S.buttonBackground),
+  ],
 });
 
 // ---------------------------------------------------------------------------
@@ -170,8 +207,9 @@ const cover = profile('custom:bubble-card/cover', {
     ...icon,
     // Opacity is already 1 here (measured): no companion.
     background: { selector: S.coverBackground, vars: ['background'] },
-    border: { selector: S.coverBackground, direct: true },
+    border: borderOn(S.coverBackground),
   },
+  claims: [legacyBorder(S.coverBackground)],
 });
 
 export const BUBBLE_PROFILES: CustomCardProfile[] = [button, slider, separator, cover];

@@ -365,6 +365,13 @@ function accentVarDecls(s: AccentColorModuleState, e: AccentEmitter): string[] {
   return value ? companionDecls(e.vars.map((v) => `${v}: ${value}${imp};`), e.companions) : [];
 }
 
+/** Border written directly on a profile's selector. */
+function borderDirectDecls(s: BorderModuleState, e: BorderEmitter, thresholdOwnsColor: boolean): string[] {
+  return borderDecls(s, thresholdOwnsColor).map((d) =>
+    e.important?.some((p) => d.startsWith(`${p}:`)) ? d.replace(/;$/, ' !important;') : d,
+  );
+}
+
 /** Border through a profile emitter (radius / width / colour as variables). A
  *  state-driven width becomes a quoted-branch ternary on the width variable. */
 function borderVarDecls(s: BorderModuleState, e: BorderEmitter, skipColor = false): string[] {
@@ -1340,14 +1347,19 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
           )
         : backgroundDecls(state.background, undefined, caps.textOnlyCard)),
     ...(em?.border
-      ? onHaCard(
-          em.border.selector,
-          em.border.direct
-            ? borderDecls(state.border, thresholdProps.has('border-color')).map((d) =>
-                em.border!.important?.some((p) => d.startsWith(`${p}:`)) ? d.replace(/;$/, ' !important;') : d,
-              )
-            : borderVarDecls(state.border, em.border, thresholdProps.has('border-color')),
-        )
+      ? (() => {
+          const own = em.border.direct
+            ? borderDirectDecls(state.border, em.border, thresholdProps.has('border-color'))
+            : borderVarDecls(state.border, em.border, thresholdProps.has('border-color'));
+          const left = onHaCard(em.border.selector, own);
+          // companions on other selectors, only while the module wrote something
+          if (own.length) {
+            for (const c of em.border.companions ?? []) {
+              onHaCard(c.selector ?? em.border.selector, [`${c.prop}: ${c.value}${c.important ? ' !important' : ''};`]);
+            }
+          }
+          return left;
+        })()
       : borderDecls(state.border, thresholdProps.has('border-color'), caps.textOnlyCard)),
     ...animDecls,
     // Icon colour on a profile's own selector (Bubble `.bubble-icon`): joins the
