@@ -699,7 +699,9 @@ function scanPanel() {
   const HEADER = ['module-header', 'child-header', 'entity-header'];
   const TITLE_SEL = '.module-title, .child-title, .entity-name, .entity-title';
   const CHEV_SEL = '.module-chevron, .entity-chevron, .chevron';
-  const isHeader = (n) => n.classList && (HEADER.some((c) => n.classList.contains(c)) || (n.hasAttribute('aria-expanded') && !!n.querySelector(TITLE_SEL)));
+  // The toggle button inside a header (role=button, aria-expanded) is part of that header, not a second section.
+  const inHeader = (n) => !!n.parentElement?.closest(HEADER.map((c) => '.' + c).join(', '));
+  const isHeader = (n) => n.classList && (HEADER.some((c) => n.classList.contains(c)) || (n.hasAttribute('aria-expanded') && !!n.querySelector(TITLE_SEL) && !inHeader(n)));
   const clean = (s) => s.replace(/\s+/g, ' ').replace(/^[\s▶▼]+/, '').trim();
   const textWithout = (el, sel) => { const c = el.cloneNode(true); c.querySelectorAll(sel).forEach((x) => x.remove()); return c.textContent || ''; };
   const sections = [];
