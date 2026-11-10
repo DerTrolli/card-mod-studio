@@ -12,7 +12,7 @@ import { property, state } from 'lit/decorators.js';
 import type { HomeAssistant } from '../types/index.js';
 import {
   getCachedPalette,
-  savePalette,
+  updatePalette,
   PALETTE_CHANGED_EVENT,
   type CustomPalette,
   type CustomColor,
@@ -205,18 +205,18 @@ export class CmsPaletteManager extends LitElement {
   private _flush() {
     clearTimeout(this._timer);
     if (!this._pending.size) return;
-    let palette = getCachedPalette();
-    for (const edit of this._pending.values()) palette = edit(palette);
+    const edits = [...this._pending.values()];
     for (const key of this._pending.keys()) this._live.delete(key);
     this._pending.clear();
-    void savePalette(palette, this.hass);
+    // Applied to the palette as stored (re-read first), not this page's cache.
+    void updatePalette((palette) => edits.reduce((acc, e) => e(acc), palette), this.hass);
     this.requestUpdate();
   }
 
   /** Add / remove are single deliberate actions: applied at once, after any waiting edit. */
   private _saveNow(edit: Edit) {
     this._flush();
-    void savePalette(edit(getCachedPalette()), this.hass);
+    void updatePalette(edit, this.hass);
   }
 
   private _focus(selector: string) {
@@ -225,10 +225,14 @@ export class CmsPaletteManager extends LitElement {
 
   private _addColor() {
     const id = `color-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    this._saveNow((palette) => ({
-      ...palette,
-      colors: [...palette.colors, { id, name: `My color ${palette.colors.length + 1}`, hex: '#03a9f4' }],
-    }));
+    this._saveNow((palette) =>
+      palette.colors.some((c) => c.id === id) // edits are replayed on the stored palette
+        ? palette
+        : {
+            ...palette,
+            colors: [...palette.colors, { id, name: `My color ${palette.colors.length + 1}`, hex: '#03a9f4' }],
+          },
+    );
     // Keyboard users land on the new entry's name, ready to rename it.
     void this.updateComplete.then(() => this._focus(`[data-row="${id}"] .name-input`));
   }

@@ -94,12 +94,20 @@ const B = FIXTURE.colors[1].id;
 let send: ReturnType<typeof vi.fn>;
 let el: El;
 const writes = () => send.mock.calls.filter((c) => (c[0] as { type: string }).type === 'frontend/set_user_data');
+/** Lets the re-read-then-write of a palette update finish. */
+const settle = () => vi.advanceTimersByTimeAsync(0);
 const lastWrite = () => (writes().at(-1)![0] as { value: CustomPalette }).value;
 
 beforeEach(async () => {
   vi.useFakeTimers();
   await storage.savePalette(JSON.parse(JSON.stringify(FIXTURE)), undefined);
-  send = vi.fn().mockResolvedValue(null);
+  // A stateful fake of HA's user storage: updates re-read it before writing.
+  let stored: unknown = JSON.parse(JSON.stringify(FIXTURE));
+  send = vi.fn(async (msg: { type: string; value?: unknown }) => {
+    if (msg.type === 'frontend/get_user_data') return { value: stored };
+    if (msg.type === 'frontend/set_user_data') stored = msg.value;
+    return null;
+  });
   el = new Mod();
   el.hass = { connection: { sendMessagePromise: send } };
   el._open = true;
@@ -124,9 +132,9 @@ describe('stored format', () => {
     expect(await storage.loadPalette(hass)).toEqual(FIXTURE);
   });
 
-  it('an edit writes the same shape (id / name / hex, defaults) — nothing new', () => {
+  it('an edit writes the same shape (id / name / hex, defaults) — nothing new', async () => {
     find(el, A, 'name-input').on.change(ev('Navy'));
-    vi.advanceTimersByTime(300);
+    await vi.advanceTimersByTimeAsync(300); // the write follows a re-read of the stored palette
     expect(lastWrite()).toEqual({
       colors: [{ ...FIXTURE.colors[0], name: 'Navy' }, FIXTURE.colors[1]],
       defaults: FIXTURE.defaults,
@@ -140,7 +148,7 @@ describe('hex text field', () => {
     expect(find(el, A, 'swatch-input').tag).toContain('.value=#1a2b3c');
   });
 
-  it('a typed #rgb is trimmed, expanded and stored on change only', () => {
+  it('a typed #rgb is trimmed, expanded and stored on change only', async () => {
     const hex = find(el, A, 'hex-input');
     const e = ev(' #0Af ');
     hex.on.input(e);
@@ -149,7 +157,7 @@ describe('hex text field', () => {
     expect(find(el, A, 'swatch-input').tag).toContain('.value=#00aaff'); // swatch follows live
     hex.on.change(e);
     expect(e.value).toBe('#00aaff');
-    vi.advanceTimersByTime(300);
+    await vi.advanceTimersByTimeAsync(300); // the write follows a re-read of the stored palette
     expect(writes()).toHaveLength(1);
     expect(lastWrite().colors[0].hex).toBe('#00aaff');
   });
@@ -170,16 +178,16 @@ describe('hex text field', () => {
     expect(writes()).toHaveLength(0);
   });
 
-  it('works the same on the default ON colour and Reset clears it', () => {
+  it('works the same on the default ON colour and Reset clears it', async () => {
     const hex = find(el, 'onColor', 'hex-input');
     expect(hex.tag).toContain('.value=#00ff00');
     const e = ev('#123');
     hex.on.input(e);
     hex.on.change(e);
-    vi.advanceTimersByTime(300);
+    await vi.advanceTimersByTimeAsync(300); // the write follows a re-read of the stored palette
     expect(lastWrite().defaults.onColor).toBe('#112233');
     find(el, 'onColor', 'reset-btn').on.click(ev(''));
-    vi.advanceTimersByTime(300);
+    await vi.advanceTimersByTimeAsync(300); // the write follows a re-read of the stored palette
     expect(lastWrite().defaults.onColor).toBeUndefined();
   });
 
@@ -189,41 +197,42 @@ describe('hex text field', () => {
 });
 
 describe('storage writes', () => {
-  it('dragging the native dialog (many input events) writes nothing until change, then once', () => {
+  it('dragging the native dialog (many input events) writes nothing until change, then once', async () => {
     const sw = find(el, A, 'swatch-input');
     for (let i = 0; i < 40; i++) sw.on.input(ev(`#${(0x100000 + i * 997).toString(16)}`, 'color'));
     vi.advanceTimersByTime(2000);
     expect(writes()).toHaveLength(0);
     expect(find(el, A, 'hex-input').tag).toContain('.value=#'); // text follows the drag
     sw.on.change(ev('#654321', 'color'));
-    vi.advanceTimersByTime(300);
+    await vi.advanceTimersByTimeAsync(300); // the write follows a re-read of the stored palette
     expect(writes()).toHaveLength(1);
     expect(lastWrite().colors[0].hex).toBe('#654321');
   });
 
-  it('rapid commits are coalesced into one write carrying all of them', () => {
+  it('rapid commits are coalesced into one write carrying all of them', async () => {
     find(el, A, 'swatch-input').on.change(ev('#111111', 'color'));
     find(el, A, 'name-input').on.change(ev('One'));
     find(el, B, 'swatch-input').on.change(ev('#222222', 'color'));
     find(el, A, 'swatch-input').on.change(ev('#333333', 'color')); // last one wins
-    vi.advanceTimersByTime(300);
+    await vi.advanceTimersByTimeAsync(300); // the write follows a re-read of the stored palette
     expect(writes()).toHaveLength(1);
     expect(lastWrite().colors.map((c) => [c.name, c.hex])).toEqual([['One', '#333333'], ['', '#222222']]);
   });
 
-  it('commits a moment apart still share one write (the wait restarts)', () => {
+  it('commits a moment apart still share one write (the wait restarts)', async () => {
     find(el, A, 'swatch-input').on.change(ev('#111111', 'color'));
     vi.advanceTimersByTime(100);
     find(el, B, 'swatch-input').on.change(ev('#222222', 'color'));
     vi.advanceTimersByTime(100);
     expect(writes()).toHaveLength(0);
-    vi.advanceTimersByTime(300);
+    await vi.advanceTimersByTimeAsync(300); // the write follows a re-read of the stored palette
     expect(writes()).toHaveLength(1);
   });
 
-  it('a commit still waiting is flushed when the element goes away', () => {
+  it('a commit still waiting is flushed when the element goes away', async () => {
     find(el, A, 'name-input').on.change(ev('Late'));
     el.disconnectedCallback();
+    await settle();
     expect(lastWrite().colors[0].name).toBe('Late');
   });
 
@@ -280,12 +289,13 @@ describe('help line', () => {
 describe('two-step remove', () => {
   const del = (row = A) => find(el, row, 'del-btn');
 
-  it('first activation arms (label changes), second removes', () => {
+  it('first activation arms (label changes), second removes', async () => {
     del().on.click(ev(''));
     expect(del().tag).toContain(`aria-label=Remove 'Brand blue'?`);
     vi.advanceTimersByTime(1000);
     expect(writes()).toHaveLength(0);
     del().on.click(ev(''));
+    await settle();
     expect(writes()).toHaveLength(1);
     expect(lastWrite().colors.map((c) => c.id)).toEqual([B]);
   });
@@ -312,6 +322,59 @@ describe('two-step remove', () => {
   it('arming one entry does not arm another', () => {
     del(A).on.click(ev(''));
     expect(del(B).tag).toMatch(/aria-label=Remove 'colour 2'\s/);
+  });
+});
+
+describe('an edit is applied to the palette as stored, not to this page\'s cache', () => {
+  const OTHER = { id: 'from-other-browser', name: 'Teal', hex: '#008080' };
+  /** Storage another browser changed after this page loaded its palette. */
+  const staleSetup = () => {
+    let stored: CustomPalette = {
+      colors: [...FIXTURE.colors, OTHER],
+      defaults: { onColor: '#00ff00', offColor: '#101010' },
+    };
+    const sent: Array<{ type: string; value?: CustomPalette }> = [];
+    el.hass = {
+      connection: {
+        sendMessagePromise: async (m: { type: string; value?: CustomPalette }) => {
+          sent.push(m);
+          if (m.type === 'frontend/get_user_data') return { value: stored };
+          if (m.type === 'frontend/set_user_data') stored = m.value!;
+          return null;
+        },
+      },
+    };
+    return { sent, stored: () => stored };
+  };
+  const lastSet = (sent: Array<{ type: string; value?: CustomPalette }>) =>
+    sent.filter((m) => m.type === 'frontend/set_user_data').at(-1)!.value!;
+
+  it('a rename keeps what the other browser added and changed, and refreshes the cache', async () => {
+    const { sent } = staleSetup();
+    find(el, A, 'name-input').on.change(ev('Navy'));
+    await vi.advanceTimersByTimeAsync(300);
+    expect(lastSet(sent)).toEqual({
+      colors: [{ ...FIXTURE.colors[0], name: 'Navy' }, FIXTURE.colors[1], OTHER],
+      defaults: { onColor: '#00ff00', offColor: '#101010' },
+    });
+    expect(storage.getCachedPalette().colors.map((c) => c.id)).toContain(OTHER.id);
+  });
+
+  it('add, remove and default set / reset each touch only their own entry', async () => {
+    const { sent } = staleSetup();
+    find(el, B, 'del-btn').on.click({ ...ev(''), currentTarget: {} });
+    find(el, B, 'del-btn').on.click(ev(''));
+    await settle();
+    expect(lastSet(sent).colors.map((c) => c.id)).toEqual([A, OTHER.id]);
+    find(el, 'offColor', 'hex-input').on.change(ev('#abcdef'));
+    await vi.advanceTimersByTimeAsync(300);
+    expect(lastSet(sent).defaults).toEqual({ onColor: '#00ff00', offColor: '#abcdef' });
+    (el as unknown as { _addColor(): void })._addColor();
+    await settle();
+    const added = lastSet(sent).colors;
+    expect(added.slice(0, 2).map((c) => c.id)).toEqual([A, OTHER.id]);
+    expect(added).toHaveLength(3);
+    expect(lastSet(sent).defaults.offColor).toBe('#abcdef');
   });
 });
 

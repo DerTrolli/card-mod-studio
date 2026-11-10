@@ -156,3 +156,61 @@ export async function savePalette(palette: CustomPalette, hass: HassSub | undefi
     }
   }
 }
+
+/** One change to the palette. Must be idempotent (it can run twice: once on
+ *  the local copy right away, once on the freshly re-read stored palette). */
+export type PaletteEdit = (palette: CustomPalette) => CustomPalette;
+
+let pendingUpdates = 0;
+// One write after another: two quick ones would each read the same stored
+// palette and the later write would drop the earlier.
+let writeQueue: Promise<unknown> = Promise.resolve();
+
+function storeLocal(palette: CustomPalette): void {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(palette));
+  } catch {
+    // quota exceeded — silently continue
+  }
+}
+
+/**
+ * Applies ONE change to the palette as currently stored and writes it back.
+ * The in-memory cache can be stale (another browser edited since it loaded),
+ * and writing the whole cached palette back overwrote that edit. The change
+ * also shows and is kept locally at once, so the UI is instant and a page
+ * unload right after still has it. Resolves with the palette written.
+ */
+export function updatePalette(edit: PaletteEdit, hass: HassSub | undefined): Promise<CustomPalette> {
+  cache = sanitize(edit(cache));
+  cacheDirty = true;
+  storeLocal(cache);
+  window.dispatchEvent(new CustomEvent(PALETTE_CHANGED_EVENT));
+
+  pendingUpdates++;
+  const run = async (): Promise<CustomPalette> => {
+    let next: CustomPalette;
+    try {
+      next = sanitize(edit(await loadPalette(hass)));
+      storeLocal(next);
+      if (hassAvailable(hass)) {
+        try {
+          await hass.connection.sendMessagePromise({ type: 'frontend/set_user_data', key: HA_KEY, value: next });
+        } catch (err) {
+          console.warn('[Card-Mod Studio] Palette sync to HA failed (saved to localStorage only):', err);
+        }
+      }
+    } finally {
+      pendingUpdates--;
+    }
+    // A later change already showed itself in the cache; its own run refreshes it.
+    if (pendingUpdates === 0) {
+      cache = next;
+      window.dispatchEvent(new CustomEvent(PALETTE_CHANGED_EVENT));
+    }
+    return next;
+  };
+  const result = writeQueue.then(run, run);
+  writeQueue = result.catch(() => undefined);
+  return result;
+}
