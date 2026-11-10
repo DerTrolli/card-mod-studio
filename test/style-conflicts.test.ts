@@ -32,7 +32,8 @@ describe('findAdvancedCssConflicts', () => {
 
   it('flags overrides of the Heading Style module in both its v0.10 and legacy shapes', () => {
     const s = base();
-    s.headingStyle.enabled = true;
+    // Every field set: an unset one is not overridden (see the set/unset tests below).
+    Object.assign(s.headingStyle, { enabled: true, fontSize: 20, textColor: 'red', fontWeight: 'bold', iconColor: 'blue' });
     const c = findAdvancedCssConflicts(
       '.container {\n  --ha-heading-card-title-color: red;\n}\n.content ha-icon {\n  color: blue;\n}\n.title p {\n  font-size: 9px;\n}',
       s,
@@ -63,5 +64,37 @@ describe('findRowExtraCssConflicts', () => {
   it('silent when no controls are on or no extraCss', () => {
     expect(findRowExtraCssConflicts({ iconColor: '', textColor: '' })).toEqual([]);
     expect(findRowExtraCssConflicts({ iconColor: 'red', textColor: '' })).toEqual([]);
+  });
+});
+
+describe('Font / Heading Style warn only for fields that are set', () => {
+  const css = 'ha-card {\n  font-size: 30px;\n  color: red;\n  font-weight: bold;\n  font-family: serif;\n}';
+  const font = (f: object, c = css) => {
+    const s = base();
+    Object.assign(s.font, { enabled: true, ...f });
+    return findAdvancedCssConflicts(c, s).font;
+  };
+
+  it('Font on with nothing set: no warning', () => expect(font({})).toBeUndefined());
+  it('only Weight set: only font-weight', () => expect(font({ fontWeight: 'bold' })).toEqual(['ha-card { font-weight }']));
+  it('size + colour set', () => expect(font({ fontSize: 20, color: 'red' })).toEqual(['ha-card { font-size }', 'ha-card { color }']));
+  it('family set', () => expect(font({ fontFamily: 'serif' })).toEqual(['ha-card { font-family }']));
+  it('companion variables follow their own field', () => {
+    const c = 'ha-card {\n  --ha-tile-info-primary-font-size: 9px;\n  --primary-text-color: red;\n}';
+    expect(font({ color: 'red' }, c)).toEqual(['ha-card { --primary-text-color }']);
+  });
+
+  const hs = (f: object, c: string) => {
+    const s = base();
+    Object.assign(s.headingStyle, { enabled: true, ...f });
+    return findAdvancedCssConflicts(c, s).headingStyle;
+  };
+  const hcss = '.container {\n  --ha-heading-card-title-font-size: 9px;\n  --ha-heading-card-title-color: red;\n}\n.content ha-icon {\n  color: blue;\n  --mdc-icon-size: 9px;\n}';
+  it('Heading Style on with nothing set: no warning', () => expect(hs({}, hcss)).toBeUndefined());
+  it('Heading Style: each field maps to its own declarations', () => {
+    expect(hs({ fontSize: 20 }, hcss)).toEqual(['.container { --ha-heading-card-title-font-size }']);
+    expect(hs({ textColor: 'red' }, hcss)).toEqual(['.container { --ha-heading-card-title-color }']);
+    expect(hs({ iconSize: 20 }, hcss)).toEqual(['.content ha-icon { --mdc-icon-size }']);
+    expect(hs({ iconColor: 'red' }, hcss)).toEqual(['.content ha-icon { color }']);
   });
 });

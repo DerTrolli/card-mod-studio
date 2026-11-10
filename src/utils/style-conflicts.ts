@@ -115,6 +115,28 @@ const THRESHOLD_PROPS: Record<string, Rule[]> = {
   'border-color': [{ module: 'threshold', selector: 'ha-card', props: ['border', 'border-color'] }],
 };
 
+/** Is the field a declaration derives from actually set? Font / Heading Style
+ *  write nothing for an unset field, so a hand-written rule for that
+ *  property overrides nothing. Properties not listed here always count. */
+function isWritten(state: StudioState, module: ConflictableModule, prop: string, selector: string): boolean {
+  if (module === 'font') {
+    const f = state.font;
+    if (/font-size$|^--ha-font-size-l$/.test(prop)) return f.fontSize != null;
+    if (/font-weight$|^--ha-font-weight-medium$/.test(prop)) return !!f.fontWeight;
+    if (/font-family$/.test(prop)) return !!f.fontFamily?.trim();
+    if (prop === 'color' || /-color$|^--primary-text-color$/.test(prop)) return !!f.color;
+  }
+  if (module === 'headingStyle') {
+    const h = state.headingStyle;
+    if (/font-size$/.test(prop)) return h.fontSize != null;
+    if (/font-weight$/.test(prop)) return !!h.fontWeight;
+    if (/font-family$/.test(prop)) return !!h.fontFamily?.trim();
+    if (/icon-size$/.test(prop)) return h.iconSize != null;
+    if (prop === 'color' || /-color$/.test(prop)) return selector.includes('icon') ? !!h.iconColor : !!h.textColor;
+  }
+  return true;
+}
+
 function isEnabled(state: StudioState, module: ConflictableModule): boolean {
   switch (module) {
     case 'iconColor': return state.iconColor.enabled;
@@ -176,6 +198,7 @@ export function findAdvancedCssConflicts(
       for (const rule of activeRules) {
         if (rule.selector && !(rule.tokens ? hasTokenRun(sel, rule.selector) : sel.includes(rule.selector))) continue;
         if (!rule.props.includes(name)) continue;
+        if (!isWritten(state, rule.module, name, sel)) continue;
         (out[rule.module] ??= []).push(`${target.selector} { ${prop.property} }`);
       }
     }

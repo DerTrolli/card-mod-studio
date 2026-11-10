@@ -293,7 +293,7 @@ describe('custom profile fixture overrides gating', () => {
       ...DEFAULT_STUDIO_STATE,
       animation: { ...DEFAULT_STUDIO_STATE.animation, enabled: true },
       border: { ...DEFAULT_STUDIO_STATE.border, enabled: true },
-      font: { ...DEFAULT_STUDIO_STATE.font, enabled: true },
+      font: { ...DEFAULT_STUDIO_STATE.font, enabled: true, fontSize: 20 },
     };
     const f = filterPresetStateForCardType(on, KEY);
     expect(f.animation.enabled).toBe(false);
