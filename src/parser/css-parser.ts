@@ -106,7 +106,9 @@ function restoreJinja(value: string, map: Map<string, string>): string {
  * set for the quoted-literal form), [3]=state ('on'|'off'), [4]=else value.
  */
 const ENTITY_STATE_PATTERN =
-  /^\{\{\s*'([^']*)'\s+if\s+is_state\(\s*(?:config\.entity|'([^']+)')\s*,\s*'(on|off)'\s*\)\s+else\s+'([^']*)'\s*\}\}$/;
+  /^\{\{\s*'((?:[^'\\]|\\.)*)'\s+if\s+is_state\(\s*(?:config\.entity|'([^']+)')\s*,\s*'(on|off)'\s*\)\s+else\s+'((?:[^'\\]|\\.)*)'\s*\}\}$/;
+// (values may hold `\'` / `\\` escapes and are returned RAW; the module that
+// owns the value decodes them — see unescapeJinjaStr in state-mapper.ts)
 
 interface JinjaAnalysis {
   hasCondition: boolean;

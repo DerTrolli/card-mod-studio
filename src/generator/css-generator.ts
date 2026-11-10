@@ -497,7 +497,19 @@ function backgroundValueDecls(s: BackgroundModuleState, otherwise = ''): string[
       ? `linear-gradient(${s.angle}deg, ${s.color1}, ${s.color2})`
       : s.color1;
   const cond = backgroundCondition(s);
-  return [cond ? `background: {{ '${bgValue}' if ${cond} else '${otherwise}' }};` : `background: ${bgValue};`];
+  return [
+    cond
+      ? `background: {{ '${jinjaStr(bgValue)}' if ${cond} else '${jinjaStr(otherwise)}' }};`
+      : `background: ${bgValue};`,
+  ];
+}
+
+/** A value for the inside of a Jinja single-quoted string literal. Jinja's
+ *  lexer reads `'([^'\\]*(?:\\.[^'\\]*)*)'` and decodes the body as a
+ *  unicode-escape, so `\\` is a backslash and `\'` a quote: escape the
+ *  backslash first, then the quote. mapBackground reads it back. */
+function jinjaStr(v: string): string {
+  return v.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
 /**

@@ -1511,6 +1511,11 @@ function isOwnLookBranch(v: string, property: string): boolean {
   return t === 'none' || t === (property.startsWith('--') ? 'inherit' : '');
 }
 
+/** Inverse of jinjaStr in css-generator.ts: `\'` → `'`, `\\` → `\`. */
+function unescapeJinjaStr(v: string): string {
+  return v.replace(/\\(['\\])/g, '$1');
+}
+
 function mapBackground(
   haCardTarget: CssTarget | null,
   claimed: Set<string>,
@@ -1557,8 +1562,8 @@ function mapBackground(
   // (a variable's other branch is `inherit`; older saves wrote `none` — all
   // three mean "no background of ours" and are read the same).
   if (bgProp.hasCondition && bgProp.onValue !== undefined && bgProp.offValue !== undefined) {
-    const onVal = bgProp.onValue.trim();
-    const offVal = bgProp.offValue.trim();
+    const onVal = unescapeJinjaStr(bgProp.onValue.trim());
+    const offVal = unescapeJinjaStr(bgProp.offValue.trim());
     let applyWhen: 'on' | 'off' | 'custom' | null = null;
     let colorVal = '';
     if (isOwnLookBranch(offVal, bgProp.property) && onVal && !isOwnLookBranch(onVal, bgProp.property)) {
