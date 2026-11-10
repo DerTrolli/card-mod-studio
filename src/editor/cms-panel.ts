@@ -50,7 +50,7 @@ import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
 import { thresholdOwnedProperties, settleEntityless } from '../generator/css-generator.js';
 import { cmsTokens } from '../modules/module-base.js';
-import { hasTopLevelJinjaStatement } from '../utils/css-lint.js';
+import { hasTopLevelJinjaStatement, templateStatementNote, anyModuleOn } from '../utils/css-lint.js';
 import { uixStyleUsesMacro } from '../utils/uix-macro-use.js';
 
 import '../modules/module-filter.js';
@@ -1383,8 +1383,7 @@ export class CmsPanel extends LitElement {
     return html`
       ${hasUnrecognisedCss && this._loadedWholeStyleKept
         ? html`<div class="info-banner">
-            ℹ️ This style uses template statements ({% … %}), so the Studio keeps all of it as written in
-            Advanced CSS and the modules stay off.
+            ℹ️ ${templateStatementNote(anyModuleOn(s))}
           </div>`
         : hasUnrecognisedCss
           ? html`<div class="info-banner">

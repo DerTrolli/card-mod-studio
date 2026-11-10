@@ -174,16 +174,35 @@ export function hasTopLevelJinjaStatement(css: string): boolean {
   const cleaned = css.replace(/\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}|\{#[\s\S]*?#\}/g, (m) => (m[1] === '%' ? '\u0001' : '\u0002'));
   let depth = 0;
   let inComment = false;
+  // A statement since the last rule closed: the parser tests the text after
+  // the last complete block too, so a `{% %}` inside a `{` that never closes
+  // also keeps the style verbatim.
+  let sinceClose = false;
   for (let i = 0; i < cleaned.length; i++) {
     const ch = cleaned[i];
-    if (ch === '\u0001' && depth === 0) return true;
+    if (ch === '\u0001') {
+      if (depth === 0) return true;
+      sinceClose = true;
+    }
     if (inComment) {
       if (ch === '*' && cleaned[i + 1] === '/') { inComment = false; i++; }
       continue;
     }
     if (ch === '/' && cleaned[i + 1] === '*') { inComment = true; i++; continue; }
     if (ch === '{') depth++;
-    else if (ch === '}') { if (depth > 0) depth--; }
+    else if (ch === '}') { if (depth > 0 && --depth === 0) sinceClose = false; }
   }
-  return false;
+  return depth > 0 && sinceClose;
+}
+
+/** The banner sentence for a style the Studio keeps whole. "The modules stay
+ *  off" is only true when none is on — a `uix` key can still supply module
+ *  state beside a verbatim `card_mod` style. */
+export function templateStatementNote(modulesOn: boolean): string {
+  return `This style uses template statements ({% … %}), so the Studio keeps all of it as written in Advanced CSS${modulesOn ? '.' : ' and the modules stay off.'}`;
+}
+
+/** True when any styling module of the state is switched on. */
+export function anyModuleOn(s: object): boolean {
+  return Object.entries(s).some(([k, m]) => k !== 'advanced' && !!m && typeof m === 'object' && (m as { enabled?: unknown }).enabled === true);
 }

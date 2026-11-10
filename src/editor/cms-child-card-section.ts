@@ -21,6 +21,7 @@
  * - mixed-form child styles (string + dict together) are preserved
  *   untouched, same as everywhere (pure dict-form IS editable — v0.10).
  */
+import { hasTopLevelJinjaStatement, templateStatementNote, anyModuleOn } from '../utils/css-lint.js';
 import { userEntries, numberSizeKind } from '../utils/owned-entries.js';
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
@@ -83,6 +84,8 @@ export class CmsChildCardSection extends LitElement {
   @state() private _open = false;
   /** See CmsPanel._loadedRawCss. */
   @state() private _loadedRawCss = false;
+  /** See CmsPanel._loadedWholeStyleKept. */
+  @state() private _loadedWholeStyleKept = false;
 
   /** Mirror of cms-panel's own-echo dedup guard: when the panel reflects
    *  our own emitted child config back down, don't rebuild state mid-edit.
@@ -201,6 +204,7 @@ export class CmsChildCardSection extends LitElement {
       if (this._echoGuard.shouldRebuild(JSON.stringify(this.childConfig))) {
         this._studioState = buildMergedStudioState(this.childConfig, this.hass);
         this._loadedRawCss = !!this._studioState.advanced.rawCss.trim();
+        this._loadedWholeStyleKept = hasTopLevelJinjaStatement(this._studioState.advanced.rawCss);
         this._entityRowStyles = initEntityRowStyles(this.childConfig, this.hass);
       }
     }
@@ -321,6 +325,9 @@ export class CmsChildCardSection extends LitElement {
 
     return html`
       <div class="child-body">
+        ${hasUnrecognisedCss && this._loadedWholeStyleKept
+          ? html`<div class="child-hint">ℹ️ ${templateStatementNote(anyModuleOn(s))}</div>`
+          : nothing}
         ${isUnprofiledCustomCard(c)
           ? html`<div class="child-hint">ℹ️ ${UNPROFILED_CARD_NOTICE}</div>`
           : nothing}

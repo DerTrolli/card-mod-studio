@@ -186,6 +186,9 @@ describe('hasTopLevelJinjaStatement — the parser keeps the whole style verbati
     '{% macro m() %}x{% endmacro %}',
     'ha-card { color: red; }\n/* {% note %} */\n',
     '@media (min-width: 1px) { a { b: c; } }\n{% if x %}',
+    // a statement inside a `{` that never closes: the parser's trailing text holds it
+    "ha-card { color: red; }\nha-state-icon {\n  {% if a %}color: red;{% endif %}\n",
+    'a { {% if a %}b: c;{% endif %}',
   ];
   const NO = [
     '',
@@ -196,6 +199,8 @@ describe('hasTopLevelJinjaStatement — the parser keeps the whole style verbati
     '{# a comment #}\nha-card { color: red; }',
     "ha-card { color: {{ '{% not a statement %}' }}; }",
     '/* { */ ha-card { color: red; } /* } */',
+    // statement in a CLOSED rule, then an unclosed one with none in it
+    'a { {% if a %}b: c;{% endif %} }\nd { e: f;',
   ];
   it.each(YES)('statement at top level: %j', (css) => expect(hasTopLevelJinjaStatement(css)).toBe(true));
   it.each(NO)('no top-level statement: %j', (css) => expect(hasTopLevelJinjaStatement(css)).toBe(false));

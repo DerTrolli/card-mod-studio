@@ -61,6 +61,20 @@ describe('template-statement info banner', () => {
     expect(text).not.toContain(BANNER);
     expect(text).toContain(GENERIC);
   });
+  it('does not say the modules stay off when a uix: style supplies module state beside it', () => {
+    const p = new Panel();
+    p.config = {
+      type: 'tile', entity: 'light.a',
+      card_mod: { style: "{% if is_state('light.a', 'on') %}\nha-card {\n  --x: 1;\n}\n{% endif %}" },
+      uix: { style: 'ha-card {\n  background: #00ff00;\n}' },
+    } as unknown as CardModCardConfig;
+    p._cardModPresent = true;
+    p._initState();
+    expect(p._studioState!.background.enabled).toBe(true);
+    const text = templateText(p._renderModuleList(p._studioState!));
+    expect(text).toContain(BANNER);
+    expect(text).not.toContain('modules stay off');
+  });
   it('is absent with no style at all', () => {
     expect(list('').text).not.toContain(BANNER);
   });
