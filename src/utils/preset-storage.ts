@@ -50,7 +50,9 @@ function hassAvailable(hass: HassSub | undefined): hass is HassSub {
 // ---------------------------------------------------------------------------
 
 /** A read that also says whether Home Assistant was asked and failed. */
-async function readPresets(hass: HassSub | undefined): Promise<{ list: StylePreset[]; readFailed: boolean }> {
+async function readPresets(
+  hass: HassSub | undefined,
+): Promise<{ list: StylePreset[]; readFailed: boolean; unreadable: boolean }> {
   let readFailed = false;
   if (hassAvailable(hass)) {
     try {
@@ -59,7 +61,7 @@ async function readPresets(hass: HassSub | undefined): Promise<{ list: StylePres
         key: HA_KEY,
       }) as { value: StylePreset[] | null } | null;
       const value = result?.value;
-      if (Array.isArray(value)) return { list: migratePresets(value), readFailed };
+      if (Array.isArray(value)) return { list: migratePresets(value), readFailed, unreadable: false };
     } catch (err) {
       readFailed = true;
       console.warn('[Card-Mod Studio] Preset load from HA failed, using localStorage:', err);
@@ -69,9 +71,11 @@ async function readPresets(hass: HassSub | undefined): Promise<{ list: StylePres
   try {
     const raw = localStorage.getItem(LS_KEY);
     const parsed = raw ? (JSON.parse(raw) as StylePreset[]) : [];
-    return { list: Array.isArray(parsed) ? migratePresets(parsed) : [], readFailed };
+    return { list: Array.isArray(parsed) ? migratePresets(parsed) : [], readFailed, unreadable: false };
   } catch {
-    return { list: [], readFailed };
+    // Not even localStorage could be read: `list` is empty only because
+    // nothing was readable, not because there are no presets.
+    return { list: [], readFailed, unreadable: true };
   }
 }
 
@@ -207,15 +211,23 @@ let writeQueue: Promise<unknown> = Promise.resolve();
  * failed); `onSync(true, …)` that it reached Home Assistant. `kept` is false
  * when it is not even on this device (storage full: it lives in memory until
  * the page closes). Not called when there is no Home Assistant connection to
- * sync with, unless the change was not kept.
+ * sync with, unless the change was not kept; that change is put on the kept
+ * list so it replays once `hass` exists. `base` is the list the caller shows,
+ * used when neither Home Assistant nor localStorage could be read.
  */
 export function updatePresets(
   change: PresetChange,
   hass: HassSub | undefined,
   onSync?: (reachedHa: boolean, kept: boolean) => void,
+  base?: StylePreset[],
 ): Promise<StylePreset[]> {
   const run = async (): Promise<StylePreset[]> => {
-    const { list, readFailed } = await readPresets(hass);
+    const read = await readPresets(hass);
+    const { readFailed } = read;
+    // Neither Home Assistant nor localStorage could be read: the change goes
+    // onto the list the caller already shows, not onto an empty one (the
+    // panel would then show just this one preset).
+    const list = read.unreadable && (readFailed || !hassAvailable(hass)) && base ? base : read.list;
     // Earlier changes that never reached Home Assistant go back on top of
     // what it holds now, then this one. A name saved both here during the
     // outage and elsewhere keeps the version saved here (applied last); a
@@ -227,6 +239,11 @@ export function updatePresets(
     let kept = local;
     if (hassAvailable(hass)) {
       kept = writeUnsynced(reached ? [] : addUnsynced(readFailed ? readUnsynced() : backlog, change)) && local;
+    }
+    else {
+      // No Home Assistant to sync with yet: keep the change so it replays
+      // when `hass` arrives, as after a failed read.
+      kept = writeUnsynced(addUnsynced(readUnsynced(), change)) && local;
     }
     if (hassAvailable(hass) || !local) onSync?.(reached, reached || kept);
     return next;

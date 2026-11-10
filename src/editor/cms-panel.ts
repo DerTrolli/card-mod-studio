@@ -578,6 +578,8 @@ export class CmsPanel extends LitElement {
   private _onPresetNameKeydown(e: KeyboardEvent) {
     // Keep Enter/Escape inside the field — Escape would otherwise close
     // HA's whole card-edit dialog.
+    // Enter that accepts an IME candidate (Japanese, Chinese, …) is not a save.
+    if (e.isComposing || e.keyCode === 229) return;
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
@@ -621,7 +623,7 @@ export class CmsPanel extends LitElement {
     void updatePresets(change, this.hass, (reachedHa, kept) => {
       this._presetsLocalOnly = !reachedHa;
       this._presetsUnsaved = !kept;
-    })
+    }, this._presets)
       .then((written) => { this._presets = written; });
   }
 
