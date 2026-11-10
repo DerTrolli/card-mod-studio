@@ -98,14 +98,22 @@ describe('generateCss — filter', () => {
     expect(reparsed.filter.transitionMs).toBe(600);
     expect(reparsed.advanced.rawCss).toBe('');
     expect(generateCss(reparsed, 'tile')).toBe(tile);
-    // HA 2026.10.4 added sensor, entity and area to the cards that override it
-    for (const type of ['sensor', 'entity', 'area']) {
+    // HA 2026.10.4 added sensor, entity and area to the cards that override it; 2026.11 the alert card
+    for (const type of ['sensor', 'entity', 'area', 'alert']) {
       const css = generateCss(state, type);
       expect(css, type).toContain('transition: filter 600ms ease !important;');
       const back = mapToStudioState(parseCardModConfig({ type, card_mod: { style: css } }), type);
       expect(back.advanced.rawCss, type).toBe('');
       expect(generateCss(back, type), type).toBe(css);
+      // an older save without !important loads into the same control and upgrades on save
+      const plain = css.replace(' !important', '');
+      const old = mapToStudioState(parseCardModConfig({ type, card_mod: { style: plain } }), type);
+      expect(old.filter.transitionMs, type).toBe(600);
+      expect(old.advanced.rawCss, type).toBe('');
+      expect(generateCss(old, type), type).toBe(css);
     }
+    // the date card does not need it
+    expect(generateCss(state, 'date')).toContain('transition: filter 600ms ease;');
     // a hand-written transition in Advanced CSS keeps winning
     const withRaw = makeState({ ...state, advanced: { rawCss: 'ha-card {\n  transition: all 1s;\n}' } });
     expect(generateCss(withRaw, 'tile')).toContain('transition: filter 600ms ease;');

@@ -164,7 +164,7 @@ export const NO_FONT_TYPES = new Set([
 
 /** Cards whose own stylesheet overrides a plain filter transition (see
  *  the filter block in css-generator). */
-export const TRANSITION_IMPORTANT_TYPES = new Set(['tile', 'sensor', 'entity', 'area']);
+export const TRANSITION_IMPORTANT_TYPES = new Set(['tile', 'sensor', 'entity', 'area', 'alert']);
 
 /**
  * Card types whose title is rendered through ha-card's header slot
