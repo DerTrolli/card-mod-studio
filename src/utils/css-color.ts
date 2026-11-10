@@ -173,7 +173,12 @@ export function isValidCssColor(raw: string, mode: ColorMode = 'color'): boolean
   if (mode === 'background') {
     if (/,\s*,|^,|,$/.test(v)) return false;
     const layers = splitTop(v, /,/);
-    return layers.length > 0 && layers.every(layerOk);
+    // Only the LAST layer may be a plain colour; `red, blue` is dropped by the
+    // browser. A `var()` may hold an image, so it passes in any position.
+    const last = layers.length - 1;
+    const shapeOk = layers.length > 0 && layers.every((l, i) =>
+      layerOk(l) && (i === last || l.toLowerCase() === 'none' || IMAGE_FUNC.test(l) || /^var\(/i.test(l)));
+    return shapeOk && supportsBg(v) !== false;
   }
   if (mode === 'stop') return stopOk(v);
   return colorOk(v, true);

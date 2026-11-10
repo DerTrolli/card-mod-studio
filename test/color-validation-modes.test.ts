@@ -64,6 +64,33 @@ describe('background mode', () => {
   });
 });
 
+// [value, Chromium 153 CSS.supports('background', v), wanted verdict]. Only the
+// last layer of a `background` list may be a colour.
+const BG_TABLE: Array<[string, boolean, boolean]> = [
+  ['red, blue', false, false], ['red, linear-gradient(red, blue)', false, false], ['red, none', false, false],
+  ['none, red', true, true], ['linear-gradient(red, blue), red', true, true], ['none, none', true, true],
+  ['url(x.png), none', true, true], ['url(x.png), blue', true, true], ['url(x.png), url(y.png), red', true, true],
+  ['none, linear-gradient(red,blue)', true, true], ['var(--x), red', true, true], ['var(--x), var(--y)', true, true],
+  ['linear-gradient(red, blue), var(--x)', true, true], ['red', true, true], ['none', true, true],
+  ['image-set("a.png" 1x)', true, true],
+  // `;` never passes, even where the browser would not object (inside an image argument)
+  ['url(a;b.png)', true, false], ['url("a;b.png")', true, false], ['linear-gradient(red;blue)', true, false],
+];
+
+describe('background verdict table', () => {
+  it.each(BG_TABLE)('fallback: %j (raw %s) -> %s', (v, _raw, want) => {
+    expect(isValidCssColor(v, 'background')).toBe(want);
+  });
+  it.each(BG_TABLE)('browser path (recorded Chromium verdicts): %j (raw %s) -> %s', (v, raw, want) => {
+    g.CSS = { supports: (p: string, x: string) => (p === 'color' ? true : x === v ? raw : true) };
+    expect(isValidCssColor(v, 'background')).toBe(want);
+  });
+  it('a browser that refuses the whole value wins over the layer check', () => {
+    g.CSS = { supports: (p: string, x: string) => !(p === 'background' && x === 'none, none') };
+    expect(isValidCssColor('none, none', 'background')).toBe(false);
+  });
+});
+
 describe('stop mode', () => {
   const OK = ['red', 'red 0%', 'rgb(1, 2, 3) 40%', 'var(--x) 10px', '#fff 10% 20%', 'red 0', 'red calc(10% + 2px)'];
   const BAD = ['', 'red 0% 1% 2%', 'red blue', '0% red', 'red; x', 'red 10', 'none', 'url(x.png)', 'red 0%}', 'red !important'];
