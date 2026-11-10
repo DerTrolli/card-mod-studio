@@ -2,7 +2,7 @@
  * Preset bar feedback, through the handlers the rendered template binds:
  * name hint, explicit overwrite, two-step delete, name length cap.
  */
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { FakeCustomElementRegistry, templateText } from './v010-audit-helpers.js';
 import { mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseCardModConfig } from '../src/parser/yaml-parser.js';
@@ -155,5 +155,71 @@ describe('two-step delete', () => {
     fire('keydown', 0, esc);
     expect(stopped).toBe(1);
     expect(armedText(text())).toBe(false);
+  });
+});
+
+describe('two-step delete disarms without focus events (Safari)', () => {
+  const armedText = (t: string) => t.includes("Delete 'Warm'?");
+  let down: ((e: unknown) => void) | undefined;
+  let listeners = 0;
+  const g = globalThis as Record<string, unknown>;
+  let hadWindow: unknown;
+  beforeEach(() => {
+    vi.useFakeTimers();
+    hadWindow = g.window;
+    listeners = 0;
+    down = undefined;
+    g.window = {
+      addEventListener: (t: string, fn: (e: unknown) => void) => { if (t === 'pointerdown') { down = fn; listeners++; } },
+      removeEventListener: (t: string, fn: unknown) => { if (t === 'pointerdown' && fn === down) { down = undefined; listeners--; } },
+    };
+  });
+  afterEach(() => { vi.useRealTimers(); g.window = hadWindow; });
+
+  it('a press elsewhere disarms; the next click arms again instead of deleting', () => {
+    const { p, text, fire } = make();
+    p._selectedPreset = 'Warm';
+    const btn = {};
+    fire('click', 0, { currentTarget: btn });
+    expect(armedText(text())).toBe(true);
+    expect(listeners).toBe(1);
+    down!({ composedPath: () => [{}] });
+    expect(armedText(text())).toBe(false);
+    expect(listeners).toBe(0);
+    fire('click', 0, { currentTarget: btn });
+    expect(p._presets).toHaveLength(1);
+    expect(armedText(text())).toBe(true);
+  });
+
+  it('a press on the armed button itself does not disarm', () => {
+    const { p, text, fire } = make();
+    p._selectedPreset = 'Warm';
+    const btn = {};
+    fire('click', 0, { currentTarget: btn });
+    down!({ composedPath: () => [btn] });
+    expect(armedText(text())).toBe(true);
+  });
+
+  it('disarms after about four seconds', () => {
+    const { p, text, fire } = make();
+    p._selectedPreset = 'Warm';
+    fire('click', 0, { currentTarget: {} });
+    vi.advanceTimersByTime(3900);
+    expect(armedText(text())).toBe(true);
+    vi.advanceTimersByTime(200);
+    expect(armedText(text())).toBe(false);
+    expect(listeners).toBe(0);
+  });
+
+  it('blur and Escape also drop the listener and the timer', () => {
+    const { p, fire } = make();
+    p._selectedPreset = 'Warm';
+    fire('click', 0, { currentTarget: {} });
+    fire('blur', 0);
+    expect(listeners).toBe(0);
+    fire('click', 0, { currentTarget: {} });
+    fire('keydown', 0, { key: 'Escape', preventDefault() {}, stopPropagation() {} });
+    expect(listeners).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

@@ -19,6 +19,7 @@ import {
 } from '../utils/palette-storage.js';
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
+import { ArmGuard } from '../utils/arm-guard.js';
 
 /** Rapid commits (e.g. several swatch changes in a row) become one storage write. */
 const COMMIT_DEBOUNCE_MS = 250;
@@ -47,6 +48,11 @@ export class CmsPaletteManager extends LitElement {
   @state() private _armed: string | null = null;
 
   /** Commits waiting on the debounce, keyed per field so the last edit wins. */
+  /** Disarms the remove button on a press elsewhere or after a few seconds
+   *  (blur alone never fires where a click doesn't focus the button). */
+  private _armGuard = new ArmGuard(() => {
+    this._armed = null;
+  });
   private _pending = new Map<string, Edit>();
   private _timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -175,6 +181,7 @@ export class CmsPaletteManager extends LitElement {
   override disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener(PALETTE_CHANGED_EVENT, this._paletteChangedHandler);
+    this._armGuard.stop();
     this._flush(); // a commit still waiting on the debounce must not be lost
   }
 
@@ -223,8 +230,13 @@ export class CmsPaletteManager extends LitElement {
     }));
   }
 
-  private _deleteColor(id: string) {
+  private _disarm() {
     this._armed = null;
+    this._armGuard.stop();
+  }
+
+  private _deleteColor(id: string) {
+    this._disarm();
     this._saveNow((palette) => ({ ...palette, colors: palette.colors.filter((c) => c.id !== id) }));
     // The focused button is gone; keep keyboard users in the manager.
     void this.updateComplete.then(() => this._focus('.add-btn'));
@@ -391,14 +403,20 @@ export class CmsPaletteManager extends LitElement {
           class="del-btn ${armed ? 'armed' : ''}"
           title=${removeLabel}
           aria-label=${removeLabel}
-          @click=${() => (armed ? this._deleteColor(c.id) : (this._armed = c.id))}
+          @click=${(e: Event) => {
+            if (armed) this._deleteColor(c.id);
+            else {
+              this._armed = c.id;
+              this._armGuard.start(e?.currentTarget);
+            }
+          }}
           @blur=${() => {
-            if (this._armed === c.id) this._armed = null;
+            if (this._armed === c.id) this._disarm();
           }}
           @keydown=${(e: KeyboardEvent) => {
             if (e.key === 'Escape' && this._armed === c.id) {
               e.stopPropagation(); // disarm only; don't also close the card dialog
-              this._armed = null;
+              this._disarm();
             }
           }}
         >${armed ? 'Remove?' : '×'}</button>

@@ -314,3 +314,67 @@ describe('two-step remove', () => {
     expect(del(B).tag).toMatch(/aria-label=Remove 'colour 2'\s/);
   });
 });
+
+describe('remove disarms without focus events (Safari does not focus a clicked button)', () => {
+  const del = (row = A) => find(el, row, 'del-btn');
+  const armedLabel = `aria-label=Remove 'Brand blue'?`;
+  let down: ((e: unknown) => void) | undefined;
+  let listeners: number;
+  const win = () => (globalThis as unknown as { window: Record<string, unknown> }).window;
+  let saved: Record<string, unknown>;
+  beforeEach(() => {
+    saved = { ...win() };
+    listeners = 0;
+    down = undefined;
+    win().addEventListener = (type: string, fn: (e: unknown) => void) => {
+      if (type === 'pointerdown') { down = fn; listeners++; }
+    };
+    win().removeEventListener = (type: string, fn: unknown) => {
+      if (type === 'pointerdown' && fn === down) { down = undefined; listeners--; }
+    };
+  });
+  afterEach(() => Object.assign(win(), saved));
+  const click = (btn: object) => del().on.click({ ...ev(''), currentTarget: btn });
+
+  it('a press anywhere else disarms; the next click arms again instead of deleting', () => {
+    const btn = {};
+    click(btn);
+    expect(del().tag).toContain(armedLabel);
+    expect(listeners).toBe(1);
+    down!({ composedPath: () => [{}, el] });
+    expect(del().tag).not.toContain(armedLabel);
+    expect(listeners).toBe(0);
+    click(btn);
+    expect(del().tag).toContain(armedLabel);
+    expect(writes()).toHaveLength(0);
+  });
+
+  it('a press on the armed button itself keeps it armed (its click then confirms)', () => {
+    const btn = {};
+    click(btn);
+    down!({ composedPath: () => [btn, el] });
+    expect(del().tag).toContain(armedLabel);
+  });
+
+  it('disarms by itself after about four seconds', () => {
+    click({});
+    vi.advanceTimersByTime(3900);
+    expect(del().tag).toContain(armedLabel);
+    vi.advanceTimersByTime(200);
+    expect(del().tag).not.toContain(armedLabel);
+    expect(listeners).toBe(0);
+  });
+
+  it('confirming, blur and leaving the page all drop the listener and the timer', () => {
+    click({});
+    del().on.click(ev(''));
+    expect(listeners).toBe(0);
+    del(B).on.click({ ...ev(''), currentTarget: {} }); // A is gone now
+    del(B).on.blur(ev(''));
+    expect(listeners).toBe(0);
+    del(B).on.click({ ...ev(''), currentTarget: {} });
+    el.disconnectedCallback();
+    expect(listeners).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});

@@ -41,6 +41,7 @@ import './cms-preview-picker.js';
 import type { PickEventDetail } from './cms-preview-picker.js';
 import { loadPresets, updatePresets, applyPresetChange, type PresetChange } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
+import { ArmGuard } from '../utils/arm-guard.js';
 import { filterPresetStateForCardType } from '../utils/preset-caps.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
 import { initPaletteCache, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
@@ -105,6 +106,11 @@ export class CmsPanel extends LitElement {
   @state() private _presetNameTried = false;
   /** First click on the delete (x) control arms it; the second deletes. */
   @state() private _deleteArmed = false;
+  /** Disarms the delete control on a press elsewhere or after a few seconds
+   *  (blur alone never fires where a click doesn't focus the button). */
+  private _deleteGuard = new ArmGuard(() => {
+    this._deleteArmed = false;
+  });
   @state() private _entityRowStyles: EntitiesRowStyles = {};
   /** The card arrived with CSS the modules didn't adopt (now in Advanced
    *  CSS) — drives the "weren't recognised" note, which must not appear
@@ -586,6 +592,7 @@ export class CmsPanel extends LitElement {
 
   private _disarmDelete() {
     this._deleteArmed = false;
+    this._deleteGuard.stop();
   }
 
   private _onPresetDeleteKeydown(e: KeyboardEvent) {
@@ -593,12 +600,12 @@ export class CmsPanel extends LitElement {
     if (e.key === 'Escape' && this._deleteArmed) {
       e.preventDefault();
       e.stopPropagation();
-      this._deleteArmed = false;
+      this._disarmDelete();
     }
   }
 
   private _onPresetSelect(e: Event) {
-    this._deleteArmed = false;
+    this._disarmDelete();
     const name = (e.target as HTMLSelectElement).value;
     this._selectedPreset = name;
     if (!name) return;
@@ -637,14 +644,16 @@ export class CmsPanel extends LitElement {
   }
 
   /** Two-step: the first click only arms the control (its label asks), the
-   *  second deletes. Blur and Escape disarm it. */
-  private _deleteSelectedPreset() {
+   *  second deletes. Blur, Escape, a press elsewhere and a short timeout
+   *  disarm it. */
+  private _deleteSelectedPreset(e?: Event) {
     if (!this._selectedPreset) return;
     if (!this._deleteArmed) {
       this._deleteArmed = true;
+      this._deleteGuard.start(e?.currentTarget);
       return;
     }
-    this._deleteArmed = false;
+    this._disarmDelete();
     const name = this._selectedPreset;
     this._selectedPreset = '';
     this._commitPresetChange({ kind: 'delete', name });
