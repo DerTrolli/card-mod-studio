@@ -146,9 +146,20 @@ describe('what the panel shows for a never-on entity', () => {
   });
 
   it('a stored ON / OFF style on a lock card loads and re-saves byte-identically', () => {
-    const css = "ha-card {\n  background: {{ '#ffeecc' if is_state(config.entity, 'on') else 'none' }};\n}";
+    const css = "ha-card {\n  background: {{ '#ffeecc' if is_state(config.entity, 'on') else '' }};\n}";
     const state = mapToStudioState(parseStyleValue(css), 'tile');
     expect(state.background.applyWhen).toBe('on');
     expect(generateCss(state, 'tile', { config: { type: 'tile', entity: 'lock.front' } })).toBe(css);
+  });
+
+  it('an older ON / OFF style (off-branch none) on a lock card keeps its condition and is upgraded on save', () => {
+    // Before the own-look off-branch the false branch was 'none'; the
+    // condition must survive, only the off-branch is rewritten.
+    const old = "ha-card {\n  background: {{ '#ffeecc' if is_state(config.entity, 'on') else 'none' }};\n}";
+    const state = mapToStudioState(parseStyleValue(old), 'tile');
+    expect(state.background.applyWhen).toBe('on');
+    expect(generateCss(state, 'tile', { config: { type: 'tile', entity: 'lock.front' } })).toBe(
+      old.replace("else 'none'", "else ''"),
+    );
   });
 });
