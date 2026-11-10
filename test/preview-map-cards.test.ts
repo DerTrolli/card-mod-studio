@@ -79,10 +79,12 @@ describe('statistic', () => {
     expect(labelOf(chain('span.value', 'div.info', ...tail), 'statistic')).toBe(FONT);
     expect(labelOf(chain('span.measurement', 'div.info', ...tail), 'statistic')).toBe(FONT);
   });
-  it('the icon (Icon Color is hidden here) and the blank bands → Background', () => {
+  it('the icon → Icon Color (offered on statistic), the blank bands → Background', () => {
     const icon = chain('path.primary-path', 'g', 'svg', 'ha-svg-icon', 'ha-icon', 'ha-state-icon', 'div.icon', 'div.header', ...tail);
-    expect(capsFor('statistic').modules.iconColor).toBe(false);
-    expect(labelOf(icon, 'statistic')).toBe(BG);
+    expect(capsFor('statistic').modules.iconColor).toBe(true);
+    expect(labelOf(icon, 'statistic')).toBe(ICON);
+    // The icon's wrapper itself (the gap around the glyph) is card surface.
+    expect(labelOf(chain('div.icon', 'div.header', ...tail), 'statistic')).toBe(BG);
     expect(labelOf(chain('div.header', ...tail), 'statistic')).toBe(BG);
     expect(labelOf(chain('div.info', ...tail), 'statistic')).toBe(BG);
   });

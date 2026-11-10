@@ -135,7 +135,8 @@ const CARD_ICON_MATCHERS: Record<string, (el: PickChainElement) => boolean> = {
 
 /** Parts nothing styles (a wrapper spanning the card, an icon the card's
  *  modules don't reach): the walk stops there and the card-level fallback
- *  answers, instead of a class like `header` reading as Font. */
+ *  answers, instead of a class like `header` reading as Font. (On statistic
+ *  the glyph itself is caught earlier by the Icon Color rule.) */
 const CARD_SURFACE_PARTS: Record<string, (el: PickChainElement) => boolean> = {
   statistic: (el) => ['header', 'info', 'icon'].some((c) => el.classes.includes(c)),
   area: (el) => el.classes.includes('header'),
