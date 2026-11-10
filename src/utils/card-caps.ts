@@ -303,6 +303,12 @@ function buildCaps(
   };
 }
 
+/** Whether a card config sets `key` to something (a non-empty value). */
+function configSets(config: Record<string, unknown> | null | undefined, key: string): boolean {
+  const v = config?.[key];
+  return v !== undefined && v !== null && v !== '' && v !== false;
+}
+
 /**
  * The capabilities lookup — the ONE place per-card-type gating is decided.
  *
