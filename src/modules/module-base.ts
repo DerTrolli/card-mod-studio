@@ -295,9 +295,20 @@ export const moduleStyles = [
   }
 
   /* "Not set" affordances (see renderResetButton / renderDefaultOption). */
+  /* The unset label ("Default (14px)") and the set one (value + reset
+     button) take the same width, so the slider doesn't jump when a drag
+     flips between them: 80 = 48 + 8 gap + 24 button. */
+  .value-label.unset,
+  .value-label:has(+ .reset-btn) {
+    white-space: nowrap;
+  }
   .value-label.unset {
+    min-width: 80px;
     font-style: italic;
     opacity: 0.8;
+  }
+  .value-label:has(+ .reset-btn) {
+    min-width: 48px;
   }
   .reset-btn {
     flex-shrink: 0;

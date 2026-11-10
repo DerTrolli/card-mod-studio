@@ -166,6 +166,10 @@ const swatchStyles = css`
     cursor: pointer;
   }
   .clear:hover { background: color-mix(in srgb, var(--primary-text-color, #212121) 8%, transparent); }
+  .clear:focus-visible {
+    outline: 2px solid var(--primary-color, #03a9f4);
+    outline-offset: 1px;
+  }
   .custom input[type="color"] {
     -webkit-appearance: none;
     appearance: none;
@@ -556,7 +560,11 @@ export class CmsColorPicker extends LitElement {
   }
 
   private _onTextChange(e: Event) {
-    this.value = (e.target as HTMLInputElement).value;
+    const input = e.target as HTMLInputElement;
+    // Whitespace-only text means "not set" on a clearable picker — it must
+    // not reach a generated `color:   ;`.
+    this.value = this.clearable ? input.value.trim() : input.value;
+    if (this.clearable) input.value = this.value;
     this._emit();
     if (this.compact) this._closePopover();
   }

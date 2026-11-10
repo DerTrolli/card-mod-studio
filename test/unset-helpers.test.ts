@@ -3,6 +3,7 @@
  * opt-in `clearable` colour picker.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { FakeCustomElementRegistry, templateText } from './v010-audit-helpers.js';
 import { renderResetButton, renderDefaultOption } from '../src/modules/module-base.js';
 
@@ -40,7 +41,7 @@ describe('renderResetButton / renderDefaultOption', () => {
 describe('cms-color-picker clearable', () => {
   type Picker = {
     value: string; clearable: boolean; placeholder: string; placeholderColor: string;
-    _renderPickerBody(): unknown; _onClear(): void; dispatchEvent(e: Event): boolean;
+    _renderPickerBody(): unknown; _onClear(): void; _onTextChange(e: Event): void; dispatchEvent(e: Event): boolean;
   };
   let Picker: new () => Picker;
   beforeAll(async () => {
@@ -80,5 +81,38 @@ describe('cms-color-picker clearable', () => {
     p._onClear();
     expect(seen).toEqual([{ value: '' }]);
     expect(p.value).toBe('');
+  });
+
+  it('whitespace-only text on a clearable picker emits an empty value', () => {
+    const p = new Picker();
+    p.clearable = true;
+    const seen: unknown[] = [];
+    p.dispatchEvent = ((e: Event) => { seen.push((e as unknown as CustomEvent).detail); return true; });
+    const input = { value: '   ' };
+    p._onTextChange({ target: input } as unknown as Event);
+    expect(seen).toEqual([{ value: '' }]);
+    expect(input.value).toBe('');
+    p._onTextChange({ target: { value: '  red ' } } as unknown as Event);
+    expect(seen[1]).toEqual({ value: 'red' });
+  });
+  it('a normal picker passes its text through untouched', () => {
+    const p = new Picker();
+    const seen: unknown[] = [];
+    p.dispatchEvent = ((e: Event) => { seen.push((e as unknown as CustomEvent).detail); return true; });
+    p._onTextChange({ target: { value: ' red ' } } as unknown as Event);
+    expect(seen).toEqual([{ value: ' red ' }]);
+  });
+  it('the clear button has a focus ring like the reset button', () => {
+    const src = readFileSync(new URL('../src/components/cms-color-picker.ts', import.meta.url), 'utf8');
+    expect(src).toMatch(/\.clear:focus-visible\s*\{[^}]*outline/);
+  });
+});
+
+describe('unset label width', () => {
+  it('the unset label and the set label + reset button are the same width (no slider jump)', () => {
+    const src = readFileSync(new URL('../src/modules/module-base.ts', import.meta.url), 'utf8');
+    expect(src).toMatch(/\.value-label\.unset\s*\{[^}]*min-width:\s*80px/);
+    expect(src).toMatch(/:has\(\+ \.reset-btn\)\s*\{[^}]*min-width:\s*48px/);
+    expect(src).toMatch(/white-space:\s*nowrap/);
   });
 });
