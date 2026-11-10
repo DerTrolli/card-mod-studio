@@ -163,7 +163,7 @@ export class BorderModule extends LitElement {
                         <span class="value-label">
                           ${(this.state.widthOffPx ?? 0) > 0
                             ? `${this.state.widthOffPx}px`
-                            : 'no border'}
+                            : 'card default'}
                         </span>
                       </div>
                     </div>

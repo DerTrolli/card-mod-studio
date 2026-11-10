@@ -467,7 +467,7 @@ describe('M-chips', () => {
       border: { ...EMPTY.border, enabled: true, radiusPx: 0, borderWidth: 3, borderColor: '#00ff00', widthWhen: { when: 'on' }, widthOffPx: 1 },
     });
     const { css, back } = roundTrip(state, k);
-    expect(css).toContain(`--chip-background: {{ '#ee1111' if is_state(config.entity, 'on') else 'none' }};`);
+    expect(css).toContain(`--chip-background: {{ '#ee1111' if is_state(config.entity, 'on') else 'inherit' }};`);
     expect(css).toContain(`--chip-border-width: {{ '3px' if is_state(config.entity, 'on') else '1px' }};`);
     expect(back.border).toMatchObject({ borderWidth: 3, widthOffPx: 1, radiusPx: 0, widthWhen: { when: 'on' } });
   });

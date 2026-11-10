@@ -726,9 +726,13 @@ class ProfileClaims {
       const target = findTargetNormalized(this.targets, rule.selector);
       for (const name of rule.props) {
         const prop = target ? findProp(target, name) : null;
-        if (target && prop && !prop.hasCondition && prop.value.trim() === rule.equals) {
-          claimed.add(claimKey(target.selector, prop.property));
-        }
+        if (!target || !prop) continue;
+        // Plain, or riding on the module's own condition: the value on one
+        // branch and nothing (the declaration dropped) on the other.
+        const plain = !prop.hasCondition && prop.value.trim() === rule.equals;
+        const branches = prop.hasCondition ? [prop.onValue?.trim(), prop.offValue?.trim()] : [];
+        const conditional = branches.length === 2 && branches.includes(rule.equals) && branches.includes('');
+        if (plain || conditional) claimed.add(claimKey(target.selector, prop.property));
       }
     }
   }
@@ -839,7 +843,11 @@ function mapBorderProfile(pc: ProfileClaims, claimed: Set<string>): BorderModule
   }
 
   const colorFirst = pc.present('borderColor')[0]?.prop;
-  const thresholdShaped = !!colorFirst?.hasCondition && !colorFirst.onValue;
+  // "Width otherwise" 0 writes a conditional COLOUR too (`… else 'inherit'`,
+  // see borderVarDecls) — that is ours, not a threshold's.
+  const ownColor = colorFirst?.hasCondition ? parseCondTernary(colorFirst.value.trim()) : null;
+  const ownColorShape = ownColor && ownColor.offValue.trim() === 'inherit' ? ownColor : null;
+  const thresholdShaped = !!colorFirst?.hasCondition && !colorFirst.onValue && !ownColorShape;
   const widthProp = thresholdShaped ? undefined : pc.present('borderWidth')[0]?.prop;
   if (widthProp) {
     const v = widthProp.value.trim();
@@ -847,19 +855,30 @@ function mapBorderProfile(pc: ProfileClaims, claimed: Set<string>): BorderModule
     const stat = !widthProp.hasCondition ? v.match(PX) : null;
     const ternary = widthProp.hasCondition ? parseCondTernary(v) : null;
     const on = ternary?.onValue.match(PX);
+    const offTrim = ternary?.offValue.trim();
     const off = ternary?.offValue.match(PX);
-    if (stat || (ternary && on && off)) {
+    // The card's own width: `inherit`, or (older saves) a literal `0px`.
+    const ownWidth = offTrim === 'inherit' || (!!off && parseInt(off[1], 10) === 0);
+    // A conditional colour belongs to the "own border" shape only, and must
+    // carry the same condition as the width.
+    const colorOk = !ownColorShape || (ownWidth && JSON.stringify(ownColorShape.condition) === JSON.stringify(ternary?.condition));
+    if (colorOk && (stat || (ternary && on && (off || offTrim === 'inherit')))) {
       state.enabled = true;
       state.borderWidth = parseInt((stat ?? on!)[1], 10);
-      if (ternary && on && off) {
+      if (ternary && on) {
         state.widthWhen = ternary.condition;
-        if (parseInt(off[1], 10) > 0) state.widthOffPx = parseInt(off[1], 10);
+        if (off && parseInt(off[1], 10) > 0) state.widthOffPx = parseInt(off[1], 10);
       }
       pc.claimEqual('borderWidth', widthProp.value, claimed);
-      const color = plain('borderColor');
-      if (color) {
-        state.borderColor = color.value.trim();
-        pc.claimEqual('borderColor', color.value, claimed);
+      if (ownColorShape && colorFirst) {
+        state.borderColor = ownColorShape.onValue.trim();
+        pc.claimEqual('borderColor', colorFirst.value, claimed);
+      } else {
+        const color = plain('borderColor');
+        if (color) {
+          state.borderColor = color.value.trim();
+          pc.claimEqual('borderColor', color.value, claimed);
+        }
       }
     }
   }
@@ -1396,6 +1415,14 @@ function parseLinearGradient(value: string): { angle: number; color1: string; co
 
 // ---------------------------------------------------------------------------
 
+/** The "condition not met" branch of a Background / Border ternary on
+ *  `property`: empty (a property) or `inherit` (a custom property), or `none`
+ *  (written by earlier versions). See ownLookBranch in css-generator.ts. */
+function isOwnLookBranch(v: string, property: string): boolean {
+  const t = v.trim();
+  return t === 'none' || t === (property.startsWith('--') ? 'inherit' : '');
+}
+
 function mapBackground(
   haCardTarget: CssTarget | null,
   claimed: Set<string>,
@@ -1438,16 +1465,18 @@ function mapBackground(
     return { ...DEFAULT_BACKGROUND };
   }
 
-  // Conditional background: {{ 'color' if is_state(..., 'on'/'off') else 'none' }}
+  // Conditional background: {{ 'color' if is_state(..., 'on'/'off') else '' }}
+  // (a variable's other branch is `inherit`; older saves wrote `none` — all
+  // three mean "no background of ours" and are read the same).
   if (bgProp.hasCondition && bgProp.onValue !== undefined && bgProp.offValue !== undefined) {
     const onVal = bgProp.onValue.trim();
     const offVal = bgProp.offValue.trim();
     let applyWhen: 'on' | 'off' | 'custom' | null = null;
     let colorVal = '';
-    if (offVal === 'none' && onVal && onVal !== 'none') {
+    if (isOwnLookBranch(offVal, bgProp.property) && onVal && !isOwnLookBranch(onVal, bgProp.property)) {
       applyWhen = bgProp.entityId ? 'custom' : 'on';
       colorVal = onVal;
-    } else if (onVal === 'none' && offVal && offVal !== 'none') {
+    } else if (isOwnLookBranch(onVal, bgProp.property) && offVal && !isOwnLookBranch(offVal, bgProp.property)) {
       // Background on the OFF side of a CUSTOM entity is NOT claimable:
       // 'custom' regenerates as "while the entity is ON" — claiming this
       // shape INVERTED the user's condition on save (audit W1). Falls to
@@ -1536,14 +1565,16 @@ function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModule
       if (!radiusProp) state.radiusPx = 0;
     }
   } else if (borderProp) {
-    // v0.9 state-driven width: {{ 'Npx solid C' if COND else 'none'|'Mpx
-    // solid C' }} — solid only, same color both branches (exactly what
-    // borderDecls emits). Anything else stays unclaimed → Advanced CSS.
+    // State-driven width: {{ 'Npx solid C' if COND else ''|'Mpx solid C' }}
+    // — solid only, same color both branches (exactly what borderDecls
+    // emits). An empty (or, from older saves, `none`) other branch = the
+    // card's own border. Anything else stays unclaimed → Advanced CSS.
     const ternary = parseCondTernary(borderProp.value);
     if (ternary) {
       const BRANCH = /^(\d+)px\s+solid\s+(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)$/i;
       const on = ternary.onValue.match(BRANCH);
-      const off = ternary.offValue === 'none' ? 'none' : ternary.offValue.match(BRANCH);
+      const offTrim = ternary.offValue.trim();
+      const off = offTrim === '' || offTrim === 'none' ? 'none' : ternary.offValue.match(BRANCH);
       const colorsMatch = off === 'none' || (off !== null && on !== null && off[2] === on[2]);
       if (on && off !== null && colorsMatch) {
         state.enabled = true;
@@ -2194,7 +2225,12 @@ function mapThreshold(
   // built-in `ha-card` shape reaches nothing on those cards and is not adopted.
   const profileOwns = (role: ClaimRole) => !!pc?.has(role);
   const profileCandidate = (role: ClaimRole, thresholdProperty: ThresholdProperty): void => {
-    const first = pc?.present(role).find(({ prop }) => prop.hasCondition && !prop.onValue);
+    // A border colour whose other branch is `inherit` is the Border module's
+    // own "card's own border" shape (borderVarDecls) — a threshold always
+    // ends on a colour.
+    const ownBorderColor = (v: string) =>
+      role === 'borderColor' && parseCondTernary(v.trim())?.offValue.trim() === 'inherit';
+    const first = pc?.present(role).find(({ prop }) => prop.hasCondition && !prop.onValue && !ownBorderColor(prop.value));
     if (first) candidates.push({ target: first.target, cssProperty: first.prop.property, thresholdProperty, profileRole: role });
   };
   profileCandidate('background', 'background');

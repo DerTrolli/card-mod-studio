@@ -2013,7 +2013,7 @@ describe('v0.9 state-driven numeric controls', () => {
     });
     const css = generateCss(state, 'tile');
     expect(css).toContain(
-      `border: {{ '3px solid #ff0000' if is_state(config.entity, 'on') else 'none' }};`,
+      `border: {{ '3px solid #ff0000' if is_state(config.entity, 'on') else '' }};`,
     );
     const re = expectStable(state, 'tile');
     expect(re.border.widthWhen).toEqual({ when: 'on' });

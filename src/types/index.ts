@@ -275,7 +275,8 @@ export interface BorderModuleState {
   borderColor: string;
   /** Condition the border reacts to; undefined / when:'always' = static. */
   widthWhen?: StyleCondition;
-  /** Border width while widthWhen does NOT match; 0/undefined = no border then. */
+  /** Border width while widthWhen does NOT match; 0/undefined = the card's
+   *  own border (the Studio writes nothing then). */
   widthOffPx?: number;
 }
 

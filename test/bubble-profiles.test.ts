@@ -226,8 +226,9 @@ describe('Bubble 3 profiles — emitted CSS (literal) and round trip', () => {
       border: { ...EMPTY.border, enabled: true, radiusPx: 0, borderWidth: 2, borderColor: '#00ff00' },
     });
     const css = generateCss(state, BTN);
-    expect(css).toContain("background: {{ 'linear-gradient(45deg, #ff0000, #0000ff)' if is_state(config.entity, 'on') else 'none' }};");
-    expect(css).toContain('opacity: 1 !important;');
+    expect(css).toContain("background: {{ 'linear-gradient(45deg, #ff0000, #0000ff)' if is_state(config.entity, 'on') else '' }};");
+    // The opacity companion rides on the same condition (else it changes the pill while off).
+    expect(css).toContain("opacity: {{ '1' if is_state(config.entity, 'on') else '' }} !important;");
     const back = parse(css, BTN);
     expect(back.advanced.rawCss).toBe('');
     expect(back.background).toMatchObject({ enabled: true, type: 'gradient', applyWhen: 'on' });

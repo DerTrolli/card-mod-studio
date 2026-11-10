@@ -338,9 +338,22 @@ function accentTripletValue(s: AccentColorModuleState): string | null {
 
 /** A profile's companion declarations (`opacity: 1 !important`), written only
  *  next to declarations their module actually wrote. */
-function companionDecls(decls: string[], companions: Companion[] | undefined): string[] {
+function companionDecls(
+  decls: string[],
+  companions: Companion[] | undefined,
+  /** The module's own condition: the companion rides on it too, else it would
+   *  change the card's look (Bubble's opacity) while the module is off. The
+   *  empty branch drops the declaration. */
+  cond: string | null = null,
+): string[] {
   if (!decls.length || !companions?.length) return decls;
-  return [...decls, ...companions.map((c) => `${c.prop}: ${c.value}${c.important ? ' !important' : ''};`)];
+  return [
+    ...decls,
+    ...companions.map((c) => {
+      const value = cond ? `{{ '${c.value}' if ${cond} else '' }}` : c.value;
+      return `${c.prop}: ${value}${c.important ? ' !important' : ''};`;
+    }),
+  ];
 }
 
 /** Accent through a profile emitter: each variable gets the `R, G, B` value —
@@ -360,11 +373,16 @@ function borderVarDecls(s: BorderModuleState, e: BorderEmitter, skipColor = fals
   if (s.radiusPx > 0) for (const v of e.radius ?? []) decls.push(`${v}: ${s.radiusPx}px;`);
   if (!skipColor && s.borderWidth > 0) {
     const cond = conditionExpr(s.widthWhen);
+    // Variables take `inherit` (see ownLookBranch); with no "otherwise" width
+    // the COLOUR is conditional too, else the card's own border would turn
+    // the Studio's colour while the condition is off.
+    const ownBorder = !!cond && !(s.widthOffPx && s.widthOffPx > 0);
     const width = cond
-      ? `{{ '${s.borderWidth}px' if ${cond} else '${s.widthOffPx && s.widthOffPx > 0 ? s.widthOffPx : 0}px' }}`
+      ? `{{ '${s.borderWidth}px' if ${cond} else '${ownBorder ? 'inherit' : `${s.widthOffPx}px`}' }}`
       : `${s.borderWidth}px`;
+    const color = ownBorder ? `{{ '${s.borderColor}' if ${cond} else 'inherit' }}` : s.borderColor;
     for (const v of e.width ?? []) decls.push(`${v}: ${width};`);
-    for (const v of e.color ?? []) decls.push(`${v}: ${s.borderColor};`);
+    for (const v of e.color ?? []) decls.push(`${v}: ${color};`);
   }
   return decls;
 }
@@ -425,34 +443,47 @@ function gaugeColorBlock(
   return `ha-gauge {\n${markerLine}  --gauge-color: ${value} !important;\n${needleLine}}`;
 }
 
+/** The "condition not met" branch of a Background / Border ternary: the card
+ *  keeps its own look. Empty renders `prop: ;` — an invalid declaration the
+ *  browser drops, so the card's own value wins (measured on tile, markdown,
+ *  Mushroom and Bubble). A CSS custom property is the exception — `--x: ;` is
+ *  a VALID empty value that blanks whatever reads it — so variables take
+ *  `inherit` (the value from the parent, i.e. the one they would have
+ *  without the rule). Never `none`: for `background` and `border` that is an
+ *  explicit "no background / no border". */
+function ownLookBranch(name: string): string {
+  return name.startsWith('--') ? 'inherit' : '';
+}
+
 /** `names`: the property (or, for a profile's background emitter, the
  *  variables) that carry the value — `background` by default. */
 function backgroundDecls(s: BackgroundModuleState, names: string[] = ['background']): string[] {
   if (!s.enabled) return [];
-  return backgroundValueDecls(s).flatMap((d) => names.map((n) => d.replace(/^background:/, `${n}:`)));
+  return names.flatMap((n) =>
+    backgroundValueDecls(s, ownLookBranch(n)).map((d) => d.replace(/^background:/, `${n}:`)),
+  );
 }
 
-function backgroundValueDecls(s: BackgroundModuleState): string[] {
+/** The condition a Background reacts to (null = unconditional). */
+function backgroundCondition(s: BackgroundModuleState): string | null {
+  if (s.applyWhen === 'always') return null;
+  // 'custom' with no entity picked yet → unconditional. The old fallthrough
+  // mapped an incomplete 'custom' to the 'off' branch — the background
+  // instantly INVERTED and the intent was rewritten to applyWhen:'off' on
+  // reopen (audit W8/BUG-2).
+  if (s.applyWhen === 'custom') {
+    return s.customEntity ? `is_state(${entityRef(s.customEntity)}, 'on')` : null;
+  }
+  return `is_state(config.entity, '${s.applyWhen === 'on' ? 'on' : 'off'}')`;
+}
 
+function backgroundValueDecls(s: BackgroundModuleState, otherwise = ''): string[] {
   const bgValue =
     s.type === 'gradient'
       ? `linear-gradient(${s.angle}deg, ${s.color1}, ${s.color2})`
       : s.color1;
-
-  if (s.applyWhen === 'always') return [`background: ${bgValue};`];
-  if (s.applyWhen === 'custom') {
-    // No entity picked yet → unconditional. The old fallthrough mapped an
-    // incomplete 'custom' to the 'off' branch — the background instantly
-    // INVERTED and the intent was rewritten to applyWhen:'off' on reopen
-    // (audit W8/BUG-2).
-    return s.customEntity
-      ? [`background: {{ '${bgValue}' if is_state(${entityRef(s.customEntity)}, 'on') else 'none' }};`]
-      : [`background: ${bgValue};`];
-  }
-  const when = s.applyWhen === 'on' ? 'on' : 'off';
-  return [
-    `background: {{ '${bgValue}' if is_state(config.entity, '${when}') else 'none' }};`,
-  ];
+  const cond = backgroundCondition(s);
+  return [cond ? `background: {{ '${bgValue}' if ${cond} else '${otherwise}' }};` : `background: ${bgValue};`];
 }
 
 /**
@@ -471,8 +502,10 @@ function borderDecls(s: BorderModuleState, skipColor = false): string[] {
       // v0.9: width reacts to a state condition. Same color both branches —
       // this control drives WIDTH; a state-driven color is Threshold's job.
       const onVal = `${s.borderWidth}px solid ${s.borderColor}`;
+      // "Width otherwise" 0 = the card's own border (empty branch — see
+      // ownLookBranch); a real width keeps drawing that width.
       const offVal =
-        s.widthOffPx && s.widthOffPx > 0 ? `${s.widthOffPx}px solid ${s.borderColor}` : 'none';
+        s.widthOffPx && s.widthOffPx > 0 ? `${s.widthOffPx}px solid ${s.borderColor}` : ownLookBranch('border');
       decls.push(`border: {{ '${onVal}' if ${cond} else '${offVal}' }};`);
     } else {
       decls.push(`border: ${s.borderWidth}px solid ${s.borderColor};`);
@@ -1237,7 +1270,11 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
       : em?.background
         ? onHaCard(
             em.background.selector,
-            companionDecls(backgroundDecls(state.background, em.background.vars), em.background.companions),
+            companionDecls(
+              backgroundDecls(state.background, em.background.vars),
+              em.background.companions,
+              backgroundCondition(state.background),
+            ),
           )
         : backgroundDecls(state.background)),
     ...(em?.border
