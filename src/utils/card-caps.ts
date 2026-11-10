@@ -78,7 +78,10 @@ export const NO_BORDER_TYPES = new Set([
 // Threshold Colors writes icon/accent/background/text/border colour —
 // none of which shows on a heading card (measured on a real dashboard:
 // title colour, background and border all unchanged; Heading Style has its
-// own colour controls). Entities cards hide it too, for per-row thresholds.
+// own colour controls). An entities card offers it for the card frame only:
+// Background, Text colour and Border colour work there (v0.11, both engines);
+// Icon Color and Accent stay off for entities, so thresholdProperty() leaves
+// exactly those three. Per-row icon/text thresholds live in the rows section.
 export const NO_THRESHOLD_TYPES = new Set([
   'heading',
 ]);
@@ -380,7 +383,7 @@ export function capsFor(profileKey: string | undefined, config?: Record<string, 
       iconColor: !entities && !NO_ICON_COLOR_TYPES.has(key),
       accentColor: key !== 'heading' && !entities && !NO_ACCENT_TYPES.has(key),
       font: !NO_FONT_TYPES.has(key),
-      threshold: !entities && !NO_THRESHOLD_TYPES.has(key),
+      threshold: !NO_THRESHOLD_TYPES.has(key),
       background: !NO_BACKGROUND_TYPES.has(key),
       border: !NO_BORDER_TYPES.has(key),
       animation: !NO_ANIMATION_TYPES.has(key),

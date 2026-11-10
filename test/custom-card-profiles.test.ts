@@ -156,7 +156,8 @@ describe('capsFor — built-in cards answer exactly as the old Sets', () => {
       expect(c.modules.iconColor).toBe(t !== 'entities' && !OLD_NO_ICON_COLOR_TYPES.has(t));
       expect(c.modules.accentColor).toBe(t !== 'heading' && t !== 'entities' && !OLD_NO_ACCENT_TYPES.has(t));
       expect(c.modules.font).toBe(!OLD_NO_FONT_TYPES.has(t));
-      expect(c.modules.threshold).toBe(t !== 'entities' && !OLD_NO_THRESHOLD_TYPES.has(t));
+      // v0.11: entities offers Threshold for its card frame (was hidden for per-row thresholds)
+      expect(c.modules.threshold).toBe(!OLD_NO_THRESHOLD_TYPES.has(t));
       expect(c.modules.background).toBe(!OLD_NO_BACKGROUND_TYPES.has(t));
       expect(c.modules.border).toBe(!OLD_NO_BORDER_TYPES.has(t));
       expect(c.modules.animation).toBe(!OLD_NO_ANIMATION_TYPES.has(t));

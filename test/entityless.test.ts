@@ -104,6 +104,20 @@ function sweepStates(): Array<[string, StudioState]> {
       },
     });
   }
+  // …in every mode, with a picked attribute, on the entity-less entities card
+  // (Threshold is offered there since v0.11 and the user must pick the source).
+  for (const mode of ['switch', 'gradient'] as const) {
+    for (const [entityId, attribute] of [['sensor.t', ''], ['sensor.t', 'battery'], ['', ''], ['', 'battery']]) {
+      add(`threshold ${mode} bg/text/border (entity "${entityId}", attribute "${attribute}")`, {
+        threshold: {
+          ...DEFAULT_THRESHOLD, enabled: true, entityId, attribute, valueMode: mode,
+          properties: ['background', 'text-color', 'border-color'],
+          rules: [{ id: 'r1', operator: '>', value: 5, color: '#ff0000' }],
+          colorStops: [{ id: 's1', value: 0, color: '#00ff00' }, { id: 's2', value: 100, color: '#ff0000' }],
+        },
+      });
+    }
+  }
   for (const m of ['plain', 'conditional', 'light'] as const) {
     add(`icon colour ${m}`, { iconColor: { ...DEFAULT_ICON_COLOR, enabled: true, mode: m, entityId: undefined } });
   }

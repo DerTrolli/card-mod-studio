@@ -16,8 +16,9 @@
  *   custom profile's hidden modules are reset the same way)
  *   - iconColor     → hidden on 'entities' and NO_ICON_COLOR_TYPES
  *   - accentColor   → hidden on 'heading', 'entities' and NO_ACCENT_TYPES
- *   - threshold     → hidden on 'entities' and NO_THRESHOLD_TYPES; elsewhere
- *                     its properties are filtered by thresholdPropertyAllowed
+ *   - threshold     → hidden per NO_THRESHOLD_TYPES; elsewhere its properties
+ *                     are filtered by thresholdPropertyAllowed (on 'entities':
+ *                     Background, Text colour and Border colour only)
  *   - background    → hidden per NO_BACKGROUND_TYPES
  *   - animation     → hidden per NO_ANIMATION_TYPES
  *   - border        → hidden per NO_BORDER_TYPES
