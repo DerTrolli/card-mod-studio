@@ -139,8 +139,8 @@ describe('the Icon Color panel', () => {
     el._open = true;
     const emitted: IconColorModuleState[] = [];
     el.dispatchEvent = ((e: Event) => { emitted.push((e as unknown as CustomEvent).detail); return true; });
-    // Render order of the header: click, keydown, switch click, switch change.
-    const toggle = (checked: boolean) => handlers(el.render())[3]({ target: { checked } });
+    // Render order of the header: click, keydown, switch change.
+    const toggle = (checked: boolean) => handlers(el.render())[2]({ target: { checked } });
     return { el, emitted, toggle };
   };
 

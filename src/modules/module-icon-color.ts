@@ -6,12 +6,11 @@ import { getCachedPalette } from '../utils/palette-storage.js';
 import { hasOwnEntity, stateKindFor, type OwnStateKind } from '../utils/card-caps.js';
 import {
   moduleStyles,
-  renderOverrideBadge,
   renderOverrideHint,
   renderThresholdOwnedHint,
   renderWatchHint,
   renderCondition,
-  onHeaderKeydown,
+  renderModuleHeader,
 } from './module-base.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
@@ -109,24 +108,17 @@ export class IconColorModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this._open ? 'true' : 'false'}
-          @click=${this._toggleOpen}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">🎨 Icon Color</span>
-          ${renderOverrideBadge(this.overridden)}
-          <ha-switch
-            aria-label="Enable Icon Color"
-            .checked=${this.state.enabled}
-            @click=${(e: Event) => e.stopPropagation()}
-            @change=${(e: Event) =>
+        ${renderModuleHeader({
+          icon: '🎨',
+          title: 'Icon Color',
+          open: this._open,
+          onToggle: () => this._toggleOpen(),
+          overridden: this.overridden,
+          enable: {
+            checked: this.state.enabled,
+            onChange: (on) =>
               this._emit(
-                (e.target as HTMLInputElement).checked
+                on
                   ? enableChanges(
                       this.state,
                       this.allowSize,
@@ -134,9 +126,9 @@ export class IconColorModule extends LitElement {
                       stateKindFor(this.stateAware, this.cardEntity),
                     )
                   : { enabled: false },
-              )}
-          ><span class="sr-only">Enable Icon Color</span></ha-switch>
-        </div>
+              ),
+          },
+        })}
         ${this._open ? this._renderBody() : nothing}
       </div>
     `;
@@ -145,7 +137,7 @@ export class IconColorModule extends LitElement {
   private _renderBody() {
     if (!this.allowColor) {
       return html`
-        <div class="module-body">
+        <div class="module-body" id="module-body">
           ${renderOverrideHint(this.overridden, this.overriddenDetail)}
           <div class="when-hint">This card's icons can't take a colour from a style — only their size.</div>
           ${this.allowSize ? this._renderSize() : nothing}
@@ -164,7 +156,7 @@ export class IconColorModule extends LitElement {
     const kind = stateKindFor(this.stateAware, this.cardEntity);
 
     return html`
-      <div class="module-body">
+      <div class="module-body" id="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         ${renderThresholdOwnedHint(this.thresholdOwned, 'icon color', 'Icon Color')}
         <div class="control-row">

@@ -3,7 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { AccentColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ACCENT_COLOR } from '../parser/state-mapper.js';
 import { accentColorsWithoutTriplet, tripletHint } from '../utils/rgb-triplet.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint, renderThresholdOwnedHint, renderWatchHint, onHeaderKeydown } from './module-base.js';
+import { moduleStyles, renderOverrideHint, renderThresholdOwnedHint, renderWatchHint, renderModuleHeader } from './module-base.js';
 import { stateKindFor } from '../utils/card-caps.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
@@ -62,25 +62,17 @@ export class AccentColorModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this._open ? 'true' : 'false'}
-          @click=${this._toggleOpen}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">🌈 Accent Color</span>
-          ${renderOverrideBadge(this.overridden)}
-          <ha-switch
-            aria-label="Enable Accent Color"
-            .checked=${this.state.enabled}
-            @click=${(e: Event) => e.stopPropagation()}
-            @change=${(e: Event) =>
-              this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ><span class="sr-only">Enable Accent Color</span></ha-switch>
-        </div>
+        ${renderModuleHeader({
+          icon: '🌈',
+          title: 'Accent Color',
+          open: this._open,
+          onToggle: () => this._toggleOpen(),
+          overridden: this.overridden,
+          enable: {
+            checked: this.state.enabled,
+            onChange: (enabled) => this._emit({ enabled }),
+          },
+        })}
         ${this._open ? this._renderBody() : nothing}
       </div>
     `;
@@ -91,7 +83,7 @@ export class AccentColorModule extends LitElement {
     const kind = stateKindFor(this.stateAware, this.cardEntity);
 
     return html`
-      <div class="module-body">
+      <div class="module-body" id="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         ${renderThresholdOwnedHint(this.thresholdOwned, 'accent color', 'Accent Color')}
         <div class="control-row">

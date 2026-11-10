@@ -109,6 +109,30 @@ export const moduleStyles = [
     margin-block-start: -14px;
   }
 
+  /* Header whose button and switch are siblings (renderModuleHeader): the
+     button takes over the bar's padding so the whole bar still toggles. */
+  .module-header.has-toggle {
+    padding: 0 14px 0 0;
+    gap: 0;
+    cursor: default;
+  }
+  .module-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    align-self: stretch;
+    box-sizing: border-box;
+    min-height: 44px;
+    padding: 6px 6px 6px 14px;
+    cursor: pointer;
+  }
+  .module-toggle:focus-visible {
+    outline: 2px solid var(--primary-color, #03a9f4);
+    outline-offset: -2px;
+  }
+
   .module-chevron {
     font-size: 10px;
     color: var(--secondary-text-color, #727272);
@@ -441,6 +465,56 @@ export function onHeaderKeydown(e: KeyboardEvent): void {
   }
 }
 
+export interface ModuleHeaderOptions {
+  icon: string;
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  /** Advanced CSS is overriding this module (warning badge). */
+  overridden?: boolean;
+  /** The module's on/off switch; omitted for modules that have none. */
+  enable?: { checked: boolean; onChange: (checked: boolean) => void };
+}
+
+/** Id of the module's body, which the header button controls. */
+export const MODULE_BODY_ID = 'module-body';
+
+/**
+ * The collapsible header every module shares. The expand/collapse button
+ * covers the chevron, title and badge; the enable switch is its SIBLING, not
+ * a descendant (an interactive control inside a button is read badly by
+ * assistive technology). The decorative chevron and emoji are hidden from the
+ * button's name, so it reads "Font". The switch is named "Enable <title>"
+ * from the same text.
+ */
+export function renderModuleHeader(o: ModuleHeaderOptions): TemplateResult {
+  const name = `Enable ${o.title}`;
+  return html`
+    <div class="module-header has-toggle">
+      <div
+        class="module-toggle"
+        role="button"
+        tabindex="0"
+        aria-expanded=${o.open ? 'true' : 'false'}
+        aria-controls=${o.open ? MODULE_BODY_ID : nothing}
+        @click=${() => o.onToggle()}
+        @keydown=${onHeaderKeydown}
+      >
+        <span class="module-chevron" aria-hidden="true">${o.open ? '▼' : '▶'}</span>
+        <span class="module-title"><span><span aria-hidden="true">${o.icon}</span> ${o.title}</span></span>
+        ${renderOverrideBadge(o.overridden ?? false)}
+      </div>
+      ${o.enable
+        ? html`<ha-switch
+            aria-label=${name}
+            .checked=${o.enable.checked}
+            @change=${(e: Event) => o.enable!.onChange((e.target as HTMLInputElement).checked)}
+          ><span class="sr-only">${name}</span></ha-switch>`
+        : nothing}
+    </div>
+  `;
+}
+
 // ---------------------------------------------------------------------------
 // Shared conditional ("Apply when") control
 // ---------------------------------------------------------------------------
@@ -614,6 +688,8 @@ export function renderOverrideBadge(overridden: boolean): TemplateResult | typeo
   if (!overridden) return nothing;
   return html`<span
     class="override-badge"
+    role="img"
+    aria-label="Custom CSS in Advanced CSS is currently overriding this control"
     title="Custom CSS in Advanced CSS is currently overriding this control"
   >⚠️</span>`;
 }

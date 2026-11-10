@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { property } from 'lit/decorators.js';
 import type { AdvancedModuleState, PiercedEntry } from '../types/index.js';
-import { moduleStyles, onHeaderKeydown, nameCodeEditor } from './module-base.js';
+import { moduleStyles, renderModuleHeader, nameCodeEditor } from './module-base.js';
 import { lintAdvancedCss } from '../utils/css-lint.js';
 
 export class AdvancedModule extends LitElement {
@@ -86,22 +86,17 @@ export class AdvancedModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this.open ? 'true' : 'false'}
-          @click=${() => {
+        ${renderModuleHeader({
+          icon: '📝',
+          title: 'Advanced CSS',
+          open: this.open,
+          onToggle: () => {
             this.open = !this.open;
-          }}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron">${this.open ? '▼' : '▶'}</span>
-          <span class="module-title">📝 Advanced CSS</span>
-        </div>
+          },
+        })}
         ${this.open
           ? html`
-              <div class="editor-wrap">
+              <div class="editor-wrap" id="module-body">
                 <ha-code-editor
                   label="Advanced CSS"
                   aria-label="Advanced CSS"

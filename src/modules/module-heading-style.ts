@@ -3,7 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { HeadingStyleModuleState } from '../types/index.js';
 import { DEFAULT_HEADING_STYLE } from '../parser/state-mapper.js';
 import {
-  moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown, renderResetButton, renderDefaultOption,
+  moduleStyles, renderOverrideHint, renderModuleHeader, renderResetButton, renderDefaultOption,
 } from './module-base.js';
 import { FONT_FAMILY_PRESETS } from './module-font.js';
 import '../components/cms-color-picker.js';
@@ -75,25 +75,17 @@ export class HeadingStyleModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this._open ? 'true' : 'false'}
-          @click=${this._toggleOpen}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">🔤 Heading Style</span>
-          ${renderOverrideBadge(this.overridden)}
-          <ha-switch
-            aria-label="Enable Heading Style"
-            .checked=${this.state.enabled}
-            @click=${(e: Event) => e.stopPropagation()}
-            @change=${(e: Event) =>
-              this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ><span class="sr-only">Enable Heading Style</span></ha-switch>
-        </div>
+        ${renderModuleHeader({
+          icon: '🔤',
+          title: 'Heading Style',
+          open: this._open,
+          onToggle: () => this._toggleOpen(),
+          overridden: this.overridden,
+          enable: {
+            checked: this.state.enabled,
+            onChange: (enabled) => this._emit({ enabled }),
+          },
+        })}
         ${this._open ? this._renderBody() : nothing}
       </div>
     `;
@@ -109,7 +101,7 @@ export class HeadingStyleModule extends LitElement {
     const native = headingNative(this.headingStyle);
 
     return html`
-      <div class="module-body">
+      <div class="module-body" id="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         <div class="control-row">
           <span class="control-label">Text size</span>

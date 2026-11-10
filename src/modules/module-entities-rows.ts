@@ -351,7 +351,7 @@ export class EntitiesRowsModule extends LitElement {
     return html`
       <div class="module">
         <div class="module-header" style="cursor:default; pointer-events:none">
-          <span class="module-title">🏠 Entity Rows</span>
+          <span class="module-title"><span><span aria-hidden="true">🏠</span> Entity Rows</span></span>
         </div>
         <div class="module-body">
           ${entityRows.map(({ row, index }) => {
@@ -389,10 +389,11 @@ export class EntitiesRowsModule extends LitElement {
           role="button"
           tabindex="0"
           aria-expanded=${isOpen ? 'true' : 'false'}
+          aria-controls=${isOpen ? `row-body-${rowKey}` : nothing}
           @click=${() => this._toggleRow(rowKey)}
           @keydown=${onHeaderKeydown}
         >
-          <span class="entity-chevron">${isOpen ? '▼' : '▶'}</span>
+          <span class="entity-chevron" aria-hidden="true">${isOpen ? '▼' : '▶'}</span>
           <span class="entity-name">${label}</span>
           <span class="entity-id">${id}</span>
           ${conflicts.length
@@ -400,7 +401,7 @@ export class EntitiesRowsModule extends LitElement {
             : nothing}
           ${hasStyle ? html`<span class="style-dot" title="This row has styling"></span>` : nothing}
         </div>
-        ${isOpen ? (rowStyle.frozen ? this._renderFrozen() : this._renderBody(rowKey, rowStyle, conflicts, row.state_color === false, label)) : nothing}
+        ${isOpen ? (rowStyle.frozen ? this._renderFrozen(rowKey) : this._renderBody(rowKey, rowStyle, conflicts, row.state_color === false, label)) : nothing}
       </div>
     `;
   }
@@ -408,8 +409,8 @@ export class EntitiesRowsModule extends LitElement {
   /** A row the save path leaves untouched (EntitiesRowStyle.frozen) gets a
    *  lock note instead of controls whose edits would be silently dropped
    *  (audit v0.10 #9). */
-  private _renderFrozen() {
-    return html`<div class="entity-body">
+  private _renderFrozen(rowKey: string) {
+    return html`<div class="entity-body" id="row-body-${rowKey}">
       <p class="when-hint frozen-note">
         🔒 This row's styling mixes a plain style and a dictionary-form style (or its
         <code>.</code> entry isn't plain CSS) — preserved as-is; edit it in YAML.
@@ -431,7 +432,7 @@ export class EntitiesRowsModule extends LitElement {
     const textIsThreshold = rowStyle.textMode === 'threshold';
 
     return html`
-      <div class="entity-body">
+      <div class="entity-body" id="row-body-${rowKey}">
         ${renderOverrideHint(conflicts.length > 0, conflicts.join(', '))}
 
         <!-- Icon color -->

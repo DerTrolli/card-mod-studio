@@ -46,8 +46,8 @@ const make = (
   el._open = true;
   const emitted: IconColorModuleState[] = [];
   el.dispatchEvent = ((e: Event) => { emitted.push((e as unknown as CustomEvent).detail); return true; });
-  // Header handlers: click, keydown, switch click, switch change.
-  const toggle = (checked: boolean) => handlers(el.render())[3]({ target: { checked } });
+  // Header handlers: click, keydown, switch change (the switch is the button's sibling, so no click guard).
+  const toggle = (checked: boolean) => handlers(el.render())[2]({ target: { checked } });
   return { el, emitted, toggle, text: () => templateText(el._renderBody()) };
 };
 

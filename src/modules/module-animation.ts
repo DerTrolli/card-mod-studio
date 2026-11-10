@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { AnimationModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ANIMATION } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown, offeredOnOff } from './module-base.js';
+import { moduleStyles, renderOverrideHint, renderModuleHeader, offeredOnOff } from './module-base.js';
 import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 import { stateKindFor } from '../utils/card-caps.js';
 import '../components/cms-entity-picker.js';
@@ -86,25 +86,17 @@ export class AnimationModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this._open ? 'true' : 'false'}
-          @click=${this._toggleOpen}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">✨ Animation</span>
-          ${renderOverrideBadge(this.overridden)}
-          <ha-switch
-            aria-label="Enable Animation"
-            .checked=${this.state.enabled}
-            @click=${(e: Event) => e.stopPropagation()}
-            @change=${(e: Event) =>
-              this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ><span class="sr-only">Enable Animation</span></ha-switch>
-        </div>
+        ${renderModuleHeader({
+          icon: '✨',
+          title: 'Animation',
+          open: this._open,
+          onToggle: () => this._toggleOpen(),
+          overridden: this.overridden,
+          enable: {
+            checked: this.state.enabled,
+            onChange: (enabled) => this._emit({ enabled }),
+          },
+        })}
         ${this._open ? this._renderBody() : nothing}
       </div>
     `;
@@ -112,7 +104,7 @@ export class AnimationModule extends LitElement {
 
   private _renderBody() {
     return html`
-      <div class="module-body">
+      <div class="module-body" id="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         <div class="control-row">
           <span class="control-label" id="lbl-preset">Preset</span>

@@ -404,7 +404,7 @@ describe('Icon Color / Accent switches on an entity-less card start fixed', () =
     Object.assign(el, { state, _open: true, ...props });
     const emitted: Array<Record<string, unknown>> = [];
     el.dispatchEvent = ((e: Event) => { emitted.push((e as unknown as CustomEvent).detail as Record<string, unknown>); return true; });
-    return { el, emitted, toggle: (checked: boolean) => handlers(el.render())[3]({ target: { checked } }) };
+    return { el, emitted, toggle: (checked: boolean) => handlers(el.render())[2]({ target: { checked } }) };
   };
   afterEach(() => { (globalThis as { customElements: unknown }).customElements = prev; });
 

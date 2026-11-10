@@ -259,7 +259,7 @@ export class CmsChildCardSection extends LitElement {
           @click=${() => (this._open = !this._open)}
           @keydown=${onHeaderKeydown}
         >
-          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
+          <span class="module-chevron" aria-hidden="true">${this._open ? '▼' : '▶'}</span>
           <span class="child-title">${label}</span>
           <span class="child-sub">${sub}</span>
           ${this._isStyled ? html`<span class="styled-dot" title="This card has styling"></span>` : nothing}

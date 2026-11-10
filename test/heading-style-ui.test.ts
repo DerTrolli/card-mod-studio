@@ -181,10 +181,15 @@ describe('emitting only what the user sets (through the rendered handlers)', () 
   });
 });
 
-/** The header switch's @change: the last handler bound in render() itself. */
+/** The header switch's @change: the header binds click, keydown, then the switch's change. */
 const switchChange = (el: { render(): unknown }) => {
-  const fns = ((el.render() as { values: unknown[] }).values).filter((v) => typeof v === 'function');
-  return fns.at(-1) as (e: unknown) => void;
+  const fns = (function flat(t: unknown): unknown[] {
+    if (typeof t === 'function') return [t];
+    if (Array.isArray(t)) return t.flatMap(flat);
+    const v = (t as { values?: unknown[] } | null)?.values;
+    return v ? v.flatMap(flat) : [];
+  })(el.render());
+  return fns[2] as (e: unknown) => void;
 };
 
 describe('the Heading Style enable switch', () => {
