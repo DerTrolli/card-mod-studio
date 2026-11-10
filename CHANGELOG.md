@@ -196,7 +196,14 @@ look or save differently now.
   (a card with `show_name: false` but a visible state line keeps it), and
   Icon Color and Icon size are hidden when `show_icon` is `false`.
 - **Animation's "Speed" slider is now called "Duration"**, with the line
-  "Seconds per cycle — lower is faster." Nothing is stored differently.
+  "Seconds per cycle — lower is faster." Visual Filters' "Transition speed"
+  slider is now "Transition duration" ("Milliseconds — lower is faster.").
+  Nothing is stored differently.
+- **Hand-written animations keep their keyframes.** An animation the
+  Animation module does not recognise (for example an iteration count typed by
+  hand) used to lose its `@keyframes cms-…` block on save, so the animation
+  stopped. The block now stays with the style (also for entities rows and
+  stack children).
 - **Palette manager and presets.** Removing a palette colour or deleting a
   preset asks you to press the same button a second time, and disarms itself
   after a few seconds or on a click elsewhere. A preset is saved under an
@@ -209,7 +216,8 @@ look or save differently now.
 - **UIX note.** The note about UIX macros and billets appears only when the
   style really calls one, and says that the part that calls it stays in
   Advanced CSS.
-- Dev: the release workflow now refuses a tag that does not match
+- Dev: the click driver's section listing no longer counts a module header
+  twice; the release workflow now refuses a tag that does not match
   `package.json`'s version and publishes `-beta` tags as pre-releases (the
   first v0.11.0-beta.2 release was created on the wrong branch); the test rig
   loads card-mod through `frontend: extra_module_url`; a real-input click
@@ -237,6 +245,38 @@ look or save differently now.
 - **Loading a preset no longer adds settings the card cannot use** (Font rows
   the card hides, an animation preset the card leaves out), and presets
   saved with text instead of numbers in a threshold rule or fade point load.
+- **An "Always" Background with an image reloads into the module.** A
+  Background such as `url('/local/x.png')` or `url(/local/x.png), red` used to
+  show up under Advanced CSS when the card was reopened; it now loads back
+  into the Background module. Values with a position or size
+  (`url(x.png) center / cover no-repeat`), a `background-size` beside them,
+  `!important`, a data URI, or a markdown card stay under Advanced CSS,
+  unchanged.
+- **Font no longer takes over a plain hand-written rule.** A rule without
+  `!important`, such as `.name { font-size: 20px; }` on a sensor card, is no
+  longer adopted by the Font module and rewritten with `!important`.
+- **An older picture-glance Font style loads.** One that has only a colour or
+  only a family (written with `--ha-card-header-color` /
+  `--ha-card-header-font-family`) opens in the Font module; the next save
+  drops those two variables, which have no effect on that card.
+- **A value containing `}}` no longer breaks the style** when the card is
+  reopened.
+- **Icon Color in light mode:** an empty "off" colour is kept as written
+  (it was replaced by a grey), and a template whose fallback the Studio
+  cannot read is left alone.
+- **Click-to-edit follows the card's settings** the way the panel does (a
+  Mushroom template card without an icon no longer shows "Icon Color"), a
+  locked entities card (style in dict form) only offers its rows, and on the
+  Mushroom classic cards only the words of the name and state lines name Font
+  — the blank beside them names the card's Background.
+- **The preset name field** no longer closes the dialog on Escape while an
+  input method is composing, and no longer saves a half-typed name on Enter.
+- **Palette:** a colour added while both the browser's storage and Home
+  Assistant are unavailable stays visible until it can be saved.
+- **Threshold hints** ("Threshold Colors is setting the …") no longer show
+  on custom cards where Threshold Colors is not offered.
+- **Old presets:** text values in threshold rules load only when they are
+  plain decimal numbers; anything else in such a rule is dropped.
 - **Hand-written icon sizes survive a save.** A `0px` icon size (a way to
   hide the icon) on any card, and a hand-written `--tile-icon-size` next to a
   small tile icon, are no longer taken for the Studio's own and deleted.

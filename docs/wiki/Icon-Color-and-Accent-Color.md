@@ -13,7 +13,9 @@ Colors the card's main icon (`ha-state-icon`). Modes:
 - **Different for ON / OFF** — one color while the controlling entity is on,
   another while off (a Jinja2 condition is generated).
 - **Match the light's color** *(light cards only)* — while on, the icon
-  follows the light's real `rgb_color` attribute; you pick the off color.
+  follows the light's real `rgb_color` attribute; you pick the off color. An
+  empty off colour stays empty, and a hand-written template whose fallback
+  the Studio can't read is left in Advanced CSS as written.
 
 ### Icon size *(since v0.9.0)*
 

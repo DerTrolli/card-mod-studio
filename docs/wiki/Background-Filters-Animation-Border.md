@@ -11,7 +11,11 @@ shared **"Apply when"** control where noted.
   of a list may be a plain colour, and what you type is checked — an invalid
   value is not saved. A `;` can't be typed (it would end the declaration), so
   a `data:` URI needs `%3B` in place of the `;`, or put the image in
-  `/local/`.
+  `/local/`. An "Always" Background holding an image reloads into this field
+  when you reopen the card. These stay under Advanced CSS, written back
+  unchanged: a value with a position or size (`url(x.png) center / cover
+  no-repeat`), a `background-size` or other `background-*` property beside
+  it, `!important`, a `data:` URI, and any Background on a markdown card.
 - **Apply when**: always / only while the entity is ON / only while OFF /
   while *another* entity is ON — great for a "glow when active" effect. In
   the other state the card **keeps its own look** (its theme background): the
@@ -32,7 +36,8 @@ CSS filter effects on the whole card:
 - **Brightness** — 0–200%
 - **Blur** — 0–20px
 - **Opacity** *(since v0.9.0)* — 10–100%, fades the whole card
-- **Transition speed** — how smoothly the filter animates on state change.
+- **Transition duration** — how smoothly the filter animates on state change
+  (milliseconds; lower is faster; called "Transition speed" before v0.11.0-beta.3).
   On tile, sensor, entity and area cards, whose own stylesheet would
   otherwise override it, the Studio writes the transition with `!important`
   so filter changes fade instead of snapping; a `transition` you write by
@@ -67,6 +72,10 @@ control, picture, picture elements, picture entity, picture glance, statistic,
 statistics graph, thermostat, to-do list and weather forecast). A preset that
 can't work on a card is left out of its list, and a preset you load from the
 preset bar is dropped if the card can't use it.
+
+A hand-written animation the module doesn't recognise (for example an
+iteration count typed by hand) keeps its generated `@keyframes cms-…` block
+on save, so it keeps running.
 
 Plus a **Duration** slider (seconds per cycle — lower is faster; it was
 called "Speed" before v0.11.0-beta.3) and the trigger control: always / while the entity

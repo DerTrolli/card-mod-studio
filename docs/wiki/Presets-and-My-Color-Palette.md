@@ -21,7 +21,11 @@ The bar at the top of the panel:
 
 A name that already exists is saved only through an explicit **Overwrite**;
 new names are limited to 60 characters. Presets saved with text instead of
-numbers in a threshold rule or fade point (some older ones) load fine.
+numbers in a threshold rule or fade point (some older ones) load when the
+text is a plain decimal number; any other value in such a rule or fade point
+is dropped when the preset loads. Escape or Enter while an input method is
+composing the name (Japanese, Chinese, …) neither closes the dialog nor saves
+a half-typed name.
 
 If Home Assistant can't be reached, a preset change is kept on this device
 and sent to Home Assistant when it is reachable again (the bar tells you it
@@ -54,7 +58,9 @@ copied into the style when you pick it, so changing or removing a palette entry
 doesn't restyle cards that already use it. Edits are saved to Home Assistant as
 you commit them; one made while Home Assistant is unreachable (or just before
 you close the tab) is kept and sent later, and the manager says so when it can
-only be kept in this browser's memory.
+only be kept in this browser's memory. A colour added while both the browser's
+storage and Home Assistant are unavailable stays visible until it can be
+saved.
 
 ## Where exactly is this stored?
 

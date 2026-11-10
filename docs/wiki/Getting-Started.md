@@ -39,7 +39,12 @@ styles that element (on an entities card, "Entity Rows — " plus the row's
 label), and clicking jumps straight to it. A part that nothing styles names the
 card's **Background** (or **Border**, or **Visual Filters**, on cards where
 Background is hidden). Click-to-edit works on the card itself and on its
-parts, but not on the children of a stack in the preview.
+parts, but not on the children of a stack in the preview. <!-- to be confirmed by QA -->
+
+Click-to-edit follows the card's settings like the panel does: a part whose
+control the panel hides for that card (for example the icon of a Mushroom
+template card with no icon) doesn't name it, and a locked entities card (its
+style is in dict form) only offers its rows.
 
 **Show code editor.** The Studio covers both of HA's editors; pressing HA's
 "Show code editor" (or "Show visual editor") closes the Studio so you can see

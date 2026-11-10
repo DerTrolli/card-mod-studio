@@ -443,7 +443,7 @@ Found while re-verifying against HA 2026.9.4 and 2026.10.0b0 with card-mod
   phone, `tap`, `seedDashboard`, `seedSectionsDashboard`, `haFetch` /
   `setState`, `listSections` / `listControls` / `findControl`, `setSlider`,
   `typeText`, `setColor`, `pickSwatch`, `pickEntity`, `toggle`,
-  `chooseOption`, `computedStyle`, …). `setColor` commits with Tab (or Enter
+  `chooseOption`, `computedStyle`, …). `listSections` no longer counts the toggle button inside a module header as a second section. `setColor` commits with Tab (or Enter
   once) and never sends Escape, which would close the whole dialog. The UIX
   rig needs `UIX_TOKENS_FILE` (the default token file belongs to an old rig).
   Its smoke test `tools/sandbox/harness/click_driver_smoke.mjs` (29 steps,

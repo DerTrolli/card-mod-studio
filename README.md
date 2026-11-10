@@ -108,7 +108,7 @@ Apply CSS filter effects to the entire card:
 - **Brightness** — brighten or dim the card
 - **Blur** — blur the card content
 - **Opacity** — fade the whole card
-- **Transition speed** — control how smoothly state changes animate
+- **Transition duration** — control how smoothly state changes animate (milliseconds; lower is faster)
 
 Brightness/blur/opacity can also **react to a state or value condition** — e.g. blur + fade a camera card only while it's off, or while a sensor crosses a threshold.
 

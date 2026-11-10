@@ -76,7 +76,7 @@ Text only; the card paints no box and has no icon.
 
 Point at the preview and the highlight names the control that styles that part; a click jumps to it.
 
-- **Classic cards:** primary and secondary text → Font, the icon (shape and glyph) → Icon Color, anything else on the card → Background.
+- **Classic cards:** the words of the primary and secondary lines → Font (only the words — the blank beside them is Background), the icon (shape and glyph) → Icon Color, anything else on the card → Background.
 - **Template card:** the name/state block → Font, the icon → Icon Color.
 - **Chips:** a chip's text → Font, its glyph → Icon Color, the rest of the chip → Background.
 - **Title card:** the title → Font. The subtitle isn't claimed by any control (the card has no box, so a click on it opens Advanced CSS).

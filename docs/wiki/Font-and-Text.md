@@ -90,7 +90,15 @@ A value stored on those cards by an older style is still shown so you can
 reset it.
 
 When Threshold Colors is setting the card's text colour, the Font module
-says so: the text colour chosen here isn't used while the threshold is on.
+says so: the text colour chosen here isn't used while the threshold is on. The
+hint doesn't show on a custom card where Threshold Colors isn't offered.
+
+A plain hand-written text rule such as `.name { font-size: 20px; }` on a
+sensor card (no `!important`) stays in Advanced CSS; the Font module only
+takes over declarations that look exactly like its own. An older picture-glance
+Font style with only a colour or only a family opens in the module, and the
+next save drops its `--ha-card-header-color` / `--ha-card-header-font-family`
+variables, which have no effect on that card.
 
 ### Mushroom and Bubble Card (new in 0.11, beta)
 

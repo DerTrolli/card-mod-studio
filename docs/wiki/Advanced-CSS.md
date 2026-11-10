@@ -54,6 +54,9 @@ says so in a note. `{{ … }}` values and statements inside a rule don't
 trigger it. A style that calls a UIX macro or billet keeps the part that
 calls it here as well, and the panel notes that too.
 
+A template value that itself contains `}}` inside quotes (for example
+`{{ 'a}}b' if … }}`) is read correctly when the card is reopened.
+
 ## Warnings under the editor
 
 A one-line, non-blocking warning appears under the editor when the text will
