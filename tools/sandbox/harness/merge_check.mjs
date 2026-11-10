@@ -180,27 +180,41 @@ const run = async () => {
     panel.addEventListener('config-changed', (e) => { emitted = e.detail.config; });
 
     const rowsModule = panel.shadowRoot?.querySelector('cms-entities-rows-module');
-    // Re-dispatch the same (already-merged) row styles a real edit would
-    // produce, to trigger a save without changing the visible outcome.
-    // Row styles are keyed POSITIONALLY ('0', '1', …) since the #24 fix,
-    // not by entity_id.
-    rowsModule?.dispatchEvent(new CustomEvent('styles-changed', {
-      detail: { '0': { iconColor: 'red', textColor: 'blue' } },
+    const send = (slot) => rowsModule?.dispatchEvent(new CustomEvent('styles-changed', {
+      detail: { '0': slot },
       bubbles: true,
       composed: true,
     }));
+    // Row styles are keyed POSITIONALLY ('0', '1', …) since the #24 fix,
+    // not by entity_id.
+    // 1) Re-dispatch the already-merged row exactly as it was read: nothing
+    //    changed, so the row must come back untouched (an unrelated save never
+    //    rewrites a row — both blocks stay as they were).
+    send({ iconColor: 'red', textColor: 'blue' });
+    await new Promise((r) => setTimeout(r, 300));
+    const untouched = emitted?.entities?.[0];
+    const untouchedResult = { uixStyle: untouched?.uix?.style, cardModStyle: untouched?.card_mod?.style };
+    // 2) A real edit on that row (bold added): the row is rewritten and both
+    //    sources are merged into the active uix: block.
+    emitted = null;
+    send({ iconColor: 'red', textColor: 'blue', fontWeight: 'bold' });
     await new Promise((r) => setTimeout(r, 300));
 
     const row = emitted?.entities?.[0];
-    return { uixStyle: row?.uix?.style, cardModStyle: row?.card_mod?.style };
+    return { uixStyle: row?.uix?.style, cardModStyle: row?.card_mod?.style, untouched: untouchedResult };
   });
   record(
-    'entities-row: icon (card_mod-only) + text (uix-only) merge into the active uix: row block',
-    !!rowResult.uixStyle?.includes('--state-icon-color: red') && !!rowResult.uixStyle?.includes('color: blue'),
+    'entities-row: an unchanged row is handed back untouched (no rewrite, no merge) on an unrelated save',
+    rowResult.untouched.uixStyle === 'color: blue;' && rowResult.untouched.cardModStyle === '--state-icon-color: red;',
+    JSON.stringify(rowResult.untouched),
+  );
+  record(
+    'entities-row: on a real edit, icon (card_mod-only) + text (uix-only) merge into the active uix: row block',
+    !!rowResult.uixStyle?.includes('--state-icon-color: red') && !!rowResult.uixStyle?.includes('color: blue') && /font-weight:\s*(bold|700)/.test(rowResult.uixStyle || ''),
     JSON.stringify(rowResult),
   );
   record(
-    'entities-row: the stale card_mod: row block is cleared, not left duplicated',
+    'entities-row: on a real edit, the stale card_mod: row block is cleared, not left duplicated',
     rowResult.cardModStyle === undefined,
     JSON.stringify(rowResult),
   );

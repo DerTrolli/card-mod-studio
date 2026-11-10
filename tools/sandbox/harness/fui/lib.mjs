@@ -528,14 +528,15 @@ export async function entityState(T, id) {
 export const mod = (T, tag, scope) => (scope || panelLoc(T)).locator(tag).first();
 
 export async function isOpen(m) {
-  return (await m.locator('.module-header').first().getAttribute('aria-expanded')) === 'true';
+  // The open state lives on the toggle button inside the header (role=button).
+  return (await m.locator('.module-header [aria-expanded]').first().getAttribute('aria-expanded')) === 'true';
 }
 
 /** Expands a module by clicking its title (not the switch). */
 export async function expand(m) {
   if (await isOpen(m)) return;
   await m.locator('.module-header .module-title').first().click();
-  await m.locator('.module-header[aria-expanded="true"]').first().waitFor({ timeout: 5000 });
+  await m.locator('.module-header [aria-expanded="true"]').first().waitFor({ timeout: 5000 });
 }
 
 export async function collapse(m) {

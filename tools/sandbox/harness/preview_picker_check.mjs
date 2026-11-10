@@ -138,24 +138,24 @@ const run = async () => {
     { cfg: { type: 'glance', entities: ['light.ceiling_lights'] }, find: 'tag:div.entity', want: 'Font' },
     { cfg: { type: 'media-control', entity: 'media_player.living_room' }, find: 'tag:hui-marquee', want: 'Font' },
     // Mushroom / Bubble profiles (C2.4/C3.4): `open` also clicks and reads which module opened.
-    { cfg: { type: 'custom:mushroom-entity-card', entity: 'light.ceiling_lights', secondary_info: 'state' }, find: 'tag:span.primary', want: 'Font', open: 'cms-font-module' },
+    { cfg: { type: 'custom:mushroom-entity-card', entity: 'light.ceiling_lights', secondary_info: 'state' }, find: 'tag:span.primary', words: true, beside: 'Background & card surface', want: 'Font', open: 'cms-font-module' },
     { cfg: { type: 'custom:mushroom-entity-card', entity: 'light.ceiling_lights' }, find: 'tag:mushroom-shape-icon', want: 'Icon Color', open: 'cms-icon-color-module' },
     { cfg: { type: 'custom:mushroom-template-card', entity: 'light.ceiling_lights', primary: 'Hello', secondary: 'World' }, find: 'tag:ha-tile-info', want: 'Font', open: 'cms-font-module' },
     { cfg: { type: 'custom:mushroom-chips-card', chips: [{ type: 'template', content: 'hi', icon: 'mdi:home' }] }, at: 'corner', find: 'tag:mushroom-chip', want: 'Background & card surface', open: 'cms-background-module' },
-    { cfg: { type: 'custom:mushroom-title-card', title: 'Title', subtitle: 'Sub' }, find: 'tag:h1.title', want: 'Font', open: 'cms-font-module' },
-    { cfg: { type: 'custom:bubble-card', card_type: 'button', entity: 'light.ceiling_lights' }, find: 'tag:div.bubble-name', want: 'Font', open: 'cms-font-module' },
+    { cfg: { type: 'custom:mushroom-title-card', title: 'Title', subtitle: 'Sub' }, find: 'tag:h1.title', words: true, want: 'Font', open: 'cms-font-module' },
+    { cfg: { type: 'custom:bubble-card', card_type: 'button', entity: 'light.ceiling_lights' }, find: 'tag:div.bubble-name', words: true, want: 'Font', open: 'cms-font-module' },
     { cfg: { type: 'custom:bubble-card', card_type: 'button', entity: 'light.ceiling_lights' }, find: 'tag:ha-icon.bubble-icon', want: 'Icon Color', open: 'cms-icon-color-module' },
     { cfg: { type: 'custom:bubble-card', card_type: 'button', entity: 'light.ceiling_lights' }, at: 'corner', find: 'tag:div.bubble-button-background', want: 'Background & card surface', open: 'cms-background-module' },
     // Slider fill → Accent is unit-tested only: the fill is the same size as the (transparent) button
     // background drawn over it, so the geometric hit-test never returns the fill (measured live).
     { cfg: { type: 'custom:bubble-card', card_type: 'separator', name: 'Sep', icon: 'mdi:home' }, find: 'tag:h4.bubble-name', want: 'Font', open: 'cms-font-module' },
     { cfg: { type: 'custom:bubble-card', card_type: 'cover', entity: 'cover.kitchen_window' }, at: 'corner', find: 'tag:div.bubble-background', want: 'Background & card surface', open: 'cms-background-module' },
-    { cfg: { type: 'picture-glance', entities: ['light.ceiling_lights'], image: 'https://demo.home-assistant.io/stub_config/bedroom.png', title: 'Bedroom' }, find: 'tag:div.box', want: 'Font' },
+    { cfg: { type: 'picture-glance', entities: ['light.ceiling_lights'], image: 'https://demo.home-assistant.io/stub_config/bedroom.png', title: 'Bedroom' }, find: 'tag:div.title', words: true, want: 'Font' },
   ];
   const matrixOut = await page.evaluate(async (cases) => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const results = [];
-    for (const { cfg, find, want, open, at } of cases) {
+    for (const { cfg, find, want, open, at, words, beside } of cases) {
       const host = document.createElement('div');
       host.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:900px;background:#111;z-index:2147483647;';
       document.querySelector('home-assistant').shadowRoot.appendChild(host);
@@ -192,9 +192,19 @@ const run = async () => {
         }
       }
       const picker = panel.shadowRoot?.querySelector('cms-preview-picker');
+      // Text parts (words: true) only read as Font over the words themselves
+      // (the element is often wider than its text), so probe the middle of the
+      // text's own box, not of the element.
+      const probeRect = (t) => {
+        if (!words) return t.getBoundingClientRect();
+        const rg = document.createRange();
+        rg.selectNodeContents(t);
+        const w = [...rg.getClientRects()].find((q) => q.width > 0 && q.height > 0);
+        return w || t.getBoundingClientRect();
+      };
       let label = null;
       if (target && picker) {
-        const r = target.getBoundingClientRect();
+        const r = probeRect(target);
         // 'ring' targets are annular — probe the bottom-center of the rect
         // (the exposed bottom arc): the sides/top of the ring sit behind the
         // dial's transparent div.info text block, which rightly wins there.
@@ -205,7 +215,7 @@ const run = async () => {
       }
       let opened = null;
       if (open && target && picker) {
-        const r = target.getBoundingClientRect();
+        const r = probeRect(target);
         const ov = picker.shadowRoot.querySelector('.overlay');
         const cx = at === 'corner' ? r.left + 3 : at === 'top' ? r.left + r.width * 0.6 : r.left + r.width / 2, cy = at === 'corner' || at === 'top' ? r.top + 3 : r.top + r.height / 2;
         ov.dispatchEvent(new MouseEvent('mousemove', { clientX: cx, clientY: cy, bubbles: true, composed: true }));
@@ -213,13 +223,22 @@ const run = async () => {
         await sleep(900);
         opened = panel.shadowRoot.querySelector(open)?._open === true ? open : 'none';
       }
-      results.push({ type: cfg.card_type ? `${cfg.type}/${cfg.card_type}` : cfg.type, found: !!target, label, want, ...(open ? { open, opened } : {}) });
+      // Blank space inside the element but beside its words is the card
+      // surface, not Font (only when the element is wider than its words).
+      let besideLabel = null;
+      if (beside && target && picker) {
+        const el = target.getBoundingClientRect();
+        const wr = probeRect(target);
+        if (el.right - wr.right > 12) besideLabel = picker._updateFromPoint(el.right - 4, wr.top + wr.height / 2)?.label ?? null;
+        else besideLabel = beside; // element is not wider than its words here; nothing to probe
+      }
+      results.push({ type: cfg.card_type ? `${cfg.type}/${cfg.card_type}` : cfg.type, found: !!target, label, want, ...(open ? { open, opened } : {}), ...(beside ? { beside, besideLabel } : {}) });
       host.remove();
     }
     return results;
   }, MATRIX);
   for (const m of matrixOut) {
-    record(`coverage: ${m.type} → ${m.want}${m.open ? ' (click opens ' + m.open + ')' : ''}`, m.found && m.label === m.want && (!m.open || m.opened === m.open), JSON.stringify(m));
+    record(`coverage: ${m.type} → ${m.want}${m.open ? ' (click opens ' + m.open + ')' : ''}`, m.found && m.label === m.want && (!m.open || m.opened === m.open) && (!m.beside || m.besideLabel === m.beside), JSON.stringify(m));
   }
 
   await page.screenshot({ path: resolve(SHOTS, 'preview-picker-01.png') });

@@ -62,10 +62,11 @@ const CASES = {
     card: { type: 'gauge', entity: 'sensor.outside_humidity', min: 0, max: 100 },
     label: 'Number size', key: 'ha-gauge$',
     // slider value (% of HA's number box) → expected entry; rendered height vs HA's default
-    steps: [[125, 'bigger'], [50, 'smaller'], [150, 'bigger']],
-    // 150 % must also be visibly bigger than 125 % (the box used to stop at half the gauge width)
+    steps: [[125, 'bigger'], [50, 'smaller'], [130, 'bigger']],
+    // 100 % is HA's own box (50 % x 40 % of the gauge); the width stops growing at 56 %, the
+    // height keeps growing up to the 130 % maximum, so 130 % must still render taller than 125 %.
     // Includes the re-anchor (HA's `left: 50%` would cap the box at half the gauge width).
-    entry: (pct) => `.text {\n  max-width: ${Math.round(55 * pct / 10) / 10}% !important;\n  max-height: ${Math.round(40 * pct / 10) / 10}% !important;\n  left: 0 !important;\n  right: 0 !important;\n  margin: 0 auto !important;\n  transform: none !important;\n}`,
+    entry: (pct) => `.text {\n  max-width: ${Math.round(Math.min(50 * pct / 100, 56) * 10) / 10}% !important;\n  max-height: ${Math.round(40 * pct / 100 * 10) / 10}% !important;\n  left: 0 !important;\n  right: 0 !important;\n  margin: 0 auto !important;\n  transform: none !important;\n}`,
   },
   thermostat: {
     card: { type: 'thermostat', entity: 'climate.heatpump' },
@@ -94,6 +95,16 @@ for (const [kind, c] of Object.entries(CASES)) {
   const style = cfg?.[KEY]?.style;
   record(`[${kind}] switching on writes a dict with '.' + the owned entry`, typeof style === 'object' && typeof style['.'] === 'string' && style['.'].includes('border') && !!style[c.key], JSON.stringify(style));
 
+  // Number size is written only while Font is on, so switching it on switches Font on too.
+  record(`[${kind}] switching Number size on also switches Font on`, await font.locator('.module-header ha-switch').first().evaluate((e) => !!e.checked));
+  if (kind === 'gauge') {
+    // A fresh switch-on starts at 100 %, which is exactly Home Assistant's own size.
+    record('[gauge] switch-on starts at 100 % = the box Home Assistant draws (50 % x 40 %)', JSON.stringify(style[c.key]) === JSON.stringify(c.entry(100)), JSON.stringify(style[c.key]));
+    await sleep(1200);
+    const at100 = await measure(kind);
+    record('[gauge] 100 % renders the number at Home Assistant\'s own size (within 1px)', !!(at100 && base && Math.abs(at100.h - base.h) <= 1), JSON.stringify({ base, at100 }));
+  }
+
   for (const [v, expect] of c.steps) {
     const want = kind === 'gauge' ? c.entry(v) : c.entry(expect);
     await setSlider(T, row.locator('ha-slider'), v);
@@ -107,7 +118,7 @@ for (const [kind, c] of Object.entries(CASES)) {
     const notClipped = kind === 'gauge' ? m?.overflow <= (base?.overflow ?? 0) + 1 : m?.inside;
     record(`[${kind}] preview number renders ${kind === 'gauge' ? expect : 'at ' + expect}, not clipped`, !!(m && sized && notClipped), JSON.stringify({ base, now: m }));
     heights[v] = m?.h;
-    if (kind === 'gauge' && v === 150) record('[gauge] 150 % renders taller than 125 %', heights[150] > heights[125], JSON.stringify(heights));
+    if (kind === 'gauge' && v === 130) record('[gauge] 130 % (the maximum) renders taller than 125 %', heights[130] > heights[125], JSON.stringify(heights));
     if (process.env.PIERCE_SHOTS) await page.locator('cms-panel').filter({ visible: true }).first().screenshot({ path: resolve(HERE, 'shots', `pierce-${kind}-${v}.png`) });
   }
 
