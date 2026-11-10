@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { FontModuleState } from '../types/index.js';
 import { DEFAULT_FONT } from '../parser/state-mapper.js';
-import { NUMBER_SIZE_DEFAULT } from '../utils/owned-entries.js';
+import { GAUGE_SIZE, NUMBER_SIZE_DEFAULT } from '../utils/owned-entries.js';
 import {
   moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown, renderResetButton, renderDefaultOption,
 } from './module-base.js';
@@ -268,8 +268,9 @@ export class FontModule extends LitElement {
    * independent of the base Font switch above — and written as a
    * Studio-owned pierced entry (docs/V0.11_PLAN.md C1.0). The gauge fits
    * its number into a box of its own, so its control scales that box (%,
-   * 100 = HA's size; it stops growing where the dial leaves no room); the
-   * thermostat's is plain px.
+   * 100 = HA's size, up to GAUGE_SIZE.max — the dial leaves no room beyond,
+   * and wide values stop growing slightly earlier); the thermostat's is
+   * plain px.
    */
   private _renderNumberSize(kind: 'gauge' | 'thermostat') {
     const s = this.state;
@@ -295,9 +296,9 @@ export class FontModule extends LitElement {
             this._emit({ numberSizeEnabled: (e.target as HTMLInputElement).checked, numberSize: size })}
         ></ha-switch>
         <ha-slider
-          min=${isGauge ? 50 : 24}
-          max=${isGauge ? 150 : 96}
-          step=${isGauge ? 5 : 1}
+          min=${isGauge ? GAUGE_SIZE.min : 24}
+          max=${isGauge ? GAUGE_SIZE.max : 96}
+          step=${isGauge ? GAUGE_SIZE.step : 1}
           .value=${String(size)}
           ?disabled=${!s.numberSizeEnabled}
           @input=${(e: Event) => { this._numberSizeLive = parseFloat((e.target as HTMLInputElement).value); }}
