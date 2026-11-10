@@ -86,8 +86,18 @@ describe('audit #5 — row merge keeps BOTH keys\' unrecognised row CSS', () => 
 
   it('identical extra CSS under both keys is kept once', () => {
     const out = editOtherRow(twoRows({ entity: 'light.a', card_mod: { style: ':host {\n  --foo: 1px;\n}' }, uix: { style: ':host {\n  --foo: 1px;\n}' } }));
-    expect(out.entities[0].card_mod?.style).toBe(':host {\n  --foo: 1px;\n}');
+    // Row 0 was not edited: it is written back exactly as loaded (both keys),
+    // no longer consolidated by an unrelated save.
+    expect(out.entities[0]).toEqual({ entity: 'light.a', card_mod: { style: ':host {\n  --foo: 1px;\n}' }, uix: { style: ':host {\n  --foo: 1px;\n}' } });
+  });
+
+  it('identical extra CSS under both keys is kept once when that row IS edited', () => {
+    installEngines(['card-mod']);
+    const config = cfg({ type: 'entities', entities: [{ entity: 'light.a', card_mod: { style: ':host {\n  --foo: 1px;\n}' }, uix: { style: ':host {\n  --foo: 1px;\n}' } }] });
+    const styles = initEntityRowStyles(config);
+    const out = applyEntityRowStyles(config, { '0': { ...styles['0'], textColor: 'red' } }) as unknown as Rows;
     expect(out.entities[0].uix).toBeUndefined();
+    expect(String(out.entities[0].card_mod?.style).match(/--foo: 1px/g)).toHaveLength(1);
   });
 });
 

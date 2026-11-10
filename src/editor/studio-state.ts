@@ -397,6 +397,36 @@ function withRowStateColor(
   return updated;
 }
 
+/** Canonical JSON: sorted keys, `undefined` properties dropped — so a style
+ *  slot that went through a control being switched on and back off (which
+ *  leaves `iconMode: undefined` keys behind) compares equal to a fresh parse. */
+function canonicalStyle(value: unknown): string {
+  const norm = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(norm);
+    if (v && typeof v === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const k of Object.keys(v as object).sort()) {
+        const x = (v as Record<string, unknown>)[k];
+        if (x !== undefined) out[k] = norm(x);
+      }
+      return out;
+    }
+    return v;
+  };
+  return JSON.stringify(norm(value));
+}
+
+/** True when the row's style slot is exactly what a fresh parse of the row
+ *  as loaded gives — i.e. the user changed nothing on it, so it must be
+ *  written back as the original object (byte for byte). Derived, not
+ *  tracked: no dirty flag can go stale or be forgotten by a handler. */
+function rowStyleUnchanged(row: EntitiesRowLike, rowStyle: EntitiesRowStyle, hass?: HomeAssistant): boolean {
+  const baseline = typeof row === 'string'
+    ? { iconColor: '', textColor: '' }
+    : buildMergedRowStyle(row, hass);
+  return canonicalStyle(baseline) === canonicalStyle(rowStyle);
+}
+
 /** Writes the row-style map (keyed by rowStyleKey(index) — see above) back
  *  into each row's card_mod:/uix: block, matching styles to rows by
  *  position so duplicate-entity rows round-trip independently. */
@@ -413,6 +443,10 @@ export function applyEntityRowStyles(
     const entityId = rowEntityId(row);
     if (!entityId) return row;
     const rowStyle = rowStyles[rowStyleKey(index)];
+    // Untouched row (slot equals a fresh parse of the row as loaded): hand
+    // back the original object — never regenerate it. A missing slot means
+    // nothing was ever read for this row, so it is equally untouched.
+    if (!rowStyle || rowStyleUnchanged(row, rowStyle, hass)) return row;
     const hasContent = rowStyleHasContent(rowStyle);
     // Bare-string rows stay bare strings until they actually gain a style —
     // then they're promoted to the equivalent object form (the only form
