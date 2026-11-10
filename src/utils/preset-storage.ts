@@ -96,22 +96,51 @@ export function loadPresets(hass: HassSub | undefined): Promise<StylePreset[]> {
   return result;
 }
 
+const isObj = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x);
+
+/** One persisted change, or null when its shape is wrong (never throws). */
+function validChange(c: unknown): PresetChange | null {
+  if (!isObj(c)) return null;
+  if (c.kind === 'delete') return typeof c.name === 'string' ? { kind: 'delete', name: c.name } : null;
+  if (c.kind === 'save' && isObj(c.preset) && typeof c.preset.name === 'string' && isObj(c.preset.state)) {
+    return { kind: 'save', preset: { name: c.preset.name, state: migrateStudioState(c.preset.state) } };
+  }
+  return null;
+}
+
+/** Set while the list could not be written to localStorage (quota): the
+ *  in-memory copy is then the only one and wins over what is stored. */
+let memUnsynced: PresetChange[] | null = null;
+
 function readUnsynced(): PresetChange[] {
+  if (memUnsynced) return memUnsynced;
   try {
     const raw = localStorage.getItem(LS_UNSYNCED);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? (parsed as PresetChange[]).filter((c) => c && (c.kind === 'save' || c.kind === 'delete')) : [];
+    return Array.isArray(parsed) ? parsed.map(validChange).filter((c): c is PresetChange => c !== null) : [];
   } catch {
     return [];
   }
 }
 
-function writeUnsynced(changes: PresetChange[]): void {
+/** False when the list could not be persisted (it is then kept in memory). */
+function writeUnsynced(changes: PresetChange[]): boolean {
   try {
     localStorage.setItem(LS_UNSYNCED, JSON.stringify(changes));
+    memUnsynced = null;
+    return true;
   } catch {
-    // quota exceeded — the change still sits in the device list
+    memUnsynced = changes;
+    return false;
   }
+}
+
+const nameOf = (c: PresetChange) => (c.kind === 'save' ? c.preset.name : c.name);
+
+/** `list` + `change`; an earlier change to the same name is superseded (each
+ *  change removes its name first), so repeated saves don't pile up. */
+function addUnsynced(list: PresetChange[], change: PresetChange): PresetChange[] {
+  return [...list.filter((c) => nameOf(c) !== nameOf(change)), change];
 }
 
 /**
@@ -120,11 +149,17 @@ function writeUnsynced(changes: PresetChange[]): void {
  * asked and the write failed (the list is then on this device only).
  */
 export async function savePresets(presets: StylePreset[], hass: HassSub | undefined): Promise<boolean> {
+  return (await saveList(presets, hass)).wrote;
+}
+
+/** `local`: the list reached localStorage; `wrote`: no Home Assistant write failed. */
+async function saveList(presets: StylePreset[], hass: HassSub | undefined): Promise<{ local: boolean; wrote: boolean }> {
   // localStorage — instant, no async risk
+  let local = true;
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(presets));
   } catch {
-    // quota exceeded — silently continue
+    local = false; // quota exceeded
   }
 
   // HA WebSocket — cross-device sync
@@ -137,10 +172,10 @@ export async function savePresets(presets: StylePreset[], hass: HassSub | undefi
       });
     } catch (err) {
       console.warn('[Card-Mod Studio] Preset sync to HA failed (saved to localStorage only):', err);
-      return false;
+      return { local, wrote: false };
     }
   }
-  return true;
+  return { local, wrote: true };
 }
 
 /** One change a panel makes to the stored list. */
@@ -168,14 +203,16 @@ let writeQueue: Promise<unknown> = Promise.resolve();
  * If Home Assistant could not be read, the list in hand is only this
  * browser's older copy: the change is kept on this device and NOT written to
  * Home Assistant (that would replace the real list with the old copy).
- * `onSync(false)` says the change is on this device only (read or write
- * failed); `onSync(true)` that it reached Home Assistant. Not called when
- * there is no Home Assistant connection to sync with.
+ * `onSync(false, …)` says the change is on this device only (read or write
+ * failed); `onSync(true, …)` that it reached Home Assistant. `kept` is false
+ * when it is not even on this device (storage full: it lives in memory until
+ * the page closes). Not called when there is no Home Assistant connection to
+ * sync with, unless the change was not kept.
  */
 export function updatePresets(
   change: PresetChange,
   hass: HassSub | undefined,
-  onSync?: (reachedHa: boolean) => void,
+  onSync?: (reachedHa: boolean, kept: boolean) => void,
 ): Promise<StylePreset[]> {
   const run = async (): Promise<StylePreset[]> => {
     const { list, readFailed } = await readPresets(hass);
@@ -185,12 +222,13 @@ export function updatePresets(
     // delete made during the outage stays deleted.
     const backlog = hassAvailable(hass) && !readFailed ? readUnsynced() : [];
     const next = applyPresetChange(backlog.reduce(applyPresetChange, list), change);
-    const wrote = await savePresets(next, readFailed ? undefined : hass);
+    const { local, wrote } = await saveList(next, readFailed ? undefined : hass);
+    const reached = hassAvailable(hass) && !readFailed && wrote;
+    let kept = local;
     if (hassAvailable(hass)) {
-      const reached = !readFailed && wrote;
-      writeUnsynced(reached ? [] : [...(readFailed ? readUnsynced() : backlog), change]);
-      onSync?.(reached);
+      kept = writeUnsynced(reached ? [] : addUnsynced(readFailed ? readUnsynced() : backlog, change)) && local;
     }
+    if (hassAvailable(hass) || !local) onSync?.(reached, reached || kept);
     return next;
   };
   const result = writeQueue.then(run, run);
