@@ -196,6 +196,12 @@ export interface ConfigGate {
   hide: ProfileModule[];
 }
 
+/** The largest Icon size (px) that still fits the card, per layout. */
+export interface IconSizeMax {
+  normal: number;
+  large: number;
+}
+
 export interface CustomCardProfile {
   /** Profile key (see header). */
   key: string;
@@ -211,6 +217,8 @@ export interface CustomCardProfile {
   fontSize?: boolean;
   /** Icon Color's size control (default false — an allowlist, like built-ins). */
   iconSize?: boolean;
+  /** Upper end of the Icon size control (default: the control's own range). */
+  iconSizeMax?: IconSizeMax;
   /** False when the card has no entity state to condition on. */
   stateAware?: boolean;
   /** Title lives in ha-card's header slot (default false). */
@@ -274,6 +282,24 @@ export function profileKeyOf(
   const sub = typeof config?.card_type === 'string' ? config.card_type : '';
   if (!sub) return type;
   return sub === 'button' && config?.button_type === 'slider' ? `${type}/${sub}/slider` : `${type}/${sub}`;
+}
+
+/**
+ * The Icon size control's upper limit for this card, or undefined to keep the
+ * control's own range. Bubble picks the layout from `card_layout`
+ * (`normal`, `large`, `large-2-rows`, `large-sub-buttons-grid`) and, when it is
+ * absent, from the view: a sections view applies `large` implicitly. A caller
+ * that cannot tell the view passes nothing and gets the smaller (normal) limit.
+ */
+export function iconSizeMaxOf(
+  config: { type?: unknown; card_type?: unknown; button_type?: unknown; card_layout?: unknown } | null | undefined,
+  opts: { sectionsView?: boolean } = {},
+): number | undefined {
+  const limit = REGISTRY.get(profileKeyOf(config))?.iconSizeMax;
+  if (!limit) return undefined;
+  const layout = typeof config?.card_layout === 'string' ? config.card_layout : undefined;
+  const large = layout !== undefined ? layout.startsWith('large') : !!opts.sectionsView;
+  return large ? limit.large : limit.normal;
 }
 
 /**

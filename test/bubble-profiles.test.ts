@@ -13,7 +13,7 @@ import { generateCss } from '../src/generator/css-generator.js';
 import { mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseStyleValue } from '../src/parser/yaml-parser.js';
 import { capsFor } from '../src/utils/card-caps.js';
-import { getCustomCardProfile, profileKeyOf } from '../src/utils/custom-card-profiles.js';
+import { getCustomCardProfile, iconSizeMaxOf, profileKeyOf } from '../src/utils/custom-card-profiles.js';
 import { BUBBLE_SELECTORS } from '../src/utils/profiles/bubble.js';
 import { findAdvancedCssConflicts } from '../src/utils/style-conflicts.js';
 import { filterPresetStateForCardType } from '../src/utils/preset-caps.js';
@@ -565,5 +565,29 @@ describe('a Bubble card inside a stack (cms-child-card-section path)', () => {
     expect(reopened.iconColor).toMatchObject(ICON);
     // siblings untouched
     expect(child(1)).toEqual({ type: 'custom:bubble-card', card_type: 'separator', name: 'Rooms' });
+  });
+});
+
+describe('Bubble 3 profiles — Icon size limit (card height, measured per layout)', () => {
+  const cfg = (card_type: string, extra: Record<string, unknown> = {}) => ({ type: 'custom:bubble-card', card_type, ...extra });
+  it('button / slider / cover stop at the card height: 50 normal, 56 large', () => {
+    for (const c of [cfg('button'), cfg('button', { button_type: 'slider' }), cfg('cover')]) {
+      expect(iconSizeMaxOf(c)).toBe(50);
+      expect(iconSizeMaxOf({ ...c, card_layout: 'normal' })).toBe(50);
+      expect(iconSizeMaxOf({ ...c, card_layout: 'large' })).toBe(56);
+      expect(iconSizeMaxOf({ ...c, card_layout: 'large-2-rows' })).toBe(56);
+    }
+  });
+  it('the separator row is 40px (33 large)', () => {
+    expect(iconSizeMaxOf(cfg('separator'))).toBe(40);
+    expect(iconSizeMaxOf(cfg('separator', { card_layout: 'large' }))).toBe(33);
+  });
+  it('a sections view applies `large` only while card_layout is absent', () => {
+    expect(iconSizeMaxOf(cfg('button'), { sectionsView: true })).toBe(56);
+    expect(iconSizeMaxOf(cfg('button', { card_layout: 'normal' }), { sectionsView: true })).toBe(50);
+  });
+  it('no limit for other cards (the control keeps its range)', () => {
+    expect(iconSizeMaxOf({ type: 'tile' })).toBeUndefined();
+    expect(iconSizeMaxOf(cfg('climate'))).toBeUndefined();
   });
 });

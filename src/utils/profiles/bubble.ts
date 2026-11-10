@@ -112,6 +112,15 @@ const legacyBorder = (selector: string): ClaimRule => ({
   module: 'border', selector, role: 'borderDirect', props: ['border-radius', 'border'],
 });
 
+/** Icon size limits, measured on Bubble 3.4.3 (both engines): the icon box is
+ *  38px (42 on `large`) and grows with the glyph from there; the card clips it
+ *  once it passes the card's height — 50px normal, 56px large (button, slider,
+ *  cover). The separator has no box and no clip; past 40px (33 large) the
+ *  glyph just overflows the row. Smaller values keep working (the glyph scales
+ *  inside the box). */
+const ICON_MAX_BOX = { normal: 50, large: 56 };
+const ICON_MAX_SEPARATOR = { normal: 40, large: 33 };
+
 /** Opacity stays at Bubble's 0.5 unless forced (measured): rides with Background. */
 const OPACITY_1 = { prop: 'opacity', value: '1', important: true };
 
@@ -126,6 +135,7 @@ const NO_THRESHOLD = { threshold: false, accentColor: false } as const;
 const button = profile('custom:bubble-card/button', {
   modules: { ...NO_THRESHOLD },
   iconSize: true,
+  iconSizeMax: ICON_MAX_BOX,
   clickToEdit: clicksFor('bubble-button-background'),
   emitters: {
     font: text([S.name, S.state]),
@@ -145,6 +155,7 @@ const button = profile('custom:bubble-card/button', {
 const slider = profile('custom:bubble-card/button/slider', {
   modules: { threshold: false },
   iconSize: true,
+  iconSizeMax: ICON_MAX_BOX,
   clickToEdit: clicksFor('bubble-button-background', clickClass('bubble-range-fill', CLICK_ACCENT)),
   emitters: {
     font: text([S.name, S.state]),
@@ -181,6 +192,7 @@ const slider = profile('custom:bubble-card/button/slider', {
 const separator = profile('custom:bubble-card/separator', {
   modules: { ...NO_THRESHOLD },
   iconSize: true,
+  iconSizeMax: ICON_MAX_SEPARATOR,
   // No entity behind the card: nothing for a state condition to read.
   stateAware: false,
   clickToEdit: clicksFor('bubble-separator'),
@@ -201,6 +213,7 @@ const separator = profile('custom:bubble-card/separator', {
 const cover = profile('custom:bubble-card/cover', {
   modules: { ...NO_THRESHOLD },
   iconSize: true,
+  iconSizeMax: ICON_MAX_BOX,
   clickToEdit: clicksFor('bubble-background'),
   emitters: {
     font: text([S.name, S.state]),
