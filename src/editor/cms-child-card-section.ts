@@ -328,6 +328,7 @@ export class CmsChildCardSection extends LitElement {
 
         ${showHeading
           ? html`<cms-heading-style-module
+              .headingStyle=${(c as unknown as Record<string, unknown>).heading_style as string | undefined}
               .overridden=${!!conflicts.headingStyle}
               .overriddenDetail=${(conflicts.headingStyle ?? []).join(", ")}
               .state=${s.headingStyle}

@@ -1237,6 +1237,7 @@ export class CmsPanel extends LitElement {
 
       ${showHeadingStyle
         ? html`<cms-heading-style-module
+            .headingStyle=${(this.config as unknown as Record<string, unknown> | undefined)?.heading_style as string | undefined}
             .overridden=${!!conflicts.headingStyle}
             .overriddenDetail=${(conflicts.headingStyle ?? []).join(", ")}
             .state=${s.headingStyle}
