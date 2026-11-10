@@ -31,6 +31,14 @@ describe('adoption is byte-stable', () => {
     expect(s.font.enabled).toBe(true);
     expect(s.font.color).toBe('red');
   });
+  it('a bare colour on markdown is adopted too and gains the header colour on the next save', () => {
+    installEngines(['card-mod']);
+    const style = 'ha-card {\n  color: red;\n}';
+    const s = buildMergedStudioState(cfg({ type: 'markdown', card_mod: { style } }));
+    expect(s.font).toMatchObject({ enabled: true, color: 'red' });
+    expect(s.advanced.rawCss).toBe('');
+    expect(save('markdown', style)).toBe('ha-card {\n  color: red;\n  --ha-card-header-color: red;\n}');
+  });
   it('a hand-reordered colour / weight is left to Advanced CSS, not rewritten', () => {
     installEngines(['card-mod']);
     const style = 'ha-card {\n  color: red;\n  font-weight: bold;\n}';

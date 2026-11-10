@@ -1885,11 +1885,43 @@ function claimFontCompanions(
   claimIf(findTarget(targets, '.card-header'), 'font-weight', weight);
 }
 
+/** Declarations the Font generator gained in 0.11 for one card type (button
+ *  `.state`, the title-weight token, markdown / alarm-panel header variables,
+ *  statistic `.name/.value/.measurement`, humidifier's mode-label weight,
+ *  picture-glance `.title` weight). A size-less style written by an older
+ *  Studio lacks them, so they are optional when deciding to adopt it: the
+ *  next save adds them. Every other companion stays required — a bare
+ *  hand-written `ha-card { color: red }` on a tile must not be adopted. */
+function isNewFontCompanion(emitKey: string | undefined, selector: string, property: string): boolean {
+  const sel = selector.trim().toLowerCase();
+  if (sel === 'ha-card') {
+    if (property === '--ha-font-weight-normal') return true;
+    if (property === '--ha-font-weight-medium') return emitKey === 'humidifier';
+    return (emitKey === 'markdown' || emitKey === 'alarm-panel') && property.startsWith('--ha-card-header-');
+  }
+  if (emitKey === 'button') return sel === '.state';
+  if (emitKey === 'statistic') return sel === '.name' || sel === '.value' || sel === '.measurement';
+  return emitKey === 'picture-glance' && sel === '.title';
+}
+
 /** True when every declaration of `emitted` is already in `targets` with the
- *  same value, `!important` flag and order, with nothing hand-written beside them — i.e. adopting the module and saving
- *  again changes nothing (the size-less anchors' reproducibility guard). */
-function reemitsExactly(emitted: string, targets: CssTarget[], claimed: Set<string>): boolean {
-  const want = parseCss(emitted);
+ *  same value, `!important` flag and order, with nothing hand-written beside
+ *  them — i.e. adopting the module and saving again changes nothing (the
+ *  size-less anchors' reproducibility guard). `optional` names declarations
+ *  that may be absent (see isNewFontCompanion). */
+function reemitsExactly(
+  emitted: string,
+  targets: CssTarget[],
+  claimed: Set<string>,
+  optional?: (selector: string, property: string) => boolean,
+): boolean {
+  const want = parseCss(emitted).flatMap((t) => {
+    const present = findTarget(targets, t.selector);
+    const properties = t.properties.filter(
+      (p) => !(optional?.(t.selector, p.property) && !(present && findProp(present, p.property))),
+    );
+    return properties.length ? [{ ...t, properties }] : [];
+  });
   if (!want.length) return false;
   return want.every((t) => {
     const have = findTarget(targets, t.selector);
@@ -1971,7 +2003,10 @@ function mapFont(
   if (!sizeMatch) {
     if (!weightStr && !colorStr && !familyStr) return { ...DEFAULT_FONT };
     const emitted = fontBlock(state, emitKeyOf(cardType) || undefined, capsFor(cardType));
-    if (!reemitsExactly(emitted, targets, claimed)) return { ...DEFAULT_FONT };
+    const emitKey = emitKeyOf(cardType) || undefined;
+    if (!reemitsExactly(emitted, targets, claimed, (sel, prop) => isNewFontCompanion(emitKey, sel, prop))) {
+      return { ...DEFAULT_FONT };
+    }
     writes = new Set(parseCss(emitted).flatMap((t) => t.properties.map((p) => claimKey(t.selector, p.property))));
   }
 
