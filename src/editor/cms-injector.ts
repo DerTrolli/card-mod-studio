@@ -72,6 +72,8 @@ interface HuiDialogEditCard extends HTMLElement {
   _cardConfig?: CardModCardConfig;
   /** The HA instance — inherited from parent. */
   hass?: HomeAssistant;
+  /** True while the dialog shows the visual editor, false for the YAML one. */
+  _GUImode?: boolean;
   /** Guard flag so multiple CMS loads don't double-patch. */
   _cmsPatched?: boolean;
 }
@@ -189,6 +191,31 @@ function togglePanel(dialog: HuiDialogEditCard, active: boolean): void {
   }
 }
 
+/**
+ * "Show code editor" / "Show visual editor" flips the dialog's `_GUImode`
+ * state, but the Studio panel covers both editors — so the switch looked
+ * like it did nothing. Close the Studio (and un-press Style) when the mode
+ * really changes; pending Studio edits are already in `_cardConfig`.
+ * `_GUImode` is read from Lit's changed-properties map, not the button's
+ * (translated) label. The first render has no previous value — ignored.
+ * Exported for tests.
+ */
+export function closeStudioOnModeSwitch(
+  dialog: HuiDialogEditCard,
+  changedProps: Map<PropertyKey, unknown>,
+): void {
+  if (!changedProps.has('_GUImode')) return;
+  const was = changedProps.get('_GUImode');
+  if (was === undefined || was === dialog._GUImode) return;
+  const tab = dialog.shadowRoot?.querySelector(`[${CMS_BUTTON_ATTR}]`) as
+    | { active?: boolean }
+    | null
+    | undefined;
+  if (!tab?.active) return;
+  tab.active = false;
+  togglePanel(dialog, false);
+}
+
 // ---------------------------------------------------------------------------
 // Button injection — inserts cms-tab-button next to the existing Cancel button
 // ---------------------------------------------------------------------------
@@ -268,6 +295,12 @@ function patchDialogElement(DialogClass: CustomElementConstructor): void {
     // Always call the original first — HA's own render must complete before we query.
     if (originalUpdated) {
       originalUpdated.call(this, changedProps);
+    }
+
+    try {
+      closeStudioOnModeSwitch(this, changedProps);
+    } catch (err) {
+      console.error('[Card-Mod Studio] Error closing Studio on editor switch:', err);
     }
 
     // Defer by one animation frame so the shadow DOM is fully settled.
