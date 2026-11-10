@@ -2703,12 +2703,18 @@ function mapAdvanced(
     const unclaimed = target.properties.filter(
       (p) => !claimed.has(claimKey(target.selector, p.property)),
     );
-    if (unclaimed.length > 0) {
-      const decls = unclaimed
+    // …plus the declarations an earlier !important one of the same selector
+    // overrides, when a module adopted that winner (and will write it itself):
+    // the overridden one is hand-written text nothing else would keep, so it
+    // stays, once. (A winner that is itself unclaimed is kept verbatim above and
+    // its overridden twin is dropped, as audit #19 pins.)
+    const overridden = (target.overridden ?? []).filter((p) => claimed.has(claimKey(target.selector, p.property)));
+    if (unclaimed.length > 0 || overridden.length > 0) {
+      const decls = [...unclaimed, ...overridden]
         .map((p) => `  ${p.property}: ${p.value}${p.important ? ' !important' : ''};`)
         .join('\n');
       parts.push(`${target.selector} {\n${decls}\n}`);
-      for (const p of unclaimed) if (ANIMATION_PROP_RE.test(p.property)) animationRefs += `\n${p.value}`;
+      for (const p of [...unclaimed, ...overridden]) if (ANIMATION_PROP_RE.test(p.property)) animationRefs += `\n${p.value}`;
     }
   }
 

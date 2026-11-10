@@ -103,6 +103,11 @@ export interface CssProperty {
 export interface CssTarget {
   selector: string;
   properties: CssProperty[];
+  /** Later plain declarations that an earlier `!important` one of the same
+   *  property wins over (same selector). Not part of the effective cascade
+   *  (`properties` holds the winner) but hand-written text: Advanced CSS keeps
+   *  it. Absent when there is none. */
+  overridden?: CssProperty[];
 }
 
 /**

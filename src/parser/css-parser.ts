@@ -320,8 +320,11 @@ function splitDeclarations(block: string): string[] {
 function parseDeclarations(
   declarationBlock: string,
   jinjaMap: Map<string, string>,
-): CssProperty[] {
+): { properties: CssProperty[]; overridden: CssProperty[] } {
   const properties: CssProperty[] = [];
+  // Later plain declarations an earlier `!important` one wins over: not part of
+  // the effective cascade, but hand-written text that must not be lost.
+  const overridden: CssProperty[] = [];
   const indexByProperty = new Map<string, number>();
 
   // Split on ";" — but NOT inside (…) or quotes: url(data:image/png;base64,…)
@@ -358,7 +361,7 @@ function parseDeclarations(
 
     const existingIndex = indexByProperty.get(propertyName);
     if (existingIndex !== undefined) {
-      if (!overridesInCascade(properties[existingIndex], entry)) continue;
+      if (!overridesInCascade(properties[existingIndex], entry)) { overridden.push(entry); continue; }
       properties[existingIndex] = entry;
     } else {
       indexByProperty.set(propertyName, properties.length);
@@ -366,7 +369,7 @@ function parseDeclarations(
     }
   }
 
-  return properties;
+  return { properties, overridden };
 }
 
 // ---------------------------------------------------------------------------
@@ -399,14 +402,22 @@ function coalesceBySelector(targets: CssTarget[]): CssTarget[] {
     const existing = bySelector.get(key);
     if (!existing) {
       order.push(key);
-      bySelector.set(key, { selector: target.selector, properties: [...target.properties] });
+      bySelector.set(key, {
+        selector: target.selector,
+        properties: [...target.properties],
+        ...(target.overridden?.length ? { overridden: [...target.overridden] } : {}),
+      });
       continue;
     }
     for (const prop of target.properties) {
       const i = existing.properties.findIndex((p) => p.property === prop.property);
       if (i === -1) existing.properties.push(prop);
       else if (overridesInCascade(existing.properties[i], prop)) existing.properties[i] = prop;
+      // A later plain declaration that an earlier !important one beats is not
+      // effective, but it is the user's text: kept apart for Advanced CSS.
+      else (existing.overridden ??= []).push(prop);
     }
+    if (target.overridden?.length) (existing.overridden ??= []).push(...target.overridden);
   }
 
   return order.map((key) => bySelector.get(key)!);
@@ -457,11 +468,12 @@ export function parseCssDetailed(css: string): { targets: CssTarget[]; passthrou
       // Restore selector in case a Jinja2 expression appeared in it (unusual
       // but possible with dynamic selectors).
       const restoredSelector = restoreJinja(selector, map);
-      const properties = parseDeclarations(declarationBlock, map);
+      const { properties, overridden } = parseDeclarations(declarationBlock, map);
 
       return {
         selector: restoredSelector,
         properties,
+        ...(overridden.length ? { overridden } : {}),
       };
     })
     .filter((target) => target.properties.length > 0);
@@ -530,7 +542,7 @@ export function parseAllRules(css: string): CssTarget[] {
     blocks
       .map(({ selector, declarationBlock }) => ({
         selector: restoreJinja(selector, map),
-        properties: parseDeclarations(declarationBlock, map),
+        properties: parseDeclarations(declarationBlock, map).properties,
       }))
       .filter((target) => target.properties.length > 0),
   );
