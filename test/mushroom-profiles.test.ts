@@ -417,8 +417,10 @@ describe('M-template — emitAs tile (D4)', () => {
 
   it('a hand-edited glyph value is left in Advanced CSS, the box is still claimed', () => {
     const back = parse('ha-tile-icon { --tile-icon-size: 48px; --mdc-icon-size: 10px; }', k);
-    // (no colour block: the module only enables with its colour, so nothing is claimed here)
-    expect(back.iconColor.enabled).toBe(false);
+    // A size alone is adopted now (Keep the card's colour); the box is claimed.
+    expect(back.iconColor).toMatchObject({ enabled: true, mode: 'none', sizePx: 48 });
+    expect(back.advanced.rawCss).toContain('--mdc-icon-size: 10px;');
+    expect(back.advanced.rawCss).not.toContain('--tile-icon-size');
     const withColour = parse('ha-state-icon { color: #112233 !important; }\nha-tile-icon { --tile-icon-size: 48px; --mdc-icon-size: 10px; }', k);
     expect(withColour.iconColor).toMatchObject({ enabled: true, sizePx: 48 });
     expect(withColour.advanced.rawCss).toContain('--mdc-icon-size: 10px;');

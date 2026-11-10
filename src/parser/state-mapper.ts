@@ -1124,20 +1124,16 @@ function mapIconColor(
   const state = mapIconColorCore(haStateIcon, haIcon, haCard, hostTarget, cardType, claimed);
 
   if (!state.enabled) {
-    // Icon SIZE must survive even when the color side wasn't recognized —
-    // specifically when Threshold owns icon-color (the ha-state-icon color
-    // is then a multi-branch ternary this mapper deliberately doesn't
-    // claim). Bailing out here lost the size setting and leaked the size
-    // vars into Advanced CSS on reopen (audit W5/BUG-8). Only that
-    // threshold-shaped case may re-enable the module for size: a PLAIN
-    // unrecognized color stays fully unclaimed, since enabled:true would
-    // make the generator emit a default color over the hand-written one.
-    const colorProp = haStateIcon ? findProp(haStateIcon, 'color') : undefined;
-    const thresholdShaped =
-      !!colorProp && colorProp.hasCondition && !colorProp.onValue && !colorProp.offValue;
-    if (!thresholdShaped) return state;
+    // No colour recognised. A size alone is a real style (the slider used to
+    // be reachable only together with a colour): adopt it as "keep the
+    // card's colour". Safe because 'none' writes no colour, so a hand-written
+    // one (left in Advanced CSS, or Threshold's multi-branch ternary) is never
+    // overwritten. Also keeps the size when Threshold owns icon-color (W5/BUG-8).
     applyIconSize_(state);
-    if (state.sizePx !== undefined && state.sizePx > 0) state.enabled = true;
+    if (state.sizePx !== undefined && state.sizePx > 0) {
+      state.enabled = true;
+      state.mode = 'none';
+    }
     return state;
   }
 

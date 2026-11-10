@@ -204,8 +204,9 @@ export interface FilterModuleState {
 
 export interface IconColorModuleState {
   enabled: boolean;
-  /** plain = single static color; conditional = on/off entity-state colors; light = use actual light rgb_color attribute */
-  mode: 'plain' | 'conditional' | 'light';
+  /** plain = single static color; conditional = on/off entity-state colors; light = use actual light rgb_color attribute;
+   *  none = write no colour (size only: "Keep the card's colour") */
+  mode: 'plain' | 'conditional' | 'light' | 'none';
   color: string;            // used when mode='plain'
   colorOn: string;          // used when mode='conditional'
   colorOff: string;         // used when mode='conditional'

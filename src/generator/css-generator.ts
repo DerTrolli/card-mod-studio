@@ -254,7 +254,7 @@ function withoutUnwatchedEntity(state: StudioState, config?: Record<string, unkn
   const { iconColor: ic, accentColor: ac } = state;
   return {
     ...state,
-    iconColor: ic.mode !== 'plain' && !ic.entityId ? { ...ic, mode: 'plain', color: ic.colorOff } : ic,
+    iconColor: (ic.mode === 'conditional' || ic.mode === 'light') && !ic.entityId ? { ...ic, mode: 'plain', color: ic.colorOff } : ic,
     accentColor: ac.mode === 'conditional' && !ac.entityId ? { ...ac, mode: 'plain', color: ac.colorOff } : ac,
   };
 }
@@ -836,7 +836,7 @@ function tileIconSizeBlock(s: IconColorModuleState, cardType?: string): string {
 /** Icon Color's colour declaration (always `!important`: Bubble and HA both
  *  set the icon colour on the element itself). */
 function iconColorDecl(s: IconColorModuleState): string | null {
-  if (!s.enabled) return null;
+  if (!s.enabled || s.mode === 'none') return null;
   if (s.mode === 'plain') return `color: ${s.color} !important;`;
 
   const ref = entityRef(s.entityId);
