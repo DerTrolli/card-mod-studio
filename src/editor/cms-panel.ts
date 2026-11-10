@@ -579,7 +579,13 @@ export class CmsPanel extends LitElement {
     // Keep Enter/Escape inside the field — Escape would otherwise close
     // HA's whole card-edit dialog.
     // Enter that accepts an IME candidate (Japanese, Chinese, …) is not a save.
-    if (e.isComposing || e.keyCode === 229) return;
+    // Escape that cancels a candidate belongs to the IME: it must not cancel
+    // the naming nor be default-prevented, but it must still not reach HA's
+    // dialog.
+    if (e.isComposing || e.keyCode === 229) {
+      if (e.key === 'Escape') e.stopPropagation();
+      return;
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();

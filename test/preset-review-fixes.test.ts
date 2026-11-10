@@ -109,6 +109,33 @@ describe('preset name field and IME composition', () => {
     expect(p._namingPreset).toBe(true);
   });
 
+  it('Escape while composing is stopped but neither cancels naming nor is prevented', () => {
+    for (const extra of [{ isComposing: true }, { keyCode: 229 }]) {
+      const p = make();
+      const e = key({ key: 'Escape', ...extra });
+      p._onPresetNameKeydown(e);
+      expect(e.stopPropagation).toHaveBeenCalled();
+      expect(e.preventDefault).not.toHaveBeenCalled();
+      expect(p._namingPreset).toBe(true);
+    }
+  });
+
+  it('a plain Escape cancels naming and is stopped and prevented', () => {
+    const p = make();
+    const e = key({ key: 'Escape', isComposing: false, keyCode: 27 });
+    p._onPresetNameKeydown(e);
+    expect(e.stopPropagation).toHaveBeenCalled();
+    expect(e.preventDefault).toHaveBeenCalled();
+    expect(p._namingPreset).toBe(false);
+  });
+
+  it('Enter while composing is neither stopped nor prevented', () => {
+    const p = make();
+    const e = key({ isComposing: true });
+    p._onPresetNameKeydown(e);
+    expect(e.preventDefault).not.toHaveBeenCalled();
+  });
+
   it('a plain Enter still saves', () => {
     const p = make();
     p._onPresetNameKeydown(key({ isComposing: false, keyCode: 13 }));
