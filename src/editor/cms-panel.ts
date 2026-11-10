@@ -562,6 +562,15 @@ export class CmsPanel extends LitElement {
     this._namingPreset = false;
     this._presetName = '';
     this._presetNameTried = false;
+    this._focusPresetSaveButton();
+  }
+
+  /** The naming field (or its Save / Cancel) is gone after the re-render, and
+   *  with it focus: return it to the bar's "Save preset" button. */
+  private _focusPresetSaveButton() {
+    void this.updateComplete.then(() => {
+      (this.shadowRoot?.querySelector('.preset-bar .btn-preset-save') as HTMLElement | null)?.focus();
+    });
   }
 
   /** Leading blanks are dropped and the length capped as the user types; the
@@ -613,6 +622,7 @@ export class CmsPanel extends LitElement {
     }
     this._namingPreset = false;
     this._presetName = '';
+    this._focusPresetSaveButton();
     // A dict card's carrier (its pierced entries) belongs to THAT card — a
     // preset must never carry it (audit v0.10 #8).
     // Nor Number size: its units differ per card and it can sit under a
@@ -1318,7 +1328,7 @@ export class CmsPanel extends LitElement {
             class="btn-preset-save"
             ?disabled=${!name}
             @click=${this._saveCurrentAsPreset}
-          >${exists ? '💾 Overwrite' : '💾 Save'}</button>
+          ><span aria-hidden="true">💾</span> ${exists ? 'Overwrite' : 'Save'}</button>
           <button class="btn-preset-cancel" @click=${this._cancelNamingPreset}>Cancel</button>
           ${hint ? html`<div class="preset-hint" id="preset-hint" role="status">${hint}</div>` : nothing}
         </div>

@@ -80,6 +80,7 @@ describe('coarse pointer: 40px hit areas', () => {
     expect(rule(t, '.property-check::before')).toMatch(/inset: -6px/); // 28 + 12
     expect(rule(t, '.property-checks')).toMatch(/row-gap: 12px/);
     expect(rule(t, '.rule > button')).toMatch(/min-height: 40px/);
+    expect(rule(t, '.add-btn')).toMatch(/min-height: 40px/); // + Add Rule / + Add Point, 30px on a mouse
   });
 
   it('the enable switch asks HA for a 40px touch area', () => {

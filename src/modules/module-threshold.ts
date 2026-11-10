@@ -238,6 +238,10 @@ export class ThresholdModule extends LitElement {
           min-width: 40px;
           min-height: 40px;
         }
+        /* "+ Add Rule" / "+ Add Point": 30px high on a mouse. */
+        .add-btn {
+          min-height: 40px;
+        }
         /* The checkbox is 16px; its label is the tap target — reach 40px high
            without taller rows. */
         .property-checks {
