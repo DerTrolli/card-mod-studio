@@ -1432,9 +1432,14 @@ function mapIconColorCore(
   // of via CssProperty.entityId.
   if (colorProp.hasCondition && colorProp.value.includes('rgb_color')) {
     if (hasForeignEscape(colorProp.value)) return { ...DEFAULT_ICON_COLOR };
+    // The generator writes `else '<colorOff>'`, and colorOff may be empty
+    // (`else ''`): that exact shape is read as an empty fallback. A fallback
+    // that is not a single-quoted literal at all is not ours: adopting it
+    // rewrote it as the default grey on the next save, so it stays hand-written.
+    const fallbackMatch = colorProp.value.match(new RegExp(String.raw`else\s+'(${JINJA_STR_BODY})'`));
+    if (!fallbackMatch) return { ...DEFAULT_ICON_COLOR };
     claimed.add(claimKey(haStateIcon.selector, 'color'));
-    const fallbackMatch = colorProp.value.match(new RegExp(String.raw`else\s+'(${JINJA_STR_BODY_1})'`));
-    const colorOff = fallbackMatch ? unescapeJinjaStr(fallbackMatch[1]) : DEFAULT_ICON_COLOR.colorOff;
+    const colorOff = unescapeJinjaStr(fallbackMatch[1]);
     const entityMatch = colorProp.value.match(new RegExp(String.raw`is_state\(\s*'(${JINJA_STR_BODY_1})'\s*,`));
     return {
       enabled: true,
