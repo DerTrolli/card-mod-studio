@@ -1804,15 +1804,19 @@ const FONT_WEIGHT_FROM_VALUE: Record<string, FontModuleState['fontWeight']> = {
   bold: 'bold',
 };
 
-/** Claims the tile companion variables (see fontAuxDecls in css-generator.ts)
- *  matching the recognised size/weight/color — same pattern as claimAccentAux. */
+/** Claim keys of every declaration in a generated CSS block. */
+function writtenKeys(css: string): Set<string> {
+  return new Set(parseCss(css).flatMap((t) => t.properties.map((p) => claimKey(t.selector, p.property))));
+}
+
 /**
- * Claims every per-card-type companion the Font generator can emit (see
+ * Claims the per-card-type companions of the Font generator (see
  * fontCompanionDecls/fontCompanionBlocks in css-generator.ts) whose value
  * matches the recognised size/weight/color/family — same pattern as
- * claimAccentAux. The parser doesn't know the card type, so it checks all
- * known companion shapes; only exact value matches are claimed, so a
- * hand-written declaration with a different value stays in Advanced CSS.
+ * claimAccentAux. `allowed` is the set of declarations the generator writes
+ * back for THIS card type: anything else is hand-written and stays in
+ * Advanced CSS (claiming it would delete it on the next save). `null` (the
+ * caller has no card type) checks every known companion shape.
  */
 function claimFontCompanions(
   targets: CssTarget[],
@@ -1823,11 +1827,13 @@ function claimFontCompanions(
   color: string | null,
   family: string | null,
   claimed: Set<string>,
-  cardType?: string,
-  headerWeight = false,
+  cardType: string | undefined,
+  headerWeight: boolean,
+  allowed: Set<string> | null,
 ): void {
   const claimIf = (target: CssTarget | null, property: string, expected: string | null) => {
     if (!target || expected === null) return;
+    if (allowed && !allowed.has(claimKey(target.selector, property))) return;
     const prop = findProp(target, property);
     if (prop && prop.value.trim() === expected) claimed.add(claimKey(target.selector, property));
   };
@@ -1850,10 +1856,8 @@ function claimFontCompanions(
     claimIf(haCard, name, expected);
   }
 
-  // Companions of one card type each: claimed only for that type, so the same
-  // declaration written by hand on another card stays in Advanced CSS.
+  // No untyped form: known only from the card type (`allowed` gates the rest).
   if (headerWeight) claimIf(haCard, '--ha-font-weight-normal', weight);
-  if (cardType === 'humidifier') claimIf(haCard, '--ha-font-weight-medium', weight);
   if (cardType === 'button') {
     const state = findTarget(targets, '.state');
     claimIf(state, 'font-size', sizePx != null ? buttonStateFontSize(sizePx) : null);
@@ -1997,33 +2001,38 @@ function mapFont(
     state.fontFamily = familyStr;
   }
 
-  // Size-less path: only what the regenerated block holds may be claimed —
-  // the generator writes nothing else back, so anything more would vanish.
-  let writes: Set<string> | null = null;
+  // Only what the generator writes back for this card type may be claimed —
+  // anything more would vanish on the next save. No card type (some callers
+  // parse without one): every known companion shape.
+  const emitKey = emitKeyOf(cardType) || undefined;
+  const caps = capsFor(cardType);
+  let allowed: Set<string> | null = null;
   if (!sizeMatch) {
     if (!weightStr && !colorStr && !familyStr) return { ...DEFAULT_FONT };
-    const emitted = fontBlock(state, emitKeyOf(cardType) || undefined, capsFor(cardType));
-    const emitKey = emitKeyOf(cardType) || undefined;
+    const emitted = fontBlock(state, emitKey, caps);
     if (!reemitsExactly(emitted, targets, claimed, (sel, prop) => isNewFontCompanion(emitKey, sel, prop))) {
       return { ...DEFAULT_FONT };
     }
-    writes = new Set(parseCss(emitted).flatMap((t) => t.properties.map((p) => claimKey(t.selector, p.property))));
+    allowed = writtenKeys(emitted);
+  } else if (cardType) {
+    allowed = writtenKeys(fontBlock(state, emitKey, caps));
+    // v0.10.1 wrote the header variables on picture-glance too; they stay
+    // claimed (and are dropped on the next save): a deliberate clean-up.
+    if (emitKey === 'picture-glance') {
+      for (const p of ['--ha-card-header-font-size', '--ha-card-header-color', '--ha-card-header-font-family']) {
+        allowed.add(claimKey('ha-card', p));
+      }
+    }
   }
 
-  const headerWeight = headerWeightViaToken(emitKeyOf(cardType) || undefined, capsFor(cardType));
+  const headerWeight = headerWeightViaToken(emitKey, caps);
   const sizeStr = sizeMatch ? fontSizeProp!.value.trim() : null;
   if (sizeStr) claimed.add(claimKey(haCard.selector, 'font-size'));
   if (weightStr) claimed.add(claimKey(haCard.selector, 'font-weight'));
   if (colorStr) claimed.add(claimKey(haCard.selector, 'color'));
   if (familyStr) claimed.add(claimKey(haCard.selector, 'font-family'));
 
-  if (writes) {
-    const companions = new Set<string>();
-    claimFontCompanions(targets, haCard, null, null, weightStr, colorStr, familyStr, companions, emitKeyOf(cardType) || undefined, headerWeight);
-    for (const k of companions) if (writes.has(k)) claimed.add(k);
-  } else {
-    claimFontCompanions(targets, haCard, state.fontSize ?? null, sizeStr, weightStr, colorStr, familyStr, claimed, emitKeyOf(cardType) || undefined, headerWeight);
-  }
+  claimFontCompanions(targets, haCard, state.fontSize ?? null, sizeStr, weightStr, colorStr, familyStr, claimed, emitKey, headerWeight, allowed);
 
   return state;
 }
