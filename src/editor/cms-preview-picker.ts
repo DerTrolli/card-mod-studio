@@ -55,6 +55,9 @@ export class CmsPreviewPicker extends LitElement {
   /** Entities cards: entity_id per row, in config order (undefined for
    *  rows without one, so indices stay aligned with the DOM row order). */
   @property({ attribute: false }) rows: Array<string | undefined> = [];
+  /** When set, only targets on these modules (cms-* tags) are offered — the
+   *  panel shows no others (a locked entities card shows just its rows). */
+  @property({ attribute: false }) onlyModules?: readonly string[];
   @state() private _box: HighlightBox | null = null;
   @state() private _label = '';
 
@@ -316,7 +319,7 @@ export class CmsPreviewPicker extends LitElement {
     }
 
     const pointer: PickPointer = { x, y, under: underEls.map(CmsPreviewPicker._describe) };
-    const match = mapElementToMatch(chain.map(CmsPreviewPicker._describe), this.cardType, this.cardConfig, pointer);
+    const match = mapElementToMatch(chain.map(CmsPreviewPicker._describe), this.cardType, this.cardConfig, pointer, this.onlyModules);
     if (!match) {
       this._clear();
       return null;

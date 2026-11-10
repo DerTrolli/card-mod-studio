@@ -89,6 +89,9 @@ function isDarkTheme(hass: HomeAssistant | undefined): boolean {
   return themes?.darkMode === true;
 }
 
+/** A locked card renders only the entity rows module, so only it can be picked. */
+const LOCKED_PICK_MODULES = ['cms-entities-rows-module'] as const;
+
 export class CmsPanel extends LitElement {
   @property({ attribute: false }) config?: CardModCardConfig;
   @property({ attribute: false }) hass?: HomeAssistant;
@@ -1167,6 +1170,7 @@ export class CmsPanel extends LitElement {
               .cardType=${this._profileKey}
               .cardConfig=${this.config as unknown as Record<string, unknown>}
               .rows=${this._rowEntityIds()}
+              .onlyModules=${this._isLocked ? LOCKED_PICK_MODULES : undefined}
               @cms-pick=${this._onPreviewPick}
             ></cms-preview-picker>`
           : nothing}

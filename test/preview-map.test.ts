@@ -303,3 +303,29 @@ describe('mapElementToTarget', () => {
     expect(mapElementToTarget([], 'tile')).toBeNull();
   });
 });
+
+describe('onlyModules (a locked entities card shows just its rows)', () => {
+  const ROWS = ['cms-entities-rows-module'];
+  const row = [
+    el('state-badge'), el('hui-generic-entity-row'), el('hui-sensor-entity-row'),
+    el('div', [], 'states'), el('ha-card'), el('hui-entities-card'), el('hui-card'),
+  ];
+  const header = [el('div', ['card-header']), el('ha-card'), el('hui-entities-card'), el('hui-card')];
+  const surface = [el('ha-card'), el('hui-entities-card'), el('hui-card')];
+
+  it('a row part still maps to Entity Rows', () => {
+    expect(mapElementToTarget(row, 'entities', {}, undefined, ROWS)?.module).toBe('cms-entities-rows-module');
+  });
+
+  it('the header and the card surface map to nothing', () => {
+    expect(mapElementToTarget(header, 'entities', {}, undefined, ROWS)).toBeNull();
+    expect(mapElementToTarget(surface, 'entities', {}, undefined, ROWS)).toBeNull();
+    expect(mapElementToMatch(header, 'entities', {}, undefined, ROWS)).toBeNull();
+  });
+
+  it('unlocked (no filter) is unchanged', () => {
+    expect(mapElementToTarget(header, 'entities', {})?.module).toBe('cms-font-module');
+    expect(mapElementToTarget(surface, 'entities', {})?.module).toBe('cms-background-module');
+    expect(mapElementToTarget(row, 'entities', {})?.module).toBe('cms-entities-rows-module');
+  });
+});

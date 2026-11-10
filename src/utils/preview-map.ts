@@ -312,6 +312,19 @@ export function mapElementToMatch(
   cardType: string,
   config?: Record<string, unknown> | null,
   pointer?: PickPointer,
+  onlyModules?: readonly string[],
+): PickMatch | null {
+  const match = resolveMatch(chain, cardType, config, pointer);
+  // A panel that shows only some modules (a locked entities card shows just
+  // the row styling): anything else has nothing to open, so it gets no label.
+  return match && onlyModules && !onlyModules.includes(match.target.module) ? null : match;
+}
+
+function resolveMatch(
+  chain: PickChainElement[],
+  cardType: string,
+  config?: Record<string, unknown> | null,
+  pointer?: PickPointer,
 ): PickMatch | null {
   if (!chain.length) return null;
   const ctx = buildContext(chain, cardType, config);
@@ -398,6 +411,7 @@ export function mapElementToTarget(
   cardType: string,
   config?: Record<string, unknown> | null,
   pointer?: PickPointer,
+  onlyModules?: readonly string[],
 ): PickTarget | null {
-  return mapElementToMatch(chain, cardType, config, pointer)?.target ?? null;
+  return mapElementToMatch(chain, cardType, config, pointer, onlyModules)?.target ?? null;
 }
