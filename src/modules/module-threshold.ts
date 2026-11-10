@@ -5,6 +5,7 @@ import type { ThresholdModuleState, ThresholdProperty, ThresholdRule, ColorStop,
 import { DEFAULT_THRESHOLD } from '../parser/state-mapper.js';
 import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
 import { sortThresholdRules } from '../generator/css-generator.js';
+import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 import { previewHexFor } from '../components/cms-color-picker.js';
 import { thresholdPropertyAllowed } from '../utils/card-caps.js';
 import { thresholdColorsWithoutTriplet, tripletHint } from '../utils/rgb-triplet.js';
@@ -67,8 +68,8 @@ export class ThresholdModule extends LitElement {
         width: 64px;
         flex: 0 0 auto;
       }
-      .rule input[type='number'],
-      .stop input[type='number'] {
+      .rule input.num,
+      .stop input.num {
         flex: 1 1 64px;
         width: auto;
         min-width: 56px;
@@ -576,10 +577,17 @@ export class ThresholdModule extends LitElement {
           <option value="!=" ?selected=${rule.operator === '!='}>!=</option>
         </select>
         <input
-          type="number"
+          type="text"
+          inputmode="decimal"
+          class="num"
+          aria-label="Rule ${index + 1} value"
+          aria-invalid="false"
+          spellcheck="false"
+          autocomplete="off"
           .value=${String(rule.value)}
-          @change=${(e: Event) =>
-            this._onValueChange(index, (e.target as HTMLInputElement).value)}
+          @input=${markNumberInput}
+          @change=${(e: Event) => this._onValueChange(index, e)}
+          @blur=${(e: Event) => revertNumberInput(e, rule.value)}
         />
         <span class="rule-label">→</span>
         <cms-color-picker
@@ -614,10 +622,17 @@ export class ThresholdModule extends LitElement {
         </div>
         <span class="rule-label">At value</span>
         <input
-          type="number"
+          type="text"
+          inputmode="decimal"
+          class="num"
+          aria-label="Fade point ${index + 1} value"
+          aria-invalid="false"
+          spellcheck="false"
+          autocomplete="off"
           .value=${String(stop.value)}
-          @change=${(e: Event) =>
-            this._onStopValueChange(index, (e.target as HTMLInputElement).value)}
+          @input=${markNumberInput}
+          @change=${(e: Event) => this._onStopValueChange(index, e)}
+          @blur=${(e: Event) => revertNumberInput(e, stop.value)}
         />
         <span class="rule-label">→</span>
         <cms-color-picker
@@ -662,9 +677,14 @@ export class ThresholdModule extends LitElement {
     this._emit({ rules });
   }
 
-  private _onValueChange(index: number, value: string) {
+  /** An empty / unparseable field stores nothing (it keeps the previous value
+   *  and its invalid cue); a rule always exists with a number — "Add rule"
+   *  creates it as 0, so there is no empty NEW rule. */
+  private _onValueChange(index: number, e: Event) {
+    const value = commitNumberInput(e);
+    if (value === undefined) return;
     const rules = [...this.state.rules];
-    rules[index] = { ...rules[index], value: parseFloat(value) || 0 };
+    rules[index] = { ...rules[index], value };
     this._emit({ rules });
   }
 
@@ -694,9 +714,11 @@ export class ThresholdModule extends LitElement {
     this._emit({ colorStops });
   }
 
-  private _onStopValueChange(index: number, value: string) {
+  private _onStopValueChange(index: number, e: Event) {
+    const value = commitNumberInput(e);
+    if (value === undefined) return;
     const colorStops = [...this.state.colorStops];
-    colorStops[index] = { ...colorStops[index], value: parseFloat(value) || 0 };
+    colorStops[index] = { ...colorStops[index], value };
     this._emit({ colorStops });
   }
 

@@ -8,6 +8,7 @@ import type { HomeAssistant, StyleCondition } from '../types/index.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
 import type { OwnStateKind } from '../utils/card-caps.js';
+import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 
 /**
  * Theme-aware design tokens shared by every module (and re-declared on
@@ -202,9 +203,16 @@ export const moduleStyles = [
   input[type='text'] {
     width: 100%;
   }
-  input[type='number'] {
+  input[type='number'],
+  input.num {
     width: 84px;
     min-width: 0;
+  }
+  /* Invalid number: dashed border as well as colour, plus aria-invalid. */
+  input[aria-invalid='true'] {
+    border: 1px dashed var(--cms-line-error);
+    background: var(--cms-tint-error);
+    color: var(--cms-ink-error);
   }
   select:focus-visible,
   input[type='text']:focus-visible,
@@ -757,12 +765,21 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
             <span class="control-label">Threshold</span>
             <div class="control-right">
               <input
-                type="number"
+                type="text"
+                inputmode="decimal"
+                class="num"
+                aria-label="Threshold value"
+                aria-invalid="false"
+                spellcheck="false"
+                autocomplete="off"
                 .value=${String(c?.valueThreshold ?? 0)}
-                @change=${(e: Event) =>
-                  change({
-                    valueThreshold: parseFloat((e.target as HTMLInputElement).value) || 0,
-                  })}
+                @input=${markNumberInput}
+                @change=${(e: Event) => {
+                  // Empty / unparseable: keep the previous value (cue shows until blur).
+                  const n = commitNumberInput(e);
+                  if (n !== undefined) change({ valueThreshold: n });
+                }}
+                @blur=${(e: Event) => revertNumberInput(e, c?.valueThreshold ?? 0)}
               />
             </div>
           </div>
