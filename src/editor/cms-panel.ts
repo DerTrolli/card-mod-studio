@@ -1010,11 +1010,16 @@ export class CmsPanel extends LitElement {
     // box, so its inset:0 overlay spans the card's FULL height — against the
     // scroll container it only covered the first screenful of a tall
     // preview (lower entity rows weren't pickable).
+    // `inert` sits on the card itself, not the wrapper: it removes the real
+    // card from Tab, key presses and the accessibility tree (pointer-events
+    // alone left it a keyboard tab stop that could switch a real entity),
+    // while the picker overlay — a sibling — keeps working and still reads
+    // the card's rects. aria-hidden would be redundant with inert.
     return html`
       <div class="preview-stage">
         ${keyed(
           this._previewKey,
-          html`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`,
+          html`<hui-card inert .hass=${this.hass} .config=${previewConfig}></hui-card>`,
         )}
         ${this._pickerActive
           ? html`<cms-preview-picker
