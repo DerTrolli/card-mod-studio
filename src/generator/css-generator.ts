@@ -592,7 +592,7 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
 
 /** CSS value per Font-module weight name. Exported for the parser's
  *  companion-claiming and the entities-row generator. */
-export const FONT_WEIGHT_VALUE: Record<FontModuleState['fontWeight'], string> = {
+export const FONT_WEIGHT_VALUE: Record<NonNullable<FontModuleState['fontWeight']>, string> = {
   normal: 'normal',
   medium: '500',
   bold: 'bold',
@@ -643,63 +643,58 @@ export function valueFontSize(sizePx: number): string {
  */
 function fontCompanionBlocks(
   cardType: string | undefined,
-  size: string,
-  sizePx: number,
-  weight: string,
+  size: string | null,
+  sizePx: number | null,
+  weight: string | null,
   color: string | null,
 ): string[] {
   const blocks: string[] = [];
+  const block = (selector: string, decls: Array<string | null>) => {
+    const d = decls.filter((x): x is string => !!x);
+    if (d.length) blocks.push(`${selector} {\n${d.join('\n')}\n}`);
+  };
+  const sizeDecl = size ? `  font-size: ${size} !important;` : null;
+  const weightDecl = weight ? `  font-weight: ${weight} !important;` : null;
+  const colorDecl = color ? `  color: ${color} !important;` : null;
 
   if (cardType === 'light') {
-    blocks.push(`#info {\n  font-size: ${size} !important;\n}`);
-    blocks.push(`.brightness {\n  font-size: ${size} !important;\n}`);
+    block('#info', [sizeDecl]);
+    block('.brightness', [sizeDecl]);
   }
 
   if (cardType === 'sensor' || cardType === 'entity') {
-    const nameDecls = [
-      `  font-size: ${size} !important;`,
-      `  font-weight: ${weight} !important;`,
-      ...(color ? [`  color: ${color} !important;`] : []),
-    ];
-    blocks.push(`.name {\n${nameDecls.join('\n')}\n}`);
-    blocks.push(`.value {\n  font-size: ${valueFontSize(sizePx)} !important;\n}`);
-    const unitDecls = [
-      `  font-size: ${size} !important;`,
-      ...(color ? [`  color: ${color} !important;`] : []),
-    ];
-    blocks.push(`.measurement {\n${unitDecls.join('\n')}\n}`);
+    block('.name', [sizeDecl, weightDecl, colorDecl]);
+    block('.value', [sizePx != null ? `  font-size: ${valueFontSize(sizePx)} !important;` : null]);
+    block('.measurement', [sizeDecl, colorDecl]);
   }
 
   if (cardType === 'gauge' || cardType === 'thermostat') {
-    const titleDecls = [
-      `  font-size: ${size} !important;`,
-      `  font-weight: ${weight} !important;`,
-      ...(color ? [`  color: ${color} !important;`] : []),
-    ];
-    blocks.push(`.title {\n${titleDecls.join('\n')}\n}`);
+    const titleDecls = [sizeDecl, weightDecl, colorDecl];
+    block('.title', titleDecls);
     // On older HA the gauge's name is a div.name (checked live on 2026.2 and
     // 2025.9; 2026.6+ uses p.title); current HA has no .name in the gauge, so
     // this is inert there.
-    if (cardType === 'gauge') blocks.push(`.name {\n${titleDecls.join('\n')}\n}`);
+    if (cardType === 'gauge') block('.name', titleDecls);
   }
 
   if (cardType === 'entities') {
     // The slotted h1 is in the card's own shadow root — a plain rule beats
     // ha-card's internal ::slotted() styling, no !important needed. Weight
     // has no dedicated header variable, hence the direct rule.
-    blocks.push(`.card-header {\n  font-weight: ${weight};\n}`);
+    if (weight) blocks.push(`.card-header {\n  font-weight: ${weight};\n}`);
   }
 
   return blocks;
 }
 
 /** ha-card-block companion declarations (variables that must ride in the
- *  same block as the base font declarations). */
+ *  same block as the base font declarations). Each one is written only when
+ *  the value it derives from is set. */
 function fontCompanionDecls(
   cardType: string | undefined,
-  size: string,
-  sizePx: number,
-  weight: string,
+  size: string | null,
+  sizePx: number | null,
+  weight: string | null,
   color: string | null,
   family: string | null,
   caps: CardCaps,
@@ -707,12 +702,12 @@ function fontCompanionDecls(
   const decls: string[] = [];
 
   if (cardType === 'tile') {
-    decls.push(
-      `--ha-tile-info-primary-font-size: ${size};`,
-      `--ha-tile-info-secondary-font-size: ${size};`,
-      `--ha-tile-info-primary-font-weight: ${weight};`,
-      `--ha-tile-info-secondary-font-weight: ${weight};`,
-    );
+    if (size) {
+      decls.push(`--ha-tile-info-primary-font-size: ${size};`, `--ha-tile-info-secondary-font-size: ${size};`);
+    }
+    if (weight) {
+      decls.push(`--ha-tile-info-primary-font-weight: ${weight};`, `--ha-tile-info-secondary-font-weight: ${weight};`);
+    }
     if (color) {
       decls.push(`--ha-tile-info-primary-color: ${color};`, `--ha-tile-info-secondary-color: ${color};`);
     }
@@ -730,11 +725,12 @@ function fontCompanionDecls(
   if (cardType === 'thermostat') {
     // hvac-action/current-temperature label inside the nested climate
     // control reads these tokens.
-    decls.push(`--ha-font-size-l: ${size};`, `--ha-font-weight-medium: ${weight};`);
+    if (size) decls.push(`--ha-font-size-l: ${size};`);
+    if (weight) decls.push(`--ha-font-weight-medium: ${weight};`);
   }
 
   if (caps.headerTitle) {
-    decls.push(`--ha-card-header-font-size: ${headerFontSize(sizePx)};`);
+    if (sizePx != null) decls.push(`--ha-card-header-font-size: ${headerFontSize(sizePx)};`);
     if (color) decls.push(`--ha-card-header-color: ${color};`);
     if (family) decls.push(`--ha-card-header-font-family: ${family};`);
   }
@@ -744,15 +740,15 @@ function fontCompanionDecls(
 
 /** Font through a profile emitter: variables (size `Npx`, weight, colour) on
  *  the emitter's selector, plus a plain `font-family` when it asks for one.
- *  The first size variable is what the parser recognises the module by. */
+ *  Each list is written only when its value is set. */
 function fontVarBlock(s: FontModuleState, e: FontEmitter, skipColor = false): string {
   if (!s.enabled) return '';
-  const weight = FONT_WEIGHT_VALUE[s.fontWeight];
   const family = s.fontFamily.trim();
+  const weight = s.fontWeight ? FONT_WEIGHT_VALUE[s.fontWeight] : null;
   const decls = [
-    ...(e.size ?? []).map((v) => `${v}: ${s.fontSize}px;`),
-    ...(e.weight ?? []).map((v) => `${v}: ${weight};`),
-    ...(skipColor ? [] : (e.color ?? []).map((v) => `${v}: ${s.color};`)),
+    ...(s.fontSize != null ? (e.size ?? []).map((v) => `${v}: ${s.fontSize}px;`) : []),
+    ...(weight ? (e.weight ?? []).map((v) => `${v}: ${weight};`) : []),
+    ...(skipColor || !s.color ? [] : (e.color ?? []).map((v) => `${v}: ${s.color};`)),
     ...(e.family && family ? [`font-family: ${family};`] : []),
   ];
   return decls.length ? `${e.selector} {\n${decls.map((d) => `  ${d}`).join('\n')}\n}` : '';
@@ -763,25 +759,30 @@ function fontVarBlock(s: FontModuleState, e: FontEmitter, skipColor = false): st
  *   used when Threshold already owns the 'text-color' property for this
  *   card, so the two modules don't emit conflicting `color` declarations
  *   into the same ha-card block (size/weight/family still apply either way).
+ *
+ * Exported for the parser's size-less reproducibility check.
  */
-function fontBlock(s: FontModuleState, cardType: string | undefined, caps: CardCaps, skipColor = false): string {
+export function fontBlock(s: FontModuleState, cardType: string | undefined, caps: CardCaps, skipColor = false): string {
   if (!s.enabled) return '';
 
-  const size = `${s.fontSize}px`;
-  const weight = FONT_WEIGHT_VALUE[s.fontWeight];
-  const color = skipColor ? null : s.color;
+  const sizePx = s.fontSize ?? null;
+  const size = sizePx != null ? `${sizePx}px` : null;
+  const weight = s.fontWeight ? FONT_WEIGHT_VALUE[s.fontWeight] : null;
+  const color = skipColor ? null : s.color || null;
   const family = s.fontFamily.trim() || null;
 
   // Button: ha-card's own adopted stylesheet declares font-size, and adopted
   // sheets order after injected <style> elements — !important required.
   const sizeImportant = cardType === 'button' ? ' !important' : '';
-  const decls = [`font-size: ${size}${sizeImportant};`, `font-weight: ${weight};`];
+  const decls: string[] = [];
+  if (size) decls.push(`font-size: ${size}${sizeImportant};`);
+  if (weight) decls.push(`font-weight: ${weight};`);
   if (color) decls.push(`color: ${color};`);
   if (family) decls.push(`font-family: ${family};`);
-  decls.push(...fontCompanionDecls(cardType, size, s.fontSize, weight, color, family, caps));
+  decls.push(...fontCompanionDecls(cardType, size, sizePx, weight, color, family, caps));
 
-  const base = `ha-card {\n${decls.map((d) => `  ${d}`).join('\n')}\n}`;
-  return [base, ...fontCompanionBlocks(cardType, size, s.fontSize, weight, color)].join('\n\n');
+  const base = decls.length ? `ha-card {\n${decls.map((d) => `  ${d}`).join('\n')}\n}` : '';
+  return [base, ...fontCompanionBlocks(cardType, size, sizePx, weight, color)].filter(Boolean).join('\n\n');
 }
 
 /**

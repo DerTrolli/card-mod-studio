@@ -82,8 +82,11 @@ function randomState(r: () => number, cardType: string): StudioState {
       iconSize: pick([24, 40]), iconColor: pick(COLORS), alignment: pick(['left', 'center', 'right'] as const),
     } : { ...DEFAULT_HEADING_STYLE },
     font: coin(0.4) ? {
-      ...DEFAULT_FONT, enabled: true, fontSize: pick([12, 16, 22]), fontFamily: pick(['', 'serif']),
-      fontWeight: pick(['normal', 'medium', 'bold'] as const), color: pick(COLORS),
+      ...DEFAULT_FONT, enabled: true, fontFamily: pick(['', 'serif']),
+      // Each of the three is also drawn "not set" (undefined); 0 is a real value.
+      fontSize: coin(0.3) ? undefined : pick([0, 12, 16, 22]),
+      fontWeight: coin(0.3) ? undefined : pick(['normal', 'medium', 'bold'] as const),
+      color: coin(0.3) ? undefined : pick(COLORS),
     } : { ...DEFAULT_FONT },
     threshold: coin(0.3) ? (() => {
       const props = (['icon-color', 'background', 'text-color', 'accent-color', 'border-color'] as ThresholdProperty[]).filter(() => coin(0.4));

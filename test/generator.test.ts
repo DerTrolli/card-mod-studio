@@ -705,8 +705,7 @@ describe('generateCss — font', () => {
   });
 
   it('gauge: the theme-default text colour emits no self-referencing --primary-text-color (value text went black in dark mode)', () => {
-    const state = makeState({ font: { ...DEFAULT_FONT, enabled: true, fontSize: 20 } });
-    expect(state.font.color).toBe('var(--primary-text-color)');
+    const state = makeState({ font: { ...DEFAULT_FONT, enabled: true, fontSize: 20, color: 'var(--primary-text-color)' } });
     const css = generateCss(state, 'gauge');
     expect(css).not.toMatch(/--primary-text-color:\s*var\(--primary-text-color/);
     expect(css).toContain('color: var(--primary-text-color);');

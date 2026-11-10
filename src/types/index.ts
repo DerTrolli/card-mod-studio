@@ -301,11 +301,13 @@ export interface HeadingStyleModuleState {
 
 export interface FontModuleState {
   enabled: boolean;
-  fontSize: number;        // px, 10-48
+  /** px, 10-48. Size, weight and colour: `undefined` = not set — nothing is
+   *  written for it (nor for the companions derived from it). */
+  fontSize?: number;
   /** '' = leave the theme's font-family alone. */
   fontFamily: string;
-  fontWeight: 'normal' | 'medium' | 'bold';
-  color: string;
+  fontWeight?: 'normal' | 'medium' | 'bold';
+  color?: string;
   /** v0.11 Number size (gauge value / thermostat big number), independent
    *  of `enabled` — see docs/V0.11_PLAN.md C1.0. */
   numberSizeEnabled: boolean;

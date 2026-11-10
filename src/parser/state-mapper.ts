@@ -47,6 +47,7 @@ import {
   HEADING_ICON_SELECTOR,
   GLYPH_SCALE,
   iconSizeValue,
+  fontBlock,
 } from '../generator/css-generator.js';
 import { capsFor } from '../utils/card-caps.js';
 import {
@@ -128,12 +129,11 @@ export const DEFAULT_HEADING_STYLE: HeadingStyleModuleState = {
   fontFamily: '',
 };
 
+/** Size, weight and colour start unset: enabling Font writes nothing until a
+ *  control is touched (the panel defaults were never the cards' own values). */
 export const DEFAULT_FONT: FontModuleState = {
   enabled: false,
-  fontSize: 16,
   fontFamily: '',
-  fontWeight: 'normal',
-  color: THEME_TEXT_COLOR,
   numberSizeEnabled: false,
   numberSize: 0,
 };
@@ -518,7 +518,7 @@ export function mapToStudioState(fullParsed: CardModStyleState, cardType?: strin
         ? { ...DEFAULT_FONT }
         : pc?.has('fontSize')
           ? mapFontProfile(pc, claimed)
-          : mapFont(parsed.targets, haCard, claimed)),
+          : mapFont(parsed.targets, haCard, claimed, cardType)),
       ...numberSize.font,
     },
     threshold: hidden('threshold')
@@ -742,32 +742,53 @@ class ProfileClaims {
   }
 }
 
-/** Font through a profile's claims: the first size variable anchors the
- *  module (like `font-size` on ha-card does for built-in cards). */
+/** Font through a profile's claims. A plain px size variable anchors the
+ *  module (like `font-size` on ha-card does for built-in cards). Without one,
+ *  a role (weight / colour / family) is adopted only when EVERY variable of
+ *  it is present, plain and equal — the module writes them all together, so
+ *  a lone `--card-primary-font-weight` is the user's and stays in Advanced
+ *  CSS instead of growing its secondary twin on the next save. */
 function mapFontProfile(pc: ProfileClaims, claimed: Set<string>): FontModuleState {
   const plain = (role: ClaimRole) =>
     pc.present(role).find(({ prop }) => !prop.hasCondition && prop.value.trim())?.prop;
   const size = plain('fontSize');
   const sizeMatch = size?.value.trim().match(/^(\d+(?:\.\d+)?)px$/);
-  if (!size || !sizeMatch) return { ...DEFAULT_FONT };
+  if (size && !sizeMatch) return { ...DEFAULT_FONT };
 
-  const state: FontModuleState = { ...DEFAULT_FONT, enabled: true, fontSize: parseFloat(sizeMatch[1]) };
-  pc.claimEqual('fontSize', size.value, claimed);
+  /** The role's value when the size-less rule above holds. */
+  const wholeRole = (role: ClaimRole): string | null => {
+    const want = pc.rule(role)?.props.length ?? 0;
+    const have = pc.present(role);
+    if (!want || have.length !== want || have.some(({ prop }) => prop.hasCondition || !prop.value.trim())) return null;
+    const first = have[0].prop.value.trim();
+    return have.every(({ prop }) => prop.value.trim() === first) ? first : null;
+  };
+  const pick = (role: ClaimRole): string | null => (sizeMatch ? (plain(role)?.value.trim() ?? null) : wholeRole(role));
 
-  const weight = plain('fontWeight');
-  if (weight && FONT_WEIGHT_FROM_VALUE[weight.value.trim()]) {
-    state.fontWeight = FONT_WEIGHT_FROM_VALUE[weight.value.trim()];
-    pc.claimEqual('fontWeight', weight.value, claimed);
+  const state: FontModuleState = { ...DEFAULT_FONT, enabled: true };
+  if (sizeMatch) {
+    state.fontSize = parseFloat(sizeMatch[1]);
+    pc.claimEqual('fontSize', size!.value, claimed);
   }
-  const color = plain('fontColor');
+
+  const weight = pick('fontWeight');
+  if (weight && FONT_WEIGHT_FROM_VALUE[weight]) {
+    state.fontWeight = FONT_WEIGHT_FROM_VALUE[weight];
+    pc.claimEqual('fontWeight', weight, claimed);
+  }
+  const color = pick('fontColor');
   if (color) {
-    state.color = color.value.trim();
-    pc.claimEqual('fontColor', color.value, claimed);
+    state.color = color;
+    pc.claimEqual('fontColor', color, claimed);
   }
-  const family = plain('fontFamily');
+  const family = pick('fontFamily');
   if (family) {
-    state.fontFamily = family.value.trim();
-    pc.claimEqual('fontFamily', family.value, claimed);
+    state.fontFamily = family;
+    pc.claimEqual('fontFamily', family, claimed);
+  }
+  // Nothing recognised and no size: not ours.
+  if (!sizeMatch && state.fontWeight === undefined && state.color === undefined && !state.fontFamily) {
+    return { ...DEFAULT_FONT };
   }
   return state;
 }
@@ -1722,9 +1743,9 @@ const FONT_WEIGHT_FROM_VALUE: Record<string, FontModuleState['fontWeight']> = {
 function claimFontCompanions(
   targets: CssTarget[],
   haCard: CssTarget,
-  sizePx: number,
-  size: string,
-  weight: string,
+  sizePx: number | null,
+  size: string | null,
+  weight: string | null,
   color: string | null,
   family: string | null,
   claimed: Set<string>,
@@ -1746,7 +1767,7 @@ function claimFontCompanions(
     ['--primary-text-color', color],
     ['--ha-font-size-l', size],
     ['--ha-font-weight-medium', weight],
-    ['--ha-card-header-font-size', headerFontSize(sizePx)],
+    ['--ha-card-header-font-size', sizePx != null ? headerFontSize(sizePx) : null],
     ['--ha-card-header-color', color],
     ['--ha-card-header-font-family', family],
   ] as Array<[string, string | null]>) {
@@ -1760,7 +1781,7 @@ function claimFontCompanions(
   claimIf(name, 'color', color);
 
   const value = findTarget(targets, '.value');
-  claimIf(value, 'font-size', valueFontSize(sizePx));
+  claimIf(value, 'font-size', sizePx != null ? valueFontSize(sizePx) : null);
 
   const measurement = findTarget(targets, '.measurement');
   claimIf(measurement, 'font-size', size);
@@ -1778,32 +1799,61 @@ function claimFontCompanions(
   claimIf(findTarget(targets, '.card-header'), 'font-weight', weight);
 }
 
+/** True when every declaration of `emitted` is already in `targets` with the
+ *  same value and `!important` flag — i.e. adopting the module and saving
+ *  again changes nothing (the size-less anchors' reproducibility guard). */
+function reemitsExactly(emitted: string, targets: CssTarget[]): boolean {
+  const want = parseCss(emitted);
+  if (!want.length) return false;
+  return want.every((t) => {
+    const have = findTarget(targets, t.selector);
+    return (
+      !!have &&
+      t.properties.every((p) => {
+        const h = findProp(have, p.property);
+        return !!h && !h.hasCondition && h.value.trim() === p.value.trim() && !!h.important === !!p.important;
+      })
+    );
+  });
+}
+
 /**
  * Recognises a plain (non-conditional) font-size/font-weight/color/font-family
- * on ha-card — everything the Font module generates. font-size anchors
- * "is this module enabled at all"; weight/color/family are each recognised
- * independently so a hand-edited partial version (e.g. someone deleted just
- * the color line) still round-trips size/weight rather than falling through
- * whole-cloth to Advanced CSS.
+ * on ha-card — everything the Font module generates.
+ *
+ * A plain px font-size anchors "is this module enabled at all"; weight/color/
+ * family are each recognised independently, so a hand-edited partial (someone
+ * deleted just the color line) still round-trips size/weight rather than
+ * falling through whole-cloth to Advanced CSS.
+ *
+ * Without any font-size (the module's own output when only weight/colour/
+ * family were set) the style is adopted only if the module would write exactly
+ * those declarations back: a bare `ha-card { color: red }` on a tile would
+ * grow `--ha-tile-info-*` companions, so it stays the user's (Advanced CSS);
+ * on a markdown card it re-emits identically and is adopted.
  */
-function mapFont(targets: CssTarget[], haCard: CssTarget | null, claimed: Set<string>): FontModuleState {
+function mapFont(
+  targets: CssTarget[],
+  haCard: CssTarget | null,
+  claimed: Set<string>,
+  cardType?: string,
+): FontModuleState {
   if (!haCard) return { ...DEFAULT_FONT };
 
   const fontSizeProp = findProp(haCard, 'font-size');
-  if (!fontSizeProp || fontSizeProp.hasCondition) return { ...DEFAULT_FONT };
-  const sizeMatch = fontSizeProp.value.trim().match(/^(\d+(?:\.\d+)?)px$/);
-  if (!sizeMatch) return { ...DEFAULT_FONT };
+  if (fontSizeProp?.hasCondition) return { ...DEFAULT_FONT };
+  const sizeMatch = fontSizeProp?.value.trim().match(/^(\d+(?:\.\d+)?)px$/);
+  // A font-size that isn't plain px is the user's; leave the rest with it.
+  if (fontSizeProp && !sizeMatch) return { ...DEFAULT_FONT };
 
-  const state: FontModuleState = { ...DEFAULT_FONT, enabled: true, fontSize: parseFloat(sizeMatch[1]) };
-  claimed.add(claimKey(haCard.selector, 'font-size'));
-  const sizeStr = fontSizeProp.value.trim();
+  const state: FontModuleState = { ...DEFAULT_FONT, enabled: true };
+  if (sizeMatch) state.fontSize = parseFloat(sizeMatch[1]);
 
-  let weightStr = 'normal';
+  let weightStr: string | null = null;
   const weightProp = findProp(haCard, 'font-weight');
   if (weightProp && !weightProp.hasCondition && FONT_WEIGHT_FROM_VALUE[weightProp.value.trim()]) {
     weightStr = weightProp.value.trim();
     state.fontWeight = FONT_WEIGHT_FROM_VALUE[weightStr];
-    claimed.add(claimKey(haCard.selector, 'font-weight'));
   }
 
   let colorStr: string | null = null;
@@ -1811,7 +1861,6 @@ function mapFont(targets: CssTarget[], haCard: CssTarget | null, claimed: Set<st
   if (colorProp && !colorProp.hasCondition && colorProp.value.trim()) {
     colorStr = colorProp.value.trim();
     state.color = colorStr;
-    claimed.add(claimKey(haCard.selector, 'color'));
   }
 
   let familyStr: string | null = null;
@@ -1819,10 +1868,22 @@ function mapFont(targets: CssTarget[], haCard: CssTarget | null, claimed: Set<st
   if (familyProp && !familyProp.hasCondition && familyProp.value.trim()) {
     familyStr = familyProp.value.trim();
     state.fontFamily = familyStr;
-    claimed.add(claimKey(haCard.selector, 'font-family'));
   }
 
-  claimFontCompanions(targets, haCard, state.fontSize, sizeStr, weightStr, colorStr, familyStr, claimed);
+  if (!sizeMatch) {
+    if (!weightStr && !colorStr && !familyStr) return { ...DEFAULT_FONT };
+    if (!reemitsExactly(fontBlock(state, emitKeyOf(cardType) || undefined, capsFor(cardType)), targets)) {
+      return { ...DEFAULT_FONT };
+    }
+  }
+
+  const sizeStr = sizeMatch ? fontSizeProp!.value.trim() : null;
+  if (sizeStr) claimed.add(claimKey(haCard.selector, 'font-size'));
+  if (weightStr) claimed.add(claimKey(haCard.selector, 'font-weight'));
+  if (colorStr) claimed.add(claimKey(haCard.selector, 'color'));
+  if (familyStr) claimed.add(claimKey(haCard.selector, 'font-family'));
+
+  claimFontCompanions(targets, haCard, state.fontSize ?? null, sizeStr, weightStr, colorStr, familyStr, claimed);
 
   return state;
 }
