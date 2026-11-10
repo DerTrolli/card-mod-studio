@@ -99,3 +99,36 @@ export async function savePresets(presets: StylePreset[], hass: HassSub | undefi
     }
   }
 }
+
+/** One change a panel makes to the stored list. */
+export type PresetChange =
+  | { kind: 'save'; preset: StylePreset }
+  | { kind: 'delete'; name: string };
+
+/** Pure: the list after one change (save adds, or overwrites by name). */
+export function applyPresetChange(list: StylePreset[], change: PresetChange): StylePreset[] {
+  const name = change.kind === 'save' ? change.preset.name : change.name;
+  const without = list.filter((p) => p.name !== name);
+  return change.kind === 'save' ? [...without, change.preset] : without;
+}
+
+// Changes from one page run one after another: two quick ones would each
+// read the same stored list and the later write would drop the earlier.
+let writeQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Applies ONE change to the list as currently stored and writes it back.
+ * The panel's in-memory list can be stale (another browser saved since it
+ * loaded) — writing that whole list back lost the other browser's presets.
+ * Resolves with the list that was written, for the panel to show.
+ */
+export function updatePresets(change: PresetChange, hass: HassSub | undefined): Promise<StylePreset[]> {
+  const run = async (): Promise<StylePreset[]> => {
+    const next = applyPresetChange(await loadPresets(hass), change);
+    await savePresets(next, hass);
+    return next;
+  };
+  const result = writeQueue.then(run, run);
+  writeQueue = result.catch(() => undefined);
+  return result;
+}

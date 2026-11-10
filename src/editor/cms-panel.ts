@@ -39,7 +39,7 @@ import { numberSizeOf, withoutNumberSize, userEntries, numberSizeKind } from '..
 import './cms-child-card-section.js';
 import './cms-preview-picker.js';
 import type { PickEventDetail } from './cms-preview-picker.js';
-import { loadPresets, savePresets } from '../utils/preset-storage.js';
+import { loadPresets, updatePresets, applyPresetChange, type PresetChange } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
 import { filterPresetStateForCardType } from '../utils/preset-caps.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
@@ -540,13 +540,17 @@ export class CmsPanel extends LitElement {
     // hand-written entry (v0.11) — it stays the card's own setting.
     const { dictSource: _cardDict, ...cardState } = this._studioState;
     const presetState = { ...cardState, font: withoutNumberSize(cardState.font) };
-    const updated = [
-      ...this._presets.filter((p) => p.name !== trimmed),
-      { name: trimmed, state: presetState },
-    ];
-    this._presets = updated;
+    const preset = { name: trimmed, state: presetState };
     this._selectedPreset = trimmed;
-    void savePresets(updated, this.hass);
+    this._commitPresetChange({ kind: 'save', preset });
+  }
+
+  /** Shows the change at once, writes it against the STORED list (another
+   *  browser may have saved since this panel loaded), then shows what was
+   *  actually written. */
+  private _commitPresetChange(change: PresetChange) {
+    this._presets = applyPresetChange(this._presets, change);
+    void updatePresets(change, this.hass).then((written) => { this._presets = written; });
   }
 
   private _onPresetSelect(e: Event) {
@@ -589,10 +593,9 @@ export class CmsPanel extends LitElement {
 
   private _deleteSelectedPreset() {
     if (!this._selectedPreset) return;
-    const updated = this._presets.filter((p) => p.name !== this._selectedPreset);
-    this._presets = updated;
+    const name = this._selectedPreset;
     this._selectedPreset = '';
-    void savePresets(updated, this.hass);
+    this._commitPresetChange({ kind: 'delete', name });
   }
 
   // ---------------------------------------------------------------------------
