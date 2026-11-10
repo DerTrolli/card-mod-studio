@@ -129,6 +129,9 @@ export class ThresholdModule extends LitElement {
         font-size: 12px;
         cursor: pointer;
       }
+      .property-check {
+        position: relative;
+      }
       .property-check input {
         width: 16px;
         height: 16px;
@@ -219,14 +222,31 @@ export class ThresholdModule extends LitElement {
       }
       @media (pointer: coarse) {
         .move-btn {
-          min-width: 34px;
+          min-width: 40px;
           min-height: 22px;
           font-size: 11px;
+          position: relative;
+        }
+        /* The two move buttons stack at 22px each: only the width can reach 40px. */
+        .move-btn::after {
+          content: '';
+          position: absolute;
+          inset: 0 -4px;
         }
         .rule > button,
         .stop > button {
-          min-width: 36px;
-          min-height: 36px;
+          min-width: 40px;
+          min-height: 40px;
+        }
+        /* The checkbox is 16px; its label is the tap target — reach 40px high
+           without taller rows. */
+        .property-checks {
+          row-gap: 12px;
+        }
+        .property-check::before {
+          content: '';
+          position: absolute;
+          inset: -6px -4px;
         }
       }
     `,

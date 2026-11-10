@@ -63,6 +63,14 @@ export class CmsTabButton extends LitElement {
       line-height: 1;
     }
 
+    @media (pointer: coarse) {
+      button {
+        min-height: 40px;
+        min-width: 40px;
+        justify-content: center;
+      }
+    }
+
     /* Phones: HA's dialog footer is already full (code-editor toggle,
        Cancel, Save) — the labelled pill squeezed "Show code editor" onto
        three lines. Icon-only there; the accessible name stays "Style". */

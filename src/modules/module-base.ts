@@ -346,16 +346,33 @@ export const moduleStyles = [
     font-size: 11px;
   }
 
-  /* Touch screens: grow the small controls to comfortable tap targets. */
+  /* Touch screens: every control gets at least a 40x40px hit area. Fields
+     and buttons that already have a box grow a little; small round or inline
+     controls keep their look and take an invisible extension instead. */
   @media (pointer: coarse) {
     select,
     input[type='text'],
     input[type='number'] {
-      min-height: 38px;
+      min-height: 40px;
     }
     .btn-danger {
-      min-width: 36px;
-      min-height: 36px;
+      min-width: 40px;
+      min-height: 40px;
+    }
+    .btn-add {
+      min-height: 40px;
+    }
+    .reset-btn {
+      position: relative;
+    }
+    .reset-btn::after {
+      content: '';
+      position: absolute;
+      inset: -9px;
+    }
+    /* HA's switch draws a 40px touch area itself (2026.x); say so explicitly. */
+    ha-switch {
+      --ha-switch-min-touch-size: 40px;
     }
   }
 

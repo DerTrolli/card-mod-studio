@@ -221,6 +221,33 @@ const swatchStyles = css`
   }
   /* The live region stays in the DOM; empty, it cancels the flex gap above it. */
   .invalid-hint:empty { margin-top: -8px; }
+  @media (pointer: coarse) {
+    /* 26px swatches and a 34x26 trigger keep their look; the hit area grows
+       to 40px with an invisible extension. */
+    .preset,
+    .swatch-trigger {
+      position: relative;
+    }
+    .preset::after {
+      content: '';
+      position: absolute;
+      inset: -7px;
+    }
+    /* Swatch centres 40px apart, so neighbouring hit areas don't cut each
+       other down to 32px. */
+    .presets,
+    .preset-group {
+      gap: 14px;
+    }
+    .custom input[type="color"] {
+      width: 40px;
+      height: 40px;
+    }
+    .custom input[type="text"],
+    .clear {
+      height: 40px;
+    }
+  }
 `;
 
 /**
@@ -315,6 +342,13 @@ export class CmsColorPicker extends LitElement {
         border-radius: 6px;
         cursor: pointer;
         box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-text-color, #212121) 22%, transparent);
+      }
+      @media (pointer: coarse) {
+        .swatch-trigger::after {
+          content: '';
+          position: absolute;
+          inset: -7px -3px;
+        }
       }
     `,
   ];
