@@ -60,6 +60,27 @@ describe('tile icon size', () => {
     expect(s.advanced.rawCss).toContain('--tile-icon-size: 40px');
   });
 
+  it('a hand-written circle next to a glyph at or below native is not claimed (the generator writes none)', () => {
+    for (const glyph of [20, 24]) {
+      const style = `ha-tile-icon {\n  --mdc-icon-size: ${glyph}px;\n  --tile-icon-size: 36px;\n}`;
+      const s = load(style);
+      expect(s.iconColor.sizePx).toBe(glyph);
+      expect(s.advanced.rawCss).toContain('--tile-icon-size: 36px');
+      // the circle line survives a save
+      expect(generateCss(s, 'tile', { config: CFG })).toContain('--tile-icon-size: 36px');
+    }
+  });
+
+  it('a conditional size claims the circle only when a branch outgrows the native glyph', () => {
+    const cond = { sizeWhen: { when: 'custom', customEntity: 'light.x' } };
+    const none = generateCss(sized(20, cond), 'tile', { config: CFG });
+    const hand = `${none.replace('{', '{\n  --tile-icon-size: {{ \'36px\' if is_state(\'light.x\', \'on\') else \'36px\' }};')}`;
+    expect(load(hand).advanced.rawCss).toContain('--tile-icon-size');
+    // outgrowing glyph: the derived circle is ours (covered above); a 30px glyph claims 45px
+    const css = generateCss(sized(30), 'tile', { config: CFG });
+    expect(load(css).advanced.rawCss).toBe('');
+  });
+
   it('state-driven size: the circle follows both branches', () => {
     const cond = { sizeWhen: { when: 'custom', customEntity: 'light.x' } };
     const css = generateCss(sized(40, cond), 'tile', { config: CFG });

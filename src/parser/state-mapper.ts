@@ -47,6 +47,8 @@ import {
   HEADING_ICON_SELECTOR,
   GLYPH_SCALE,
   tileCirclePx,
+  TILE_GLYPH_NATIVE_PX,
+  conditionExpr,
   iconSizeValue,
   fontBlock,
   headerWeightViaToken,
@@ -1265,10 +1267,18 @@ function applyIconSize(
     const tileMdc = haTileIcon ? findProp(haTileIcon, '--mdc-icon-size') : undefined;
     if (haTileIcon && tileMdc && applySize(tileMdc.value)) {
       claimed.add(claimKey(haTileIcon.selector, '--mdc-icon-size'));
-      // The circle the generator derives from that glyph is ours too; any other
-      // `--tile-icon-size` is hand-written and stays in Advanced CSS.
+      // The circle the generator derives from that glyph is ours too — but it
+      // writes one only for a glyph above the native size (mirrors
+      // tileIconSizeBlock); any other `--tile-icon-size` is hand-written and
+      // stays in Advanced CSS.
       const circle = findProp(haTileIcon, '--tile-icon-size');
-      const expected = iconSizeValue(state, tileCirclePx);
+      const offPx =
+        state.sizeWhen && state.sizeWhen.when !== 'always' && state.sizeOffPx && state.sizeOffPx > 0
+          ? state.sizeOffPx
+          : TILE_GLYPH_NATIVE_PX;
+      const writesCircle =
+        (state.sizePx ?? 0) > TILE_GLYPH_NATIVE_PX || (!!conditionExpr(state.sizeWhen) && offPx > TILE_GLYPH_NATIVE_PX);
+      const expected = writesCircle ? iconSizeValue(state, tileCirclePx) : null;
       if (circle && expected && circle.value.replace(/\s+/g, '') === expected.replace(/\s+/g, '')) {
         claimed.add(claimKey(haTileIcon.selector, '--tile-icon-size'));
       }
