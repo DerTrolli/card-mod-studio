@@ -1995,6 +1995,7 @@ function reemitsExactly(
   targets: CssTarget[],
   claimed: Set<string>,
   optional?: (selector: string, property: string) => boolean,
+  legacy?: (selector: string, property: string, value: string) => boolean,
 ): boolean {
   const want = parseCss(emitted).flatMap((t) => {
     const present = findTarget(targets, t.selector);
@@ -2019,7 +2020,12 @@ function reemitsExactly(
       // Nothing else in those rules may be hand-written: it would come back as
       // a second block. Declarations another module claimed are its to write.
       have.properties.every(
-        (h) => claimed.has(claimKey(have.selector, h.property)) || t.properties.some((p) => p.property === h.property),
+        (h) =>
+          claimed.has(claimKey(have.selector, h.property)) ||
+          t.properties.some((p) => p.property === h.property) ||
+          // Older output's extra declarations (see mapFont): tolerated, then
+          // claimed and dropped on the next save.
+          (!h.hasCondition && !!legacy?.(have.selector, h.property, h.value.trim())),
       )
     );
   });
@@ -2087,10 +2093,22 @@ function mapFont(
   if (!sizeMatch) {
     if (!weightStr && !colorStr && !familyStr) return { ...DEFAULT_FONT };
     const emitted = fontBlock(state, emitKey, caps);
-    if (!reemitsExactly(emitted, targets, claimed, (sel, prop) => isNewFontCompanion(emitKey, sel, prop))) {
+    // v0.8.0-beta.2 .. v0.10.1 wrote the header colour / family variables on
+    // picture-glance (its title is not a card header; dropped in 0.10.2).
+    // Without a size there is no header-size variable to expect.
+    const legacyHeader = (sel: string, prop: string, value: string) =>
+      emitKey === 'picture-glance' &&
+      sel.trim().toLowerCase() === 'ha-card' &&
+      ((prop === '--ha-card-header-color' && !!colorStr && value === colorStr) ||
+        (prop === '--ha-card-header-font-family' && !!familyStr && value === familyStr));
+    if (!reemitsExactly(emitted, targets, claimed, (sel, prop) => isNewFontCompanion(emitKey, sel, prop), legacyHeader)) {
       return { ...DEFAULT_FONT };
     }
     allowed = writtenKeys(emitted);
+    if (emitKey === 'picture-glance') {
+      allowed.add(claimKey('ha-card', '--ha-card-header-color'));
+      allowed.add(claimKey('ha-card', '--ha-card-header-font-family'));
+    }
   } else if (cardType) {
     allowed = writtenKeys(fontBlock(state, emitKey, caps));
     // v0.10.1 wrote the header variables on picture-glance too; they stay
