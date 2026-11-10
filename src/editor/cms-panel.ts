@@ -19,6 +19,7 @@ import type {
   EntitiesRowStyles,
 } from '../types/index.js';
 import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
+import { keepEnterInStudio } from '../utils/enter-guard.js';
 import {
   isUixOnlyStyle,
   usesUixOnlyFeatures,
@@ -135,6 +136,9 @@ export class CmsPanel extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
+    // One place for every field the Studio renders (modules, stack children,
+    // palette manager and preset bar all live in this subtree).
+    this.addEventListener('keydown', keepEnterInStudio);
     this._cardModPresent = isCardModInstalled();
     this._uixPresent = isUixInstalled();
     // Load from localStorage immediately (sync); HA sync happens when hass arrives
@@ -161,6 +165,7 @@ export class CmsPanel extends LitElement {
 
   override disconnectedCallback() {
     super.disconnectedCallback();
+    this.removeEventListener('keydown', keepEnterInStudio);
     window.removeEventListener(PALETTE_CHANGED_EVENT, this._onPaletteChanged);
     this._resizeObserver?.disconnect();
     this._resizeObserver = undefined;

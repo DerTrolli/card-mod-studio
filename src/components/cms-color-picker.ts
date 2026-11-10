@@ -2,6 +2,7 @@ import { LitElement, html, css, nothing, render as litRender } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { getCachedPalette, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
 import { isValidCssColor } from '../utils/css-color.js';
+import { keepEnterInStudio } from '../utils/enter-guard.js';
 
 /**
  * Walks up through shadow-root hosts *and* slot assignments — the
@@ -444,6 +445,9 @@ export class CmsColorPicker extends LitElement {
       this._portalHost.style.colorScheme = getComputedStyle(this).colorScheme;
       (this._containingDialog ?? blockingElementRoot() ?? document.body).appendChild(this._portalHost);
       this._portalShadow = this._portalHost.attachShadow({ mode: 'open' });
+      // The portal is outside the panel's subtree, so the panel's own Enter
+      // guard never sees keys typed in the popover's hex field.
+      this._portalHost.addEventListener('keydown', keepEnterInStudio);
     }
     return this._portalShadow;
   }
