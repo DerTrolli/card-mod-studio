@@ -75,16 +75,25 @@ describe('Enter from a Studio field never reaches the dialog', () => {
   });
 });
 
-describe('what is left alone', () => {
+describe('Enter from a non-text control is stopped too (older HA saves on any Enter)', () => {
   it.each([
     ['module header (role=button div)', () => node('DIV')],
     ['button', () => node('BUTTON')],
-    ['checkbox / switch input', () => node('INPUT', { type: 'checkbox' })],
-  ])('Enter on %s is not stopped here', (_n, make) => {
+    ['switch', () => node('HA-SWITCH')],
+    ['checkbox input', () => node('INPUT', { type: 'checkbox' })],
+    ['slider', () => node('HA-SLIDER')],
+    ['range input', () => node('INPUT', { type: 'range' })],
+    ['colour swatch', () => node('BUTTON', { classList: { contains: (c: string) => c === 'swatch' } })],
+  ])('Enter on %s does not reach the dialog and is not prevented', (_n, make) => {
     const { path, saves } = studioPath(make());
-    dispatch('Enter', path);
-    expect(saves()).toBe(1);
+    const r = dispatch('Enter', path);
+    expect(saves()).toBe(0);
+    expect(r.prevented).toBe(false);
+    expect(r.seen.includes(path[0])).toBe(true); // the control's own handler still ran
   });
+});
+
+describe('what is left alone', () => {
 
   it.each(['Escape', ' ', 'a', 'Tab'])('%j from a text field is untouched', (key) => {
     const { path, saves } = studioPath(node('INPUT', { type: 'text' }));
