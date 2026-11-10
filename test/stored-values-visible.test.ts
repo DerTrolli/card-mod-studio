@@ -75,3 +75,25 @@ describe('Font: the Text size row', () => {
     expect(serialise(make(false, 18).render())).toContain('Reset text size to default');
   });
 });
+
+describe('Font: the Text color row', () => {
+  const make = (allowColor: boolean, color?: string) => {
+    const el = new (registry.get('cms-font-module') as new () => Any)();
+    Object.assign(el, { allowColor, cardType: 'alarm-panel', _open: true });
+    el.state = { ...DEFAULT_FONT, enabled: true, color };
+    return el;
+  };
+  const html = (el: Any) => serialise(el.render());
+
+  it('is hidden where the card cannot take a colour and none is stored', () => {
+    expect(html(make(false))).not.toContain('Text color');
+  });
+  it('shows while a colour is stored even though the card hides the row, and it is clearable', () => {
+    const out = html(make(false, '#ff0000'));
+    expect(out).toContain('Text color');
+    expect(out).toContain('clearable');
+  });
+  it('shows where the card takes a colour', () => {
+    expect(html(make(true))).toContain('Text color');
+  });
+});

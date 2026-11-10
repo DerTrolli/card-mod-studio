@@ -254,7 +254,7 @@ export class FontModule extends LitElement {
             `
           : nothing}
 
-        ${this.allowColor
+        ${this.allowColor || !!this.state.color
           ? html`<div class="control-row">
               <span class="control-label">Text color</span>
               <div class="control-right">

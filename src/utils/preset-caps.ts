@@ -21,7 +21,8 @@
  *   - background    → hidden per NO_BACKGROUND_TYPES
  *   - animation     → hidden per NO_ANIMATION_TYPES
  *   - border        → hidden per NO_BORDER_TYPES
- *   - font          → hidden per NO_FONT_TYPES
+ *   - font          → hidden per NO_FONT_TYPES; a visible Font also loses the
+ *                     colour / size / weight its card hides (caps.fontColor…)
  * advanced is always visible and survives; filter too unless a custom profile
  * hides it (the Mushroom empty card has no box to filter).
  */
@@ -107,6 +108,15 @@ export function filterPresetStateForCardType(
     else if (m === 'animation') next.animation = { ...DEFAULT_ANIMATION };
     else if (m === 'filter') next.filter = { ...DEFAULT_FILTER };
     else if (m === 'headingStyle') next.headingStyle = { ...DEFAULT_HEADING_STYLE };
+  }
+  // Font rows the target card hides (colour / size / weight) could not be seen
+  // or edited there: drop what they hold, as hidden modules are reset above.
+  if (next.font) {
+    const font = { ...next.font };
+    if (!caps.fontColor) font.color = undefined;
+    if (!caps.fontSize) font.fontSize = undefined;
+    if (!caps.fontWeight) font.fontWeight = undefined;
+    next.font = font;
   }
   // Number size is never part of a preset (v0.11) — the card keeps its own.
   if (next.font) next.font = presetFont(next.font);
