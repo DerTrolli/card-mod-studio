@@ -20,18 +20,44 @@ import {
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
 
+/** Rapid commits (e.g. several swatch changes in a row) become one storage write. */
+const COMMIT_DEBOUNCE_MS = 250;
+
+/** `#rgb` / `#rrggbb` (any case, surrounding spaces ok) → lowercase `#rrggbb`, else undefined.
+ *  No alpha: the native colour input and the stored swatches are opaque. */
+export function normalizeHex(raw: string): string | undefined {
+  const t = raw.trim().toLowerCase();
+  if (/^#[0-9a-f]{6}$/.test(t)) return t;
+  const m = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(t);
+  return m ? `#${m[1]}${m[1]}${m[2]}${m[2]}${m[3]}${m[3]}` : undefined;
+}
+
+type Edit = (p: CustomPalette) => CustomPalette;
+
 export class CmsPaletteManager extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
 
   @state() private _open = false;
+  /** Uncommitted colour per row (native dialog drag / typed text): shown live,
+   *  never written to storage until committed. */
+  @state() private _live = new Map<string, { hex: string; src: 'pick' | 'type' }>();
+  /** Rows whose hex field holds text that isn't a colour. */
+  @state() private _invalid = new Set<string>();
+  /** The entry whose remove button is armed ("Remove 'x'?"). */
+  @state() private _armed: string | null = null;
+
+  /** Commits waiting on the debounce, keyed per field so the last edit wins. */
+  private _pending = new Map<string, Edit>();
+  private _timer: ReturnType<typeof setTimeout> | undefined;
 
   static override styles = [
     moduleStyles,
     css`
       .color-row {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 8px;
+        gap: 6px 8px;
         margin-bottom: 6px;
       }
       /* input[type='color'] deliberately NOT restyled here — it inherits the
@@ -39,6 +65,23 @@ export class CmsPaletteManager extends LitElement {
       .color-row input[type='text'] {
         flex: 1;
         min-width: 0;
+      }
+      .color-row input.name-input {
+        flex: 1 1 110px;
+      }
+      .color-row input[type='text'].hex-input {
+        flex: 0 0 84px;
+        width: 84px;
+        font-family: var(--code-font-family, monospace);
+      }
+      .color-row input[aria-invalid='true'] {
+        border-color: var(--cms-line-error);
+        background: var(--cms-tint-error);
+        color: var(--cms-ink-error);
+      }
+      .color-row input[type='color']:focus-visible {
+        outline: 2px solid var(--primary-color, #03a9f4);
+        outline-offset: 2px;
       }
       .color-row .del-btn {
         background: var(--cms-tint-error);
@@ -53,8 +96,13 @@ export class CmsPaletteManager extends LitElement {
         padding: 2px 8px;
         flex-shrink: 0;
       }
-      .color-row .del-btn:hover {
+      .color-row .del-btn:hover,
+      .color-row .del-btn.armed {
         background: var(--cms-tint-error-hover);
+      }
+      .color-row .del-btn.armed {
+        font-size: 12px;
+        font-weight: 600;
       }
       .add-btn {
         margin-top: 4px;
@@ -108,7 +156,7 @@ export class CmsPaletteManager extends LitElement {
         color: var(--secondary-text-color, #727272);
       }
       .default-label {
-        flex: 1;
+        flex: 1 1 90px;
         font-size: 12px;
       }
       .default-builtin {
@@ -127,41 +175,122 @@ export class CmsPaletteManager extends LitElement {
   override disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener(PALETTE_CHANGED_EVENT, this._paletteChangedHandler);
+    this._flush(); // a commit still waiting on the debounce must not be lost
   }
 
-  private _save(palette: CustomPalette) {
+  /** Queues one palette edit; rapid commits collapse into a single storage write. */
+  private _queue(key: string, edit: Edit) {
+    this._pending.set(key, edit);
+    clearTimeout(this._timer);
+    this._timer = setTimeout(() => this._flush(), COMMIT_DEBOUNCE_MS);
+  }
+
+  private _flush() {
+    clearTimeout(this._timer);
+    if (!this._pending.size) return;
+    let palette = getCachedPalette();
+    for (const edit of this._pending.values()) palette = edit(palette);
+    for (const key of this._pending.keys()) this._live.delete(key);
+    this._pending.clear();
     void savePalette(palette, this.hass);
+    this.requestUpdate();
+  }
+
+  /** Add / remove are single deliberate actions: applied at once, after any waiting edit. */
+  private _saveNow(edit: Edit) {
+    this._flush();
+    void savePalette(edit(getCachedPalette()), this.hass);
+  }
+
+  private _focus(selector: string) {
+    (this.renderRoot?.querySelector?.(selector) as HTMLElement | null | undefined)?.focus();
   }
 
   private _addColor() {
-    const palette = getCachedPalette();
-    const color: CustomColor = {
-      id: `color-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      name: `My color ${palette.colors.length + 1}`,
-      hex: '#03a9f4',
-    };
-    this._save({ ...palette, colors: [...palette.colors, color] });
+    const id = `color-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    this._saveNow((palette) => ({
+      ...palette,
+      colors: [...palette.colors, { id, name: `My color ${palette.colors.length + 1}`, hex: '#03a9f4' }],
+    }));
+    // Keyboard users land on the new entry's name, ready to rename it.
+    void this.updateComplete.then(() => this._focus(`[data-row="${id}"] .name-input`));
   }
 
-  private _updateColor(id: string, changes: Partial<CustomColor>) {
-    const palette = getCachedPalette();
-    this._save({
+  private _updateColor(id: string, field: 'hex' | 'name', value: string) {
+    this._queue(`${id}:${field}`, (palette) => ({
       ...palette,
-      colors: palette.colors.map((c) => (c.id === id ? { ...c, ...changes } : c)),
-    });
+      colors: palette.colors.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
+    }));
   }
 
   private _deleteColor(id: string) {
-    const palette = getCachedPalette();
-    this._save({ ...palette, colors: palette.colors.filter((c) => c.id !== id) });
+    this._armed = null;
+    this._saveNow((palette) => ({ ...palette, colors: palette.colors.filter((c) => c.id !== id) }));
+    // The focused button is gone; keep keyboard users in the manager.
+    void this.updateComplete.then(() => this._focus('.add-btn'));
   }
 
   private _setDefault(key: 'onColor' | 'offColor', value: string | undefined) {
-    const palette = getCachedPalette();
-    const defaults = { ...palette.defaults };
-    if (value) defaults[key] = value;
-    else delete defaults[key];
-    this._save({ ...palette, defaults });
+    this._queue(key, (palette) => {
+      const defaults = { ...palette.defaults };
+      if (value) defaults[key] = value;
+      else delete defaults[key];
+      return { ...palette, defaults };
+    });
+  }
+
+  // --- colour field behaviour shared by entries and the ON/OFF defaults ----
+
+  private _setInvalid(rowKey: string, on: boolean) {
+    if (this._invalid.has(rowKey) === on) return;
+    if (on) this._invalid.add(rowKey);
+    else this._invalid.delete(rowKey);
+    this.requestUpdate();
+  }
+
+  /** Dragging in the native dialog: follow it on screen, write nothing yet. */
+  private _onPick(rowKey: string, e: Event) {
+    this._live.set(rowKey, { hex: (e.target as HTMLInputElement).value, src: 'pick' });
+    this._setInvalid(rowKey, false);
+    this.requestUpdate();
+  }
+
+  /** Typing is validated live (the cue) but only `change` stores. */
+  private _onTyping(rowKey: string, e: Event) {
+    const hex = normalizeHex((e.target as HTMLInputElement).value);
+    if (hex) this._live.set(rowKey, { hex, src: 'type' });
+    else this._live.delete(rowKey);
+    this._setInvalid(rowKey, !hex);
+    this.requestUpdate();
+  }
+
+  /** Native `change` = the dialog closed; text `change` = Enter or blur. */
+  private _commitHex(rowKey: string, e: Event, stored: string, save: (hex: string) => void) {
+    const input = e.target as HTMLInputElement;
+    const hex = normalizeHex(input.value);
+    if (!hex) {
+      this._setInvalid(rowKey, true); // never stored; the field reverts on blur
+      return;
+    }
+    this._setInvalid(rowKey, false);
+    const src = input.type === 'color' ? 'pick' : 'type';
+    if (src === 'type') input.value = hex;
+    // Back to what's stored (and nothing queued): nothing to write.
+    if (hex === stored.toLowerCase() && !this._pending.has(rowKey)) {
+      this._live.delete(rowKey);
+      this.requestUpdate();
+      return;
+    }
+    this._live.set(rowKey, { hex, src });
+    save(hex);
+  }
+
+  private _revertHex(rowKey: string, e: Event, stored: string) {
+    if (!this._invalid.has(rowKey)) return;
+    (e.target as HTMLInputElement).value = stored;
+    this._live.delete(rowKey);
+    this._setInvalid(rowKey, false);
+    this.requestUpdate();
   }
 
   override render() {
@@ -177,7 +306,7 @@ export class CmsPaletteManager extends LitElement {
           @click=${() => (this._open = !this._open)}
           @keydown=${onHeaderKeydown}
         >
-          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
+          <span class="module-chevron" aria-hidden="true">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🖌️ My Color Palette</span>
           ${hasContent && !this._open
             ? html`<span class="header-summary">
@@ -194,54 +323,102 @@ export class CmsPaletteManager extends LitElement {
     return html`
       <div class="module-body">
         <span class="section-label">My colors — shown as extra swatches in every color picker:</span>
-        ${palette.colors.map(
-          (c) => html`
-            <div class="color-row">
-              <input
-                type="color"
-                .value=${c.hex}
-                @input=${(e: Event) => this._updateColor(c.id, { hex: (e.target as HTMLInputElement).value })}
-              />
-              <input
-                type="text"
-                .value=${c.name}
-                placeholder="Name"
-                @change=${(e: Event) => this._updateColor(c.id, { name: (e.target as HTMLInputElement).value })}
-              />
-              <button class="del-btn" title="Delete color" aria-label="Delete color" @click=${() => this._deleteColor(c.id)}>×</button>
-            </div>
-          `,
-        )}
+        ${palette.colors.map((c, i) => this._renderColorRow(c, i))}
         <button class="add-btn" @click=${this._addColor}>+ Add Color</button>
 
         <span class="section-label">
           Default ON / OFF colors — what Icon Color and Accent Color start with when you enable them:
         </span>
-        ${this._renderDefaultRow('ON default', 'onColor', palette.defaults.onColor, DEFAULT_ICON_COLOR.colorOn)}
-        ${this._renderDefaultRow('OFF default', 'offColor', palette.defaults.offColor, DEFAULT_ICON_COLOR.colorOff)}
+        ${this._renderDefaultRow('ON', 'onColor', palette.defaults.onColor, DEFAULT_ICON_COLOR.colorOn)}
+        ${this._renderDefaultRow('OFF', 'offColor', palette.defaults.offColor, DEFAULT_ICON_COLOR.colorOff)}
         <div class="hint">
           Changing these doesn't touch already-styled cards — only what a newly-enabled module starts from.
+        </div>
+        <div class="hint">
+          Saved straight to your Home Assistant profile. Cards keep the colour they were given — changing an entry
+          here doesn't restyle them.
         </div>
       </div>
     `;
   }
 
+  /** Native swatch + hex field for one colour; `rowKey` ties them to their live/invalid state. */
+  private _renderColorFields(rowKey: string, stored: string, subject: string, save: (hex: string) => void) {
+    const live = this._live.get(rowKey);
+    const invalid = this._invalid.has(rowKey);
+    return html`
+      <input
+        type="color"
+        class="swatch-input"
+        aria-label="Colour of ${subject}"
+        .value=${live?.hex ?? stored}
+        @input=${(e: Event) => this._onPick(rowKey, e)}
+        @change=${(e: Event) => this._commitHex(rowKey, e, stored, save)}
+      />
+      <input
+        type="text"
+        class="hex-input"
+        aria-label="Hex value of ${subject}"
+        aria-invalid=${invalid ? 'true' : 'false'}
+        placeholder="#rrggbb"
+        spellcheck="false"
+        autocomplete="off"
+        maxlength="9"
+        .value=${live?.src === 'pick' ? live.hex : stored}
+        @input=${(e: Event) => this._onTyping(rowKey, e)}
+        @change=${(e: Event) => this._commitHex(rowKey, e, stored, save)}
+        @blur=${(e: Event) => this._revertHex(rowKey, e, stored)}
+      />
+    `;
+  }
+
+  private _renderColorRow(c: CustomColor, index: number) {
+    const label = c.name || `colour ${index + 1}`;
+    const armed = this._armed === c.id;
+    const removeLabel = armed ? `Remove '${label}'?` : `Remove '${label}'`;
+    return html`
+      <div class="color-row" data-row=${c.id}>
+        ${this._renderColorFields(`${c.id}:hex`, c.hex, `'${label}'`, (hex) => this._updateColor(c.id, 'hex', hex))}
+        <input
+          type="text"
+          class="name-input"
+          .value=${c.name}
+          placeholder="Name"
+          aria-label="Name of colour ${index + 1}"
+          @change=${(e: Event) => this._updateColor(c.id, 'name', (e.target as HTMLInputElement).value)}
+        />
+        <button
+          class="del-btn ${armed ? 'armed' : ''}"
+          title=${removeLabel}
+          aria-label=${removeLabel}
+          @click=${() => (armed ? this._deleteColor(c.id) : (this._armed = c.id))}
+          @blur=${() => {
+            if (this._armed === c.id) this._armed = null;
+          }}
+          @keydown=${(e: KeyboardEvent) => {
+            if (e.key === 'Escape' && this._armed === c.id) {
+              e.stopPropagation(); // disarm only; don't also close the card dialog
+              this._armed = null;
+            }
+          }}
+        >${armed ? 'Remove?' : '×'}</button>
+      </div>
+    `;
+  }
+
   private _renderDefaultRow(
-    label: string,
+    which: 'ON' | 'OFF',
     key: 'onColor' | 'offColor',
     value: string | undefined,
     builtin: string,
   ) {
+    const subject = `default ${which} colour`;
     return html`
-      <div class="color-row">
-        <input
-          type="color"
-          .value=${value ?? builtin}
-          @input=${(e: Event) => this._setDefault(key, (e.target as HTMLInputElement).value)}
-        />
-        <span class="default-label">${label}${value ? '' : html` <span class="default-builtin">(built-in ${builtin})</span>`}</span>
+      <div class="color-row" data-row=${key}>
+        ${this._renderColorFields(key, value ?? builtin, subject, (hex) => this._setDefault(key, hex))}
+        <span class="default-label">${which} default${value ? '' : html` <span class="default-builtin">(built-in ${builtin})</span>`}</span>
         ${value
-          ? html`<button class="reset-btn" @click=${() => this._setDefault(key, undefined)}>Reset</button>`
+          ? html`<button class="reset-btn" aria-label="Reset ${subject} to built-in" @click=${() => this._setDefault(key, undefined)}>Reset</button>`
           : nothing}
       </div>
     `;

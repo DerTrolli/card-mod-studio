@@ -1,0 +1,316 @@
+/**
+ * My Color Palette manager: hex text fields, accessible names, commit-only
+ * (debounced) storage writes, the "saved globally" help line, and the
+ * two-step remove. Tests call the RENDERED handlers pulled from the template.
+ */
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
+import { FakeCustomElementRegistry } from './v010-audit-helpers.js';
+import type { CustomPalette } from '../src/utils/palette-storage.js';
+
+const registry = new FakeCustomElementRegistry();
+(globalThis as { customElements: unknown }).customElements = registry;
+registry.define('card-mod', class {});
+
+type El = {
+  hass?: unknown; _open: boolean; render(): unknown;
+  connectedCallback(): void; disconnectedCallback(): void;
+};
+let Mod: new () => El;
+let normalizeHex: (s: string) => string | undefined;
+let storage: typeof import('../src/utils/palette-storage.js');
+
+beforeAll(async () => {
+  (globalThis as { localStorage?: unknown }).localStorage = { getItem: () => null, setItem: () => {} };
+  (globalThis as { window?: unknown }).window = { dispatchEvent: () => true, addEventListener() {}, removeEventListener() {} };
+  ({ normalizeHex } = await import('../src/editor/cms-palette-manager.js'));
+  storage = await import('../src/utils/palette-storage.js');
+  Mod = registry.get('cms-palette-manager') as new () => El;
+});
+
+// ---- template walking ------------------------------------------------------
+
+interface Node {
+  tag: string; // opening-tag text with string values substituted
+  row?: string; // data-row of the enclosing row
+  on: Record<string, (e: unknown) => void>;
+}
+/** Flattens a lit template into its elements (doc order), with bound handlers. */
+function nodes(t: unknown, ctx = { row: undefined as string | undefined }): Node[] {
+  if (Array.isArray(t)) return t.flatMap((x) => nodes(x, ctx));
+  const r = t as { strings?: readonly string[]; values?: unknown[] } | null;
+  if (!r || !r.strings) return [];
+  const out: Node[] = [];
+  let cur: Node | undefined;
+  const text = (s: string) => {
+    for (const part of s.split(/(?=<)/)) {
+      if (part.startsWith('<') && !part.startsWith('</')) {
+        cur = { tag: '', row: ctx.row, on: {} };
+        out.push(cur);
+      }
+      if (cur) cur.tag += part;
+    }
+  };
+  r.strings.forEach((s, i) => {
+    text(s);
+    if (i >= r.values!.length) return;
+    const v = r.values![i];
+    const ev = /@(\w+)=$/.exec(s);
+    if (typeof v === 'function' && ev && cur) cur.on[ev[1]] = v as (e: unknown) => void;
+    else if (v && typeof v === 'object') {
+      const nested = nodes(v, ctx);
+      out.push(...nested);
+      cur = undefined;
+    } else if (cur && (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')) cur.tag += String(v);
+    const m = cur && /data-row=([^\s>]+)/.exec(cur.tag);
+    if (m) ctx.row = m[1];
+  });
+  return out;
+}
+const dom = (el: El) => nodes(el.render()).map((n) => ({ ...n, tag: n.tag.replace(/"/g, '') })); // quotes differ between static and bound attrs
+const find = (el: El, row: string, cls: string): Node => {
+  const n = dom(el).find((x) => x.row === row && x.tag.includes(cls));
+  if (!n) throw new Error(`no ${cls} in row ${row}`);
+  return n;
+};
+const fake = (value: string, type = 'text') => ({ value, type, target: null as unknown, stopPropagation: vi.fn() });
+const ev = (value: string, type = 'text') => {
+  const e = fake(value, type);
+  e.target = e;
+  return e;
+};
+
+// ---- setup -------------------------------------------------------------------
+
+const FIXTURE: CustomPalette = {
+  colors: [
+    { id: 'color-1700000000000-abc1234', name: 'Brand blue', hex: '#1a2b3c' },
+    { id: 'color-1700000000001-def5678', name: '', hex: '#ff0000' },
+  ],
+  defaults: { onColor: '#00ff00' },
+};
+const A = FIXTURE.colors[0].id;
+const B = FIXTURE.colors[1].id;
+
+let send: ReturnType<typeof vi.fn>;
+let el: El;
+const writes = () => send.mock.calls.filter((c) => (c[0] as { type: string }).type === 'frontend/set_user_data');
+const lastWrite = () => (writes().at(-1)![0] as { value: CustomPalette }).value;
+
+beforeEach(async () => {
+  vi.useFakeTimers();
+  await storage.savePalette(JSON.parse(JSON.stringify(FIXTURE)), undefined);
+  send = vi.fn().mockResolvedValue(null);
+  el = new Mod();
+  el.hass = { connection: { sendMessagePromise: send } };
+  el._open = true;
+});
+afterEach(() => vi.useRealTimers());
+
+// ---- tests -------------------------------------------------------------------
+
+describe('normalizeHex', () => {
+  it('accepts #rgb / #rrggbb, trims, lower-cases; rejects the rest', () => {
+    expect(normalizeHex('#ABC')).toBe('#aabbcc');
+    expect(normalizeHex('  #1A2b3C \n')).toBe('#1a2b3c');
+    for (const bad of ['', '#', '#12', '#1234', '#12345', '#1234567', '#12345678', 'abc', '#ggg', 'red', '#ab cd']) {
+      expect(normalizeHex(bad), bad).toBeUndefined();
+    }
+  });
+});
+
+describe('stored format', () => {
+  it('loads a palette saved by the current version identically', async () => {
+    const hass = { connection: { sendMessagePromise: vi.fn().mockResolvedValue({ value: FIXTURE }) } };
+    expect(await storage.loadPalette(hass)).toEqual(FIXTURE);
+  });
+
+  it('an edit writes the same shape (id / name / hex, defaults) — nothing new', () => {
+    find(el, A, 'name-input').on.change(ev('Navy'));
+    vi.advanceTimersByTime(300);
+    expect(lastWrite()).toEqual({
+      colors: [{ ...FIXTURE.colors[0], name: 'Navy' }, FIXTURE.colors[1]],
+      defaults: FIXTURE.defaults,
+    });
+  });
+});
+
+describe('hex text field', () => {
+  it('shows the stored hex next to the native swatch', () => {
+    expect(find(el, A, 'hex-input').tag).toContain('.value=#1a2b3c');
+    expect(find(el, A, 'swatch-input').tag).toContain('.value=#1a2b3c');
+  });
+
+  it('a typed #rgb is trimmed, expanded and stored on change only', () => {
+    const hex = find(el, A, 'hex-input');
+    const e = ev(' #0Af ');
+    hex.on.input(e);
+    vi.advanceTimersByTime(1000);
+    expect(writes()).toHaveLength(0); // typing alone never writes
+    expect(find(el, A, 'swatch-input').tag).toContain('.value=#00aaff'); // swatch follows live
+    hex.on.change(e);
+    expect(e.value).toBe('#00aaff');
+    vi.advanceTimersByTime(300);
+    expect(writes()).toHaveLength(1);
+    expect(lastWrite().colors[0].hex).toBe('#00aaff');
+  });
+
+  it.each(['#12', 'abc', '', '#12345', 'red'])('invalid %j is not stored, flags aria-invalid, reverts on blur', (bad) => {
+    const hex = find(el, A, 'hex-input');
+    const e = ev(bad);
+    hex.on.input(e);
+    hex.on.change(e);
+    vi.advanceTimersByTime(1000);
+    expect(writes()).toHaveLength(0);
+    expect(find(el, A, 'hex-input').tag).toContain('aria-invalid=true');
+    hex.on.blur(e);
+    expect(e.value).toBe('#1a2b3c');
+    expect(find(el, A, 'hex-input').tag).toContain('aria-invalid=false');
+    expect(find(el, A, 'swatch-input').tag).toContain('.value=#1a2b3c');
+    vi.advanceTimersByTime(1000);
+    expect(writes()).toHaveLength(0);
+  });
+
+  it('works the same on the default ON colour and Reset clears it', () => {
+    const hex = find(el, 'onColor', 'hex-input');
+    expect(hex.tag).toContain('.value=#00ff00');
+    const e = ev('#123');
+    hex.on.input(e);
+    hex.on.change(e);
+    vi.advanceTimersByTime(300);
+    expect(lastWrite().defaults.onColor).toBe('#112233');
+    find(el, 'onColor', 'reset-btn').on.click(ev(''));
+    vi.advanceTimersByTime(300);
+    expect(lastWrite().defaults.onColor).toBeUndefined();
+  });
+
+  it('a hex field for an unset default shows the built-in colour', () => {
+    expect(find(el, 'offColor', 'hex-input').tag).toContain('.value=#6b6b6b');
+  });
+});
+
+describe('storage writes', () => {
+  it('dragging the native dialog (many input events) writes nothing until change, then once', () => {
+    const sw = find(el, A, 'swatch-input');
+    for (let i = 0; i < 40; i++) sw.on.input(ev(`#${(0x100000 + i * 997).toString(16)}`, 'color'));
+    vi.advanceTimersByTime(2000);
+    expect(writes()).toHaveLength(0);
+    expect(find(el, A, 'hex-input').tag).toContain('.value=#'); // text follows the drag
+    sw.on.change(ev('#654321', 'color'));
+    vi.advanceTimersByTime(300);
+    expect(writes()).toHaveLength(1);
+    expect(lastWrite().colors[0].hex).toBe('#654321');
+  });
+
+  it('rapid commits are coalesced into one write carrying all of them', () => {
+    find(el, A, 'swatch-input').on.change(ev('#111111', 'color'));
+    find(el, A, 'name-input').on.change(ev('One'));
+    find(el, B, 'swatch-input').on.change(ev('#222222', 'color'));
+    find(el, A, 'swatch-input').on.change(ev('#333333', 'color')); // last one wins
+    vi.advanceTimersByTime(300);
+    expect(writes()).toHaveLength(1);
+    expect(lastWrite().colors.map((c) => [c.name, c.hex])).toEqual([['One', '#333333'], ['', '#222222']]);
+  });
+
+  it('commits a moment apart still share one write (the wait restarts)', () => {
+    find(el, A, 'swatch-input').on.change(ev('#111111', 'color'));
+    vi.advanceTimersByTime(100);
+    find(el, B, 'swatch-input').on.change(ev('#222222', 'color'));
+    vi.advanceTimersByTime(100);
+    expect(writes()).toHaveLength(0);
+    vi.advanceTimersByTime(300);
+    expect(writes()).toHaveLength(1);
+  });
+
+  it('a commit still waiting is flushed when the element goes away', () => {
+    find(el, A, 'name-input').on.change(ev('Late'));
+    el.disconnectedCallback();
+    expect(lastWrite().colors[0].name).toBe('Late');
+  });
+
+  it('committing the already-stored colour writes nothing', () => {
+    find(el, A, 'hex-input').on.change(ev('#1A2B3C'));
+    vi.advanceTimersByTime(1000);
+    expect(writes()).toHaveLength(0);
+  });
+});
+
+describe('accessible names', () => {
+  it('every control names the entry it belongs to', () => {
+    const tags = (row: string) => dom(el).filter((n) => n.row === row).map((n) => n.tag);
+    const a = tags(A).join('\n');
+    expect(a).toContain(`aria-label=Colour of 'Brand blue'`);
+    expect(a).toContain(`aria-label=Hex value of 'Brand blue'`);
+    expect(a).toContain('aria-label=Name of colour 1');
+    expect(a).toMatch(/aria-label=Remove 'Brand blue'\s/);
+    const b = tags(B).join('\n'); // unnamed entry falls back to its position
+    expect(b).toContain(`aria-label=Colour of 'colour 2'`);
+    expect(b).toContain('aria-label=Name of colour 2');
+    expect(b).toMatch(/aria-label=Remove 'colour 2'\s/);
+    expect(tags('onColor').join('\n')).toContain('aria-label=Colour of default ON colour');
+    expect(tags('onColor').join('\n')).toContain('aria-label=Hex value of default ON colour');
+    expect(tags('onColor').join('\n')).toContain('aria-label=Reset default ON colour to built-in');
+    expect(tags('offColor').join('\n')).toContain('aria-label=Colour of default OFF colour');
+  });
+
+  it('the collapse header is a keyboard-operable button', () => {
+    const header = dom(el).find((n) => n.tag.includes('module-header'))!;
+    expect(header.tag).toContain('role=button');
+    expect(header.tag).toContain('tabindex=0');
+    expect(header.on.keydown).toBeTypeOf('function');
+    expect(dom(el).find((n) => n.tag.includes('module-chevron'))!.tag).toContain('aria-hidden=true');
+  });
+});
+
+describe('help line', () => {
+  const HELP = "Saved straight to your Home Assistant profile.";
+  const flat = (t: unknown): string =>
+    Array.isArray(t) ? t.map(flat).join('') :
+      t && typeof t === 'object' ? ((t as { strings?: string[] }).strings ?? []).join('') +
+        ((t as { values?: unknown[] }).values ?? []).map(flat).join('') :
+      typeof t === 'string' ? t : '';
+  it('is only rendered while expanded', () => {
+    el._open = false;
+    expect(flat(el.render())).not.toContain(HELP);
+    el._open = true;
+    const text = flat(el.render()).replace(/\s+/g, ' ');
+    expect(text).toContain(`${HELP} Cards keep the colour they were given — changing an entry here doesn't restyle them.`);
+  });
+});
+
+describe('two-step remove', () => {
+  const del = (row = A) => find(el, row, 'del-btn');
+
+  it('first activation arms (label changes), second removes', () => {
+    del().on.click(ev(''));
+    expect(del().tag).toContain(`aria-label=Remove 'Brand blue'?`);
+    vi.advanceTimersByTime(1000);
+    expect(writes()).toHaveLength(0);
+    del().on.click(ev(''));
+    expect(writes()).toHaveLength(1);
+    expect(lastWrite().colors.map((c) => c.id)).toEqual([B]);
+  });
+
+  it('disarms on blur', () => {
+    del().on.click(ev(''));
+    del().on.blur(ev(''));
+    expect(del().tag).toMatch(/aria-label=Remove 'Brand blue'\s/);
+    del().on.click(ev(''));
+    expect(writes()).toHaveLength(0); // that click re-armed, did not delete
+  });
+
+  it('disarms on Escape without letting the dialog see it', () => {
+    del().on.click(ev(''));
+    const esc = { ...ev(''), key: 'Escape' };
+    del().on.keydown(esc);
+    expect(esc.stopPropagation).toHaveBeenCalled();
+    expect(del().tag).toMatch(/aria-label=Remove 'Brand blue'\s/);
+    const other = { ...ev(''), key: 'Escape' };
+    del().on.keydown(other); // not armed: leave Escape to the dialog
+    expect(other.stopPropagation).not.toHaveBeenCalled();
+  });
+
+  it('arming one entry does not arm another', () => {
+    del(A).on.click(ev(''));
+    expect(del(B).tag).toMatch(/aria-label=Remove 'colour 2'\s/);
+  });
+});
