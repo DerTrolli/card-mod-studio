@@ -9,8 +9,8 @@ import { mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseStyleValue } from '../src/parser/yaml-parser.js';
 import { capsFor } from '../src/utils/card-caps.js';
 import { getCustomCardProfile } from '../src/utils/custom-card-profiles.js';
-import { mapElementToTarget } from '../src/utils/preview-map.js';
-import type { PickChainElement } from '../src/utils/preview-map.js';
+import { mapElementToMatch, mapElementToTarget } from '../src/utils/preview-map.js';
+import type { PickChainElement, PickRect } from '../src/utils/preview-map.js';
 import { conflictsFromEmitters } from '../src/utils/profiles/helpers.js';
 import { findAdvancedCssConflicts } from '../src/utils/style-conflicts.js';
 import type { StudioState } from '../src/types/index.js';
@@ -33,6 +33,20 @@ describe('click-to-edit — Mushroom (literal chains from the probed DOM)', () =
   it('classic: primary and secondary text → Font', () => {
     expect(pick([el('span', ['primary']), ...classicTail], classic)).toBe(FONT);
     expect(pick([el('span', ['secondary']), ...classicTail], classic)).toBe(FONT);
+  });
+  it('classic: only the words of the name and state rows read as Font, the blank beside them is the card surface', () => {
+    const box = (left: number, top: number, w: number, h: number): PickRect => ({ left, top, right: left + w, bottom: top + h });
+    for (const cls of ['primary', 'secondary']) {
+      const row: PickChainElement = { ...el('span', [cls]), rect: box(60, 10, 240, 20), textRect: box(60, 12, 80, 16) };
+      const chain = [row, ...classicTail];
+      // over the words
+      expect(mapElementToMatch(chain, classic, undefined, { x: 80, y: 20 })?.target.module).toBe(FONT);
+      expect(mapElementToMatch(chain, classic, undefined, { x: 80, y: 20 })?.rect).toEqual(box(60, 12, 80, 16));
+      // on the blank part of the same row
+      expect(mapElementToMatch(chain, classic, undefined, { x: 250, y: 20 })?.target.module).not.toBe(FONT);
+    }
+    const blank = [{ ...el('span', ['primary']), rect: box(60, 10, 240, 20), textRect: box(60, 12, 80, 16) }, el('div', ['container']), el('mushroom-state-item'), el('mushroom-card'), el('ha-card')];
+    expect(mapElementToTarget(blank, classic, undefined, { x: 250, y: 20 })?.module).toBe(BG);
   });
   it('classic: the shape and the glyph → Icon Color', () => {
     expect(pick([el('div', ['shape']), el('mushroom-shape-icon'), el('mushroom-state-item'), el('ha-card')], classic)).toBe(ICON);

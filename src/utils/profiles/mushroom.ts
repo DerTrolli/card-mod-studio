@@ -14,7 +14,7 @@
 
 import type { ConfigGate, ConfigTest, CustomCardProfile, ProfileEmitters } from '../custom-card-profiles.js';
 import {
-  claimsFromEmitters, conflictsFromEmitters, clickTag, clickClass,
+  claimsFromEmitters, conflictsFromEmitters, clickTag, clickClass, clickText,
   CLICK_FONT, CLICK_ICON, CLICK_BACKGROUND,
 } from './helpers.js';
 
@@ -128,11 +128,12 @@ function classic(type: string): CustomCardProfile {
     configGates: classicGates(type),
     iconSize: true,
     iconSizeMax: ICON_MAX,
-    // Probed DOM: `span.primary` / `span.secondary` text, the shape + glyph;
+    // Probed DOM: `span.primary` / `span.secondary` text (only the words: the
+    // rows are wider than their text), the shape + glyph;
     // anything else falls through to the card box (Background).
     clickToEdit: [
-      clickClass('primary', CLICK_FONT),
-      clickClass('secondary', CLICK_FONT),
+      clickText('primary', CLICK_FONT),
+      clickText('secondary', CLICK_FONT),
       clickTag('mushroom-shape-icon', CLICK_ICON),
       clickTag('ha-state-icon', CLICK_ICON),
     ],
