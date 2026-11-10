@@ -2,6 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { property } from 'lit/decorators.js';
 import type { AdvancedModuleState, PiercedEntry } from '../types/index.js';
 import { moduleStyles, onHeaderKeydown } from './module-base.js';
+import { lintAdvancedCss } from '../utils/css-lint.js';
 
 export class AdvancedModule extends LitElement {
   @property({ attribute: false }) state: AdvancedModuleState = { rawCss: '' };
@@ -34,6 +35,16 @@ export class AdvancedModule extends LitElement {
         line-height: 1.5;
         color: var(--secondary-text-color, #727272);
         margin: 6px 0 0;
+      }
+      .lint-warning {
+        font-size: 11px;
+        line-height: 1.5;
+        margin: 6px 0 0;
+        padding: 4px 8px;
+        color: var(--primary-text-color, #212121);
+        background: var(--cms-tint-warning);
+        border: 1px solid var(--warning-color, #ffa600);
+        border-radius: 6px;
       }
       .pierced {
         margin-top: 10px;
@@ -91,6 +102,7 @@ export class AdvancedModule extends LitElement {
                   .value=${this.state.rawCss}
                   @value-changed=${this._onValueChanged}
                 ></ha-code-editor>
+                ${this._renderLint()}
                 <p class="hint">
                   Raw CSS appended after visual module output. Supports Jinja2
                   templates just like card-mod.
@@ -112,6 +124,14 @@ export class AdvancedModule extends LitElement {
           : ''}
       </div>
     `;
+  }
+
+  /** One non-blocking line under the editor; the text is never changed or blocked. */
+  private _renderLint() {
+    const issue = lintAdvancedCss(this.state.rawCss ?? '');
+    return issue
+      ? html`<p class="lint-warning" role="status">⚠️ ${issue.message}</p>`
+      : '';
   }
 
   /** YAML-ish read-only rendering of the preserved dict entries. */
