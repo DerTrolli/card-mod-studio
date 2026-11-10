@@ -494,7 +494,9 @@ export class EntitiesRowsModule extends LitElement {
                 }
                 open.delete(rowKey);
                 this._fontOpen = open;
-                this._updateRow(rowKey, { fontSizePx: undefined, fontWeight: undefined });
+                // Nothing was set: clearing would only re-run the panel's
+                // save over every row for no change.
+                if (hasFont) this._updateRow(rowKey, { fontSizePx: undefined, fontWeight: undefined });
               }}
             ></ha-switch>
           </div>

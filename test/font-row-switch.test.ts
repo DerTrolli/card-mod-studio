@@ -111,6 +111,22 @@ describe('row Font switch', () => {
   });
 });
 
+describe('row Font switch off', () => {
+  it('with nothing set it only hides the controls and fires no styles-changed', () => {
+    const { el, emitted, hs, at } = make(null);
+    hs()[at.sw]({ target: { checked: true } });
+    hs()[at.sw]({ target: { checked: false } });
+    expect(emitted).toHaveLength(0);
+    expect(el._fontOpen.has('0')).toBe(false);
+  });
+  it('with a value set it still clears it', () => {
+    const { emitted, hs, at } = make(':host {\n  font-weight: bold;\n}');
+    hs()[at.sw]({ target: { checked: false } });
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0]['0'].fontWeight).toBeUndefined();
+  });
+});
+
 describe('a 0px row size is a value, not "unset"', () => {
   it('parses, counts as content, and re-emits', () => {
     const css = ':host {\n  font-size: 0px;\n}';
