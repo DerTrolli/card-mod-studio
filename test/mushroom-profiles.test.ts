@@ -970,9 +970,48 @@ describe('config gates — nothing left for the control to style', () => {
   });
 
   it('template, chips, title and the empty card are not touched by the classic gates', () => {
-    const cfg = { icon_type: 'none', primary_info: 'none', secondary_info: 'none', hide_icon: true };
+    // `icon` set: the template card's own gate (no icon, no picture) stays out of it
+    const cfg = { icon_type: 'none', primary_info: 'none', secondary_info: 'none', hide_icon: true, icon: 'mdi:home' };
     for (const t of ['template', 'chips', 'title', 'empty']) {
       expect(capsFor(key(t), cfg).modules).toEqual(capsFor(key(t)).modules);
+    }
+  });
+
+  it('template card: Icon Color is hidden only while neither icon nor picture is set (a picture keeps the size)', () => {
+    const t = (c: Record<string, unknown>) => capsFor(key('template'), { type: key('template'), ...c }).modules;
+    expect(t({}).iconColor).toBe(false);
+    expect(t({ entity: 'light.x', primary: 'a' }).iconColor).toBe(false);
+    expect(t({ icon: '' }).iconColor).toBe(false);
+    expect(t({ icon: 'mdi:lightbulb' }).iconColor).toBe(true);
+    expect(t({ icon: "{{ 'mdi:home' }}" }).iconColor).toBe(true);
+    expect(t({ picture: '/local/a.png' }).iconColor).toBe(true);
+    expect(t({}).font).toBe(true);
+    // no config at all = the config-free answer, nothing hidden
+    expect(capsFor(key('template')).modules.iconColor).toBe(true);
+  });
+
+  it('Icon size limit: classic and template stop at the one-row sections card (56)', () => {
+    for (const t of [...MUSHROOM_CLASSIC_TYPES, 'template']) {
+      expect(capsFor(key(t), { type: key(t) }).iconSizeMax, t).toBe(56);
+      expect(capsFor(key(t)).iconSizeMax, t).toBe(56);
+    }
+    expect(capsFor(key('chips')).iconSizeMax).toBe(64);
+  });
+
+  it('gate tests compare strictly: is / not take booleans too', () => {
+    const K = 'custom:mushroom-gate-bool-card';
+    registerCustomCardProfile({
+      key: K,
+      configGates: [{ when: [[{ key: 'a', is: [false] }, { key: 'b', not: [true] }]], hide: ['font'] }],
+    });
+    try {
+      const f = (c: Record<string, unknown>) => capsFor(K, c).modules.font;
+      expect(f({ a: false })).toBe(false);
+      expect(f({ a: false, b: true })).toBe(true);
+      expect(f({ a: 'false' })).toBe(true); // the string is not the boolean
+      expect(f({})).toBe(true);
+    } finally {
+      unregisterCustomCardProfile(K);
     }
   });
 

@@ -26,7 +26,7 @@ const blank = () => buildMergedStudioState({ type: 'picture-glance' } as unknown
 describe('NO_FONT_SIZE_TYPES', () => {
   it('is exactly the cards that size their own text', () => {
     expect([...NO_FONT_SIZE_TYPES].sort()).toEqual(
-      ['area', 'date', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast'],
+      ['alert', 'area', 'date', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast'],
     );
   });
 });

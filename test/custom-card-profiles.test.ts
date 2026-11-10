@@ -85,6 +85,10 @@ const OLD_NO_ACCENT_TYPES = new Set<string>([
 const OLD_NO_FONT_SIZE_TYPES = new Set<string>([
   'area', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast', // alarm-panel left: its title follows the size
   'date',
+  // Deliberate difference (not listed here): 'alert' (HA 2026.11) is in the
+  // new set — its title ignores Text size (measured, card-mod + UIX). It is
+  // not a pre-profile card, so it stays out of this union and its row lives
+  // in v0102-font-gating.test.ts / font-reach.test.ts.
 ]);
 const OLD_NO_TEXT_COLOR_TYPES = new Set<string>([
   'alarm-panel', 'area', 'media-control', 'picture-elements', 'picture-entity',

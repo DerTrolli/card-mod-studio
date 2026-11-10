@@ -254,6 +254,9 @@ function testHolds(config: Record<string, unknown> | null | undefined, t: Config
 
 /** Does the card config trigger this gate? The one evaluator for every profile. */
 export function configGateHits(config: Record<string, unknown> | null | undefined, gate: ConfigGate): boolean {
+  // No config = the config-free answer: nothing is hidden (an `unset` test
+  // would otherwise hit on a card nobody has looked at yet).
+  if (!config) return false;
   const clauses: ConfigTest[][] = [...(gate.key ? [[{ key: gate.key }]] : []), ...(gate.when ?? [])];
   return clauses.some((clause) => clause.every((t) => testHolds(config, t)));
 }
@@ -374,7 +377,16 @@ export function iconSizeMaxOf(
   config: { type?: unknown; card_type?: unknown; button_type?: unknown; card_layout?: unknown } | null | undefined,
   opts: { sectionsView?: boolean } = {},
 ): number | undefined {
-  const limit = REGISTRY.get(profileKeyOf(config))?.iconSizeMax;
+  return iconSizeLimit(REGISTRY.get(profileKeyOf(config)), config, opts);
+}
+
+/** `iconSizeMaxOf` for a profile already looked up (capsFor has one). */
+export function iconSizeLimit(
+  profile: CustomCardProfile | undefined,
+  config: { card_layout?: unknown } | null | undefined,
+  opts: { sectionsView?: boolean } = {},
+): number | undefined {
+  const limit = profile?.iconSizeMax;
   if (!limit) return undefined;
   const layout = typeof config?.card_layout === 'string' ? config.card_layout : undefined;
   const large = layout !== undefined ? layout.startsWith('large') : !!opts.sectionsView;

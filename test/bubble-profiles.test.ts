@@ -626,6 +626,17 @@ describe('Bubble 3 profiles — controls whose target the card config removes (c
     expect(capsFor(SEP, { show_icon: false, show_name: false }).modules).toMatchObject({ iconColor: true, font: true });
   });
 
+  it('capsFor(...).iconSizeMax is the profile limit: normal unless card_layout says large', () => {
+    for (const k of [BTN, SLIDER, COVER]) {
+      expect(capsFor(k, cfgOf(k, {})).iconSizeMax, k).toBe(50);
+      expect(capsFor(k, cfgOf(k, { card_layout: 'large' })).iconSizeMax, k).toBe(56);
+      expect(capsFor(k).iconSizeMax, k).toBe(50);
+    }
+    expect(capsFor(SEP, base('separator')).iconSizeMax).toBe(40);
+    expect(capsFor(SEP, base('separator', { card_layout: 'large' })).iconSizeMax).toBe(33);
+    expect(capsFor('tile').iconSizeMax).toBe(36);
+  });
+
   it('the picker skips a hidden module (no pointing at what is not on screen)', () => {
     const chain = [{ tag: 'ha-icon', id: '', classes: ['bubble-main-icon', 'bubble-icon', 'icon'] }, { tag: 'div', id: '', classes: ['bubble-button-container', 'bubble-container'] }];
     expect(mapElementToTarget(chain, BTN, cfgOf(BTN, {}))?.module).toBe('cms-icon-color-module');

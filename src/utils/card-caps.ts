@@ -13,7 +13,7 @@
  * from a custom-card profile (custom-card-profiles.ts) where one exists.
  */
 
-import { configGateHits, getCustomCardProfile, type ProfileModule } from './custom-card-profiles.js';
+import { configGateHits, getCustomCardProfile, iconSizeLimit, type ProfileModule } from './custom-card-profiles.js';
 
 export const NON_STATE_CARD_TYPES = new Set([
   'sensor', 'gauge', 'history-graph', 'statistics-graph', 'statistic',
@@ -117,6 +117,9 @@ export const NO_FONT_SIZE_TYPES = new Set([
   'area', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast',
   // HA 2026.11 date card (module-effect audit, UIX 9)
   'date',
+  // HA 2026.11 alert card: the title stays 14px, only the family reaches it
+  // (measured, both engines). A stored size is still read and written back.
+  'alert',
 ]);
 
 /**
@@ -171,6 +174,14 @@ export const ICON_SIZE_TYPES = new Set([
  *  2026.11); past that the circle overflows into the next card. */
 export const DEFAULT_ICON_SIZE_MAX = 64;
 export const TILE_ICON_SIZE_MAX = 36;
+/** picture-glance: its icon buttons are a fixed 40px wide and sit edge to edge,
+ *  so a glyph past 40px overlaps its neighbours (measured 24-64px with 1, 2, 3
+ *  and 5 entities, HA 2026.11, both engines). */
+export const PICTURE_GLANCE_ICON_SIZE_MAX = 40;
+const ICON_SIZE_MAX_BY_TYPE: Record<string, number> = {
+  tile: TILE_ICON_SIZE_MAX,
+  'picture-glance': PICTURE_GLANCE_ICON_SIZE_MAX,
+};
 
 // Font module (issue #25): sets font-size/weight/color/family on ha-card,
 // which cascades via plain CSS inheritance into most cards' text (verified
@@ -270,9 +281,10 @@ function buildCaps(
     iconColorless?: boolean;
     accentTriplet?: boolean;
     textOnlyCard?: boolean;
+    iconSizeMax?: number;
   },
 ): CardCaps {
-  const { headerTitle, transitionImportant, iconColorless, accentTriplet, textOnlyCard, fontWeight, ...flags } = f;
+  const { iconSizeMax, headerTitle, transitionImportant, iconColorless, accentTriplet, textOnlyCard, fontWeight, ...flags } = f;
   return {
     key,
     custom,
@@ -283,7 +295,7 @@ function buildCaps(
     stylableChildren: !custom && STYLABLE_CHILDREN_CARD_TYPES.has(key),
     modules: m,
     ...flags,
-    iconSizeMax: !custom && key === 'tile' ? TILE_ICON_SIZE_MAX : DEFAULT_ICON_SIZE_MAX,
+    iconSizeMax: iconSizeMax ?? (custom ? DEFAULT_ICON_SIZE_MAX : ICON_SIZE_MAX_BY_TYPE[key] ?? DEFAULT_ICON_SIZE_MAX),
     fontWeight: fontWeight !== false,
     headerTitle: custom ? !!headerTitle : HEADER_TITLE_CARD_TYPES.has(key),
     transitionImportant: custom ? !!transitionImportant : TRANSITION_IMPORTANT_TYPES.has(key),
@@ -332,6 +344,10 @@ export function capsFor(profileKey: string | undefined, config?: Record<string, 
       fontColor: profile.fontColor ?? true,
       fontSize: profile.fontSize ?? true,
       iconSize: profile.iconSize ?? false,
+      // The panel can't tell whether the card sits in a sections view (which
+      // applies the large layout implicitly), so: normal limit unless the
+      // card's own `card_layout` says large.
+      iconSizeMax: iconSizeLimit(profile, config),
       stateAwareByDefault: profile.stateAware ?? true,
       headerTitle: profile.headerTitle,
       transitionImportant: profile.transitionImportant,

@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { generateCss, tileCirclePx } from '../src/generator/css-generator.js';
 import { migrateStudioState, mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseCardModConfig } from '../src/parser/yaml-parser.js';
-import { capsFor, TILE_ICON_SIZE_MAX } from '../src/utils/card-caps.js';
+import { capsFor, TILE_ICON_SIZE_MAX, PICTURE_GLANCE_ICON_SIZE_MAX } from '../src/utils/card-caps.js';
 import type { StudioState } from '../src/types/index.js';
 
 const sized = (sizePx: number, extra: Record<string, unknown> = {}): StudioState => {
@@ -82,7 +82,8 @@ describe('tile icon size', () => {
     for (const type of ['entity', 'sensor', 'picture-glance']) {
       const css = generateCss(sized(64), type, { config: { type } });
       expect(css, type).toBe('ha-card {\n  --mdc-icon-size: 64px;\n  --ha-icon-size: 64px;\n}');
-      expect(capsFor(type).iconSizeMax, type).toBe(64);
+      // a stored 64 is still written as is; only the slider's end differs
+      expect(capsFor(type).iconSizeMax, type).toBe(type === 'picture-glance' ? PICTURE_GLANCE_ICON_SIZE_MAX : 64);
     }
     expect(capsFor('tile').iconSizeMax).toBe(TILE_ICON_SIZE_MAX);
     // a 1-row sections tile is 56px high: the capped glyph's circle must fit it

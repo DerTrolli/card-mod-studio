@@ -140,6 +140,18 @@ describe('picture-glance: the title follows the weight', () => {
   });
 });
 
+describe('size row gating on the alert card', () => {
+  it('alert offers no Text size, and a size an older style stored survives open + save', () => {
+    expect(capsFor('alert').fontSize).toBe(false);
+    const old = 'ha-card {\n  font-size: 20px;\n  font-family: serif;\n}';
+    const back = parse(old, 'alert');
+    expect(back.font).toMatchObject({ enabled: true, fontSize: 20 });
+    expect(generateCss(back, 'alert')).toBe(old);
+    const sizeOnly = 'ha-card {\n  font-size: 20px;\n}';
+    expect(generateCss(parse(sizeOnly, 'alert'), 'alert')).toBe(sizeOnly);
+  });
+});
+
 describe('weight row gating', () => {
   it('is hidden exactly where weight reaches nothing', () => {
     expect([...NO_FONT_WEIGHT_TYPES].sort()).toEqual(['alert', 'area', 'date']);

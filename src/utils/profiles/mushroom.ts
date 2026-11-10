@@ -116,10 +116,18 @@ function classicGates(type: string): ConfigGate[] {
   return gates;
 }
 
+/** Icon size limit (measured on Mushroom 5.2.3, both engines): the slider value
+ *  is the shape's diameter. A sections view gives the card one 56px row, so a
+ *  shape of 56 fills it and anything larger spills over the neighbours (a
+ *  masonry card just grows). Classic and template alike; the template's circle
+ *  already grows with its glyph (box = value, glyph = 2/3), unlike the tile. */
+const ICON_MAX = { normal: 56, large: 56 };
+
 function classic(type: string): CustomCardProfile {
   return profile(`custom:mushroom-${type}-card`, {
     configGates: classicGates(type),
     iconSize: true,
+    iconSizeMax: ICON_MAX,
     // Probed DOM: `span.primary` / `span.secondary` text, the shape + glyph;
     // anything else falls through to the card box (Background).
     clickToEdit: [
@@ -156,6 +164,11 @@ const template = profile('custom:mushroom-template-card', {
   // Font / text colour / accent / tile text matchers: the tile's own.
   emitAs: 'tile',
   iconSize: true,
+  iconSizeMax: ICON_MAX,
+  // Neither `icon` nor `picture`: the card renders no icon element at all, so
+  // colour and size have nothing to reach (measured, with and without an
+  // entity). A picture alone still takes the size (not the colour).
+  configGates: [{ when: [[{ key: 'icon', unset: true }, { key: 'picture', unset: true }]], hide: ['iconColor'] }],
   // The tile's own parts: info block (primary/secondary spans), tile icon.
   clickToEdit: [
     clickTag('ha-tile-info', CLICK_FONT),
