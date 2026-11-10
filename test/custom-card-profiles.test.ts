@@ -14,6 +14,7 @@ import {
 } from '../src/utils/card-caps.js';
 import {
   profileKeyOf,
+  isUnprofiledCustomCard,
   registerCustomCardProfile,
   unregisterCustomCardProfile,
   type CustomCardProfile,
@@ -335,5 +336,54 @@ describe('custom profile fixture overrides gating', () => {
     } finally {
       unregisterCustomCardProfile('custom:bubble-card/demo');
     }
+  });
+});
+
+describe('isUnprofiledCustomCard (D7 notice)', () => {
+  const unprofiled = (c: unknown) => isUnprofiledCustomCard(c as Record<string, unknown>);
+  it('is true for a custom card with no profile', () => {
+    expect(unprofiled({ type: 'custom:button-card' })).toBe(true);
+    expect(unprofiled({ type: 'custom:mushroom-unknown-card' })).toBe(true);
+  });
+  it('is false for built-in cards and configs without a usable type', () => {
+    expect(unprofiled({ type: 'tile' })).toBe(false);
+    expect(unprofiled({ type: 'vertical-stack' })).toBe(false);
+    expect(unprofiled({})).toBe(false);
+    expect(unprofiled({ type: '' })).toBe(false);
+    expect(unprofiled({ type: 5 })).toBe(false);
+    expect(unprofiled(undefined)).toBe(false);
+    expect(unprofiled(null)).toBe(false);
+  });
+  it('is false for a bare `custom:` (no card named)', () => {
+    expect(unprofiled({ type: 'custom:' })).toBe(false);
+  });
+  it('reads the type exactly like profileKeyOf (no case folding or trimming)', () => {
+    expect(unprofiled({ type: 'Custom:button-card' })).toBe(false);
+    expect(unprofiled({ type: ' custom:button-card' })).toBe(false);
+    expect(unprofiled({ type: 'custom:Mushroom-Entity-Card' })).toBe(true);
+  });
+  it('is false for every profiled Mushroom / Bubble key', () => {
+    expect(unprofiled({ type: 'custom:mushroom-entity-card' })).toBe(false);
+    for (const card_type of ['button', 'separator', 'cover']) {
+      expect(unprofiled({ type: 'custom:bubble-card', card_type })).toBe(false);
+    }
+    expect(unprofiled({ type: 'custom:bubble-card', card_type: 'button', button_type: 'slider' })).toBe(false);
+  });
+  it('is true for a Bubble Card with an unprofiled or missing card_type', () => {
+    for (const card_type of ['pop-up', 'climate', 'media-player', 'select', 'horizontal-buttons-stack', 'calendar', 'empty-column', 'nope']) {
+      expect(unprofiled({ type: 'custom:bubble-card', card_type })).toBe(true);
+    }
+    expect(unprofiled({ type: 'custom:bubble-card' })).toBe(true);
+    expect(unprofiled({ type: 'custom:bubble-card', card_type: '' })).toBe(true);
+    expect(unprofiled({ type: 'custom:bubble-card', card_type: 5 })).toBe(true);
+  });
+  it('follows the registry (a registered profile silences it)', () => {
+    registerCustomCardProfile({ key: 'custom:fixture-card' });
+    try {
+      expect(unprofiled({ type: 'custom:fixture-card' })).toBe(false);
+    } finally {
+      unregisterCustomCardProfile('custom:fixture-card');
+    }
+    expect(unprofiled({ type: 'custom:fixture-card' })).toBe(true);
   });
 });

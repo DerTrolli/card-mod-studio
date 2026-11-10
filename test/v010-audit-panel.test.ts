@@ -226,3 +226,37 @@ describe('config-changed carries guiModeAvailable (HA disables "Show code editor
     expect(details.at(-1)!.guiModeAvailable).toBe(true);
   });
 });
+
+describe('D7 — unprofiled custom card notice', () => {
+  const NOTICE = "doesn't know this custom card yet";
+  const panelText = (config: unknown) => {
+    const { p } = makePanel(config);
+    return templateText((p as unknown as { _renderUnprofiledNotice(): unknown })._renderUnprofiledNotice());
+  };
+  const childText = (config: unknown) => {
+    const c = new Child();
+    c.childConfig = config as CardModCardConfig;
+    c.willUpdate(new Map([['childConfig', undefined]]));
+    return templateText(c._renderBody());
+  };
+  it('shows for an unprofiled custom card and for unprofiled Bubble types', () => {
+    expect(panelText({ type: 'custom:button-card' })).toContain(NOTICE);
+    expect(panelText({ type: 'custom:bubble-card', card_type: 'pop-up' })).toContain(NOTICE);
+    expect(panelText({ type: 'custom:bubble-card' })).toContain(NOTICE);
+  });
+  it('stays out for built-in and profiled cards', () => {
+    expect(panelText({ type: 'tile', entity: 'light.a' })).not.toContain(NOTICE);
+    expect(panelText({ type: 'custom:mushroom-entity-card', entity: 'light.a' })).not.toContain(NOTICE);
+    expect(panelText({ type: 'custom:bubble-card', card_type: 'button' })).not.toContain(NOTICE);
+  });
+  it('keeps every module visible next to the notice', () => {
+    const { p } = makePanel({ type: 'custom:button-card', entity: 'light.a' });
+    expect(moduleListText(p)).not.toContain(NOTICE);
+    expect(moduleListText(p)).toContain('cms-background-module');
+  });
+  it('child section shows it for an unprofiled custom child only', () => {
+    expect(childText({ type: 'custom:button-card' })).toContain(NOTICE);
+    expect(childText({ type: 'tile', entity: 'light.a' })).not.toContain(NOTICE);
+    expect(childText({ type: 'custom:mushroom-title-card' })).not.toContain(NOTICE);
+  });
+});

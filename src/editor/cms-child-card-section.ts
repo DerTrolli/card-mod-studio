@@ -54,7 +54,7 @@ import {
   capsFor,
   isStateAware,
 } from '../utils/card-caps.js';
-import { profileKeyOf } from '../utils/custom-card-profiles.js';
+import { profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import { thresholdOwnedProperties } from '../generator/css-generator.js';
@@ -150,6 +150,16 @@ export class CmsChildCardSection extends LitElement {
       .child-body {
         padding: 10px 6px 0;
         border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+      .child-hint {
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--primary-text-color, #212121);
+        background: var(--cms-tint-primary);
+        border: 1px solid var(--cms-line-primary);
+        border-radius: 8px;
+        padding: 6px 10px;
+        margin-bottom: 8px;
       }
       .child-note {
         font-size: 12px;
@@ -309,6 +319,10 @@ export class CmsChildCardSection extends LitElement {
 
     return html`
       <div class="child-body">
+        ${isUnprofiledCustomCard(c)
+          ? html`<div class="child-hint">ℹ️ ${UNPROFILED_CARD_NOTICE}</div>`
+          : nothing}
+
         ${showHeading
           ? html`<cms-heading-style-module
               .overridden=${!!conflicts.headingStyle}

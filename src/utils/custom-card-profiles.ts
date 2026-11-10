@@ -268,3 +268,24 @@ export function profileKeyOf(
   if (!sub) return type;
   return sub === 'button' && config?.button_type === 'slider' ? `${type}/${sub}/slider` : `${type}/${sub}`;
 }
+
+/**
+ * True for a custom card the Studio has no profile for (D7: the notice shown
+ * above the modules, nothing is hidden). That is any `custom:*` type whose
+ * profile key has no profile — including a Bubble Card whose `card_type` is
+ * unprofiled or missing (the bare key). Built-in cards, profiled custom
+ * cards and configs without a type are false. `type` is read exactly as
+ * profileKeyOf reads it (no trimming or case folding), and a bare `custom:`
+ * names no card, so it is false too.
+ */
+export function isUnprofiledCustomCard(
+  config: { type?: unknown; card_type?: unknown; button_type?: unknown } | null | undefined,
+): boolean {
+  const type = typeof config?.type === 'string' ? config.type : '';
+  if (!type.startsWith('custom:') || type === 'custom:') return false;
+  return !REGISTRY.has(profileKeyOf(config));
+}
+
+/** The notice text for an unprofiled custom card (panel and child section). */
+export const UNPROFILED_CARD_NOTICE =
+  "Card-Mod Studio doesn't know this custom card yet — some controls may not reach it; Advanced CSS always works.";

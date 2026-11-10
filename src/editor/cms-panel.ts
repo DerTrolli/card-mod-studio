@@ -33,7 +33,7 @@ import {
   capsFor,
   isStateAware,
 } from '../utils/card-caps.js';
-import { profileKeyOf } from '../utils/custom-card-profiles.js';
+import { profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
 import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles, refreshPaletteDefaults, applyStudioState, refreshCarrier } from './studio-state.js';
 import { numberSizeOf, withoutNumberSize, userEntries, numberSizeKind } from '../utils/owned-entries.js';
 import './cms-child-card-section.js';
@@ -960,6 +960,7 @@ export class CmsPanel extends LitElement {
             ? html`
                 ${this._isLocked ? nothing : this._renderPresetBar()}
                 <cms-palette-manager .hass=${this.hass}></cms-palette-manager>
+                ${this._renderUnprofiledNotice()}
                 ${this._renderModuleList(this._studioState)}
               `
             : html`<div class="no-config">No card selected.</div>`}
@@ -1126,6 +1127,13 @@ export class CmsPanel extends LitElement {
     }
 
     return nothing;
+  }
+
+  /** D7: a custom card without a profile keeps every module, plus a one-line
+   *  hint that some may not reach it. Not shown over the lock banner. */
+  private _renderUnprofiledNotice() {
+    if (this._isLocked || !isUnprofiledCustomCard(this.config)) return nothing;
+    return html`<div class="info-banner">ℹ️ ${UNPROFILED_CARD_NOTICE}</div>`;
   }
 
   private _renderPresetBar() {
