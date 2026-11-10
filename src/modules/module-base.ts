@@ -515,7 +515,7 @@ export function renderWatchHint(o: {
     : !useless
     ? "Leave empty to use this card's own entity."
     : !cardEntity
-    ? "This card has no entity of its own — pick the entity to watch, or choose One fixed color. Until then no color is written."
+    ? "This card has no entity of its own — pick the entity to watch, or choose One fixed color. Until then no color is written and this choice isn't kept."
     : kind === 'off-only'
     // Anything that isn't "on" takes the OFF branch, so the OFF colour shows in every mode.
     ? `This card's entity (${cardEntity}) is never "on" — the ON colour never shows and the OFF colour shows in every state. Pick another entity, or use Threshold Colors for its modes.`

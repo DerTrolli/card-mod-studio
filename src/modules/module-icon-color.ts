@@ -3,7 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { IconColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
-import { hasOwnEntity, stateKindFor } from '../utils/card-caps.js';
+import { hasOwnEntity, stateKindFor, type OwnStateKind } from '../utils/card-caps.js';
 import {
   moduleStyles,
   renderOverrideBadge,
@@ -35,16 +35,19 @@ function hasColourIntent(s: IconColorModuleState): boolean {
  * What switching the module on writes. A card with an Icon size control starts
  * in "Keep the card's colour" (no colour written — the size is the point); an
  * entity-less card has nothing for ON / OFF to watch, so its colour starts
- * fixed. A module the user already configured keeps its mode.
+ * fixed; so does one whose entity can't be ON (sensor, lock, cover, climate…),
+ * where ON / OFF would show the OFF colour in every state. A module the user
+ * already configured keeps its mode.
  */
 export function enableChanges(
   s: IconColorModuleState,
   allowSize: boolean,
   hasEntity: boolean,
+  kind: OwnStateKind = 'on-off',
 ): Partial<IconColorModuleState> {
   if (hasColourIntent(s)) return { enabled: true };
   if (allowSize) return { enabled: true, mode: 'none' };
-  if (!hasEntity) return { enabled: true, mode: 'plain' };
+  if (!hasEntity || kind !== 'on-off') return { enabled: true, mode: 'plain' };
   return { enabled: true };
 }
 
@@ -125,6 +128,7 @@ export class IconColorModule extends LitElement {
                       this.state,
                       this.allowSize,
                       hasOwnEntity({ entity: this.cardEntity }),
+                      stateKindFor(this.stateAware, this.cardEntity),
                     )
                   : { enabled: false },
               )}
@@ -185,7 +189,7 @@ export class IconColorModule extends LitElement {
               <option value="conditional" ?selected=${mode === 'conditional'}>
                 Different for ON / OFF
               </option>
-              ${this.isLightCard
+              ${this.isLightCard || mode === 'light'
                 ? html`<option value="light" ?selected=${mode === 'light'}>
                     Match the light's color
                   </option>`
@@ -195,7 +199,9 @@ export class IconColorModule extends LitElement {
         </div>
         <div class="when-hint">
           ${mode === 'none'
-            ? "The card's own icon colour stays as it is — only the size below changes."
+            ? this.allowSize
+              ? "The card's own icon colour stays as it is — only the size below changes."
+              : "The card's own icon colour stays as it is — this mode writes no colour."
             : mode === 'plain'
             ? 'One color, shown all the time.'
             : mode === 'light'
