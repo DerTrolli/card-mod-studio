@@ -7,12 +7,13 @@
  * became `25`. No `inputmode="decimal"` either: the iOS decimal keypad has
  * no minus key, and negative thresholds must stay typable.
  *
- * Bounds: |value| <= 1e12 (a terabyte in bytes, a year in ms — nothing a
- * sensor threshold needs is bigger, and beyond ~1e21 JS prints exponent
- * form). A non-zero |value| < 1e-6 is also refused: JS would print it as
- * `1e-7`, and the generated template must only ever contain a plain number.
+ * Bounds: |value| <= 1e15 — epoch milliseconds (~1.7e12) and byte counters
+ * past a terabyte are plausible thresholds, and JS still prints plain digits
+ * well beyond that (exponent form starts at 1e21). A non-zero |value| < 1e-6
+ * is refused: JS would print it as `1e-7`, and the generated template must
+ * only ever contain a plain number.
  */
-export const MAX_RULE_VALUE = 1e12;
+export const MAX_RULE_VALUE = 1e15;
 export const MIN_RULE_STEP = 1e-6;
 
 const PLAIN = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i;
