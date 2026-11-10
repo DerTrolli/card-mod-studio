@@ -1358,6 +1358,7 @@ export class CmsPanel extends LitElement {
 
       ${this._caps.modules.filter
         ? html`<cms-filter-module
+            .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.filter}
             .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
             .state=${s.filter}
@@ -1414,6 +1415,7 @@ export class CmsPanel extends LitElement {
 
       ${showBackground
         ? html`<cms-background-module
+            .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.background}
             .overriddenDetail=${(conflicts.background ?? []).join(", ")}
             .thresholdOwned=${thresholdOwned.has('background')}
@@ -1426,6 +1428,7 @@ export class CmsPanel extends LitElement {
 
       ${showAnimation
         ? html`<cms-animation-module
+            .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.animation}
             .overriddenDetail=${(conflicts.animation ?? []).join(", ")}
             .state=${s.animation}
@@ -1437,6 +1440,7 @@ export class CmsPanel extends LitElement {
 
       ${showBorder
         ? html`<cms-border-module
+            .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.border}
             .overriddenDetail=${(conflicts.border ?? []).join(", ")}
             .thresholdOwned=${thresholdOwned.has('border-color')}

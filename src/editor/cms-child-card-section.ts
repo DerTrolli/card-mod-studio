@@ -351,6 +351,7 @@ export class CmsChildCardSection extends LitElement {
 
         ${mods.filter
           ? html`<cms-filter-module
+              .cardEntity=${entity}
               .overridden=${!!conflicts.filter}
               .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
               .state=${s.filter}
@@ -410,6 +411,7 @@ export class CmsChildCardSection extends LitElement {
 
         ${mods.background
           ? html`<cms-background-module
+              .cardEntity=${entity}
               .overridden=${!!conflicts.background}
               .overriddenDetail=${(conflicts.background ?? []).join(", ")}
               .thresholdOwned=${thresholdOwned.has('background')}
@@ -423,6 +425,7 @@ export class CmsChildCardSection extends LitElement {
 
         ${mods.animation
           ? html`<cms-animation-module
+              .cardEntity=${entity}
               .overridden=${!!conflicts.animation}
               .overriddenDetail=${(conflicts.animation ?? []).join(", ")}
               .state=${s.animation}
@@ -435,6 +438,7 @@ export class CmsChildCardSection extends LitElement {
 
         ${mods.border
           ? html`<cms-border-module
+              .cardEntity=${entity}
               .overridden=${!!conflicts.border}
               .overriddenDetail=${(conflicts.border ?? []).join(", ")}
               .thresholdOwned=${thresholdOwned.has('border-color')}
