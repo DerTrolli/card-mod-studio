@@ -1025,6 +1025,16 @@ export class CmsPanel extends LitElement {
       flex-shrink: 0;
     }
 
+    /* Read by screen readers, takes no space: the preview card is inert. */
+    .preview-sr-note {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+
     .preview-card-wrapper hui-card {
       width: 100%;
     }
@@ -1114,8 +1124,11 @@ export class CmsPanel extends LitElement {
     // alone left it a keyboard tab stop that could switch a real entity),
     // while the picker overlay — a sibling — keeps working and still reads
     // the card's rects. aria-hidden would be redundant with inert.
+    // The sr-only note beside it
+    // (outside the inert card) is what tells a screen-reader user it exists.
     return html`
       <div class="preview-stage">
+        <span class="preview-sr-note">Live preview of the card (not interactive)</span>
         ${keyed(
           this._previewKey,
           html`<hui-card inert .hass=${this.hass} .config=${previewConfig}></hui-card>`,
