@@ -3,3 +3,5 @@ dist/
 *.js.map
 .DS_Store
 .claude/settings.local.json
+# agent worktrees (local only)
+.claude/worktrees/
