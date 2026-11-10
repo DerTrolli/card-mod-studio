@@ -13,7 +13,7 @@
  * from a custom-card profile (custom-card-profiles.ts) where one exists.
  */
 
-import { getCustomCardProfile, type ProfileModule } from './custom-card-profiles.js';
+import { configGateHits, getCustomCardProfile, type ProfileModule } from './custom-card-profiles.js';
 
 export const NON_STATE_CARD_TYPES = new Set([
   'sensor', 'gauge', 'history-graph', 'statistics-graph', 'statistic',
@@ -303,12 +303,6 @@ function buildCaps(
   };
 }
 
-/** Whether a card config sets `key` to something (a non-empty value). */
-function configSets(config: Record<string, unknown> | null | undefined, key: string): boolean {
-  const v = config?.[key];
-  return v !== undefined && v !== null && v !== '' && v !== false;
-}
-
 /**
  * The capabilities lookup — the ONE place per-card-type gating is decided.
  *
@@ -326,7 +320,7 @@ export function capsFor(profileKey: string | undefined, config?: Record<string, 
       ...profile.modules,
     };
     for (const gate of profile.configGates ?? []) {
-      if (configSets(config, gate.key)) for (const m of gate.hide) modules[m] = false;
+      if (configGateHits(config, gate)) for (const m of gate.hide) modules[m] = false;
     }
     return buildCaps(key, true, modules, {
       fontColor: profile.fontColor ?? true,

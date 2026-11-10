@@ -22,7 +22,7 @@
  * the registry module can import this one statically without a cycle.
  */
 
-import type { ClaimRule, CustomCardProfile, ProfileEmitters } from '../custom-card-profiles.js';
+import type { ClaimRule, ConfigGate, CustomCardProfile, ProfileEmitters } from '../custom-card-profiles.js';
 import {
   claimsFromEmitters, conflictsFromEmitters, clickClass,
   CLICK_FONT, CLICK_ICON, CLICK_ACCENT, CLICK_BACKGROUND,
@@ -121,6 +121,15 @@ const legacyBorder = (selector: string): ClaimRule => ({
 const ICON_MAX_BOX = { normal: 50, large: 56 };
 const ICON_MAX_SEPARATOR = { normal: 40, large: 33 };
 
+/** Controls whose target the card config removes (measured on 3.4.3: with
+ *  `show_icon: false` there is no `.bubble-icon` at all; with the name hidden
+ *  and the state off — its default on all three kinds — no text is left).
+ *  Only a completely dead control is hidden: one text line still takes Font. */
+const GATES: ConfigGate[] = [
+  { key: 'show_icon', when: 'false', hide: ['iconColor'] },
+  { key: 'show_name', when: 'false', and: [{ key: 'show_state', when: 'not-true' }], hide: ['font'] },
+];
+
 /** Opacity stays at Bubble's 0.5 unless forced (measured): rides with Background. */
 const OPACITY_1 = { prop: 'opacity', value: '1', important: true };
 
@@ -134,6 +143,7 @@ const NO_THRESHOLD = { threshold: false, accentColor: false } as const;
 
 const button = profile('custom:bubble-card/button', {
   modules: { ...NO_THRESHOLD },
+  configGates: GATES,
   iconSize: true,
   iconSizeMax: ICON_MAX_BOX,
   clickToEdit: clicksFor('bubble-button-background'),
@@ -154,6 +164,7 @@ const button = profile('custom:bubble-card/button', {
 
 const slider = profile('custom:bubble-card/button/slider', {
   modules: { threshold: false },
+  configGates: GATES,
   iconSize: true,
   iconSizeMax: ICON_MAX_BOX,
   clickToEdit: clicksFor('bubble-button-background', clickClass('bubble-range-fill', CLICK_ACCENT)),
@@ -212,6 +223,7 @@ const separator = profile('custom:bubble-card/separator', {
 
 const cover = profile('custom:bubble-card/cover', {
   modules: { ...NO_THRESHOLD },
+  configGates: GATES,
   iconSize: true,
   iconSizeMax: ICON_MAX_BOX,
   clickToEdit: clicksFor('bubble-background'),

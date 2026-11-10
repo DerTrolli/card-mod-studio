@@ -13,6 +13,7 @@ import { generateCss } from '../src/generator/css-generator.js';
 import { mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseStyleValue } from '../src/parser/yaml-parser.js';
 import { capsFor } from '../src/utils/card-caps.js';
+import { mapElementToTarget } from '../src/utils/preview-map.js';
 import { getCustomCardProfile, iconSizeMaxOf, profileKeyOf } from '../src/utils/custom-card-profiles.js';
 import { BUBBLE_SELECTORS } from '../src/utils/profiles/bubble.js';
 import { findAdvancedCssConflicts } from '../src/utils/style-conflicts.js';
@@ -589,5 +590,45 @@ describe('Bubble 3 profiles — Icon size limit (card height, measured per layou
   it('no limit for other cards (the control keeps its range)', () => {
     expect(iconSizeMaxOf({ type: 'tile' })).toBeUndefined();
     expect(iconSizeMaxOf(cfg('climate'))).toBeUndefined();
+  });
+});
+
+describe('Bubble 3 profiles — controls whose target the card config removes (configGates)', () => {
+  const base = (card_type: string, extra: Record<string, unknown> = {}) => ({ type: 'custom:bubble-card', card_type, ...extra });
+  const keys = [BTN, SLIDER, COVER];
+  const cfgOf = (k: string, extra: Record<string, unknown>) =>
+    base(k === COVER ? 'cover' : 'button', { ...(k === SLIDER ? { button_type: 'slider' } : {}), ...extra });
+
+  it('show_icon: false hides Icon Color (colour and size); anything else keeps it', () => {
+    for (const k of keys) {
+      expect(capsFor(k, cfgOf(k, { show_icon: false })).modules.iconColor, k).toBe(false);
+      expect(capsFor(k, cfgOf(k, { show_icon: true })).modules.iconColor, k).toBe(true);
+      expect(capsFor(k, cfgOf(k, {})).modules.iconColor, k).toBe(true);
+      // the other modules stay
+      expect(capsFor(k, cfgOf(k, { show_icon: false })).modules.font, k).toBe(true);
+    }
+  });
+
+  it('Font hides only when name AND state are both off (state is off by default)', () => {
+    for (const k of keys) {
+      const font = (extra: Record<string, unknown>) => capsFor(k, cfgOf(k, extra)).modules.font;
+      expect(font({}), k).toBe(true);
+      expect(font({ show_name: false }), k).toBe(false);
+      expect(font({ show_name: false, show_state: false }), k).toBe(false);
+      expect(font({ show_name: false, show_state: true }), k).toBe(true);
+      expect(font({ show_name: true, show_state: false }), k).toBe(true);
+      expect(font({ show_state: true }), k).toBe(true);
+    }
+  });
+
+  it('a card without config (or the separator) is not gated', () => {
+    for (const k of keys) expect(capsFor(k).modules).toMatchObject({ iconColor: true, font: true });
+    expect(capsFor(SEP, { show_icon: false, show_name: false }).modules).toMatchObject({ iconColor: true, font: true });
+  });
+
+  it('the picker skips a hidden module (no pointing at what is not on screen)', () => {
+    const chain = [{ tag: 'ha-icon', id: '', classes: ['bubble-main-icon', 'bubble-icon', 'icon'] }, { tag: 'div', id: '', classes: ['bubble-background', 'bubble-button-background'] }];
+    expect(mapElementToTarget(chain, BTN, cfgOf(BTN, {}))?.module).toBe('cms-icon-color-module');
+    expect(mapElementToTarget(chain, BTN, cfgOf(BTN, { show_icon: false }))?.module).not.toBe('cms-icon-color-module');
   });
 });

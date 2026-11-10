@@ -189,11 +189,32 @@ export interface ClickRule {
   label: string;
 }
 
-/** A module hidden while the card config sets `key` (e.g. a Mushroom card's
- *  `icon_color` leaves nothing for the accent variables to colour). */
-export interface ConfigGate {
+/** One test on a card config key: `set` (default) — a non-empty value other
+ *  than `false`; `false` — explicitly `false`; `not-true` — anything but `true`
+ *  (a key whose default is off). */
+export interface ConfigCondition {
   key: string;
+  when?: 'set' | 'false' | 'not-true';
+}
+
+/** A module hidden while the card config meets the condition (e.g. a Mushroom
+ *  card's `icon_color` leaves nothing for the accent variables to colour).
+ *  `and`: further conditions that must all hold too. */
+export interface ConfigGate extends ConfigCondition {
   hide: ProfileModule[];
+  and?: ConfigCondition[];
+}
+
+function conditionHolds(config: Record<string, unknown> | null | undefined, c: ConfigCondition): boolean {
+  const v = config?.[c.key];
+  if (c.when === 'false') return v === false;
+  if (c.when === 'not-true') return v !== true;
+  return v !== undefined && v !== null && v !== '' && v !== false;
+}
+
+/** Does the card config trigger this gate? */
+export function configGateHits(config: Record<string, unknown> | null | undefined, gate: ConfigGate): boolean {
+  return conditionHolds(config, gate) && (gate.and ?? []).every((c) => conditionHolds(config, c));
 }
 
 /** The largest Icon size (px) that still fits the card, per layout. */
