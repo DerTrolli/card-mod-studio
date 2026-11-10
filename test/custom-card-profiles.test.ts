@@ -42,13 +42,13 @@ const OLD_CONTAINER_CARD_TYPES = new Set<string>([
 const OLD_STYLABLE_CHILDREN_CARD_TYPES = new Set<string>([
   'grid', 'vertical-stack', 'horizontal-stack',
 ]);
+// v0.11: shrunk after animations were operated with real input on 10 of the
+// listed types (see card-caps.ts). Everything else is the old set verbatim.
 const OLD_NO_ANIMATION_TYPES = new Set<string>([
-  'gauge', 'history-graph', 'statistics-graph', 'statistic',
-  'energy-distribution', 'energy-usage-graph',
-  'thermostat', 'humidifier', 'light', 'alarm-panel',
-  'media-control', 'weather-forecast', 'calendar', 'logbook', 'activity',
-  'map', 'iframe', 'webpage', 'shopping-list', 'todo-list',
-  'heading', 'picture', 'picture-entity', 'picture-glance', 'picture-elements',
+  'thermostat', 'humidifier', 'light',
+  'map', 'iframe', 'picture', 'picture-entity', 'picture-glance', 'picture-elements',
+  'heading',
+  'energy-distribution', 'energy-usage-graph', 'activity', 'webpage', 'shopping-list',
 ]);
 const OLD_NO_BACKGROUND_TYPES = new Set<string>([
   'picture', 'picture-entity', 'picture-glance', 'picture-elements',

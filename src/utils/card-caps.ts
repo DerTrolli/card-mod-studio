@@ -35,13 +35,30 @@ export const STYLABLE_CHILDREN_CARD_TYPES = new Set([
   'grid', 'vertical-stack', 'horizontal-stack',
 ]);
 
+/**
+ * Animation is an `animation:` on ha-card — a transform / opacity / shadow on
+ * the whole card. Operated with real pointer input while it runs (v0.11,
+ * HA 2026.11, every preset, card-mod): alarm-panel keypad, calendar day and
+ * event, gauge / statistic / weather more-info, history- and statistics-graph
+ * tooltip, logbook row, media-control buttons, to-do tick all work and their
+ * dialogs open centred, so those are no longer listed. Still hidden, with the
+ * measured reason:
+ *  - thermostat, humidifier, light: Spin drags the arc handle ~40° (60-130 px)
+ *    away from the pointer (the slider reads the screen angle, the dial is
+ *    drawn rotated). The other presets end on the same value as an
+ *    un-animated card — they return once the preset list can leave Spin out.
+ *  - map: Spin pans the map sideways (drag -120 px moved the marker +73 px);
+ *    iframe, picture, picture-entity, picture-glance, picture-elements, map:
+ *    Gradient Shift moves a `background-position` those cards cannot show
+ *    (Background is hidden there) — they return with the same per-preset gate.
+ *  - heading: no painted box, the glow outlines bare text.
+ *  - never measured: energy cards, activity, webpage, shopping-list.
+ */
 export const NO_ANIMATION_TYPES = new Set([
-  'gauge', 'history-graph', 'statistics-graph', 'statistic',
-  'energy-distribution', 'energy-usage-graph',
-  'thermostat', 'humidifier', 'light', 'alarm-panel',
-  'media-control', 'weather-forecast', 'calendar', 'logbook', 'activity',
-  'map', 'iframe', 'webpage', 'shopping-list', 'todo-list',
-  'heading', 'picture', 'picture-entity', 'picture-glance', 'picture-elements',
+  'thermostat', 'humidifier', 'light',
+  'map', 'iframe', 'picture', 'picture-entity', 'picture-glance', 'picture-elements',
+  'heading',
+  'energy-distribution', 'energy-usage-graph', 'activity', 'webpage', 'shopping-list',
 ]);
 
 export const NO_BACKGROUND_TYPES = new Set([
