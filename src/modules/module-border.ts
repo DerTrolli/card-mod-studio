@@ -8,7 +8,7 @@ import {
   renderThresholdOwnedHint,
   renderCondition,
   renderModuleHeader,
-  guardSliderTouch,
+  guardSliderTouch, nameSwitches,
 } from './module-base.js';
 import '../components/cms-color-picker.js';
 import { stateKindFor } from '../utils/card-caps.js';
@@ -38,6 +38,7 @@ export class BorderModule extends LitElement {
   }
 
   override updated(changed: Map<PropertyKey, unknown>) {
+    nameSwitches(this.renderRoot);
     if (changed.has('state')) {
       const prev = changed.get('state') as BorderModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;

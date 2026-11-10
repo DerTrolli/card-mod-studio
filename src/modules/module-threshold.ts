@@ -3,7 +3,8 @@ import { repeat } from 'lit/directives/repeat.js';
 import { property, state } from 'lit/decorators.js';
 import type { ThresholdModuleState, ThresholdProperty, ThresholdRule, ColorStop, HomeAssistant } from '../types/index.js';
 import { DEFAULT_THRESHOLD } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideHint, renderModuleHeader, guardSliderTouch, } from './module-base.js';
+import { moduleStyles, renderOverrideHint, renderModuleHeader, guardSliderTouch, nameSwitches,
+} from './module-base.js';
 import { sortThresholdRules } from '../generator/css-generator.js';
 import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 import { previewHexFor } from '../components/cms-color-picker.js';
@@ -257,6 +258,7 @@ export class ThresholdModule extends LitElement {
   }
 
   override updated(changed: Map<PropertyKey, unknown>) {
+    nameSwitches(this.renderRoot);
     if (changed.has('state')) {
       const prev = changed.get('state') as ThresholdModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;

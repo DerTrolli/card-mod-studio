@@ -1,7 +1,8 @@
 import { LitElement, html, css } from 'lit';
 import { property } from 'lit/decorators.js';
 import type { AdvancedModuleState, PiercedEntry } from '../types/index.js';
-import { moduleStyles, renderModuleHeader, nameCodeEditor } from './module-base.js';
+import { moduleStyles, renderModuleHeader, nameCodeEditor, nameSwitches,
+} from './module-base.js';
 import { lintAdvancedCss } from '../utils/css-lint.js';
 
 export class AdvancedModule extends LitElement {
@@ -71,6 +72,7 @@ export class AdvancedModule extends LitElement {
   }
 
   override updated() {
+    nameSwitches(this.renderRoot);
     const ed = this.renderRoot.querySelector('ha-code-editor');
     if (ed) nameCodeEditor(ed, 'Advanced CSS');
   }

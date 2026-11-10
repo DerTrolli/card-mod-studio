@@ -147,11 +147,11 @@ describe.each(Object.entries(MODULES))('%s module', (_name, { tag, variants }) =
 });
 
 describe.each(Object.entries(MODULES))('%s module switches', (_name, { tag, variants }) => {
-  it('each switch is named by its slotted text and by an equal aria-label', () => {
+  it('each switch is named by its aria-label alone (no slotted duplicate text)', () => {
     for (const props of variants) {
       for (const [text, aria] of switchLabels(renderModule(tag, props))) {
-        expect(text).not.toBe('');
-        expect(aria).toBe(text);
+        expect(aria).not.toBe('');
+        expect(text).toBe('');
       }
     }
   });
@@ -176,7 +176,7 @@ describe('Entity Rows module', () => {
     expect(unnamedControls(t)).toEqual([]);
     const names = controlNames(t);
     expect(names.filter((n, i) => names.indexOf(n) !== i)).toEqual([]);
-    for (const [text, aria] of switchLabels(t)) expect(aria).toBe(text);
+    for (const [text, aria] of switchLabels(t)) { expect(aria).not.toBe(''); expect(text).toBe(''); }
   });
 });
 
@@ -186,7 +186,7 @@ describe('the checker itself', () => {
     expect(unnamedControls(html`<ha-switch></ha-switch><ha-slider aria-label="x"></ha-slider><select></select>`)).toHaveLength(3);
     expect(unnamedControls(html`
       <span id="l">Size</span><select aria-labelledby="l"></select>
-      <ha-switch><span class="sr-only">On</span></ha-switch><ha-slider label="Size"></ha-slider>
+      <ha-switch aria-label="On"></ha-switch><ha-slider label="Size"></ha-slider>
       <label for="i">Name</label><input id="i" type="text" />`)).toEqual([]);
   });
 });

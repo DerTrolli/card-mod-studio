@@ -8,7 +8,7 @@ import {
   renderOverrideHint,
   renderCondition,
   renderModuleHeader,
-  guardSliderTouch,
+  guardSliderTouch, nameSwitches,
 } from './module-base.js';
 import { stateKindFor } from '../utils/card-caps.js';
 
@@ -40,6 +40,7 @@ export class FilterModule extends LitElement {
   }
 
   override updated(changed: Map<PropertyKey, unknown>) {
+    nameSwitches(this.renderRoot);
     if (changed.has('state')) {
       const prev = changed.get('state') as FilterModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;
@@ -108,7 +109,7 @@ export class FilterModule extends LitElement {
               aria-label="Grayscale"
               .checked=${this.state.grayscale}
               @change=${(e: Event) => this._emit(this._grayscaleChanges((e.target as HTMLInputElement).checked))}
-            ><span class="sr-only">Grayscale</span></ha-switch>
+            ></ha-switch>
           </div>
         </div>
 

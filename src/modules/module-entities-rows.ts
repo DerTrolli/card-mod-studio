@@ -3,7 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, HomeAssistant, ThresholdRule } from '../types/index.js';
 import {
   moduleStyles, renderOverrideHint, onHeaderKeydown, renderResetButton, renderDefaultOption,
-  guardSliderTouch,
+  guardSliderTouch, nameSwitches,
 } from './module-base.js';
 import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
@@ -333,6 +333,10 @@ export class EntitiesRowsModule extends LitElement {
     guardSliderTouch(this.renderRoot);
   }
 
+  override updated() {
+    nameSwitches(this.renderRoot);
+  }
+
   override render() {
     // Rows arrive in whatever form the YAML uses — the bare-string
     // shorthand ('sensor.x') is normalized to object form here so it's
@@ -470,7 +474,7 @@ export class EntitiesRowsModule extends LitElement {
                   ? { iconColor: defaultOnColor(), iconMode: 'static' }
                   : { iconColor: '', iconMode: undefined, iconRules: undefined, iconDefault: undefined });
               }}
-            ><span class="sr-only">${named('Icon color')}</span></ha-switch>
+            ></ha-switch>
           </div>
         </div>
         ${iconEnabled && !iconIsThreshold
@@ -525,7 +529,7 @@ export class EntitiesRowsModule extends LitElement {
                   ? { textColor: THEME_TEXT_COLOR, textMode: 'static' }
                   : { textColor: '', textMode: undefined, textRules: undefined, textDefault: undefined });
               }}
-            ><span class="sr-only">${named('Text / state color')}</span></ha-switch>
+            ></ha-switch>
           </div>
         </div>
         ${textEnabled && !textIsThreshold
@@ -562,7 +566,7 @@ export class EntitiesRowsModule extends LitElement {
                 // save over every row for no change.
                 if (hasFont) this._updateRow(rowKey, { fontSizePx: undefined, fontWeight: undefined });
               }}
-            ><span class="sr-only">${named('Font (this row)')}</span></ha-switch>
+            ></ha-switch>
           </div>
         </div>
         ${fontOn

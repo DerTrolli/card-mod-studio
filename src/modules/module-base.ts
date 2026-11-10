@@ -543,10 +543,67 @@ export function renderModuleHeader(o: ModuleHeaderOptions): TemplateResult {
             aria-label=${name}
             .checked=${o.enable.checked}
             @change=${(e: Event) => o.enable!.onChange((e.target as HTMLInputElement).checked)}
-          ><span class="sr-only">${name}</span></ha-switch>`
+          ></ha-switch>`
         : nothing}
     </div>
   `;
+}
+
+/** Marks the screen-reader-only text added to a switch whose inner input
+ *  cannot be reached (see nameSwitch). */
+const SWITCH_NAME_FALLBACK = 'data-cms-switch-name';
+
+/**
+ * Gives a switch its accessible name from the `aria-label` on the host.
+ *
+ * Home Assistant 2026.x ignores the host's aria-label and names the switch
+ * from its slotted text, which a screen reader then also reads as a separate
+ * static text node. So the name goes on the inner `[role=switch]` input in
+ * the switch's own shadow root. Where that input can't be reached (a switch
+ * that isn't defined yet, or built differently — Home Assistant 2025.9), the
+ * name stays as screen-reader-only slotted text, as before. Safe to call on
+ * every render: it settles on one of the two and removes the other.
+ */
+export function nameSwitch(sw: HTMLElement): void {
+  const name = (sw.getAttribute('aria-label') ?? '').trim();
+  if (!name) return;
+  const inner = (): Element | null => sw.shadowRoot?.querySelector('[role="switch"]') ?? null;
+  const settle = (): void => {
+    const input = inner();
+    const fallback = sw.querySelector(`[${SWITCH_NAME_FALLBACK}]`);
+    if (input) {
+      input.setAttribute('aria-label', name);
+      fallback?.remove();
+    } else if (fallback) {
+      fallback.textContent = name;
+    } else {
+      const span = sw.ownerDocument.createElement('span');
+      span.className = 'sr-only';
+      span.setAttribute(SWITCH_NAME_FALLBACK, '');
+      span.textContent = name;
+      sw.appendChild(span);
+    }
+  };
+  const rendered = (sw as { updateComplete?: Promise<unknown> }).updateComplete;
+  if (inner()) {
+    settle();
+  } else if (rendered) {
+    // Defined, but its shadow root isn't built yet: wait for its first render.
+    void rendered.then(settle, settle);
+  } else {
+    // Not defined (yet): keep the name now, and move it once it is.
+    settle();
+    if (!customElements.get(sw.localName)) {
+      void customElements.whenDefined?.(sw.localName)
+        .then(() => (sw as { updateComplete?: Promise<unknown> }).updateComplete)
+        .then(settle, settle);
+    }
+  }
+}
+
+/** nameSwitch for every `ha-switch[aria-label]` under `root` — call after render. */
+export function nameSwitches(root: ParentNode | null | undefined): void {
+  root?.querySelectorAll?.<HTMLElement>('ha-switch[aria-label]').forEach(nameSwitch);
 }
 
 const guardedRoots = new WeakSet<object>();

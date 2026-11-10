@@ -3,7 +3,8 @@ import { property, state } from 'lit/decorators.js';
 import type { AccentColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ACCENT_COLOR } from '../parser/state-mapper.js';
 import { accentColorsWithoutTriplet, tripletHint } from '../utils/rgb-triplet.js';
-import { moduleStyles, renderOverrideHint, renderThresholdOwnedHint, renderWatchHint, renderModuleHeader } from './module-base.js';
+import { moduleStyles, renderOverrideHint, renderThresholdOwnedHint, renderWatchHint, renderModuleHeader, nameSwitches,
+} from './module-base.js';
 import { stateKindFor } from '../utils/card-caps.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
@@ -41,6 +42,7 @@ export class AccentColorModule extends LitElement {
   }
 
   override updated(changed: Map<PropertyKey, unknown>) {
+    nameSwitches(this.renderRoot);
     if (changed.has('state')) {
       const prev = changed.get('state') as AccentColorModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;

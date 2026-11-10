@@ -8,8 +8,10 @@
  * What counts as a name is what actually reaches the accessibility tree on
  * Home Assistant 2026.11 (measured with Playwright's ariaSnapshot), not what
  * merely looks like a label:
- *   - ha-switch  → text inside it (its default slot sits in the inner <label>);
- *                  an aria-label on the host never reaches the inner input.
+ *   - ha-switch  → the host's aria-label, which nameSwitches() copies onto the
+ *                  inner input[role=switch] after render (with slotted text as
+ *                  the fallback where that input can't be reached). Slotted
+ *                  text in the template would be read a second time.
  *   - ha-slider  → its `label` attribute (the inner slider is labelled by the
  *                  label part); an aria-label on the host never reaches it.
  *   - cms-color-picker / cms-entity-picker → their own label / accessible-name
@@ -123,7 +125,7 @@ export function accessibleName(e: El, root: El): string {
     return found;
   };
   switch (e.tag) {
-    case 'ha-switch': return clean(e.children.map(textOf).join(''));
+    case 'ha-switch': return clean(e.attrs['aria-label'] ?? '');
     case 'ha-slider': return clean(e.attrs.label ?? '');
     case 'cms-color-picker': return clean(e.attrs.label ?? '');
     case 'cms-entity-picker': return clean(e.attrs['accessible-name'] ?? '');
@@ -179,8 +181,8 @@ export function sliderLabels(t: unknown): Array<[string, string]> {
   return out;
 }
 
-/** Slotted text and `aria-label` of every ha-switch (they must agree: the
- *  text names it on HA 2026.x, the attribute on older mwc/md switches). */
+/** Slotted text and `aria-label` of every ha-switch. The name is the
+ *  attribute; slotted text would make a second static text node. */
 export function switchLabels(t: unknown): Array<[string, string]> {
   const root = parse(serialise(t));
   const out: Array<[string, string]> = [];
