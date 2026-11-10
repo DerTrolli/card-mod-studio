@@ -15,12 +15,13 @@ import { describe, it, expect } from 'vitest';
 import { generateCss } from '../src/generator/css-generator.js';
 import { mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseStyleValue } from '../src/parser/yaml-parser.js';
+import { parseCss } from '../src/parser/css-parser.js';
 import { jinjaStr, unescapeJinjaStr } from '../src/utils/jinja-str.js';
 import type { StudioState } from '../src/types/index.js';
 
 const E = mapToStudioState(parseStyleValue(''));
-const parse = (css: string) => mapToStudioState(parseStyleValue(css), 'tile');
-const gen = (p: Partial<StudioState>) => generateCss({ ...E, ...p } as StudioState, 'tile');
+const parse = (css: string, card = 'tile') => mapToStudioState(parseStyleValue(css), card);
+const gen = (p: Partial<StudioState>, card = 'tile') => generateCss({ ...E, ...p } as StudioState, card);
 
 /**
  * Scans every `{{ … }}` of `css` with Jinja's literal rule (a single-quoted
@@ -76,14 +77,17 @@ interface Site {
   /** The literals of each template, with `V` standing for the value. */
   literals: string[][];
   read: (s: StudioState) => unknown;
+  /** The card type to generate for (default: tile). */
+  card?: string;
   /** The parser can give the value back (false: only a colour-shaped token is
    *  claimed there, see the notes at the sites that set this). */
   roundTrips?: boolean;
+  /** What `read` returns when the value came back intact (default: the value). */
+  readExpect?: (v: string) => unknown;
 }
 
-const COND = "S if is_state(S, S) else S";
-const VAL = "S if S(S) | float(0) > 3 else S";
-const THR_ICON = { ...E.iconColor, enabled: false };
+const CHIPS = 'custom:mushroom-chips-card';
+const BUBBLE_SLIDER = 'custom:bubble-card/button/slider';
 
 const SITES: Site[] = [
   {
@@ -224,6 +228,51 @@ const SITES: Site[] = [
     read: (s) => s.animation.valueAttribute,
   },
   {
+    name: 'Filter: effects condition value entity (attribute form)',
+    build: (v) => ({ filter: { ...E.filter, enabled: true, brightness: 80, effectsWhen: { when: 'value', valueEntity: v, valueAttribute: 'a', valueOperator: '>', valueThreshold: 3 } } }),
+    skeleton: ['{{ S if state_attr(S, S) | float(0) > 3 else S }}'],
+    literals: [['brightness(80%)', 'V', 'a', 'none']],
+    read: (s) => s.filter.effectsWhen?.valueEntity,
+  },
+  {
+    name: 'Border: width condition on a value',
+    build: (v) => ({ border: { ...E.border, enabled: true, borderWidth: 2, borderColor: 'red', widthWhen: { when: 'value', valueEntity: v, valueAttribute: v, valueOperator: '>', valueThreshold: 3 } } }),
+    skeleton: ['{{ S if state_attr(S, S) | float(0) > 3 else S }}'],
+    literals: [['2px solid red', 'V', 'V', '']],
+    read: (s) => s.border.widthWhen?.valueAttribute,
+  },
+  {
+    name: 'Animation: value entity (attribute form)',
+    build: (v) => ({ animation: { ...E.animation, enabled: true, trigger: 'value', valueEntity: v, valueAttribute: 'a', valueOperator: '>', valueThreshold: 3 } }),
+    skeleton: ['{{ S if state_attr(S, S) | float(0) > 3 else S }}'],
+    literals: [['cms-pulse 2s ease-in-out infinite', 'V', 'a', 'none']],
+    read: (s) => s.animation.valueEntity,
+  },
+  {
+    name: 'Threshold: entity (attribute form)',
+    build: (v) => ({ threshold: { ...E.threshold, enabled: true, entityId: v, attribute: 'a', properties: ['icon-color'], rules: [{ id: '0', operator: '>', value: 3, color: 'red' }], defaultColor: 'blue' } }),
+    skeleton: ['{{ S if state_attr(S, S) | float(0) > 3 else S }}'],
+    literals: [['red', 'V', 'a', 'blue']],
+    read: (s) => s.threshold.entityId,
+  },
+  {
+    name: 'Mushroom chips border: colour of the own-border branch',
+    card: CHIPS,
+    build: (v) => ({ border: { ...E.border, enabled: true, radiusPx: 0, borderWidth: 2, borderColor: v, widthWhen: { when: 'custom', customEntity: 'switch.x' } } }),
+    skeleton: ['{{ S if is_state(S, S) else S }}', '{{ S if is_state(S, S) else S }}'],
+    literals: [['2px', 'switch.x', 'on', 'inherit'], ['V', 'switch.x', 'on', 'inherit']],
+    read: (s) => s.border.borderColor,
+  },
+  {
+    name: 'Bubble slider accent: colours and entity',
+    card: BUBBLE_SLIDER,
+    build: (v) => ({ accentColor: { ...E.accentColor, enabled: true, mode: 'conditional', entityId: v, colorOn: v, colorOff: v } }),
+    skeleton: ['{{ S if is_state(S, S) else S }}'],
+    literals: [['V', 'V', 'on', 'V']],
+    read: (s) => [s.accentColor.entityId, s.accentColor.colorOn, s.accentColor.colorOff],
+    readExpect: (v) => [v, v, v],
+  },
+  {
     name: 'Threshold: entity',
     build: (v) => ({ threshold: { ...E.threshold, enabled: true, entityId: v, properties: ['icon-color'], rules: [{ id: '0', operator: '>', value: 3, color: 'red' }], defaultColor: 'blue' } }),
     skeleton: ['{{ S if states(S) | float(0) > 3 else S }}'],
@@ -256,12 +305,9 @@ const SITES: Site[] = [
   },
 ];
 
-// Keep the unused helper constants honest for readers of the skeleton table.
-void COND; void VAL; void THR_ICON;
-
 describe.each(SITES)('$name', (site) => {
   it.each(TRICKY)('is a well-formed template for %j', (v) => {
-    const found = scan(gen(site.build(v)));
+    const found = scan(gen(site.build(v), site.card));
     expect(found.map((f) => f.skeleton)).toEqual(site.skeleton);
     expect(found.map((f) => f.literals)).toEqual(
       site.literals.map((ls) => ls.map((l) => l.replaceAll('V', v))),
@@ -269,21 +315,29 @@ describe.each(SITES)('$name', (site) => {
   });
 
   it.each(TRICKY)('round-trips %j', (v) => {
-    const css = gen(site.build(v));
-    const back = parse(css);
+    const css = gen(site.build(v), site.card);
+    const back = parse(css, site.card);
     if (site.roundTrips === false) {
       // Not claimed: the template stays in Advanced CSS and is written back
       // verbatim (its declaration may move into its own block), and the
       // result is stable from then on.
       expect(back.advanced.rawCss).toContain('{{');
-      const again = generateCss(back, 'tile');
+      const again = generateCss(back, site.card ?? 'tile');
       expect(scan(again)).toEqual(scan(css));
-      expect(generateCss(parse(again), 'tile')).toBe(again);
+      expect(generateCss(parse(again, site.card), site.card ?? 'tile')).toBe(again);
       return;
     }
     expect(back.advanced.rawCss, css).toBe('');
-    expect(site.read(back), css).toBe(v);
-    expect(generateCss(back, 'tile')).toBe(css);
+    expect(site.read(back), css).toEqual(site.readExpect ? site.readExpect(v) : v);
+    expect(generateCss(back, site.card ?? 'tile')).toBe(css);
+  });
+});
+
+describe('an entity id in the off-first form', () => {
+  it('is decoded by the CSS parser', () => {
+    const css = "ha-card {\n  filter: {{ 'a' if is_state('it\\'s', 'off') else 'b' }};\n}";
+    const prop = parseCss(css)[0].properties[0];
+    expect(prop).toMatchObject({ hasCondition: true, offValue: 'a', onValue: 'b', entityId: "it's" });
   });
 });
 
@@ -371,5 +425,69 @@ describe('CSS written before this change still loads', () => {
     const back = parse(css);
     expect(back.accentColor).toMatchObject({ enabled: true, mode: 'conditional', entityId: 'switch.x', colorOn: 'red', colorOff: 'blue' });
     expect(generateCss(back, 'tile')).toBe(css);
+  });
+});
+
+/**
+ * A literal with an escape the Studio never writes (`\"`, `\n`, `r`) was
+ * typed by hand. No module adopts it: it stays in the hand-written part and is
+ * saved byte for byte (re-escaping its backslash would change what Home
+ * Assistant renders).
+ */
+describe('hand-written escapes are left alone', () => {
+  const FOREIGN = ['url(\\"a.png\\")', 'red\\n', '\\u0072ed'];
+  const wrap = (sel: string, prop: string, v: string, bang = '') =>
+    `${sel} {\n  ${prop}: {{ '${v}' if is_state(config.entity, 'on') else 'blue' }}${bang};\n}`;
+  const cases: Array<[string, (v: string) => string, (s: StudioState) => boolean]> = [
+    ['Background', (v) => wrap('ha-card', 'background', v), (s) => s.background.enabled],
+    ['Accent', (v) => wrap('ha-card', '--accent-color', v), (s) => s.accentColor.enabled],
+    ['Icon Color', (v) => wrap('ha-state-icon', 'color', v, ' !important'), (s) => s.iconColor.enabled],
+    ['Border', (v) => wrap('ha-card', 'border', `2px solid ${v}`), (s) => s.border.enabled],
+  ];
+  for (const [name, make, enabled] of cases) {
+    it.each(FOREIGN)(`${name}: %s stays in Advanced CSS, byte for byte`, (v) => {
+      const css = make(v);
+      const back = parse(css);
+      expect(enabled(back)).toBe(false);
+      expect(back.advanced.rawCss).toContain(v);
+      expect(generateCss(back, 'tile')).toBe(css);
+    });
+  }
+
+  it('an escaped backslash followed by n is a valid pair, not a foreign escape', () => {
+    const css = wrap('ha-state-icon', 'color', 'a\\\\n', ' !important');
+    const back = parse(css);
+    expect(back.iconColor).toMatchObject({ enabled: true, colorOn: 'a\\n' });
+    expect(generateCss(back, 'tile')).toBe(css);
+  });
+});
+
+describe('escapes the Studio writes load decoded and save byte-identically', () => {
+  const accent = (v: string) => gen({ accentColor: { ...E.accentColor, enabled: true, mode: 'conditional', entityId: 'switch.x', colorOn: v, colorOff: 'blue' } });
+  const icon = (v: string) => gen({ iconColor: { ...E.iconColor, enabled: true, mode: 'conditional', entityId: 'switch.x', colorOn: v, colorOff: 'blue' } });
+  const chip = (v: string) => gen({ border: { ...E.border, enabled: true, radiusPx: 0, borderWidth: 2, borderColor: v, widthWhen: { when: 'custom', customEntity: 'switch.x' } } }, CHIPS);
+  // [as written in the template, the value the module holds]
+  const CASES: Array<[string, string]> = [["a\\'b", "a'b"], ['a\\\\b', 'a\\b'], ["a\\\\\\'b", "a\\'b"]];
+
+  it.each(CASES)('Accent: written %s reads as %s', (written, decoded) => {
+    const css = accent(decoded);
+    expect(css).toContain(`'${written}'`);
+    const back = parse(css);
+    expect(back.accentColor.colorOn).toBe(decoded);
+    expect(generateCss(back, 'tile')).toBe(css);
+  });
+  it.each(CASES)('Icon Color: written %s reads as %s', (written, decoded) => {
+    const css = icon(decoded);
+    expect(css).toContain(`'${written}'`);
+    const back = parse(css);
+    expect(back.iconColor.colorOn).toBe(decoded);
+    expect(generateCss(back, 'tile')).toBe(css);
+  });
+  it.each(CASES)('Border (chips): written %s reads as %s', (written, decoded) => {
+    const css = chip(decoded);
+    expect(css).toContain(`'${written}'`);
+    const back = parse(css, CHIPS);
+    expect(back.border.borderColor).toBe(decoded);
+    expect(generateCss(back, CHIPS)).toBe(css);
   });
 });
