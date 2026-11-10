@@ -87,7 +87,9 @@ export const NO_THRESHOLD_TYPES = new Set([
 ]);
 
 export const NO_ICON_COLOR_TYPES = new Set([
-  'gauge', 'history-graph', 'statistics-graph', 'statistic',
+  // (statistic is not listed: its one icon takes Icon Color's fixed colour and,
+  // what Accent cannot do, its size — 12-64 px measured, HA 2026.11.)
+  'gauge', 'history-graph', 'statistics-graph',
   'energy-distribution', 'energy-usage-graph',
   'thermostat', 'humidifier',
   'weather-forecast', 'calendar', 'logbook', 'activity',
@@ -186,6 +188,9 @@ export const NO_TEXT_COLOR_TYPES = new Set([
  */
 export const ICON_SIZE_TYPES = new Set([
   'tile', 'entity', 'sensor', 'picture-glance',
+  // statistic: the sensor layout; the variable resizes its top-right icon and
+  // the card grows with it (12-64 px, phone width too — measured, 2026.11).
+  'statistic',
 ]);
 
 /** The Icon size slider's top end. A tile's circle grows with the glyph

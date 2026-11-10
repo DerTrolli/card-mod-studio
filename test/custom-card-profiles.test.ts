@@ -61,8 +61,9 @@ const OLD_NO_BORDER_TYPES = new Set<string>([
 const OLD_NO_THRESHOLD_TYPES = new Set<string>([
   'heading',
 ]);
+// v0.11: 'statistic' removed (Icon Color — colour and size — works on its icon).
 const OLD_NO_ICON_COLOR_TYPES = new Set<string>([
-  'gauge', 'history-graph', 'statistics-graph', 'statistic',
+  'gauge', 'history-graph', 'statistics-graph',
   'energy-distribution', 'energy-usage-graph',
   'thermostat', 'humidifier',
   'weather-forecast', 'calendar', 'logbook', 'activity',
@@ -97,6 +98,7 @@ const OLD_NO_TEXT_COLOR_TYPES = new Set<string>([
 ]);
 const OLD_ICON_SIZE_TYPES = new Set<string>([
   'tile', 'entity', 'sensor', 'picture-glance',
+  'statistic', // v0.11: added with Icon Color on the statistic card
 ]);
 const OLD_NO_FONT_TYPES = new Set<string>([
   'heading', 'iframe', 'webpage', 'map',
