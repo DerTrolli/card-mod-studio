@@ -160,6 +160,28 @@ export const DEFAULT_THRESHOLD: ThresholdModuleState = {
 };
 
 /**
+ * Gives each entry's `value` the number the editor and generator expect: a
+ * numeric string ("12.5") becomes the number. An entry whose value is not a
+ * finite number after that (empty, "abc", missing) is dropped — it would
+ * write `> abc` into the CSS template, or turn a fade's arithmetic into
+ * string concatenation. Entries already in the current shape are returned as
+ * the same objects.
+ */
+function coerceNumericValues<T extends { value: unknown }>(items: T[]): T[] {
+  const out: T[] = [];
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue;
+    const v = item.value;
+    if (typeof v === 'number') {
+      if (Number.isFinite(v)) out.push(item);
+    } else if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) {
+      out.push({ ...item, value: Number(v) });
+    }
+  }
+  return out;
+}
+
+/**
  * Normalises a StudioState of ANY historical schema (e.g. a preset saved by
  * v0.6.x, before multi-property/gradient threshold and conditional accent
  * existed) to the current shape. Without this, loading an old preset crashes
@@ -184,6 +206,9 @@ export function migrateStudioState(raw: unknown): StudioState {
   delete threshold['property'];
   if (threshold.valueMode !== 'gradient') threshold.valueMode = 'switch';
   if (!Array.isArray(threshold.rules)) threshold.rules = [];
+  // Very old presets stored a rule's / stop's value as text ("12.5").
+  threshold.rules = coerceNumericValues(threshold.rules);
+  if (Array.isArray(threshold.colorStops)) threshold.colorStops = coerceNumericValues(threshold.colorStops);
   if (!Array.isArray(threshold.colorStops) || threshold.colorStops.length === 0) {
     threshold.colorStops = DEFAULT_THRESHOLD.colorStops.map((s) => ({ ...s }));
   }
