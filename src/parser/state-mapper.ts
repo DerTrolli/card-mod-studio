@@ -1827,19 +1827,28 @@ function claimFontCompanions(
 }
 
 /** True when every declaration of `emitted` is already in `targets` with the
- *  same value and `!important` flag — i.e. adopting the module and saving
+ *  same value, `!important` flag and order, with nothing hand-written beside them — i.e. adopting the module and saving
  *  again changes nothing (the size-less anchors' reproducibility guard). */
-function reemitsExactly(emitted: string, targets: CssTarget[]): boolean {
+function reemitsExactly(emitted: string, targets: CssTarget[], claimed: Set<string>): boolean {
   const want = parseCss(emitted);
   if (!want.length) return false;
   return want.every((t) => {
     const have = findTarget(targets, t.selector);
+    const start = have ? have.properties.findIndex((h) => h.property === t.properties[0].property) : -1;
     return (
       !!have &&
       t.properties.every((p) => {
         const h = findProp(have, p.property);
         return !!h && !h.hasCondition && h.value.trim() === p.value.trim() && !!h.important === !!p.important;
-      })
+      }) &&
+      // Same order, no foreign declaration between them: the next save must
+      // not reorder or split the user's hand-written block.
+      t.properties.every((p, i) => have.properties[start + i]?.property === p.property) &&
+      // Nothing else in those rules may be hand-written: it would come back as
+      // a second block. Declarations another module claimed are its to write.
+      have.properties.every(
+        (h) => claimed.has(claimKey(have.selector, h.property)) || t.properties.some((p) => p.property === h.property),
+      )
     );
   });
 }
@@ -1897,11 +1906,14 @@ function mapFont(
     state.fontFamily = familyStr;
   }
 
+  // Size-less path: only what the regenerated block holds may be claimed —
+  // the generator writes nothing else back, so anything more would vanish.
+  let writes: Set<string> | null = null;
   if (!sizeMatch) {
     if (!weightStr && !colorStr && !familyStr) return { ...DEFAULT_FONT };
-    if (!reemitsExactly(fontBlock(state, emitKeyOf(cardType) || undefined, capsFor(cardType)), targets)) {
-      return { ...DEFAULT_FONT };
-    }
+    const emitted = fontBlock(state, emitKeyOf(cardType) || undefined, capsFor(cardType));
+    if (!reemitsExactly(emitted, targets, claimed)) return { ...DEFAULT_FONT };
+    writes = new Set(parseCss(emitted).flatMap((t) => t.properties.map((p) => claimKey(t.selector, p.property))));
   }
 
   const sizeStr = sizeMatch ? fontSizeProp!.value.trim() : null;
@@ -1910,7 +1922,13 @@ function mapFont(
   if (colorStr) claimed.add(claimKey(haCard.selector, 'color'));
   if (familyStr) claimed.add(claimKey(haCard.selector, 'font-family'));
 
-  claimFontCompanions(targets, haCard, state.fontSize ?? null, sizeStr, weightStr, colorStr, familyStr, claimed);
+  if (writes) {
+    const companions = new Set<string>();
+    claimFontCompanions(targets, haCard, null, null, weightStr, colorStr, familyStr, companions);
+    for (const k of companions) if (writes.has(k)) claimed.add(k);
+  } else {
+    claimFontCompanions(targets, haCard, state.fontSize ?? null, sizeStr, weightStr, colorStr, familyStr, claimed);
+  }
 
   return state;
 }
@@ -2143,10 +2161,11 @@ export function mergeEntityRowStyles(primary: EntitiesRowStyle, secondary: Entit
     textMode: textSet ? primary.textMode : secondary.textMode,
     textRules: textSet ? primary.textRules : secondary.textRules,
     textDefault: textSet ? primary.textDefault : secondary.textDefault,
-    ...(primary.fontSizePx ?? secondary.fontSizePx
+    // `!= null`, not truthiness: a 0px size is a real value.
+    ...((primary.fontSizePx ?? secondary.fontSizePx) != null
       ? { fontSizePx: primary.fontSizePx ?? secondary.fontSizePx }
       : {}),
-    ...(primary.fontWeight ?? secondary.fontWeight
+    ...((primary.fontWeight ?? secondary.fontWeight) != null
       ? { fontWeight: primary.fontWeight ?? secondary.fontWeight }
       : {}),
     // Same rule as mergeStudioStates' rawCss (mergeRawCss): both sides'

@@ -287,6 +287,8 @@ describe('corpus — hand-written declarations survive an unrelated edit', () =>
     ['tile', 'ha-card {\n  border: 3px none red;\n}'],
     ['tile', 'ha-card {\n  box-shadow: 0 0 4px red !important;\n}\n\nha-card {\n  box-shadow: none;\n}'],
     ['tile', 'ha-card {\n  padding: 16px;\n}\n\n@media (max-width: 600px) {\n  ha-card {\n    padding: 0;\n  }\n}'],
+    // Size-less Font anchor must not claim a companion the card type never re-emits.
+    ['markdown', 'ha-card {\n  color: red;\n  --primary-text-color: red;\n}'],
     ['tile', 'HA-CARD {\n  Background: Red;\n}'],
     ['tile', 'ha-card{background:red}'],
   ];
