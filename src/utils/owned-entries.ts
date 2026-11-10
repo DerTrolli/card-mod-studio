@@ -53,6 +53,8 @@ const GAUGE_WIDTH_CAP = 56;
 /** The boxes the 0.11 betas wrote (width 55 % at 100 %), recognised and
  *  upgraded: beta.1 without the re-anchor, beta.2 with it. */
 const GAUGE_BOX_BETA = { width: 55, height: 40 };
+/** The betas' slider went to 150 %. */
+const BETA_MAX = 150;
 
 /** At most one decimal, no trailing zeros. */
 const num = (n: number) => String(Math.round(n * 10) / 10);
@@ -60,9 +62,17 @@ const num = (n: number) => String(Math.round(n * 10) / 10);
 const GAUGE_ANCHOR = '  left: 0 !important;\n  right: 0 !important;\n  margin: 0 auto !important;\n  transform: none !important;\n';
 const gaugeBox = (w: number, h: number) =>
   `.text {\n  max-width: ${num(w)}% !important;\n  max-height: ${num(h)}% !important;\n`;
-const clampGauge = (pct: number) => Math.min(Math.max(pct, GAUGE_SIZE.min), GAUGE_SIZE.max);
+/** Any value -> a setting the slider can produce: a finite number (numeric
+ *  strings count), rounded to the step, clamped; anything unusable is the
+ *  default. Keeps the built entry parseable by parseOwnedEntry. */
+const normaliseGauge = (pct: unknown): number => {
+  const n = typeof pct === 'string' && pct.trim() !== '' ? Number(pct) : pct;
+  if (typeof n !== 'number' || !Number.isFinite(n)) return NUMBER_SIZE_DEFAULT.gauge;
+  const stepped = Math.round(n / GAUGE_SIZE.step) * GAUGE_SIZE.step;
+  return Math.min(Math.max(stepped, GAUGE_SIZE.min), GAUGE_SIZE.max);
+};
 const gaugeRule = (pct: number) => {
-  const p = clampGauge(pct);
+  const p = normaliseGauge(pct);
   return `${gaugeBox(Math.min((GAUGE_BOX.width * p) / 100, GAUGE_WIDTH_CAP), (GAUGE_BOX.height * p) / 100)}${GAUGE_ANCHOR}}`;
 };
 /** The shapes written by 0.11.0-beta.2 (anchored) and beta.1 (not). */
@@ -80,7 +90,10 @@ export function ownedEntryKey(cardType: string | undefined): string | null {
 /** The exact entry the Studio writes for this card type and size. */
 export function ownedEntryFor(cardType: string | undefined, size: number): { key: string; value: unknown } | null {
   if (cardType === 'gauge') return { key: GAUGE_KEY, value: gaugeRule(size) };
-  if (cardType === 'thermostat') return { key: THERMOSTAT_KEY, value: { [THERMOSTAT_INNER_KEY]: thermostatRule(size) } };
+  if (cardType === 'thermostat') {
+    const px = typeof size === 'number' && Number.isFinite(size) ? size : NUMBER_SIZE_DEFAULT.thermostat;
+    return { key: THERMOSTAT_KEY, value: { [THERMOSTAT_INNER_KEY]: thermostatRule(px) } };
+  }
   return null;
 }
 
@@ -108,9 +121,11 @@ export function parseOwnedEntry(cardType: string | undefined, key: string, value
     const cur = Math.round((Number(mh[1]) / GAUGE_BOX.height) * 100);
     if (cur >= GAUGE_SIZE.min && cur <= GAUGE_SIZE.max && css1 === gaugeRule(cur)) return cur;
     // A beta entry: same percentage means the same setting; beta.1/beta.2
-    // allowed up to 150 %, which now reads as the new maximum.
+    // allowed up to 150 %, which now reads as the new maximum. They only
+    // ever wrote 50-150 in steps of 5 — any other percentage is hand-written.
     const old = Math.round((Number(mw[1]) / GAUGE_BOX_BETA.width) * 100);
-    if ((css1 === gaugeRuleBeta(old, true) || css1 === gaugeRuleBeta(old, false))) return Math.min(old, GAUGE_SIZE.max);
+    const betaStep = old >= GAUGE_SIZE.min && old <= BETA_MAX && old % GAUGE_SIZE.step === 0;
+    if (betaStep && (css1 === gaugeRuleBeta(old, true) || css1 === gaugeRuleBeta(old, false))) return Math.min(old, GAUGE_SIZE.max);
     return null;
   }
   const m = css.match(/font-size: (\d+(?:\.\d)?)px !important;/);
