@@ -17,7 +17,7 @@ registry.define('card-mod', class {});
 type El = {
   state: HeadingStyleModuleState; headingStyle?: string; _open: boolean;
   _fontSize?: number; _iconSize?: number;
-  _renderBody(): unknown; _emit(c: Partial<HeadingStyleModuleState>): void;
+  _renderBody(): unknown; render(): unknown; _emit(c: Partial<HeadingStyleModuleState>): void;
   dispatchEvent(e: Event): boolean;
 };
 let Mod: new () => El;
@@ -178,5 +178,22 @@ describe('emitting only what the user sets (through the rendered handlers)', () 
   });
   it('with everything cleared the style is empty', () => {
     expect(gen({ ...DEFAULT_HEADING_STYLE, enabled: true })).toBe('');
+  });
+});
+
+/** The header switch's @change: the last handler bound in render() itself. */
+const switchChange = (el: { render(): unknown }) => {
+  const fns = ((el.render() as { values: unknown[] }).values).filter((v) => typeof v === 'function');
+  return fns.at(-1) as (e: unknown) => void;
+};
+
+describe('the Heading Style enable switch', () => {
+  it('emits only { enabled } — none of the six fields', () => {
+    const { el, emitted } = make({ enabled: false });
+    switchChange(el)({ target: { checked: true } });
+    expect(emitted).toEqual([{ ...el.state, enabled: true }]);
+    for (const k of ['fontSize', 'textColor', 'fontWeight', 'iconSize', 'iconColor', 'alignment'] as const) {
+      expect(emitted[0][k]).toBeUndefined();
+    }
   });
 });

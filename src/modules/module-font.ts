@@ -60,6 +60,9 @@ export class FontModule extends LitElement {
   /** What the user typed in the Custom family field, kept while the select
    *  moves to another family and back (not stored in the style). */
   @state() private _customText = '';
+  /** The family this element last emitted — a different one arriving in
+   *  `state` came from elsewhere (another card, a preset, a reopen). */
+  private _emittedFamily?: string;
   /** Number size while the slider is dragged (null = the state's value). */
   @state() private _numberSizeLive: number | null = null;
   /** "Custom…" chosen but nothing typed yet — picking it changes no state,
@@ -73,13 +76,22 @@ export class FontModule extends LitElement {
   }
 
   override updated(changed: Map<PropertyKey, unknown>) {
+    if (changed.has('cardType') && changed.get('cardType') !== undefined) {
+      this._customText = '';
+      this._customPicked = false;
+    }
     if (changed.has('state')) {
       const prev = changed.get('state') as FontModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;
       if (this.state.numberSizeEnabled && prev && !prev.numberSizeEnabled) this._open = true;
       // A family arriving from outside (typed, preset, reopen) decides
       // what the select shows again.
-      if (prev && prev.fontFamily !== this.state.fontFamily) this._customPicked = false;
+      if (prev && prev.fontFamily !== this.state.fontFamily) {
+        this._customPicked = false;
+        // Not our own emit: the remembered text belongs to what was open
+        // before, and would be written into this card on the next "Custom…".
+        if (this.state.fontFamily !== this._emittedFamily) this._customText = '';
+      }
       this._fontSize = this.state.fontSize;
       this._numberSizeLive = null;
     }
@@ -90,6 +102,7 @@ export class FontModule extends LitElement {
   }
 
   private _emit(changes: Partial<FontModuleState>) {
+    if (changes.fontFamily !== undefined) this._emittedFamily = changes.fontFamily;
     this.dispatchEvent(
       new CustomEvent<FontModuleState>('state-changed', {
         detail: { ...this.state, ...changes },

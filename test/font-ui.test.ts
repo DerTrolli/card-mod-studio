@@ -19,7 +19,7 @@ registry.define('card-mod', class {});
 type El = {
   state: FontModuleState; cardType?: string; allowSize: boolean; allowColor: boolean;
   _open: boolean; _fontSize?: number; _customText: string; _customPicked: boolean;
-  _renderBody(): unknown; dispatchEvent(e: Event): boolean;
+  _renderBody(): unknown; render(): unknown; dispatchEvent(e: Event): boolean;
 };
 let Mod: new () => El;
 let fontNativeSize: (t?: string) => number | undefined;
@@ -165,8 +165,52 @@ describe('Custom font family', () => {
     expect(el._customText).toBe("'My Font', serif");
     expect(emitted.at(-1)!.fontFamily).toBe("'My Font', serif");
   });
+  const sync = (el: El, prev: FontModuleState, extra: [string, unknown][] = []) =>
+    (el as unknown as { updated(c: Map<PropertyKey, unknown>): void }).updated(new Map<PropertyKey, unknown>([['state', prev], ...extra]));
+  it('the remembered text does not follow the element to another card', () => {
+    const { el, hs, emitted } = make({ fontSize: 20 }, 'markdown');
+    hs()[4]({ target: { value: 'custom' } });
+    familyHandlers(el)[5]({ target: { value: "'Old Card', serif" } });
+    // our own emit coming back keeps it
+    let prev = el.state;
+    el.state = emitted.at(-1)!;
+    sync(el, prev);
+    expect(el._customText).toBe("'Old Card', serif");
+    // another card's family arrives: the text is dropped
+    prev = el.state;
+    el.state = { ...DEFAULT_FONT, enabled: true, fontSize: 20, fontFamily: 'monospace' };
+    sync(el, prev);
+    expect(el._customText).toBe('');
+    const n = emitted.length;
+    familyHandlers(el)[4]({ target: { value: 'custom' } });
+    expect(emitted).toHaveLength(n); // nothing written from the old card's text
+  });
+  it('a different card type drops it too', () => {
+    const { el } = make({}, 'markdown');
+    el._customText = 'x';
+    sync(el, el.state, [['cardType', 'markdown']]);
+    expect(el._customText).toBe('');
+  });
   it('the stored CSS format is unchanged (plain font-family)', () => {
     expect(gen({ ...DEFAULT_FONT, enabled: true, fontFamily: "'My Font', sans-serif" }, 'markdown'))
       .toBe("ha-card {\n  font-family: 'My Font', sans-serif;\n}");
+  });
+});
+
+/** The header switch's @change: the last handler bound in render() itself. */
+const switchChange = (el: { render(): unknown }) => {
+  const fns = ((el.render() as { values: unknown[] }).values).filter((v) => typeof v === 'function');
+  return fns.at(-1) as (e: unknown) => void;
+};
+
+describe('the Font enable switch', () => {
+  it('emits only { enabled } — no size, weight or colour', () => {
+    const { el, emitted } = make({ enabled: false }, 'tile');
+    switchChange(el)({ target: { checked: true } });
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0]).toEqual({ ...el.state, enabled: true });
+    expect(emitted[0].fontSize).toBeUndefined();
+    expect(emitted[0].fontWeight).toBeUndefined();
+    expect(emitted[0].color).toBeUndefined();
   });
 });
