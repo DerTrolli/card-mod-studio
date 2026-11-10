@@ -314,7 +314,7 @@ export class CmsColorPicker extends LitElement {
     // composedPath() — check the portal host too.
     const path = e.composedPath();
     if (!path.includes(this) && !(this._portalHost && path.includes(this._portalHost))) {
-      this._closePopover();
+      this._closePopover(false); // the user went elsewhere: don't pull focus back
     }
   };
 
@@ -326,8 +326,43 @@ export class CmsColorPicker extends LitElement {
     if (e.key !== 'Escape') return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    this._closePopover();
-    (this.shadowRoot?.querySelector('.swatch-trigger') as HTMLElement | null)?.focus();
+    this._closePopover(true);
+  };
+
+  /** Tab / Shift+Tab inside the popover. The portal sits at the end of the
+   *  dialog, not next to the trigger, so a Tab off either end of the popover
+   *  would walk through the rest of the dialog: instead the popover closes
+   *  and focus returns to the trigger, whose next Tab continues in the panel
+   *  from where the user was. Between its own stops the browser's order is
+   *  already right. A typed hex value is committed first, as leaving the
+   *  field always has. */
+  private _onPopoverKeydown = (e: KeyboardEvent) => {
+    if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey) return;
+    const root = this._portalShadow;
+    if (!root) return;
+    const active = root.activeElement as HTMLElement | null;
+    const field = active as HTMLInputElement | null;
+    if (field?.localName === 'input' && field.type === 'text' && field.value !== (this.value ?? '')) {
+      if (this._commitText(field, true) === 'committed') {
+        e.preventDefault();
+        return; // _commitText closed the popover and focused the trigger
+      }
+    }
+    const stops = Array.from(root.querySelectorAll<HTMLElement>(
+      'button.preset[tabindex="0"], input[type="color"], input[type="text"], button.clear',
+    ));
+    if (stops.length === 0) return;
+    let at = active ? stops.indexOf(active) : -1;
+    if (at < 0 && active) {
+      // An arrowed-to swatch whose row has not re-rendered yet: its row's stop.
+      const row = active.closest('[role="group"]');
+      at = row ? stops.findIndex((s) => s.closest('[role="group"]') === row) : -1;
+    }
+    if (at < 0) return;
+    if ((e.shiftKey && at === 0) || (!e.shiftKey && at === stops.length - 1)) {
+      e.preventDefault();
+      this._closePopover(true);
+    }
   };
 
   static styles = [
@@ -528,6 +563,7 @@ export class CmsColorPicker extends LitElement {
       // The portal is outside the panel's subtree, so the panel's own Enter
       // guard never sees keys typed in the popover's hex field.
       this._portalHost.addEventListener('keydown', keepEnterInStudio);
+      this._portalHost.addEventListener('keydown', this._onPopoverKeydown as EventListener);
     }
     return this._portalShadow;
   }
@@ -539,6 +575,8 @@ export class CmsColorPicker extends LitElement {
         <style>${String(swatchStyles) + String(popoverStyles)}</style>
         <div
           class="popover"
+          role="dialog"
+          aria-label=${this._name('colour')}
           style="top: ${this._popoverPos.top}px; left: ${this._popoverPos.left}px;"
           @click=${(e: Event) => e.stopPropagation()}
         >
@@ -553,11 +591,19 @@ export class CmsColorPicker extends LitElement {
   private _destroyPortal() {
     document.removeEventListener('click', this._outsideClickHandler, true);
     window.removeEventListener('keydown', this._escapeHandler, true);
-    this._portalHost?.remove();
+    const host = this._portalHost;
     this._portalHost = null;
     this._portalShadow = null;
     this._containingDialog = null;
+    if (!host) return;
+    host.removeEventListener('keydown', this._onPopoverKeydown as EventListener);
+    // Removing the focused hex field makes the browser blur it and fire
+    // `change` for a typed value; that must not commit (or close) a second time.
+    this._closing = true;
+    try { host.remove(); } finally { this._closing = false; }
   }
+
+  private _closing = false;
 
   /** The popover's position is computed against `bounds` (the native
    *  dialog, else the viewport); a portal container with its own
@@ -625,17 +671,36 @@ export class CmsColorPicker extends LitElement {
       }
     }
     this._correctPortalOffset(bounds);
+    this._focusIntoPopover();
     // Capture phase so this fires before the click that opened it finishes
     // bubbling — otherwise it would immediately close itself.
     document.addEventListener('click', this._outsideClickHandler, true);
     window.addEventListener('keydown', this._escapeHandler, true);
   }
 
-  private _closePopover() {
+  /** The popover is not next to the trigger in the DOM, so focus has to be
+   *  taken there: the selected swatch, else the first. */
+  private _focusIntoPopover() {
+    const target = this._portalShadow?.querySelector<HTMLElement>('button.preset.selected')
+      ?? this._portalShadow?.querySelector<HTMLElement>('button.preset');
+    target?.focus({ preventScroll: true });
+  }
+
+  /** `restoreFocus`: put focus back on the trigger. Left out, it does so only
+   *  when focus is inside the popover now (the field about to disappear would
+   *  otherwise leave it on <body>); false when the user moved on by clicking
+   *  elsewhere. */
+  private _closePopover(restoreFocus?: boolean) {
+    const restore = restoreFocus ?? (this._portalShadow?.activeElement != null);
     this._invalid = false; // a half-typed value is dropped with the popover
     this._popoverOpen = false;
     this._popoverPos = null;
     this._destroyPortal();
+    if (restore) this._focusTrigger();
+  }
+
+  private _focusTrigger() {
+    (this.shadowRoot?.querySelector('.swatch-trigger') as HTMLElement | null)?.focus();
   }
 
   private _selectPreset(preset: ColorPreset) {
@@ -690,10 +755,16 @@ export class CmsColorPicker extends LitElement {
 
   /** Enter / blur. An invalid or partial value is never emitted. */
   private _onTextChange(e: Event) {
-    const input = e.target as HTMLInputElement;
+    if (this._closing) return;
+    this._commitText(e.target as HTMLInputElement, false);
+  }
+
+  /** `viaTab`: committed by a Tab key press inside the popover, which, like
+   *  Enter, leaves focus on the trigger once the popover has closed. */
+  private _commitText(input: HTMLInputElement, viaTab: boolean): 'invalid' | 'committed' {
     if (!this._textOk(input.value)) {
       this._invalid = true;
-      return;
+      return 'invalid';
     }
     this._invalid = false;
     this.value = input.value.trim();
@@ -702,11 +773,12 @@ export class CmsColorPicker extends LitElement {
     if (this.compact) {
       const viaEnter = this._enterPressed;
       this._enterPressed = false;
-      this._closePopover();
+      this._closePopover(false);
       // The field is gone with the popover: without this focus drops to <body>.
       // Not on blur — the user has already moved on.
-      if (viaEnter) (this.shadowRoot?.querySelector('.swatch-trigger') as HTMLElement | null)?.focus();
+      if (viaEnter || viaTab) this._focusTrigger();
     }
+    return 'committed';
   }
 
   /** Leaving the field with invalid text restores the last valid value. */
