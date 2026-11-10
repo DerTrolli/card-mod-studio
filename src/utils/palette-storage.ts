@@ -110,25 +110,32 @@ export function initPaletteCache(hass: HassSub | undefined): Promise<void> {
 // Load / save
 // ---------------------------------------------------------------------------
 
-export async function loadPalette(hass: HassSub | undefined): Promise<CustomPalette> {
+/** A read that also says whether Home Assistant was asked and failed. */
+async function readPalette(hass: HassSub | undefined): Promise<{ palette: CustomPalette; readFailed: boolean }> {
+  let readFailed = false;
   if (hassAvailable(hass)) {
     try {
       const result = (await hass.connection.sendMessagePromise({
         type: 'frontend/get_user_data',
         key: HA_KEY,
       })) as { value: unknown } | null;
-      if (result?.value) return sanitize(result.value);
+      if (result?.value) return { palette: sanitize(result.value), readFailed };
     } catch (err) {
+      readFailed = true;
       console.warn('[Card-Mod Studio] Palette load from HA failed, using localStorage:', err);
     }
   }
 
   try {
     const raw = localStorage.getItem(LS_KEY);
-    return raw ? sanitize(JSON.parse(raw)) : { ...EMPTY_PALETTE };
+    return { palette: raw ? sanitize(JSON.parse(raw)) : { ...EMPTY_PALETTE }, readFailed };
   } catch {
-    return { ...EMPTY_PALETTE };
+    return { palette: { ...EMPTY_PALETTE }, readFailed };
   }
+}
+
+export async function loadPalette(hass: HassSub | undefined): Promise<CustomPalette> {
+  return (await readPalette(hass)).palette;
 }
 
 /** Updates the cache immediately (and notifies listeners), then persists —
@@ -162,6 +169,10 @@ export async function savePalette(palette: CustomPalette, hass: HassSub | undefi
 export type PaletteEdit = (palette: CustomPalette) => CustomPalette;
 
 let pendingUpdates = 0;
+/** Changes that are on this device only because Home Assistant could not be
+ *  read (or written) when they were made. They are applied again, in order,
+ *  to the next palette that is read successfully. */
+let unsynced: PaletteEdit[] = [];
 // One write after another: two quick ones would each read the same stored
 // palette and the later write would drop the earlier.
 let writeQueue: Promise<unknown> = Promise.resolve();
@@ -180,6 +191,12 @@ function storeLocal(palette: CustomPalette): void {
  * and writing the whole cached palette back overwrote that edit. The change
  * also shows and is kept locally at once, so the UI is instant and a page
  * unload right after still has it. Resolves with the palette written.
+ *
+ * If Home Assistant could not be read, what is in hand is only this
+ * browser's older copy: the change stays on this device and is NOT written
+ * to Home Assistant (that would replace the real palette with the old copy,
+ * dropping colours added elsewhere). It is retried with the next successful
+ * read. A failed write is retried the same way.
  */
 export function updatePalette(edit: PaletteEdit, hass: HassSub | undefined): Promise<CustomPalette> {
   cache = sanitize(edit(cache));
@@ -191,13 +208,23 @@ export function updatePalette(edit: PaletteEdit, hass: HassSub | undefined): Pro
   const run = async (): Promise<CustomPalette> => {
     let next: CustomPalette;
     try {
-      next = sanitize(edit(await loadPalette(hass)));
-      storeLocal(next);
-      if (hassAvailable(hass)) {
-        try {
-          await hass.connection.sendMessagePromise({ type: 'frontend/set_user_data', key: HA_KEY, value: next });
-        } catch (err) {
-          console.warn('[Card-Mod Studio] Palette sync to HA failed (saved to localStorage only):', err);
+      const { palette, readFailed } = await readPalette(hass);
+      if (readFailed) {
+        unsynced.push(edit);
+        next = sanitize(edit(palette));
+        storeLocal(next);
+      } else {
+        const backlog = unsynced;
+        next = sanitize([...backlog, edit].reduce((p, e) => e(p), palette));
+        storeLocal(next);
+        if (hassAvailable(hass)) {
+          try {
+            await hass.connection.sendMessagePromise({ type: 'frontend/set_user_data', key: HA_KEY, value: next });
+            unsynced = [];
+          } catch (err) {
+            unsynced = [...backlog, edit];
+            console.warn('[Card-Mod Studio] Palette sync to HA failed (saved to localStorage only):', err);
+          }
         }
       }
     } finally {
