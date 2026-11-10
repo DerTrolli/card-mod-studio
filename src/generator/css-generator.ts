@@ -457,11 +457,17 @@ function ownLookBranch(name: string): string {
 
 /** `names`: the property (or, for a profile's background emitter, the
  *  variables) that carry the value — `background` by default. */
-function backgroundDecls(s: BackgroundModuleState, names: string[] = ['background']): string[] {
+function backgroundDecls(s: BackgroundModuleState, names: string[] = ['background'], important = false): string[] {
   if (!s.enabled) return [];
   return names.flatMap((n) =>
-    backgroundValueDecls(s, ownLookBranch(n)).map((d) => d.replace(/^background:/, `${n}:`)),
+    backgroundValueDecls(s, ownLookBranch(n)).map((d) => asImportant(d.replace(/^background:/, `${n}:`), important)),
   );
+}
+
+/** `prop: value;` → `prop: value !important;` (when `on`). A text-only
+ *  markdown card needs it: HA's `.text-only` rule out-ranks a plain one. */
+function asImportant(decl: string, on: boolean): string {
+  return on ? decl.replace(/;$/, ' !important;') : decl;
 }
 
 /** The condition a Background reacts to (null = unconditional). */
@@ -492,7 +498,7 @@ function backgroundValueDecls(s: BackgroundModuleState, otherwise = ''): string[
  *   the two modules don't emit conflicting `border` declarations in the
  *   same `ha-card` block (border-radius still applies either way).
  */
-function borderDecls(s: BorderModuleState, skipColor = false): string[] {
+function borderDecls(s: BorderModuleState, skipColor = false, important = false): string[] {
   if (!s.enabled) return [];
   const decls: string[] = [];
   if (s.radiusPx > 0) decls.push(`border-radius: ${s.radiusPx}px;`);
@@ -506,9 +512,9 @@ function borderDecls(s: BorderModuleState, skipColor = false): string[] {
       // ownLookBranch); a real width keeps drawing that width.
       const offVal =
         s.widthOffPx && s.widthOffPx > 0 ? `${s.widthOffPx}px solid ${s.borderColor}` : ownLookBranch('border');
-      decls.push(`border: {{ '${onVal}' if ${cond} else '${offVal}' }};`);
+      decls.push(asImportant(`border: {{ '${onVal}' if ${cond} else '${offVal}' }};`, important));
     } else {
-      decls.push(`border: ${s.borderWidth}px solid ${s.borderColor};`);
+      decls.push(asImportant(`border: ${s.borderWidth}px solid ${s.borderColor};`, important));
     }
   }
   return decls;
@@ -1096,7 +1102,7 @@ function thresholdPropertyBlock(
       if (em?.background) {
         return varLines(em.background.selector, marker, em.background.vars.map((v) => `${v}: ${jinja};`));
       }
-      return `ha-card {\n${marker}  background: ${jinja};\n}`;
+      return `ha-card {\n${marker}  background: ${jinja}${caps.textOnlyCard ? ' !important' : ''};\n}`;
     case 'text-color': {
       // A profile's own text-colour variables (no plain `color`: it reaches
       // nothing on those cards).
@@ -1133,7 +1139,7 @@ function thresholdPropertyBlock(
           ...em.border.color.map((v) => `${v}: ${jinja};`),
         ]);
       }
-      return `ha-card {\n${marker}  border: ${borderWidth}px solid ${jinja};\n}`;
+      return `ha-card {\n${marker}  border: ${borderWidth}px solid ${jinja}${caps.textOnlyCard ? ' !important' : ''};\n}`;
     default:
       return '';
   }
@@ -1276,7 +1282,7 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
               backgroundCondition(state.background),
             ),
           )
-        : backgroundDecls(state.background)),
+        : backgroundDecls(state.background, undefined, caps.textOnlyCard)),
     ...(em?.border
       ? onHaCard(
           em.border.selector,
@@ -1286,7 +1292,7 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
               )
             : borderVarDecls(state.border, em.border, thresholdProps.has('border-color')),
         )
-      : borderDecls(state.border, thresholdProps.has('border-color'))),
+      : borderDecls(state.border, thresholdProps.has('border-color'), caps.textOnlyCard)),
     ...animDecls,
     // Icon colour on a profile's own selector (Bubble `.bubble-icon`): joins the
     // icon-size block below instead of writing `ha-state-icon`.

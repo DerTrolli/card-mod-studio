@@ -211,6 +211,10 @@ export interface CardCaps {
   headerTitle: boolean;
   /** Filter's transition needs `!important` here. */
   transitionImportant: boolean;
+  /** A markdown card with `text_only`: HA's own `.text-only` rule strips the
+   *  card's background, border and shadow and out-ranks a plain declaration,
+   *  so Background / Border / Threshold write theirs `!important`. */
+  textOnlyCard: boolean;
   /** Icon Color is a size-only control (the card's icons can't take its
    *  colour — Mushroom chips). */
   iconColorless: boolean;
@@ -234,9 +238,10 @@ function buildCaps(
     transitionImportant?: boolean;
     iconColorless?: boolean;
     accentTriplet?: boolean;
+    textOnlyCard?: boolean;
   },
 ): CardCaps {
-  const { headerTitle, transitionImportant, iconColorless, accentTriplet, ...flags } = f;
+  const { headerTitle, transitionImportant, iconColorless, accentTriplet, textOnlyCard, ...flags } = f;
   return {
     key,
     custom,
@@ -251,6 +256,7 @@ function buildCaps(
     transitionImportant: custom ? !!transitionImportant : TRANSITION_IMPORTANT_TYPES.has(key),
     iconColorless: !!iconColorless,
     accentTriplet: !!accentTriplet,
+    textOnlyCard: !!textOnlyCard,
     thresholdProperty(property: string): boolean {
       switch (property) {
         case 'icon-color': return m.iconColor && !iconColorless;
@@ -320,6 +326,7 @@ export function capsFor(profileKey: string | undefined, config?: Record<string, 
       fontSize: !NO_FONT_SIZE_TYPES.has(key),
       iconSize: ICON_SIZE_TYPES.has(key),
       stateAwareByDefault: !NON_STATE_CARD_TYPES.has(key),
+      textOnlyCard: key === 'markdown' && configSets(config, 'text_only'),
     },
   );
 }
