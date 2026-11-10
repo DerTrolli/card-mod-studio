@@ -160,7 +160,7 @@ export class FontModule extends LitElement {
     return html`
       <div class="module-body" id="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
-        ${this.allowSize ? html`<div class="control-row">
+        ${this.allowSize || this.state.fontSize !== undefined ? html`<div class="control-row">
           <span class="control-label">Text size</span>
           <div class="control-right">
             <ha-slider

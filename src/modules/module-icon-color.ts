@@ -304,7 +304,7 @@ export class IconColorModule extends LitElement {
             label="Icon size"
             aria-label="Icon size"
             min="0"
-            max=${this.sizeMax}
+            max=${Math.max(this.sizeMax, sizePx)}
             step="2"
             .value=${String(sizePx)}
             @change=${(e: Event) => {
@@ -337,7 +337,7 @@ export class IconColorModule extends LitElement {
                         label="Size otherwise"
                         aria-label="Size otherwise"
                         min="16"
-                        max=${this.sizeMax}
+                        max=${Math.max(this.sizeMax, this.state.sizeOffPx ?? 0)}
                         step="2"
                         .value=${String(this.state.sizeOffPx ?? 24)}
                         @change=${(e: Event) =>
