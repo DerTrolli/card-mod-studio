@@ -13,7 +13,7 @@
  * from a custom-card profile (custom-card-profiles.ts) where one exists.
  */
 
-import { configGateHits, getCustomCardProfile, iconSizeLimit, type ProfileModule } from './custom-card-profiles.js';
+import { configGateHits, configSets, getCustomCardProfile, iconSizeLimit, type ProfileModule } from './custom-card-profiles.js';
 
 export const NON_STATE_CARD_TYPES = new Set([
   'sensor', 'gauge', 'history-graph', 'statistics-graph', 'statistic',
@@ -344,12 +344,6 @@ function buildCaps(
       }
     },
   };
-}
-
-/** Whether a card config sets `key` to something (a non-empty value). */
-function configSets(config: Record<string, unknown> | null | undefined, key: string): boolean {
-  const v = config?.[key];
-  return v !== undefined && v !== null && v !== '' && v !== false;
 }
 
 /**

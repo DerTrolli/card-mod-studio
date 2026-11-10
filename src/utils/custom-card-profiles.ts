@@ -225,13 +225,16 @@ export type ConfigValue = string | boolean;
 
 /** One test on the card's own config. `is` / `not`: the value is / is not one
  *  of these (strict equality: `false` is the boolean, not the string);
- *  `unset`: the key is absent / empty / false; none of them: the key is set
- *  (a non-empty value other than `false`). */
+ *  `unset`: the key is absent / blank / empty / false; none of them: the key is set
+ *  (see configSets). */
 export interface ConfigTest {
   key: string;
   is?: ConfigValue[];
   not?: ConfigValue[];
   unset?: boolean;
+  /** `true`: the key is missing or null (where a card applies a default with
+   *  `??`); `false`: it carries a value, even `false` or an empty list. */
+  absent?: boolean;
 }
 
 /** Modules hidden while the card config says there is nothing for them to
@@ -244,12 +247,22 @@ export interface ConfigGate {
   hide: ProfileModule[];
 }
 
+/** Whether a card config sets `key` to something: not absent, `false`, a blank
+ *  string or an empty list (Bubble trims `attribute` and treats
+ *  `state_content: []` as "show nothing"). The ONE "is set" predicate. */
+export function configSets(config: Record<string, unknown> | null | undefined, key: string): boolean {
+  const v = config?.[key];
+  if (v === undefined || v === null || v === false) return false;
+  if (typeof v === 'string') return v.trim() !== '';
+  return !Array.isArray(v) || v.some((x) => typeof x !== 'string' || x.trim() !== '');
+}
+
 function testHolds(config: Record<string, unknown> | null | undefined, t: ConfigTest): boolean {
   const v = config?.[t.key];
+  if (t.absent !== undefined) return (v === undefined || v === null) === t.absent;
   if (t.is) return t.is.includes(v as ConfigValue);
   if (t.not) return !t.not.includes(v as ConfigValue);
-  const set = v !== undefined && v !== null && v !== '' && v !== false;
-  return set !== !!t.unset;
+  return configSets(config, t.key) !== !!t.unset;
 }
 
 /** Does the card config trigger this gate? The one evaluator for every profile. */

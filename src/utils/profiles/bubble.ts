@@ -22,7 +22,7 @@
  * the registry module can import this one statically without a cycle.
  */
 
-import type { ClaimRule, ConfigGate, CustomCardProfile, ProfileEmitters } from '../custom-card-profiles.js';
+import type { ClaimRule, ConfigGate, ConfigTest, CustomCardProfile, ProfileEmitters } from '../custom-card-profiles.js';
 import {
   claimsFromEmitters, conflictsFromEmitters, clickClass,
   clickText, clickUnder, clickLast,
@@ -131,13 +131,39 @@ const legacyBorder = (selector: string): ClaimRule => ({
 const ICON_MAX_BOX = { normal: 50, large: 56 };
 const ICON_MAX_SEPARATOR = { normal: 40, large: 33 };
 
+/** `show_name: false` and no state line: no text is left for Font. Bubble 3.4.3
+ *  renders `.bubble-state` iff its state content (`state_content`, else the
+ *  legacy `show_state` / `show_attribute` + `attribute` / `show_last_changed` /
+ *  `show_last_updated`, else — for `button_type: state` — the entity's default)
+ *  is non-empty; button, slider and cover share that code. A present
+ *  `state_content` replaces the legacy options entirely. `show_state` and
+ *  `show_attribute` default to ON for `button_type: state` only, so "off" is a
+ *  falsy value, or no value on any other button type. */
+const off = (key: string): ConfigTest[][] => [
+  [{ key, absent: false }, { key, unset: true }],
+  [{ key, absent: true }, { key: 'button_type', not: ['state'] }],
+];
+const noStateLine = (): ConfigTest[][] => {
+  const nameOff: ConfigTest = { key: 'show_name', is: [false] };
+  const stateOff = off('show_state');
+  const attributeOff: ConfigTest[][] = [...off('show_attribute'), [{ key: 'attribute', unset: true }]];
+  const legacy: ConfigTest[] = [
+    { key: 'state_content', absent: true },
+    { key: 'show_last_changed', unset: true },
+    { key: 'show_last_updated', unset: true },
+  ];
+  return [
+    [nameOff, { key: 'state_content', absent: false }, { key: 'state_content', unset: true }],
+    ...stateOff.flatMap((a) => attributeOff.map((b) => [nameOff, ...legacy, ...a, ...b])),
+  ];
+};
+
 /** Controls whose target the card config removes (measured on 3.4.3: with
- *  `show_icon: false` there is no `.bubble-icon` at all; with the name hidden
- *  and the state off — its default on all three kinds — no text is left).
- *  Only a completely dead control is hidden: one text line still takes Font. */
+ *  `show_icon: false` there is no `.bubble-icon` at all). Only a completely
+ *  dead control is hidden: one text line still takes Font. */
 const GATES: ConfigGate[] = [
   { when: [[{ key: 'show_icon', is: [false] }]], hide: ['iconColor'] },
-  { when: [[{ key: 'show_name', is: [false] }, { key: 'show_state', not: [true] }]], hide: ['font'] },
+  { when: noStateLine(), hide: ['font'] },
 ];
 
 /** Opacity stays at Bubble's 0.5 unless forced (measured): rides with Background. */
