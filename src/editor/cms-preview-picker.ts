@@ -20,6 +20,8 @@ import {
   type PickRect,
   type PickTarget,
 } from '../utils/preview-map.js';
+import { entityRowLabels } from '../modules/module-entities-rows.js';
+import type { EntitiesCardRow, HomeAssistant } from '../types/index.js';
 
 interface HighlightBox {
   left: number;
@@ -171,6 +173,12 @@ export class CmsPreviewPicker extends LitElement {
         bestArea = area;
       }
     }
+    // A point on the card's own box that no child covers (a corner, a gap)
+    // is still the card surface.
+    if (!best) {
+      const r = cardEl.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return cardEl;
+    }
     return best;
   }
 
@@ -276,6 +284,16 @@ export class CmsPreviewPicker extends LitElement {
     return allRows.indexOf(rowEl);
   }
 
+  /** The chip text for a row: the label the panel's row list shows (shared
+   *  names numbered), so two rows on one entity read differently. */
+  private _rowLabel(cardEl: HTMLElement, rowIndex: number): string | undefined {
+    const rows = this.cardConfig?.entities;
+    if (!Array.isArray(rows)) return undefined;
+    const hass = (cardEl as unknown as { hass?: HomeAssistant }).hass;
+    const label = entityRowLabels(hass, rows as Array<EntitiesCardRow | string>).get(rowIndex);
+    return label ? `Entity Rows — ${label}` : undefined;
+  }
+
   // ---------------------------------------------------------------------------
   // Pointer handling
   // ---------------------------------------------------------------------------
@@ -300,6 +318,7 @@ export class CmsPreviewPicker extends LitElement {
     }
 
     const target: PickEventDetail = { ...match.target };
+    let rowLabel: string | undefined;
     if (target.module === 'cms-entities-rows-module') {
       // Outermost match (chain runs innermost → card): the row element
       // itself, not the hui-generic-entity-row HA nests inside every row,
@@ -310,6 +329,7 @@ export class CmsPreviewPicker extends LitElement {
       if (rowIndex !== -1) {
         target.rowIndex = rowIndex;
         target.rowEntity = this.rows[rowIndex];
+        rowLabel = this._rowLabel(cardEl, rowIndex);
       }
     }
 
@@ -330,7 +350,7 @@ export class CmsPreviewPicker extends LitElement {
       width: Math.max(0, right - left),
       height: Math.max(0, bottom - top),
     };
-    this._label = target.rowEntity ? `${target.label} — ${target.rowEntity}` : target.label;
+    this._label = rowLabel ?? (target.rowEntity ? `${target.label} — ${target.rowEntity}` : target.label);
     this._target = target;
     return target;
   }
