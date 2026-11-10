@@ -5,7 +5,7 @@
  * The pipeline mirrors cms-panel: card-level state -> applyStudioState ->
  * applyEntityRowStyles.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import type { CardModCardConfig, StudioState } from '../src/types/index.js';
 import {
   buildMergedStudioState, applyStudioState, initEntityRowStyles, applyEntityRowStyles,
@@ -144,5 +144,23 @@ describe('row save details', () => {
     const config = cfg({ type: 'entities', entities: rows });
     const out = cardLevelSave(config);
     expect(out.entities[0]).toBe(rows[0]);
+  });
+});
+
+describe('row slot comparison', () => {
+  beforeEach(() => installEngines(['card-mod']));
+  it('a row whose style slot is missing comes back as the same object', () => {
+    const config = cfg({ type: 'entities', entities: [rowFor('card_mod', 'light.a', SHAPES.legacyVar)] }) as CardModCardConfig;
+    const out = applyEntityRowStyles(config, {}) as unknown as Out;
+    expect(out.entities[0]).toBe((config as unknown as Out).entities[0]);
+  });
+
+  it('a slot with the same content in another key order is still unchanged', () => {
+    const config = cfg({ type: 'entities', entities: [rowFor('card_mod', 'light.a', SHAPES.legacyVar)] }) as CardModCardConfig;
+    const slot = initEntityRowStyles(config)['0'] as unknown as Record<string, unknown>;
+    expect(Object.keys(slot).length).toBeGreaterThan(1);
+    const reversed = Object.fromEntries(Object.entries(slot).reverse());
+    const out = applyEntityRowStyles(config, { '0': reversed } as never) as unknown as Out;
+    expect(out.entities[0]).toBe((config as unknown as Out).entities[0]);
   });
 });

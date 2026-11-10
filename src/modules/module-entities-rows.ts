@@ -48,8 +48,9 @@ export function entityRowLabel(hass: HomeAssistant | undefined, entityId: string
  * Labels for every styleable row of an entities card, keyed by config index.
  * A label shared by several rows (two rows on one entity, or two entities
  * with the same name) is numbered on ALL of them ("Name (1)", "Name (2)");
- * a label that is unique stays bare. Exported so the preview's hover chip can
- * use the same text.
+ * a label that is unique stays bare. A generated number never lands on a
+ * label some row really has ("Lamp" x2 beside a row named "Lamp (2)" become
+ * "Lamp (1)" and "Lamp (3)"). Exported for the preview's hover chip.
  */
 export function entityRowLabels(
   hass: HomeAssistant | undefined,
@@ -62,12 +63,19 @@ export function entityRowLabels(
   });
   const total = new Map<string, number>();
   for (const [, l] of base) total.set(l, (total.get(l) ?? 0) + 1);
-  const seen = new Map<string, number>();
+  const taken = new Set(base.map(([, l]) => l));
+  const next = new Map<string, number>();
   const out = new Map<number, string>();
   for (const [index, l] of base) {
-    const n = (seen.get(l) ?? 0) + 1;
-    seen.set(l, n);
-    out.set(index, (total.get(l) ?? 0) > 1 ? `${l} (${n})` : l);
+    if ((total.get(l) ?? 0) < 2) {
+      out.set(index, l);
+      continue;
+    }
+    let n = next.get(l) ?? 1;
+    while (taken.has(`${l} (${n})`)) n++;
+    next.set(l, n + 1);
+    taken.add(`${l} (${n})`);
+    out.set(index, `${l} (${n})`);
   }
   return out;
 }

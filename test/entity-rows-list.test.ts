@@ -57,6 +57,14 @@ describe('row labels', () => {
     expect([...labels.values()]).toEqual(['Big', 'Small']);
   });
 
+  it('a generated number skips a label a row really has', () => {
+    const labels = entityRowLabels(undefined, [
+      { entity: 'light.a', name: 'Lamp' }, { entity: 'light.b', name: 'Lamp' }, { entity: 'light.c', name: 'Lamp (2)' },
+    ]);
+    expect([...labels.values()]).toEqual(['Lamp (1)', 'Lamp (3)', 'Lamp (2)']);
+    expect(new Set(labels.values()).size).toBe(3);
+  });
+
   it('labels are keyed by config index, skipping rows without an entity', () => {
     const labels = entityRowLabels(undefined, [{ type: 'section' }, 'light.a', 'light.a']);
     expect([...labels.entries()]).toEqual([[1, 'a (1)'], [2, 'a (2)']]);

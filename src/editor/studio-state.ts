@@ -397,18 +397,15 @@ function withRowStateColor(
   return updated;
 }
 
-/** Canonical JSON: sorted keys, `undefined` properties dropped — so a style
- *  slot that went through a control being switched on and back off (which
- *  leaves `iconMode: undefined` keys behind) compares equal to a fresh parse. */
+/** Canonical JSON with sorted keys, so a slot whose keys came out in another
+ *  order still compares equal. (`undefined` properties are already omitted by
+ *  JSON.stringify — that is what makes an on-then-off control compare equal.) */
 function canonicalStyle(value: unknown): string {
   const norm = (v: unknown): unknown => {
     if (Array.isArray(v)) return v.map(norm);
     if (v && typeof v === 'object') {
       const out: Record<string, unknown> = {};
-      for (const k of Object.keys(v as object).sort()) {
-        const x = (v as Record<string, unknown>)[k];
-        if (x !== undefined) out[k] = norm(x);
-      }
+      for (const k of Object.keys(v as object).sort()) out[k] = norm((v as Record<string, unknown>)[k]);
       return out;
     }
     return v;
@@ -416,10 +413,12 @@ function canonicalStyle(value: unknown): string {
   return JSON.stringify(norm(value));
 }
 
-/** True when the row's style slot is exactly what a fresh parse of the row
- *  as loaded gives — i.e. the user changed nothing on it, so it must be
- *  written back as the original object (byte for byte). Derived, not
- *  tracked: no dirty flag can go stale or be forgotten by a handler. */
+/** True when the row's style slot equals a fresh parse of the row as it
+ *  stands in the config now — i.e. this slot would write nothing new, so the
+ *  row is handed back as the same object. The panel emits every edit and the
+ *  config comes back, so "now" is the row as last written, not as first
+ *  loaded: a toggle on then off compares against the row after the "on"
+ *  write. Derived, not tracked: no dirty flag can go stale. */
 function rowStyleUnchanged(row: EntitiesRowLike, rowStyle: EntitiesRowStyle, hass?: HomeAssistant): boolean {
   const baseline = typeof row === 'string'
     ? { iconColor: '', textColor: '' }
@@ -443,7 +442,7 @@ export function applyEntityRowStyles(
     const entityId = rowEntityId(row);
     if (!entityId) return row;
     const rowStyle = rowStyles[rowStyleKey(index)];
-    // Untouched row (slot equals a fresh parse of the row as loaded): hand
+    // Untouched row (slot equals a fresh parse of the row as it is now): hand
     // back the original object — never regenerate it. A missing slot means
     // nothing was ever read for this row, so it is equally untouched.
     if (!rowStyle || rowStyleUnchanged(row, rowStyle, hass)) return row;
