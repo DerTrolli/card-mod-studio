@@ -49,6 +49,15 @@
 // means "shown, and no pixel clearly changes".
 // A 2.5 px ring along the card's rounded outline is ignored when counting pixels: with an opaque picture filling the card
 // a background colour still bleeds through the anti-aliased edge (a ~1 px fringe, ~1200 px) - that is not a visible effect.
+// MEDIA-CONTROL: the card draws its own colour block (and the artwork) over its whole face in every player state, so the
+// audit tests it twice: the row `media-control` uses the demo player while it plays (every media-control test), and the row
+// `media-control (off)` runs ONLY the two Background controls (background, threshold:background) against a player that is
+// switched OFF for the duration of the row (media_player.kitchen: turn_off, switched back on afterwards) - the state in
+// which a Background could have shown; the other media-control tests stay on the playing player. A
+// Background control that is dead in BOTH rows (as measured: red pixels on the card face in off, unavailable, idle, paused
+// and playing) is correctly hidden by the panel. The report (.md) carries the same note under the table.
+// AUDIT_CARDS=media-control,media-control (off)   runs only those two rows (any card types, comma separated).
+// AUDIT_BUNDLE=/path/card-mod-studio.js   audit that build instead of the one the rig serves (a local `vite build` output).
 // AUDIT_TAG=name   adds -name to the output file names (keeps the committed result files untouched).
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, copyFileSync, mkdirSync, existsSync } from 'node:fs';
@@ -103,6 +112,8 @@ const CARDS = {
   map: { entities: ['device_tracker.demo_paulus'] },
   markdown: { content: 'Hello **world**' },
   'media-control': { entity: 'media_player.living_room' },
+  // the same card against a player that is switched off for the row (see MEDIA-CONTROL in the header)
+  'media-control (off)': { _type: 'media-control', entity: 'media_player.kitchen', _playerOff: true, _onlyLabels: ['background', 'threshold:background'] },
   picture: { image: IMG },
   // an icon AND a text element: with an icon alone there is no text for the Font module's weight / family to style
   'picture-elements': { image: IMG, elements: [{ type: 'state-icon', entity: L, style: { top: '50%', left: '50%' } }, { type: 'state-label', entity: T, style: { top: '80%', left: '50%' } }] },
@@ -202,6 +213,7 @@ const run = async () => {
   await ensureImageFixture();
   const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
   const page = await browser.newPage({ viewport: { width: 1300, height: 1000 } });
+  if (process.env.AUDIT_BUNDLE) await page.route('**/local/card-mod-studio.js*', (r) => r.fulfill({ path: process.env.AUDIT_BUNDLE, contentType: 'application/javascript' }));
   await page.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
   await page.goto(`${HA}/lovelace/0`, { waitUntil: 'domcontentloaded' });
   await waitForHassReady(page);
@@ -361,10 +373,12 @@ const run = async () => {
   const sweep = AUDIT_CUSTOM === 'all' ? { ...CARDS, ...custom } : AUDIT_CUSTOM ? custom : CARDS;
   for (const [type, spec] of Object.entries(sweep)) {
     if (ONLY.length && !ONLY.includes(type)) continue;
-    const { _type, _entity, ...extra } = spec;
+    const { _type, _entity, _playerOff, _onlyLabels, ...extra } = spec;
     const config = { type: _type ?? type, ...extra };
     const entity = _entity || extra.entity || (Array.isArray(extra.entities) ? extra.entities[0] : null) || T;
     const row = { type, shown: [], tests: [] };
+    const player = (service) => page.evaluate(([sv, id]) => document.querySelector('home-assistant').hass.callService('media_player', sv, { entity_id: id }), [service, extra.entity]);
+    if (_playerOff) { await player('turn_off'); await page.waitForTimeout(1500); }
     try {
       row.shown = await page.evaluate((c) => window.__audit.mount(c), config);
       await page.waitForTimeout(1500);
@@ -432,6 +446,7 @@ const run = async () => {
         { mod: 'cms-font-module', label: 'font:family', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontFamily: 'monospace' } }, shown: row.shown.includes('cms-font-module') },
       ];
       for (const c of cases) {
+        if (_onlyLabels && !_onlyLabels.includes(c.label)) continue;
         let res = null;
         for (let attempt = 1; attempt <= 3; attempt++) {
           let cBase = base;
@@ -467,6 +482,7 @@ const run = async () => {
     } catch (e) {
       row.error = String(e.message || e).slice(0, 200);
     }
+    if (_playerOff) await player('turn_on').catch(() => {});
     results.push(row);
     const verdicts = row.tests.map((t) => `${t.label}:${t.shown ? (t.visible ? '✅' : t.inconclusive ? '❔' : '❌') : (t.visible ? '⚠️' : '·')}`);
     console.log(type.padEnd(17), `floor=${row.floor ?? '-'}`.padEnd(11), row.error ? `ERROR ${row.error}` : verdicts.join(' '));
@@ -483,7 +499,8 @@ const run = async () => {
     '✅ shown + works · ❌ shown but changes nothing (dead) · ❔ shown, effect inside the card\'s noise floor (inconclusive) · ⚠️ hidden but would work · `·` hidden, no effect', '',
     `| card | ${(results.find((r) => r.tests.length)?.tests ?? []).map((t) => t.label.replace('threshold:', 'thr:')).join(' | ')} |`,
     `|---|${(results.find((r) => r.tests.length)?.tests ?? []).map(() => '---').join('|')}|`,
-    ...results.map((r) => `| ${r.type} | ${r.error ? `error: ${r.error}` : r.tests.map((t) => (t.shown ? (t.visible ? '✅' : t.inconclusive ? '❔' : '❌') : (t.visible ? '⚠️' : '·'))).join(' | ')} |`),
+    ...results.map((r) => `| ${r.type} | ${r.error ? `error: ${r.error}` : (results.find((x) => x.tests.length)?.tests ?? r.tests).map((c) => r.tests.find((x) => x.label === c.label)).map((t) => (!t ? '–' : t.shown ? (t.visible ? '✅' : t.inconclusive ? '❔' : '❌') : (t.visible ? '⚠️' : '·'))).join(' | ')} |`),
+    '', '`media-control` is tested against the demo player while it plays; `media-control (off)` runs only the two Background controls against a player switched off for that row. The card paints its own colour block over its whole face in every player state, so a Background that is dead in both rows is correctly hidden.',
     '', `**Dead controls (${dead.length}):** ${dead.join(', ') || 'none'}`, '', `**Inconclusive, shown but within the noise floor (${inconclusive.length}):** ${inconclusive.join(', ') || 'none'}`, '', `**Hidden but working (${missed.length}):** ${missed.join(', ') || 'none'}`,
     '', `**Noise floor (changed pixels of the unstyled card during a test, largest per card; an effect must exceed 30 + 2 x floor; 2.5 px edge ring ignored):** ${floors.join(', ') || 'all cards static (0)'}`];
   writeFileSync(resolve(HERE, `module-effect-audit-${tag}.md`), md.join('\n') + '\n');

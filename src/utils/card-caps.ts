@@ -70,6 +70,11 @@ export const NO_SPIN_TYPES = new Set(['thermostat', 'humidifier', 'light', 'map'
 export const NO_BACKGROUND_TYPES = new Set([
   'picture', 'picture-entity', 'picture-glance', 'picture-elements',
   'iframe', 'webpage', 'map',
+  // media-control paints its own full-face colour block (`.color-block`, the
+  // theme's primary colour, greyed while off) and artwork over ha-card in every
+  // player state — measured: idle, paused, playing, off, unavailable — so an
+  // ha-card background shows only as a ~1px rim. A stored one still round-trips.
+  'media-control',
   // heading cards have no painted ha-card box — background has no visual effect
   // (verified empirically). See docs/CARD_SUPPORT_MATRIX.md.
   'heading',

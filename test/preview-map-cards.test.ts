@@ -103,16 +103,17 @@ describe('media-control', () => {
     const c = [info, ...chain(...tail)];
     expect(labelOf(c, 'media-control', undefined, at(30, 90))).toBe(FONT);
     expect(mapElementToMatch(c, 'media-control', undefined, at(30, 90))?.rect).toEqual(lines[1]);
-    expect(labelOf(c, 'media-control', undefined, at(200, 90))).toBe(BG);
+    // Background is hidden on this card (its colour block covers it): the blank is the card frame
+    expect(labelOf(c, 'media-control', undefined, at(200, 90))).toBe(BORDER);
   });
-  it('the blank beside a title line and the controls → Background', () => {
+  it('the blank beside a title line and the controls → Border (Background is hidden here)', () => {
     const marquee = wide('div.marquee-inner', box(0, 60, 320, 20), null);
     const span = wide('span', box(0, 62, 150, 16), box(0, 62, 150, 16));
     const info = wide('div.media-info', box(0, 56, 320, 40), null);
     const c = [span, marquee, e('hui-marquee'), info, ...chain(...tail)];
     expect(labelOf(c, 'media-control', undefined, at(50, 70))).toBe(FONT);
-    expect(labelOf(c.slice(1), 'media-control', undefined, at(250, 70))).toBe(BG);
-    expect(labelOf(chain('button.button', 'ha-button', 'ha-icon-button', 'div.start', 'div.controls', 'div.title-controls', ...tail), 'media-control')).toBe(BG);
+    expect(labelOf(c.slice(1), 'media-control', undefined, at(250, 70))).toBe(BORDER);
+    expect(labelOf(chain('button.button', 'ha-button', 'ha-icon-button', 'div.start', 'div.controls', 'div.title-controls', ...tail), 'media-control')).toBe(BORDER);
   });
 });
 

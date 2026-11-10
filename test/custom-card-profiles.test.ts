@@ -48,9 +48,11 @@ const OLD_NO_ANIMATION_TYPES = new Set<string>([
   'heading',
   'energy-distribution', 'energy-usage-graph', 'activity', 'webpage', 'shopping-list',
 ]);
+// media-control joined later: its own colour block covers the whole face (card-caps.ts).
 const OLD_NO_BACKGROUND_TYPES = new Set<string>([
   'picture', 'picture-entity', 'picture-glance', 'picture-elements',
   'iframe', 'webpage', 'map',
+  'media-control',
   'heading',
 ]);
 const OLD_NO_BORDER_TYPES = new Set<string>([
