@@ -1446,6 +1446,7 @@ export class CmsPanel extends LitElement {
             .stateAware=${stateAware}
             .isLightCard=${this._isLightCard}
             .allowSize=${this._caps.iconSize}
+            .sizeMax=${this._caps.iconSizeMax}
             .allowColor=${!this._caps.iconColorless}
             .cardEntity=${this.config?.entity ?? ''}
             .hass=${this.hass}

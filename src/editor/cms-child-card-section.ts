@@ -386,6 +386,7 @@ export class CmsChildCardSection extends LitElement {
               .stateAware=${stateAware}
               .isLightCard=${caps.isLight}
               .allowSize=${caps.iconSize}
+              .sizeMax=${caps.iconSizeMax}
               .allowColor=${!caps.iconColorless}
               .cardEntity=${entity}
               .hass=${this.hass}
