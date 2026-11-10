@@ -28,7 +28,7 @@ afterEach(() => {
   engine = 'card-mod';
 });
 
-const GAUGE_ENTRY = '.text {\n  max-width: 66% !important;\n  max-height: 48% !important;\n  left: 0 !important;\n  right: 0 !important;\n  margin: 0 auto !important;\n  transform: none !important;\n}'; // 120 %
+const GAUGE_ENTRY = '.text {\n  max-width: 56% !important;\n  max-height: 48% !important;\n  left: 0 !important;\n  right: 0 !important;\n  margin: 0 auto !important;\n  transform: none !important;\n}'; // 120 % (width capped at 56 %)
 const THERMO_ENTRY = { 'ha-big-number$': '.value {\n  font-size: 30px !important;\n}' };
 const cfg = (c: Record<string, unknown>) => c as unknown as CardModCardConfig;
 const style = (c: CardModCardConfig) => c.card_mod?.style as unknown;
@@ -184,6 +184,38 @@ describe('v0.11 Number size — carrier refresh (code review)', () => {
     const out = session(cfg({ type: 'gauge', entity: 'sensor.x', card_mod: { style: { '.': 'ha-card {\n  color: red;\n}' } } }), numberSize(true), numberSize(false));
     expect(typeof style(out)).toBe('object');
     expect(style(out)).toEqual({ '.': expect.stringContaining('color: red') });
+  });
+});
+
+const beta = (w: number, h: number, anchored: boolean) =>
+  `.text {\n  max-width: ${w}% !important;\n  max-height: ${h}% !important;\n${anchored ? '  left: 0 !important;\n  right: 0 !important;\n  margin: 0 auto !important;\n  transform: none !important;\n' : ''}}`;
+
+describe('v0.11 Number size — entries written by the betas', () => {
+  const gaugeOf = (c: CardModCardConfig) => (style(c) as Record<string, string>)['ha-gauge$'];
+  for (const [name, anchored] of [['beta.2', true], ['beta.1', false]] as const) {
+    it(`${name} entry at 100 % loads as the Studio's own and upgrades to HA's own box on save`, () => {
+      const config = cfg({ type: 'gauge', entity: 'sensor.x', card_mod: { style: { 'ha-gauge$': beta(55, 40, anchored) } } });
+      const state = buildMergedStudioState(config);
+      expect(state.font).toMatchObject({ numberSizeEnabled: true, numberSize: 100 });
+      expect(state.font.numberSizeLocked).toBeFalsy();
+      expect(userEntries(state.dictSource)).toEqual([]);
+      const out = session(config, color('#abcdef'));
+      expect(gaugeOf(out)).toBe(beta(50, 40, true));
+    });
+  }
+
+  it('a beta.2 entry at 150 % loads at the new maximum (130 %) and is rewritten there', () => {
+    const config = cfg({ type: 'gauge', entity: 'sensor.x', card_mod: { style: { 'ha-gauge$': beta(82.5, 60, true) } } });
+    const state = buildMergedStudioState(config);
+    expect(state.font).toMatchObject({ numberSizeEnabled: true, numberSize: 130 });
+    expect(gaugeOf(session(config, color('#abcdef')))).toBe(beta(56, 52, true));
+  });
+
+  it('a hand-written entry stays locked and byte-identical', () => {
+    const hand = beta(55, 41, true);
+    const config = cfg({ type: 'gauge', entity: 'sensor.x', card_mod: { style: { 'ha-gauge$': hand } } });
+    expect(buildMergedStudioState(config).font.numberSizeLocked).toBe(true);
+    expect(gaugeOf(session(config, color('#abcdef')))).toBe(hand);
   });
 });
 
