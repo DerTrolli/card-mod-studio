@@ -95,12 +95,12 @@ describe('cms-color-picker clearable', () => {
     p._onTextChange({ target: { value: '  red ' } } as unknown as Event);
     expect(seen[1]).toEqual({ value: 'red' });
   });
-  it('a normal picker passes its text through untouched', () => {
+  it('a normal picker trims its text (it used to pass it through verbatim)', () => {
     const p = new Picker();
     const seen: unknown[] = [];
     p.dispatchEvent = ((e: Event) => { seen.push((e as unknown as CustomEvent).detail); return true; });
     p._onTextChange({ target: { value: ' red ' } } as unknown as Event);
-    expect(seen).toEqual([{ value: ' red ' }]);
+    expect(seen).toEqual([{ value: 'red' }]);
   });
   it('the clear button has a focus ring like the reset button', () => {
     const src = readFileSync(new URL('../src/components/cms-color-picker.ts', import.meta.url), 'utf8');

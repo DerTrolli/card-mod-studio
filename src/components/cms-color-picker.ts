@@ -1,6 +1,7 @@
 import { LitElement, html, css, nothing, render as litRender } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { getCachedPalette, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
+import { isValidCssColor } from '../utils/css-color.js';
 
 /**
  * Walks up through shadow-root hosts *and* slot assignments — the
@@ -204,6 +205,19 @@ const swatchStyles = css`
     border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
     border-radius: 4px;
   }
+  /* Tokens fall back to HA's own: the popover portal sits outside the panel
+     and doesn't inherit the panel's --cms-* tokens. Dashed border + hint
+     line so the state isn't colour-only. */
+  .custom input[type="text"][aria-invalid="true"] {
+    border: 1px dashed var(--cms-line-error, var(--error-color, #db4437));
+    background: var(--cms-tint-error, color-mix(in srgb, var(--error-color, #db4437) 11%, transparent));
+    color: var(--cms-ink-error, var(--error-color, #db4437));
+  }
+  .invalid-hint {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--cms-ink-error, var(--error-color, #db4437));
+  }
 `;
 
 /**
@@ -245,6 +259,8 @@ export class CmsColorPicker extends LitElement {
   /** Colour the swatch shows while unset (a hex or var(--x)); display-only. */
   @property({ attribute: false }) placeholderColor = '';
 
+  /** The text field holds something that isn't a colour yet (never emitted). */
+  @state() private _invalid = false;
   @state() private _popoverOpen = false;
   @state() private _popoverPos: { top: number; left: number } | null = null;
 
@@ -368,11 +384,14 @@ export class CmsColorPicker extends LitElement {
           : nothing}
         <div class="custom">
           <input type="color" aria-label="Pick a custom color" .value=${this._toHex(this.value || (this.clearable ? this.placeholderColor : ''))} @input=${this._onColorInput} />
-          <input type="text" aria-label="Color value" .value=${this.value ?? ''} @change=${this._onTextChange} placeholder=${this.clearable ? (this.placeholder || 'Default') : 'Color or var(--name)'} />
+          <input type="text" aria-label="Color value" aria-invalid=${this._invalid ? 'true' : 'false'} aria-describedby=${this._invalid ? 'cms-color-hint' : nothing} spellcheck="false" autocomplete="off" .value=${this.value ?? ''} @input=${this._onTextInput} @change=${this._onTextChange} @blur=${this._onTextBlur} placeholder=${this.clearable ? (this.placeholder || 'Default') : 'Color or var(--name)'} />
           ${this.clearable && this.value
             ? html`<button type="button" class="clear" aria-label="Reset color to default" title="Reset to default" @click=${this._onClear}>Default</button>`
             : nothing}
         </div>
+        ${this._invalid
+          ? html`<div class="invalid-hint" id="cms-color-hint" role="status">Not a valid colour — try #ff8800 or var(--primary-color)</div>`
+          : nothing}
       </div>
     `;
   }
@@ -529,6 +548,7 @@ export class CmsColorPicker extends LitElement {
   }
 
   private _closePopover() {
+    this._invalid = false; // a half-typed value is dropped with the popover
     this._popoverOpen = false;
     this._popoverPos = null;
     this._destroyPortal();
@@ -559,14 +579,35 @@ export class CmsColorPicker extends LitElement {
     this._emit();
   }
 
+  /** Empty is valid only where it means "not set" (clearable). */
+  private _textOk(text: string): boolean {
+    return text.trim() === '' ? this.clearable : isValidCssColor(text);
+  }
+
+  /** Typing only shows the cue — nothing is stored or reverted mid-typing. */
+  private _onTextInput(e: Event) {
+    this._invalid = !this._textOk((e.target as HTMLInputElement).value);
+  }
+
+  /** Enter / blur. An invalid or partial value is never emitted. */
   private _onTextChange(e: Event) {
     const input = e.target as HTMLInputElement;
-    // Whitespace-only text means "not set" on a clearable picker — it must
-    // not reach a generated `color:   ;`.
-    this.value = this.clearable ? input.value.trim() : input.value;
-    if (this.clearable) input.value = this.value;
+    if (!this._textOk(input.value)) {
+      this._invalid = true;
+      return;
+    }
+    this._invalid = false;
+    this.value = input.value.trim();
+    input.value = this.value;
     this._emit();
     if (this.compact) this._closePopover();
+  }
+
+  /** Leaving the field with invalid text restores the last valid value. */
+  private _onTextBlur(e: Event) {
+    if (!this._invalid) return;
+    (e.target as HTMLInputElement).value = this.value ?? '';
+    this._invalid = false;
   }
 
   private _toHex(val: string): string {
