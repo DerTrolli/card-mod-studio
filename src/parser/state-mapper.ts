@@ -1164,6 +1164,9 @@ function mapIconColor(
 function applySizeValue(state: IconColorModuleState, raw: string): boolean {
   const staticMatch = raw.trim().match(/^(\d+(?:\.\d+)?)px$/);
   if (staticMatch) {
+    // 0 means "theme size": the module writes nothing for it, so claiming a
+    // hand-written 0px would delete it on the next save. Leave it verbatim.
+    if (!(parseFloat(staticMatch[1]) > 0)) return false;
     state.sizePx = parseFloat(staticMatch[1]);
     return true;
   }
@@ -1171,6 +1174,7 @@ function applySizeValue(state: IconColorModuleState, raw: string): boolean {
   const on = ternary?.onValue.match(/^(\d+(?:\.\d+)?)px$/);
   const off = ternary?.offValue.match(/^(\d+(?:\.\d+)?)px$/);
   if (!ternary || !on || !off) return false;
+  if (!(parseFloat(on[1]) > 0)) return false; // same: a 0 size isn't written back
   state.sizePx = parseFloat(on[1]);
   const offPx = parseFloat(off[1]);
   if (offPx !== 24) state.sizeOffPx = offPx; // 24 = the generator's default else-branch
