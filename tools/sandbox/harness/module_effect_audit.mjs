@@ -14,6 +14,7 @@
 //
 //   shown + effect   ✅   working control
 //   shown + no effect ❌  DEAD CONTROL (should be hidden or fixed)
+//   shown, effect inside a noisy card's floor ❔  inconclusive (see NOISE FLOOR below)
 //   hidden + effect   ⚠️  missed opportunity (worth a look)
 //   hidden + none     ·    correctly hidden
 //
@@ -36,8 +37,21 @@
 // AUDIT_CUSTOM=all the built-ins AND the custom cards in one run (same files
 //                  as the built-in audit).
 // Mushroom 5.x and Bubble Card 3.x must be installed on the rig.
+//
+// NOISE FLOOR: a card can change pixels on its own (the demo camera swaps its picture every few seconds, a canvas
+// chart redraws). Around EVERY test the audit therefore screenshots the UNSTYLED card twice - right before the module is
+// switched on and again after it is switched back off - and the difference of those two (the card against itself over the
+// test's duration, known-moving pixels masked) is that test's noise floor. A test during which the card changed on its own
+// (floor > 30 px) is repeated, up to 3 attempts. An effect only counts as visible when its changed-pixel count clearly
+// exceeds the floor: px > 30 + 2 x floor (a static card, floor 0, keeps the old "> 30" gate). The per-card floor in the
+// output is the largest floor of its tests. A shown module that stays inside a persistently noisy card's floor is not called
+// dead when the computed style of some element did change - it is listed as INCONCLUSIVE (pixels cannot tell); DEAD still
+// means "shown, and no pixel clearly changes".
+// A 2.5 px ring along the card's rounded outline is ignored when counting pixels: with an opaque picture filling the card
+// a background colour still bleeds through the anti-aliased edge (a ~1 px fringe, ~1200 px) - that is not a visible effect.
+// AUDIT_TAG=name   adds -name to the output file names (keeps the committed result files untouched).
 import { chromium } from 'playwright';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, copyFileSync, mkdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, isAbsolute } from 'node:path';
 import { waitForHassReady } from './harness-utils.mjs';
@@ -49,9 +63,24 @@ const tf = process.env.TOKENS_FILE || 'tokens.json';
 const tokens = JSON.parse(readFileSync(isAbsolute(tf) ? tf : resolve(HERE, tf), 'utf8'));
 const ONLY = (process.env.AUDIT_CARDS || '').split(',').filter(Boolean);
 
+// the opaque picture must be served from the rig's www/ (/local/…)
+async function ensureImageFixture() {
+  const served = async () => { try { const r = await fetch(`${HA}/local/${IMG_FILE}`); return r.ok && /image\//.test(r.headers.get('content-type') || ''); } catch { return false; } };
+  if (await served()) return;
+  const dir = process.env.AUDIT_WWW_DIR || resolve(HERE, '../config/www');
+  mkdirSync(dir, { recursive: true });
+  copyFileSync(resolve(HERE, 'fixtures', IMG_FILE), resolve(dir, IMG_FILE));
+  for (let i = 0; i < 10; i++) { if (await served()) return; await new Promise((r) => setTimeout(r, 500)); }
+  throw new Error(`${HA}/local/${IMG_FILE} is not served after copying the fixture to ${dir} - set AUDIT_WWW_DIR to the rig's config/www folder`);
+}
+
 const L = 'light.ceiling_lights';
 const T = 'sensor.outside_temperature';
-const IMG = '/static/icons/favicon-192x192.png';
+// An OPAQUE test image for the picture family (the old test image was a transparent favicon, so a background showed
+// THROUGH the picture and looked like an effect). The fixture ships in fixtures/ and is served from the rig's www/
+// (copied there when missing; AUDIT_WWW_DIR overrides the target folder, default ../config/www next to the harness).
+const IMG_FILE = 'audit-opaque.png';
+const IMG = `/local/${IMG_FILE}`;
 // Every built-in card type that renders in the sandbox (containers are
 // covered separately: they show no card-level modules at all). Cards that
 // can carry a title get one, as real ones usually do — on chart/list cards
@@ -75,7 +104,8 @@ const CARDS = {
   markdown: { content: 'Hello **world**' },
   'media-control': { entity: 'media_player.living_room' },
   picture: { image: IMG },
-  'picture-elements': { image: IMG, elements: [{ type: 'state-icon', entity: L, style: { top: '50%', left: '50%' } }] },
+  // an icon AND a text element: with an icon alone there is no text for the Font module's weight / family to style
+  'picture-elements': { image: IMG, elements: [{ type: 'state-icon', entity: L, style: { top: '50%', left: '50%' } }, { type: 'state-label', entity: T, style: { top: '80%', left: '50%' } }] },
   'picture-entity': { entity: 'camera.demo_camera' },
   'picture-glance': { title: 'Garden', camera_image: 'camera.demo_camera', entities: [L] },
   sensor: { entity: T, graph: 'line' },
@@ -161,6 +191,7 @@ const threshold = (s, prop, entity) => ({
 /** Changed pixels needed to call an effect visible (anti-aliasing noise). */
 const PX_MIN = 30;
 let measurePx = async () => 0;
+let pxd = async () => ({ n: 0 });
 let setPxBase = async () => {};
 const atobCount = (b64) => { const s = Buffer.from(b64, 'base64'); let n = 0; for (const v of s) if (v) n++; return n; };
 
@@ -168,6 +199,7 @@ const PROPS = ['color', 'background-color', 'background-image', 'fill', 'stroke'
   'filter', 'border-top-width', 'border-top-color', 'border-top-left-radius', 'animation-name', 'width', 'height', 'opacity'];
 
 const run = async () => {
+  await ensureImageFixture();
   const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
   const page = await browser.newPage({ viewport: { width: 1300, height: 1000 } });
   await page.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
@@ -242,14 +274,32 @@ const run = async () => {
         return x.getImageData(0, 0, c.width, c.height).data;
       },
       // changed-pixel count between two PNGs, ignoring pixels in `mask`
-      async pxdiff(a, b, maskB64) {
+      // the card's rounded outline in screenshot coordinates (for the ignored edge ring)
+      geom() {
+        const w = this.panel.shadowRoot.querySelector('.preview-card-wrapper');
+        const c = this.preview(); if (!w || !c) return null;
+        const clip = this.rect();
+        const el = c.firstElementChild?.shadowRoot?.querySelector('ha-card') || c;
+        const r = el.getBoundingClientRect();
+        const rad = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
+        return { x: r.left - clip.x, y: r.top - clip.y, w: r.width, h: r.height, r: Math.min(rad, r.width / 2, r.height / 2), W: clip.width };
+      },
+      async pxdiff(a, b, maskB64, geom) {
         const A = await this.pixels(a); const B = await this.pixels(b);
         if (A.length !== B.length) return { n: 999999, mask: null };
         const M = maskB64 ? Uint8Array.from(atob(maskB64), (ch) => ch.charCodeAt(0)) : null;
+        const RING = 2.5;
+        const width = geom ? geom.W : 0;
+        const edge = (p) => {
+          if (!geom) return false;
+          const px = (p % width) + 0.5 - (geom.x + geom.w / 2), py = Math.floor(p / width) + 0.5 - (geom.y + geom.h / 2);
+          const qx = Math.abs(px) - (geom.w / 2 - geom.r), qy = Math.abs(py) - (geom.h / 2 - geom.r);
+          return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - geom.r > -RING;
+        };
         let n = 0; const out = new Uint8Array(A.length / 4);
         for (let i = 0, p = 0; i < A.length; i += 4, p++) {
           const d = Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2]);
-          if (d > 40) { out[p] = 1; if (!M || !M[p]) n++; }
+          if (d > 40) { out[p] = 1; if ((!M || !M[p]) && !edge(p)) n++; }
         }
         let bin = ''; for (let i = 0; i < out.length; i++) bin += String.fromCharCode(out[i] | (M ? M[i] : 0));
         return { n, mask: btoa(bin) };
@@ -329,22 +379,25 @@ const run = async () => {
       const clip = await page.evaluate(() => window.__audit.rect());
       const shot = async () => (await page.screenshot({ clip })).toString('base64');
       let pxBase = await shot();
-      const pxBase0 = pxBase;
       setPxBase = async (b) => { pxBase = b ?? await shot(); };
       let pxMask = null;
+      const geom = await page.evaluate(() => window.__audit.geom());
+      pxd = (a, b) => page.evaluate(([x, y, m, g]) => window.__audit.pxdiff(x, y, m, g), [a, b, pxMask, geom]);
       for (let i = 0; i < 3; i++) {
         await page.waitForTimeout(400);
-        const r = await page.evaluate(([a, b, m]) => window.__audit.pxdiff(a, b, m), [pxBase, await shot(), pxMask]);
+        const r = await pxd(pxBase, await shot());
         pxMask = r.mask;
       }
       row.pxNoise = pxMask ? atobCount(pxMask) : 0;
+      row.floor = 0;
+      // an effect is accepted early once it is clearly above any floor an accepted attempt can have (<= PX_MIN)
       measurePx = async () => {
         let best = 0;
         for (let i = 0; i < 8; i++) {
           await page.waitForTimeout(300);
-          const r = await page.evaluate(([a, b, m]) => window.__audit.pxdiff(a, b, m), [pxBase, await shot(), pxMask]);
+          const r = await pxd(pxBase, await shot());
           best = Math.max(best, r.n);
-          if (best > PX_MIN) break;
+          if (best > 3 * PX_MIN) break;
         }
         return best;
       };
@@ -379,44 +432,62 @@ const run = async () => {
         { mod: 'cms-font-module', label: 'font:family', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontFamily: 'monospace' } }, shown: row.shown.includes('cms-font-module') },
       ];
       for (const c of cases) {
-        let cBase = base;
-        if (c.pre) {
-          await page.evaluate((s) => window.__audit.apply(s), c.pre);
-          await page.waitForTimeout(2500);
-          cBase = await page.evaluate(() => window.__audit.snap());
-          await setPxBase();
+        let res = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          let cBase = base;
+          // the unstyled card right now: the reference for this attempt and, compared with the one taken after the
+          // reset, its noise floor
+          const u1 = await shot();
+          await setPxBase(u1);
+          if (c.pre) {
+            await page.evaluate((s) => window.__audit.apply(s), c.pre);
+            await page.waitForTimeout(2500);
+            cBase = await page.evaluate(() => window.__audit.snap());
+            await setPxBase();
+          }
+          await page.evaluate((s) => window.__audit.apply(s), c.slice);
+          const changed = await measure(cBase);
+          const detail = lastDetail;
+          const px = await measurePx();
+          const style = await page.evaluate((k) => { const e = window.__audit.emitted(); const s = e?.[k]?.style; return typeof s === 'string' ? s : JSON.stringify(s ?? ''); }, process.env.STYLE_KEY === 'uix' ? 'uix' : 'card_mod');
+          // reset to the untouched state, and wait for the preview to settle back
+          await page.evaluate((s) => window.__audit.apply(s), initial);
+          for (let i = 0; i < 10; i++) { await page.waitForTimeout(250); if (diff(base, await page.evaluate(() => window.__audit.snap())) === 0) break; }
+          await page.waitForTimeout(400);
+          const floor = (await pxd(u1, await shot())).n;
+          res = { changed, px, style, floor, detail, attempts: attempt };
+          if (floor <= PX_MIN) break; // the unstyled card stayed put during this test
         }
-        await page.evaluate((s) => window.__audit.apply(s), c.slice);
-        const changed = await measure(cBase);
-        const px = await measurePx();
-        if (c.pre) await setPxBase(pxBase0);
-        const style = await page.evaluate((k) => { const e = window.__audit.emitted(); const s = e?.[k]?.style; return typeof s === 'string' ? s : JSON.stringify(s ?? ''); }, process.env.STYLE_KEY === 'uix' ? 'uix' : 'card_mod');
-        row.tests.push({ label: c.label, shown: c.shown, changed, px, visible: px > PX_MIN, emitted: !!style && style !== '""', detail: lastDetail });
-        // reset to the untouched state, and wait for the preview to settle back
-        await page.evaluate((s) => window.__audit.apply(s), initial);
-        for (let i = 0; i < 10; i++) { await page.waitForTimeout(250); if (diff(base, await page.evaluate(() => window.__audit.snap())) === 0) break; }
+        const visible = res.px > PX_MIN + 2 * res.floor;
+        // shown, nothing clearly above a persistently noisy card's floor, but a computed style did change: pixels cannot decide
+        const inconclusive = c.shown && !visible && res.floor > PX_MIN && res.changed > 0;
+        row.floor = Math.max(row.floor, res.floor);
+        row.tests.push({ label: c.label, shown: c.shown, changed: res.changed, px: res.px, floor: res.floor, attempts: res.attempts, visible, inconclusive, emitted: !!res.style && res.style !== '""', detail: res.detail });
       }
     } catch (e) {
       row.error = String(e.message || e).slice(0, 200);
     }
     results.push(row);
-    const verdicts = row.tests.map((t) => `${t.label}:${t.shown ? (t.visible ? '✅' : '❌') : (t.visible ? '⚠️' : '·')}`);
-    console.log(type.padEnd(17), row.error ? `ERROR ${row.error}` : verdicts.join(' '));
+    const verdicts = row.tests.map((t) => `${t.label}:${t.shown ? (t.visible ? '✅' : t.inconclusive ? '❔' : '❌') : (t.visible ? '⚠️' : '·')}`);
+    console.log(type.padEnd(17), `floor=${row.floor ?? '-'}`.padEnd(11), row.error ? `ERROR ${row.error}` : verdicts.join(' '));
   }
 
   await browser.close();
-  const dead = results.flatMap((r) => r.tests.filter((t) => t.shown && !t.visible).map((t) => `${r.type} › ${t.label}`));
+  const dead = results.flatMap((r) => r.tests.filter((t) => t.shown && !t.visible && !t.inconclusive).map((t) => `${r.type} › ${t.label}`));
+  const inconclusive = results.flatMap((r) => r.tests.filter((t) => t.inconclusive).map((t) => `${r.type} › ${t.label}`));
+  const floors = results.filter((r) => r.floor > 0).map((r) => `${r.type}=${r.floor}`);
   const missed = results.flatMap((r) => r.tests.filter((t) => !t.shown && t.visible).map((t) => `${r.type} › ${t.label}`));
-  const tag = `${AUDIT_CUSTOM === '1' ? 'custom-' : ''}${meta.engine}-${meta.version}`;
-  writeFileSync(resolve(HERE, `module-effect-audit-${tag}.json`), JSON.stringify({ meta, results, dead, missed }, null, 2));
+  const tag = `${AUDIT_CUSTOM === '1' ? 'custom-' : ''}${meta.engine}-${meta.version}${process.env.AUDIT_TAG ? '-' + process.env.AUDIT_TAG : ''}`;
+  writeFileSync(resolve(HERE, `module-effect-audit-${tag}.json`), JSON.stringify({ meta, results, dead, missed, inconclusive }, null, 2));
   const md = [`# Module effect audit — ${meta.engine} on HA ${meta.version}`, '',
-    '✅ shown + works · ❌ shown but changes nothing (dead) · ⚠️ hidden but would work · `·` hidden, no effect', '',
+    '✅ shown + works · ❌ shown but changes nothing (dead) · ❔ shown, effect inside the card\'s noise floor (inconclusive) · ⚠️ hidden but would work · `·` hidden, no effect', '',
     `| card | ${(results.find((r) => r.tests.length)?.tests ?? []).map((t) => t.label.replace('threshold:', 'thr:')).join(' | ')} |`,
     `|---|${(results.find((r) => r.tests.length)?.tests ?? []).map(() => '---').join('|')}|`,
-    ...results.map((r) => `| ${r.type} | ${r.error ? `error: ${r.error}` : r.tests.map((t) => (t.shown ? (t.visible ? '✅' : '❌') : (t.visible ? '⚠️' : '·'))).join(' | ')} |`),
-    '', `**Dead controls (${dead.length}):** ${dead.join(', ') || 'none'}`, '', `**Hidden but working (${missed.length}):** ${missed.join(', ') || 'none'}`];
+    ...results.map((r) => `| ${r.type} | ${r.error ? `error: ${r.error}` : r.tests.map((t) => (t.shown ? (t.visible ? '✅' : t.inconclusive ? '❔' : '❌') : (t.visible ? '⚠️' : '·'))).join(' | ')} |`),
+    '', `**Dead controls (${dead.length}):** ${dead.join(', ') || 'none'}`, '', `**Inconclusive, shown but within the noise floor (${inconclusive.length}):** ${inconclusive.join(', ') || 'none'}`, '', `**Hidden but working (${missed.length}):** ${missed.join(', ') || 'none'}`,
+    '', `**Noise floor (changed pixels of the unstyled card during a test, largest per card; an effect must exceed 30 + 2 x floor; 2.5 px edge ring ignored):** ${floors.join(', ') || 'all cards static (0)'}`];
   writeFileSync(resolve(HERE, `module-effect-audit-${tag}.md`), md.join('\n') + '\n');
-  console.log(`\nDEAD (${dead.length}): ${dead.join(', ') || 'none'}\nHIDDEN-BUT-WORKS (${missed.length}): ${missed.join(', ') || 'none'}`);
+  console.log(`\nDEAD (${dead.length}): ${dead.join(', ') || 'none'}\nINCONCLUSIVE (${inconclusive.length}): ${inconclusive.join(', ') || 'none'}\nHIDDEN-BUT-WORKS (${missed.length}): ${missed.join(', ') || 'none'}\nNOISE FLOOR: ${floors.join(', ') || 'all cards static (0)'}`);
 };
 
 run().catch((e) => { console.error('ERR', e); process.exit(1); });
