@@ -25,7 +25,6 @@ const FONT = 'cms-font-module';
 const ICON = 'cms-icon-color-module';
 const BG = 'cms-background-module';
 const ACCENT = 'cms-accent-color-module';
-const ADV = 'cms-advanced-module';
 
 describe('click-to-edit — Mushroom (literal chains from the probed DOM)', () => {
   const classic = 'custom:mushroom-entity-card';
@@ -62,10 +61,10 @@ describe('click-to-edit — Mushroom (literal chains from the probed DOM)', () =
     expect(pick([el('div', ['content']), el('ha-card', ['type-entity']), ...tail], c)).toBe(BG);
   });
 
-  it('title: the title text → Font; the subtitle is not claimed (no module, no box → Advanced CSS)', () => {
+  it('title: the title text → Font; the subtitle is not claimed (no box → the card-level Visual Filters)', () => {
     const t = 'custom:mushroom-title-card';
     expect(pick([el('h1', ['title']), el('div'), el('ha-card', ['header'])], t)).toBe(FONT);
-    expect(pick([el('h2', ['subtitle']), el('div'), el('ha-card', ['header'])], t)).toBe(ADV);
+    expect(pick([el('h2', ['subtitle']), el('div'), el('ha-card', ['header'])], t)).toBe('cms-filter-module');
   });
 });
 

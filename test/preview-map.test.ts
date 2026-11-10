@@ -291,11 +291,11 @@ describe('mapElementToTarget', () => {
     });
   });
 
-  it('falls back to Advanced CSS on picture cards (no background module)', () => {
+  it('falls back to Border on picture cards (no background module, border shown)', () => {
     const chain = [el('ha-card'), el('hui-picture-card'), el('hui-card')];
     expect(mapElementToTarget(chain, 'picture')).toEqual({
-      module: 'cms-advanced-module',
-      label: 'Advanced CSS',
+      module: 'cms-border-module',
+      label: 'Border & Radius',
     });
   });
 

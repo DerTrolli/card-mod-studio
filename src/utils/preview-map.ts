@@ -174,9 +174,8 @@ const RULES: PickRule[] = [
     // ha-gauge internals (value text / needle / dial) → Accent Color.
     test: (el) => el.tag === 'ha-gauge' || el.classes.some((c) => GAUGE_CLASSES.has(c)),
     target: (cardType, config) =>
-      // Accent module is hidden on heading + entities cards (cms-panel).
-      capsFor(cardType).isHeading || capsFor(cardType).isEntities ||
-      (capsFor(cardType, config).custom && !capsFor(cardType, config).modules.accentColor)
+      // Accent is hidden on heading, entities and the cards that never read it.
+      !capsFor(cardType, config).modules.accentColor
         ? null
         : {
             module: 'cms-accent-color-module',
@@ -239,11 +238,14 @@ const RULES: PickRule[] = [
   },
 ];
 
-/** The catch-all: the card surface itself (or anything unrecognised). */
-function fallbackTarget(cardType: string): PickTarget {
-  return !capsFor(cardType).modules.background
-    ? { module: 'cms-advanced-module', label: 'Advanced CSS' }
-    : { module: 'cms-background-module', label: 'Background & card surface' };
+/** The catch-all: the card surface itself (or anything unrecognised) — the
+ *  first module that styles the card as a whole and is on screen for it. */
+function fallbackTarget(cardType: string, config?: Record<string, unknown> | null): PickTarget {
+  const shown = capsFor(cardType, config).modules;
+  if (shown.background) return { module: 'cms-background-module', label: 'Background & card surface' };
+  if (shown.border) return { module: 'cms-border-module', label: 'Border & Radius' };
+  if (shown.filter) return { module: 'cms-filter-module', label: 'Visual Filters' };
+  return { module: 'cms-advanced-module', label: 'Advanced CSS' };
 }
 
 function buildContext(chain: PickChainElement[], cardType: string): ChainContext {
@@ -336,7 +338,7 @@ export function mapElementToMatch(
   // chain has one, else the outermost element.
   const haCardIndex = chain.findIndex((el) => el.tag === 'ha-card');
   return {
-    target: fallbackTarget(cardType),
+    target: fallbackTarget(cardType, config),
     index: haCardIndex !== -1 ? haCardIndex : chain.length - 1,
   };
 }
