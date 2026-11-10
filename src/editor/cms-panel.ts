@@ -523,12 +523,23 @@ export class CmsPanel extends LitElement {
   // Preset management
   // ---------------------------------------------------------------------------
 
+  /** The stored preset a typed name refers to: names are compared trimmed
+   *  and case-sensitively ("Warm" and "warm" stay two presets). */
+  private _presetNamed(typed: string): StylePreset | undefined {
+    const name = typed.trim();
+    return name ? this._presets.find((p) => p.name.trim() === name) : undefined;
+  }
+
   private _startNamingPreset() {
-    this._presetName = '';
+    // With a preset selected the field starts on its full name, so Overwrite is
+    // one click — even for a name stored before the length cap.
+    this._presetName = this._presets.find((p) => p.name === this._selectedPreset)?.name ?? '';
     this._presetNameTried = false;
     this._namingPreset = true;
     void this.updateComplete.then(() => {
-      (this.shadowRoot?.querySelector('.preset-name') as HTMLInputElement | null)?.focus();
+      const input = this.shadowRoot?.querySelector('.preset-name') as HTMLInputElement | null;
+      input?.focus();
+      input?.select(); // typing a new name replaces the prefilled one
     });
   }
 
@@ -540,10 +551,12 @@ export class CmsPanel extends LitElement {
 
   /** Leading blanks are dropped and the length capped as the user types; the
    *  trailing end is only trimmed on save (trimming it here would make
-   *  "my preset" untypeable). */
+   *  "my preset" untypeable). The cap is for NEW names: a name that is
+   *  already a preset is left whole. */
   private _onPresetNameInput(e: Event) {
     const input = e.target as HTMLInputElement;
-    const name = input.value.replace(/^\s+/, '').slice(0, PRESET_NAME_MAX);
+    const typed = input.value.replace(/^\s+/, '');
+    const name = this._presetNamed(typed) ? typed : typed.slice(0, PRESET_NAME_MAX);
     // Blanks only: nothing is left to show, so say why Save stays disabled.
     if (!name && input.value) this._presetNameTried = true;
     if (name !== input.value) input.value = name;
@@ -567,7 +580,10 @@ export class CmsPanel extends LitElement {
   /** Saves the current styling under the name typed into the preset bar. */
   private _saveCurrentAsPreset() {
     if (!this._studioState) return;
-    const trimmed = this._presetName.trim().slice(0, PRESET_NAME_MAX);
+    const typed = this._presetName.trim();
+    // An existing preset is overwritten under ITS name, whatever its length;
+    // only a new name is capped.
+    const trimmed = this._presetNamed(typed)?.name ?? typed.slice(0, PRESET_NAME_MAX);
     if (!trimmed) {
       this._presetNameTried = true;
       return;
@@ -1233,7 +1249,7 @@ export class CmsPanel extends LitElement {
   private _renderPresetBar() {
     if (this._namingPreset) {
       const name = this._presetName.trim();
-      const exists = !!name && this._presets.some((p) => p.name === name);
+      const exists = !!this._presetNamed(name);
       const hint = !name && (this._presetName.length > 0 || this._presetNameTried)
         ? 'Type a name to save this preset.'
         : exists

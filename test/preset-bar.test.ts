@@ -113,6 +113,41 @@ describe('naming', () => {
     expect(type('my preset').value).toBe('my preset'); // inner/trailing spaces stay typeable
     expect(type('ab ').value).toBe('ab ');
   });
+  it('a preset stored with a name over the cap can still be overwritten under that name', () => {
+    const long = 'L'.repeat(80);
+    const { p, text, type } = make([long]);
+    p._selectedPreset = long;
+    (p as unknown as { _startNamingPreset(): void })._startNamingPreset();
+    expect(p._presetName).toBe(long); // prefilled whole
+    expect(text()).toContain('💾 Overwrite');
+    expect(type(long).value).toBe(long); // an input event does not cut it
+    const changed = { ...STATE, border: { ...STATE.border, enabled: true } };
+    p._presets = [{ name: long, state: STATE }];
+    (p as unknown as { _studioState: unknown })._studioState = changed;
+    (p as unknown as { _saveCurrentAsPreset(): void })._saveCurrentAsPreset();
+    expect(p._presets.map((x) => x.name)).toEqual([long]); // replaced, not a second 60-char one
+    expect(p._presets[0].state.border.enabled).toBe(true);
+    expect(p._selectedPreset).toBe(long);
+  });
+  it('a name that is not an existing preset is still capped at 60', () => {
+    const { p, type } = make([ 'L'.repeat(80) ]);
+    p._namingPreset = true;
+    expect(type('L'.repeat(79)).value).toBe('L'.repeat(60));
+  });
+  it('names match trimmed (an old name with a trailing blank is found) and case-sensitively', () => {
+    const { p, text, type } = make(['Warm ']);
+    p._namingPreset = true;
+    type('Warm');
+    expect(text()).toContain('💾 Overwrite');
+    (p as unknown as { _saveCurrentAsPreset(): void })._saveCurrentAsPreset();
+    expect(p._presets.map((x) => x.name)).toEqual(['Warm ']); // replaced under its own name, no duplicate
+    p._namingPreset = true;
+    type('warm');
+    expect(text()).toContain('💾 Save');
+    expect(text()).not.toContain('Replaces');
+    (p as unknown as { _saveCurrentAsPreset(): void })._saveCurrentAsPreset();
+    expect(p._presets.map((x) => x.name).sort()).toEqual(['Warm ', 'warm']);
+  });
   it('the field carries maxlength and an accessible name', () => {
     const { p, text } = make();
     p._namingPreset = true;
