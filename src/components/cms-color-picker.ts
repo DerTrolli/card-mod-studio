@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { getCachedPalette, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
 import { isValidCssColor, type ColorMode } from '../utils/css-color.js';
 import { keepEnterInStudio } from '../utils/enter-guard.js';
+import { rovingTarget, tabStopIndex } from '../utils/roving-focus.js';
 
 /**
  * Walks up through shadow-root hosts *and* slot assignments — the
@@ -401,37 +402,68 @@ export class CmsColorPicker extends LitElement {
     if (this._popoverOpen) this._renderPortalContent();
   }
 
+  /** The swatch the user last moved to by keyboard, per row (undefined: the
+   *  selected one, else the first, is the row's Tab stop). */
+  private _moved = new Map<string, number>();
+
+  private _onSwatchKeydown(e: KeyboardEvent, rowKey: string) {
+    const row = e.currentTarget as HTMLElement;
+    const buttons = Array.from(row.querySelectorAll<HTMLElement>('button.preset'));
+    const current = buttons.indexOf(e.target as HTMLElement);
+    if (current < 0) return;
+    const next = rovingTarget(e.key, current, buttons.length, e);
+    if (next === null) return;
+    e.preventDefault();
+    this._moved.set(rowKey, next);
+    buttons[next].focus();
+    this.requestUpdate();
+  }
+
+  /** One row of swatches: a single Tab stop (roving tabindex), arrows /
+   *  Home / End move between swatches, Enter / Space pick as buttons do. */
+  private _renderSwatchRow(
+    rowKey: string,
+    name: string,
+    items: Array<{ hex: string; title: string; name: string; selected: boolean; pick: () => void }>,
+    title?: string,
+  ) {
+    const stop = tabStopIndex(items.length, items.findIndex((i) => i.selected), this._moved.get(rowKey));
+    const groups = chunk(items.map((item, index) => ({ item, index })), 5);
+    return html`<div
+      class="presets"
+      role="group"
+      aria-label=${this._name(name)}
+      title=${title ?? nothing}
+      @keydown=${(e: KeyboardEvent) => this._onSwatchKeydown(e, rowKey)}
+    >
+      ${groups.map((group) => html`<div class="preset-group">${group.map(({ item, index }) => html`
+        <button
+          type="button"
+          class="preset ${item.selected ? 'selected' : ''}"
+          style="background: ${item.hex}"
+          title="${item.title}"
+          aria-label="${item.name}"
+          aria-pressed="${item.selected}"
+          tabindex="${index === stop ? 0 : -1}"
+          @click=${() => { this._moved.delete(rowKey); item.pick(); }}
+        ></button>
+      `)}</div>`)}
+    </div>`;
+  }
+
   private _renderPickerBody() {
     const customColors = getCachedPalette().colors;
     return html`
       <div class="container">
-        <div class="presets">
-          ${chunk(HA_COLOR_PRESETS, 5).map(group => html`<div class="preset-group">${group.map(p => html`
-            <button
-              type="button"
-              class="preset ${this.value === p.variable ? 'selected' : ''}"
-              style="background: ${p.hex}"
-              title="${p.name} (${p.variable})"
-              aria-label="${p.name}"
-              aria-pressed="${this.value === p.variable}"
-              @click=${() => this._selectPreset(p)}
-            ></button>
-          `)}</div>`)}
-        </div>
+        ${this._renderSwatchRow('presets', 'Palette colors', HA_COLOR_PRESETS.map((p) => ({
+          hex: p.hex, title: `${p.name} (${p.variable})`, name: p.name,
+          selected: this.value === p.variable, pick: () => this._selectPreset(p),
+        })))}
         ${customColors.length > 0
-          ? html`<div class="presets" title="My colors">
-              ${chunk(customColors, 5).map(group => html`<div class="preset-group">${group.map(c => html`
-                <button
-                  type="button"
-                  class="preset ${this.value === c.hex ? 'selected' : ''}"
-                  style="background: ${c.hex}"
-                  title="${c.name || c.hex}"
-                  aria-label="${c.name || c.hex}"
-                  aria-pressed="${this.value === c.hex}"
-                  @click=${() => this._selectCustom(c.hex)}
-                ></button>
-              `)}</div>`)}
-            </div>`
+          ? this._renderSwatchRow('custom', 'My colors', customColors.map((c) => ({
+              hex: c.hex, title: c.name || c.hex, name: c.name || c.hex,
+              selected: this.value === c.hex, pick: () => this._selectCustom(c.hex),
+            })), 'My colors')
           : nothing}
         <div class="custom">
           <input type="color" aria-label="${this._name('Pick a custom color')}" .value=${this._toHex(this.value || (this.clearable ? this.placeholderColor : ''))} @input=${this._onColorInput} />
