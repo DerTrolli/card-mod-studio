@@ -557,18 +557,20 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
     center: 'center',
     right: 'flex-end',
   };
-  const alignVal = alignMap[s.alignment] ?? 'flex-start';
-  const weight = FONT_WEIGHT_VALUE[s.fontWeight ?? 'normal'];
 
+  // Each property is written only when set: an untouched one must leave the
+  // card's native value alone (it differs between title and subtitle).
   const containerDecls = [
-    `justify-content: ${alignVal} !important;`,
+    ...(s.alignment ? [`justify-content: ${alignMap[s.alignment] ?? 'flex-start'} !important;`] : []),
     ...(['title', 'subtitle'] as const).flatMap((kind) => [
-      `--ha-heading-card-${kind}-font-size: ${s.fontSize}px;`,
-      `--ha-heading-card-${kind}-color: ${s.textColor};`,
-      `--ha-heading-card-${kind}-font-weight: ${weight};`,
+      ...(s.fontSize ? [`--ha-heading-card-${kind}-font-size: ${s.fontSize}px;`] : []),
+      ...(s.textColor ? [`--ha-heading-card-${kind}-color: ${s.textColor};`] : []),
+      ...(s.fontWeight ? [`--ha-heading-card-${kind}-font-weight: ${FONT_WEIGHT_VALUE[s.fontWeight]};`] : []),
     ]),
   ];
-  const container = `.container {\n${containerDecls.map((d) => `  ${d}`).join('\n')}\n}`;
+  const container = containerDecls.length
+    ? `.container {\n${containerDecls.map((d) => `  ${d}`).join('\n')}\n}`
+    : '';
 
   const family = s.fontFamily?.trim()
     ? `${HEADING_FAMILY_SELECTOR} {\n  font-family: ${s.fontFamily.trim()};\n}`
@@ -577,7 +579,13 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
   // --mdc-icon-size is what ha-icon honours (still, as of HA 2026.10 —
   // HA's own usage grew); the pre-v0.10 `--ha-icon-size` twin was inert and
   // is no longer emitted (still recognised when reading older configs).
-  const icon = `${HEADING_ICON_SELECTOR} {\n  --mdc-icon-size: ${s.iconSize}px;\n  color: ${s.iconColor} !important;\n}`;
+  const iconDecls = [
+    ...(s.iconSize ? [`--mdc-icon-size: ${s.iconSize}px;`] : []),
+    ...(s.iconColor ? [`color: ${s.iconColor} !important;`] : []),
+  ];
+  const icon = iconDecls.length
+    ? `${HEADING_ICON_SELECTOR} {\n${iconDecls.map((d) => `  ${d}`).join('\n')}\n}`
+    : '';
 
   return [container, family, icon].filter(Boolean).join('\n\n');
 }

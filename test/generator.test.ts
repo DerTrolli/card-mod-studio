@@ -543,8 +543,10 @@ describe('generateCss — heading style', () => {
     expect(css).not.toContain('--ha-icon-size');
   });
 
-  it('defaults to the theme text colour (no near-white text on light themes)', () => {
-    const css = generateCss(makeState({ headingStyle: { ...DEFAULT_HEADING_STYLE, enabled: true } }));
+  it('writes the theme text colour only when it is chosen (no near-white text on light themes)', () => {
+    const css = generateCss(
+      makeState({ headingStyle: { ...DEFAULT_HEADING_STYLE, enabled: true, textColor: 'var(--primary-text-color)' } }),
+    );
     expect(css).toContain('--ha-heading-card-title-color: var(--primary-text-color);');
     expect(css).not.toContain('#e1e1e1');
   });

@@ -125,13 +125,7 @@ export const THEME_TEXT_COLOR = 'var(--primary-text-color)';
 
 export const DEFAULT_HEADING_STYLE: HeadingStyleModuleState = {
   enabled: false,
-  fontSize: 24,
-  textColor: THEME_TEXT_COLOR,
-  fontWeight: 'normal',
   fontFamily: '',
-  iconSize: 24,
-  iconColor: THEME_TEXT_COLOR,
-  alignment: 'left',
 };
 
 export const DEFAULT_FONT: FontModuleState = {

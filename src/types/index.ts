@@ -282,18 +282,21 @@ export interface AdvancedModuleState {
   rawCss: string;
 }
 
+/** Every visual property is optional: `undefined` = "not set" — nothing is
+ *  written for it, so the card keeps its native look (title and subtitle
+ *  headings differ, and neither matches a fixed panel default). */
 export interface HeadingStyleModuleState {
   enabled: boolean;
-  fontSize: number;        // px, 12–48
-  textColor: string;       // CSS color for ha-card .title p
+  fontSize?: number;       // px, 12–48
+  textColor?: string;      // CSS color for the heading text
   /** Weight of the heading text (issue #25 follow-up: headings previously
    *  had size+color only). */
-  fontWeight: 'normal' | 'medium' | 'bold';
+  fontWeight?: 'normal' | 'medium' | 'bold';
   /** '' = leave the theme's font-family alone. */
   fontFamily: string;
-  iconSize: number;        // px for --mdc-icon-size on ha-card .title ha-icon
-  iconColor: string;       // CSS color for ha-card .title ha-icon
-  alignment: 'left' | 'center' | 'right';
+  iconSize?: number;       // px for --mdc-icon-size on the heading icon
+  iconColor?: string;      // CSS color for the heading icon
+  alignment?: 'left' | 'center' | 'right';
 }
 
 export interface FontModuleState {
