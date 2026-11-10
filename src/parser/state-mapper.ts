@@ -1908,9 +1908,20 @@ const FONT_WEIGHT_FROM_VALUE: Record<string, FontModuleState['fontWeight']> = {
   bold: 'bold',
 };
 
-/** Claim keys of every declaration in a generated CSS block. */
-function writtenKeys(css: string): Set<string> {
-  return new Set(parseCss(css).flatMap((t) => t.properties.map((p) => claimKey(t.selector, p.property))));
+/** Claim key -> whether the generator writes it with `!important`, for every
+ *  declaration in a generated CSS block. */
+function writtenKeys(css: string): Map<string, boolean> {
+  return new Map(
+    parseCss(css).flatMap((t) => t.properties.map((p): [string, boolean] => [claimKey(t.selector, p.property), !!p.important])),
+  );
+}
+
+/** Whether the Font generator writes a companion with `!important` (used when
+ *  no card type narrows it down): the selector-block ones do, except the
+ *  entities `.card-header` weight; the ha-card variables never do. */
+function companionImportant(selector: string, property: string): boolean {
+  const sel = selector.trim().toLowerCase();
+  return sel !== 'ha-card' && !(sel === '.card-header' && property === 'font-weight');
 }
 
 /**
@@ -1933,13 +1944,18 @@ function claimFontCompanions(
   claimed: Set<string>,
   cardType: string | undefined,
   headerWeight: boolean,
-  allowed: Set<string> | null,
+  allowed: Map<string, boolean> | null,
 ): void {
   const claimIf = (target: CssTarget | null, property: string, expected: string | null) => {
     if (!target || expected === null) return;
-    if (allowed && !allowed.has(claimKey(target.selector, property))) return;
+    const key = claimKey(target.selector, property);
+    if (allowed && !allowed.has(key)) return;
     const prop = findProp(target, property);
-    if (prop && prop.value.trim() === expected) claimed.add(claimKey(target.selector, property));
+    // The `!important` flag must match what the generator writes back: a
+    // plain hand-written `font-size: 20px` would come back as `!important`
+    // (stronger in the cascade), a flagged one would lose its flag.
+    const writtenImportant = allowed ? allowed.get(key)! : companionImportant(target.selector, property);
+    if (prop && prop.value.trim() === expected && !!prop.important === writtenImportant) claimed.add(key);
   };
 
   // ha-card variable companions
@@ -2116,7 +2132,7 @@ function mapFont(
   // parse without one): every known companion shape.
   const emitKey = emitKeyOf(cardType) || undefined;
   const caps = capsFor(cardType);
-  let allowed: Set<string> | null = null;
+  let allowed: Map<string, boolean> | null = null;
   if (!sizeMatch) {
     if (!weightStr && !colorStr && !familyStr) return { ...DEFAULT_FONT };
     const emitted = fontBlock(state, emitKey, caps);
@@ -2133,8 +2149,8 @@ function mapFont(
     }
     allowed = writtenKeys(emitted);
     if (emitKey === 'picture-glance') {
-      allowed.add(claimKey('ha-card', '--ha-card-header-color'));
-      allowed.add(claimKey('ha-card', '--ha-card-header-font-family'));
+      allowed.set(claimKey('ha-card', '--ha-card-header-color'), false);
+      allowed.set(claimKey('ha-card', '--ha-card-header-font-family'), false);
     }
   } else if (cardType) {
     allowed = writtenKeys(fontBlock(state, emitKey, caps));
@@ -2142,7 +2158,7 @@ function mapFont(
     // claimed (and are dropped on the next save): a deliberate clean-up.
     if (emitKey === 'picture-glance') {
       for (const p of ['--ha-card-header-font-size', '--ha-card-header-color', '--ha-card-header-font-family']) {
-        allowed.add(claimKey('ha-card', p));
+        allowed.set(claimKey('ha-card', p), false);
       }
     }
   }
