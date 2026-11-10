@@ -195,7 +195,7 @@ export function findRowExtraCssConflicts(style: EntitiesRowStyle): string[] {
 
   const iconOn = !!(style.iconColor || style.iconMode === 'threshold');
   const textOn = !!(style.textColor || style.textMode === 'threshold');
-  const fontOn = !!(style.fontSizePx || style.fontWeight);
+  const fontOn = style.fontSizePx != null || !!style.fontWeight;
   if (!iconOn && !textOn && !fontOn) return [];
 
   let targets;

@@ -1,7 +1,9 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, HomeAssistant, ThresholdRule } from '../types/index.js';
-import { moduleStyles, renderOverrideHint, onHeaderKeydown } from './module-base.js';
+import {
+  moduleStyles, renderOverrideHint, onHeaderKeydown, renderResetButton, renderDefaultOption,
+} from './module-base.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
 import { findRowExtraCssConflicts } from '../utils/style-conflicts.js';
 import { THEME_TEXT_COLOR } from '../parser/state-mapper.js';
@@ -42,6 +44,10 @@ export function entityRowLabel(hass: HomeAssistant | undefined, entityId: string
   return explicit || (typeof friendly === 'string' && friendly) || entityId.split('.')[1] || entityId;
 }
 
+/** An entities-card row's text size when nothing is set (measured on HA 2026.11).
+ *  Display-only: never written into a style. */
+const ROW_NATIVE_FONT_SIZE = 14;
+
 export class EntitiesRowsModule extends LitElement {
   /** May contain bare-string rows ('sensor.x') — the YAML shorthand form. */
   @property({ attribute: false }) rows: Array<EntitiesCardRow | string> = [];
@@ -54,6 +60,10 @@ export class EntitiesRowsModule extends LitElement {
 
   /** Open sections, by the same positional row key as `styles`. */
   @state() private _openRows = new Set<string>();
+  /** Rows whose Font switch is on without anything set yet (nothing to store). */
+  @state() private _fontOpen = new Set<string>();
+  /** Size slider value while dragged, per row (emitted on release only). */
+  @state() private _fontLive: Record<string, number> = {};
 
   static override styles = [
     moduleStyles,
@@ -256,6 +266,13 @@ export class EntitiesRowsModule extends LitElement {
     );
   }
 
+  /** Once a row's font control was used, its switch stays on even if every
+   *  value is reset back to "not set". */
+  private _keepFontOpen(rowKey: string) {
+    if (this._fontOpen.has(rowKey)) return;
+    this._fontOpen = new Set(this._fontOpen).add(rowKey);
+  }
+
   private _toggleRow(rowKey: string) {
     const next = new Set(this._openRows);
     if (next.has(rowKey)) next.delete(rowKey);
@@ -315,7 +332,7 @@ export class EntitiesRowsModule extends LitElement {
       rowStyle.iconMode === 'threshold' ||
       rowStyle.textColor ||
       rowStyle.textMode === 'threshold' ||
-      rowStyle.fontSizePx ||
+      rowStyle.fontSizePx != null ||
       rowStyle.fontWeight ||
       rowStyle.extraCss
     );
@@ -358,6 +375,11 @@ export class EntitiesRowsModule extends LitElement {
   }
 
   private _renderBody(rowKey: string, rowStyle: EntitiesRowStyle, conflicts: string[] = [], stateColorOff = false) {
+    const hasFont = rowStyle.fontSizePx != null || !!rowStyle.fontWeight;
+    // The switch only reveals the controls; nothing is written until one is set.
+    const fontOn = hasFont || this._fontOpen.has(rowKey);
+    const liveSize = this._fontLive[rowKey];
+    const shownSize = liveSize ?? rowStyle.fontSizePx;
     const iconEnabled = !!(rowStyle.iconColor || rowStyle.iconMode === 'threshold');
     const iconIsThreshold = rowStyle.iconMode === 'threshold';
     const textEnabled = !!(rowStyle.textColor || rowStyle.textMode === 'threshold');
@@ -460,45 +482,69 @@ export class EntitiesRowsModule extends LitElement {
           <span class="control-label">Font (this row)</span>
           <div class="control-right">
             <ha-switch
-              .checked=${!!(rowStyle.fontSizePx || rowStyle.fontWeight)}
+              aria-label="Font (this row)"
+              .checked=${fontOn}
               @change=${(e: Event) => {
                 const on = (e.target as HTMLInputElement).checked;
-                this._updateRow(rowKey, on
-                  ? { fontSizePx: 16, fontWeight: 'normal' }
-                  : { fontSizePx: undefined, fontWeight: undefined });
+                const open = new Set(this._fontOpen);
+                if (on) {
+                  open.add(rowKey);
+                  this._fontOpen = open;
+                  return;
+                }
+                open.delete(rowKey);
+                this._fontOpen = open;
+                this._updateRow(rowKey, { fontSizePx: undefined, fontWeight: undefined });
               }}
             ></ha-switch>
           </div>
         </div>
-        ${rowStyle.fontSizePx || rowStyle.fontWeight
+        ${fontOn
           ? html`
               <div class="control-row">
                 <span class="control-label">Text size</span>
                 <div class="control-right">
                   <ha-slider
+                    aria-label="Text size (this row)"
                     min="8"
                     max="48"
                     step="1"
-                    .value=${String(rowStyle.fontSizePx ?? 16)}
-                    @change=${(e: Event) =>
+                    .value=${String(shownSize ?? ROW_NATIVE_FONT_SIZE)}
+                    @input=${(e: Event) => {
+                      this._fontLive = { ...this._fontLive, [rowKey]: parseFloat((e.target as HTMLInputElement).value) };
+                    }}
+                    @change=${(e: Event) => {
+                      const { [rowKey]: _live, ...rest } = this._fontLive;
+                      this._fontLive = rest;
+                      this._keepFontOpen(rowKey);
                       this._updateRow(rowKey, {
-                        fontSizePx: Math.max(8, parseFloat((e.target as HTMLInputElement).value) || 16),
-                      })}
+                        fontSizePx: Math.max(8, parseFloat((e.target as HTMLInputElement).value) || ROW_NATIVE_FONT_SIZE),
+                      });
+                    }}
                   ></ha-slider>
-                  <span class="value-label">${rowStyle.fontSizePx ?? 16}px</span>
+                  ${shownSize === undefined
+                    ? html`<span class="value-label unset">Default (${ROW_NATIVE_FONT_SIZE}px)</span>`
+                    : html`<span class="value-label">${shownSize}px</span>${renderResetButton(() => {
+                        this._keepFontOpen(rowKey);
+                        this._updateRow(rowKey, { fontSizePx: undefined });
+                      }, 'Reset text size to default')}`}
                 </div>
               </div>
               <div class="control-row">
                 <span class="control-label">Weight</span>
                 <div class="control-right">
                   <select
-                    .value=${rowStyle.fontWeight ?? 'normal'}
-                    @change=${(e: Event) =>
+                    aria-label="Weight (this row)"
+                    .value=${rowStyle.fontWeight ?? ''}
+                    @change=${(e: Event) => {
+                      this._keepFontOpen(rowKey);
                       this._updateRow(rowKey, {
-                        fontWeight: (e.target as HTMLSelectElement).value as EntitiesRowStyle['fontWeight'],
-                      })}
+                        fontWeight: ((e.target as HTMLSelectElement).value || undefined) as EntitiesRowStyle['fontWeight'],
+                      });
+                    }}
                   >
-                    <option value="normal" ?selected=${(rowStyle.fontWeight ?? 'normal') === 'normal'}>Normal</option>
+                    ${renderDefaultOption(!rowStyle.fontWeight)}
+                    <option value="normal" ?selected=${rowStyle.fontWeight === 'normal'}>Normal</option>
                     <option value="medium" ?selected=${rowStyle.fontWeight === 'medium'}>Medium</option>
                     <option value="bold" ?selected=${rowStyle.fontWeight === 'bold'}>Bold</option>
                   </select>

@@ -337,7 +337,7 @@ export function generateEntityRowCss(style: EntitiesRowStyle, entityId: string):
 
   // Per-row font (issue #25 follow-up): rows inherit the card-level Font by
   // default; these override just this row.
-  if (style.fontSizePx) decls.push(`  font-size: ${style.fontSizePx}px;`);
+  if (style.fontSizePx != null) decls.push(`  font-size: ${style.fontSizePx}px;`);
   if (style.fontWeight) decls.push(`  font-weight: ${FONT_WEIGHT_VALUE[style.fontWeight]};`);
 
   const hostBlock = decls.length ? `:host {\n${decls.join('\n')}\n}` : '';
@@ -357,7 +357,7 @@ export function rowStyleHasContent(rowStyle: EntitiesRowStyle | undefined): bool
     rowStyle.textColor ||
     (rowStyle.textMode === 'threshold' && rowStyle.textRules?.length)
   );
-  return hasIcon || hasText || !!rowStyle.fontSizePx || !!rowStyle.fontWeight || !!rowStyle.extraCss;
+  return hasIcon || hasText || rowStyle.fontSizePx != null || !!rowStyle.fontWeight || !!rowStyle.extraCss;
 }
 
 /**
