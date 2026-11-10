@@ -149,6 +149,43 @@ describe('fuzz 1 — generated module output is byte-stable through open/save', 
   });
 });
 
+describe('fuzz 1b — Number size × Font on gauge and thermostat', () => {
+  const KEY = { gauge: 'ha-gauge$', thermostat: 'ha-big-number$' } as const;
+  for (const engine of ['card-mod', 'uix'] as const) {
+    it(`open → save is byte-stable; the entry is present exactly when both are on (${engine}, seeded)`, () => {
+      installEngines([engine]);
+      const r = rng(engine === 'uix' ? 4242 : 2424);
+      const pick = <T,>(a: readonly T[]): T => a[Math.floor(r() * a.length)];
+      const fails: string[] = [];
+      for (let i = 0; i < 600; i++) {
+        const type = pick(['gauge', 'thermostat'] as const);
+        const sizeOn = r() < 0.5;
+        const fontOn = r() < 0.5;
+        const font = {
+          ...DEFAULT_FONT, enabled: fontOn,
+          fontFamily: pick(['', 'serif']),
+          fontSize: r() < 0.4 ? undefined : pick([12, 16, 22]),
+          fontWeight: r() < 0.4 ? undefined : pick(['normal', 'medium', 'bold'] as const),
+          color: r() < 0.4 ? undefined : pick(COLORS),
+          numberSizeEnabled: sizeOn,
+          numberSize: sizeOn ? (type === 'gauge' ? pick([80, 120, 150]) : pick([30, 70, 90])) : 0,
+        };
+        const config = cfg({ type, entity: type === 'gauge' ? 'sensor.t' : 'climate.x', [engine === 'uix' ? 'uix' : 'card_mod']: { style: '' } });
+        const first = applyStudioState({ ...buildMergedStudioState(config), font }, config);
+        const second = applyStudioState(buildMergedStudioState(first), first);
+        const text = JSON.stringify(first);
+        const has = text.includes(KEY[type]);
+        const reopened = buildMergedStudioState(first).font;
+        if (JSON.stringify(second) !== text) fails.push(`#${i} ${type} not stable\n${text}\n${JSON.stringify(second)}`);
+        else if (has !== (sizeOn && fontOn)) fails.push(`#${i} ${type} size=${sizeOn} font=${fontOn} entry=${has}`);
+        else if (sizeOn && fontOn && !reopened.numberSizeEnabled) fails.push(`#${i} ${type} lost on reopen`);
+        if (fails.length >= 5) break;
+      }
+      expect(fails).toEqual([]);
+    });
+  }
+});
+
 describe('fuzz 2 — entities rows round-trip byte-stably', () => {
   const ROW_COLORS = ['#ff0000', 'red', 'var(--x-color)', 'rgb(1, 2, 3)'];
   function randomRowStyle(r: () => number): EntitiesRowStyle {

@@ -475,9 +475,9 @@ describe('remove disarms without focus events (Safari does not focus a clicked b
     expect(del().tag).toContain(armedLabel);
   });
 
-  it('disarms by itself after about four seconds', () => {
+  it('disarms by itself after about eight seconds', () => {
     click({});
-    vi.advanceTimersByTime(3900);
+    vi.advanceTimersByTime(7900);
     expect(del().tag).toContain(armedLabel);
     vi.advanceTimersByTime(200);
     expect(del().tag).not.toContain(armedLabel);

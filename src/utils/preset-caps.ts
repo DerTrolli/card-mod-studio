@@ -26,7 +26,7 @@
  * hides it (the Mushroom empty card has no box to filter).
  */
 
-import type { StudioState, ThresholdModuleState } from '../types/index.js';
+import type { FontModuleState, StudioState, ThresholdModuleState } from '../types/index.js';
 import {
   DEFAULT_ACCENT_COLOR,
   DEFAULT_ANIMATION,
@@ -38,9 +38,17 @@ import {
   DEFAULT_ICON_COLOR,
   DEFAULT_THRESHOLD,
 } from '../parser/state-mapper.js';
-import { withoutNumberSize } from './owned-entries.js';
+import { withoutNumberSize, fontHasBaseSettings } from './owned-entries.js';
 import { capsFor } from './card-caps.js';
 import { getCustomCardProfile } from './custom-card-profiles.js';
+
+/** A font state as a preset stores it: no Number size, and Font off when
+ *  Number size was the only reason it was on (nothing else is set). */
+export function presetFont(f: FontModuleState): FontModuleState {
+  const numberOnly = f.enabled && f.numberSizeEnabled && !fontHasBaseSettings(f);
+  const plain = withoutNumberSize(f);
+  return numberOnly ? { ...plain, enabled: false } : plain;
+}
 
 /** DEFAULT_THRESHOLD carries arrays — copy them so a later in-place edit of
  *  the returned state can never mutate the shared default constant. */
@@ -101,7 +109,7 @@ export function filterPresetStateForCardType(
     else if (m === 'headingStyle') next.headingStyle = { ...DEFAULT_HEADING_STYLE };
   }
   // Number size is never part of a preset (v0.11) — the card keeps its own.
-  if (next.font) next.font = withoutNumberSize(next.font);
+  if (next.font) next.font = presetFont(next.font);
 
   return next;
 }

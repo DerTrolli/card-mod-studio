@@ -235,11 +235,11 @@ describe('two-step delete disarms without focus events (Safari)', () => {
     expect(armedText(text())).toBe(true);
   });
 
-  it('disarms after about four seconds', () => {
+  it('disarms after about eight seconds', () => {
     const { p, text, fire } = make();
     p._selectedPreset = 'Warm';
     fire('click', 0, { currentTarget: {} });
-    vi.advanceTimersByTime(3900);
+    vi.advanceTimersByTime(7900);
     expect(armedText(text())).toBe(true);
     vi.advanceTimersByTime(200);
     expect(armedText(text())).toBe(false);

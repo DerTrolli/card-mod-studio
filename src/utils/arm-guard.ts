@@ -6,7 +6,7 @@
  * button (window, capture — also catches presses outside the component), and
  * after a few seconds.
  */
-export const DISARM_MS = 4000;
+export const DISARM_MS = 8000; // long enough for keyboard and screen-reader users
 
 export class ArmGuard {
   private _stop?: () => void;

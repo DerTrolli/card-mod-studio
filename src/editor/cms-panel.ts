@@ -36,14 +36,14 @@ import {
 } from '../utils/card-caps.js';
 import { profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
 import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles, refreshPaletteDefaults, applyStudioState, refreshCarrier } from './studio-state.js';
-import { withCardNumberSize, withoutNumberSize, userEntries, numberSizeKind } from '../utils/owned-entries.js';
+import { withCardNumberSize, userEntries, numberSizeKind } from '../utils/owned-entries.js';
 import './cms-child-card-section.js';
 import './cms-preview-picker.js';
 import type { PickEventDetail } from './cms-preview-picker.js';
 import { loadPresets, updatePresets, applyPresetChange, type PresetChange } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
 import { ArmGuard } from '../utils/arm-guard.js';
-import { filterPresetStateForCardType } from '../utils/preset-caps.js';
+import { filterPresetStateForCardType, presetFont } from '../utils/preset-caps.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
 import { initPaletteCache, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
@@ -167,6 +167,7 @@ export class CmsPanel extends LitElement {
     super.disconnectedCallback();
     this.removeEventListener('keydown', keepEnterInStudio);
     window.removeEventListener(PALETTE_CHANGED_EVENT, this._onPaletteChanged);
+    this._deleteGuard.stop(); // an armed panel leaving the page keeps no window listener
     this._resizeObserver?.disconnect();
     this._resizeObserver = undefined;
   }
@@ -604,7 +605,7 @@ export class CmsPanel extends LitElement {
     // Nor Number size: its units differ per card and it can sit under a
     // hand-written entry (v0.11) — it stays the card's own setting.
     const { dictSource: _cardDict, ...cardState } = this._studioState;
-    const presetState = { ...cardState, font: withoutNumberSize(cardState.font) };
+    const presetState = { ...cardState, font: presetFont(cardState.font) };
     const preset = { name: trimmed, state: presetState };
     this._selectedPreset = trimmed;
     this._commitPresetChange({ kind: 'save', preset });
