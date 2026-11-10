@@ -13,6 +13,13 @@ homeassistant:
 demo:
 
 frontend:
+  # card-mod loads the way its own README recommends: as an extra module, which
+  # the frontend waits for before it renders anything. As a plain dashboard
+  # resource it loads too late - cards with a card_mod: style stay unstyled on
+  # most cold page loads (measured 0/5 storage, 2/5 YAML) until an in-app
+  # navigation. The Studio, Mushroom and Bubble stay dashboard resources.
+  extra_module_url:
+    - /local/card-mod.js
   themes:
     # A translucent "glass" theme like the ones in the wild (issue #36):
     # see-through card and dialog surfaces. The Studio must stay readable on
@@ -51,8 +58,6 @@ logbook:
 lovelace:
   mode: yaml
   resources:
-    - url: /local/card-mod.js
-      type: module
     - url: /local/card-mod-studio.js
       type: module
     - url: /local/mushroom.js
