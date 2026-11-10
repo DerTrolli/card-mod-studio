@@ -222,17 +222,16 @@ export class ThresholdModule extends LitElement {
         margin-bottom: 12px;
       }
       @media (pointer: coarse) {
+        /* The two move buttons stack at 22px each; side by side they can each
+           be 40 x 40 without making the row any taller (the row wraps). */
+        .stop-move {
+          flex-direction: row;
+          gap: 4px;
+        }
         .move-btn {
           min-width: 40px;
-          min-height: 22px;
+          min-height: 40px;
           font-size: 11px;
-          position: relative;
-        }
-        /* The two move buttons stack at 22px each: only the width can reach 40px. */
-        .move-btn::after {
-          content: '';
-          position: absolute;
-          inset: 0 -4px;
         }
         .rule > button,
         .stop > button {

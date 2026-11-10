@@ -127,7 +127,14 @@ export class CmsPaletteManager extends LitElement {
       .add-btn:hover {
         background: var(--cms-tint-primary-hover);
       }
+      /* moduleStyles' .reset-btn is a 24 x 24 round icon button; this one holds
+         the word "Reset", so it takes its own width and height (a fixed 24px
+         box left the text spilling out of the button). */
       .reset-btn {
+        width: auto;
+        height: auto;
+        flex-shrink: 0;
+        white-space: nowrap;
         min-height: 28px;
         padding: 2px 10px;
         cursor: pointer;
