@@ -83,9 +83,9 @@ describe.each([
 ] as const)('Threshold %s value field', (_n, label, render, read) => {
   const field = (m: Mod) => tplFind(render(m), label, m);
 
-  it('is a decimal text field with an accessible name', () => {
+  it('is a plain text field (no inputmode: the iOS decimal keypad has no minus key) with an accessible name', () => {
     const { m } = threshold();
-    expect(field(m).tag).toContain('inputmode=decimal');
+    expect(field(m).tag).not.toContain('inputmode');
     expect(field(m).tag).toContain('type=text');
   });
   it('a decimal comma is a decimal point (2,5 → 2.5, not 25)', () => {
@@ -132,6 +132,11 @@ describe('condition Threshold field', () => {
     const t = renderCondition({ condition: c, stateAware: true, noun: 'border', onChange: (n) => out.push(n) });
     return { out, field: () => tplFind(t, 'aria-label=Threshold value') };
   };
+  it('is a plain text field without inputmode (iOS decimal keypad has no minus key)', () => {
+    const tag = make().field().tag;
+    expect(tag).toContain('type=text');
+    expect(tag).not.toContain('inputmode');
+  });
   it('2,5 → 2.5', () => {
     const { out, field } = make();
     field().on.change(fakeInput('2,5'));

@@ -578,7 +578,6 @@ export class ThresholdModule extends LitElement {
         </select>
         <input
           type="text"
-          inputmode="decimal"
           class="num"
           aria-label="Rule ${index + 1} value"
           aria-invalid="false"
@@ -623,7 +622,6 @@ export class ThresholdModule extends LitElement {
         <span class="rule-label">At value</span>
         <input
           type="text"
-          inputmode="decimal"
           class="num"
           aria-label="Fade point ${index + 1} value"
           aria-invalid="false"

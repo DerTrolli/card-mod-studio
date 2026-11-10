@@ -766,7 +766,6 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
             <div class="control-right">
               <input
                 type="text"
-                inputmode="decimal"
                 class="num"
                 aria-label="Threshold value"
                 aria-invalid="false"

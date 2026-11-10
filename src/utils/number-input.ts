@@ -1,10 +1,11 @@
 /**
  * Parsing for the numeric rule / condition text fields.
  *
- * The fields are `type="text" inputmode="decimal"` rather than
- * `type="number"`: a number input hides what was typed (a decimal comma
- * reads back as '' or a different number depending on the browser locale),
- * which is how `2,5` became `25`.
+ * The fields are plain `type="text"` rather than `type="number"`: a number
+ * input hides what was typed (a decimal comma reads back as '' or a
+ * different number depending on the browser locale), which is how `2,5`
+ * became `25`. No `inputmode="decimal"` either: the iOS decimal keypad has
+ * no minus key, and negative thresholds must stay typable.
  *
  * Bounds: |value| <= 1e12 (a terabyte in bytes, a year in ms — nothing a
  * sensor threshold needs is bigger, and beyond ~1e21 JS prints exponent
