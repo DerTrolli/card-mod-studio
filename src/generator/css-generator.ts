@@ -33,6 +33,7 @@ import {
   type Companion,
 } from '../utils/custom-card-profiles.js';
 import { toRgbTriplet } from '../utils/rgb-triplet.js';
+import { jinjaStr } from '../utils/jinja-str.js';
 
 /**
  * Renders the entity reference used inside an `is_state(...)`/`state_attr(...)`
@@ -43,7 +44,7 @@ import { toRgbTriplet } from '../utils/rgb-triplet.js';
  * way everywhere (see ENTITY_STATE_PATTERN in css-parser.ts).
  */
 function entityRef(entityId?: string): string {
-  return entityId ? `'${entityId}'` : 'config.entity';
+  return entityId ? `'${jinjaStr(entityId)}'` : 'config.entity';
 }
 
 // ---------------------------------------------------------------------------
@@ -127,13 +128,13 @@ export function conditionExpr(c: StyleCondition | undefined): string | null {
   if (c.when === 'on') return `is_state(config.entity, 'on')`;
   if (c.when === 'off') return `is_state(config.entity, 'off')`;
   if (c.when === 'custom') {
-    return c.customEntity ? `is_state('${c.customEntity}', 'on')` : null;
+    return c.customEntity ? `is_state('${jinjaStr(c.customEntity)}', 'on')` : null;
   }
   // when === 'value'
   if (!c.valueEntity || !c.valueOperator || c.valueThreshold === undefined) return null;
   const src = c.valueAttribute
-    ? `state_attr('${c.valueEntity}', '${c.valueAttribute}') | float(0)`
-    : `states('${c.valueEntity}') | float(0)`;
+    ? `state_attr('${jinjaStr(c.valueEntity)}', '${jinjaStr(c.valueAttribute)}') | float(0)`
+    : `states('${jinjaStr(c.valueEntity)}') | float(0)`;
   return `${src} ${c.valueOperator} ${c.valueThreshold}`;
 }
 
@@ -266,7 +267,7 @@ function withoutUnwatchedEntity(state: StudioState, config?: Record<string, unkn
  *  and the gauge's separate ha-gauge block can't drift apart. */
 function accentValue(s: AccentColorModuleState): string {
   return s.mode === 'conditional'
-    ? `{{ '${s.colorOn}' if is_state(${entityRef(s.entityId)}, 'on') else '${s.colorOff}' }}`
+    ? `{{ '${jinjaStr(s.colorOn)}' if is_state(${entityRef(s.entityId)}, 'on') else '${jinjaStr(s.colorOff)}' }}`
     : s.color;
 }
 
@@ -388,7 +389,7 @@ function borderVarDecls(s: BorderModuleState, e: BorderEmitter, skipColor = fals
     const width = cond
       ? `{{ '${s.borderWidth}px' if ${cond} else '${ownBorder ? 'inherit' : `${s.widthOffPx}px`}' }}`
       : `${s.borderWidth}px`;
-    const color = ownBorder ? `{{ '${s.borderColor}' if ${cond} else 'inherit' }}` : s.borderColor;
+    const color = ownBorder ? `{{ '${jinjaStr(s.borderColor)}' if ${cond} else 'inherit' }}` : s.borderColor;
     for (const v of e.width ?? []) decls.push(`${v}: ${width};`);
     for (const v of e.color ?? []) decls.push(`${v}: ${color};`);
   }
@@ -504,14 +505,6 @@ function backgroundValueDecls(s: BackgroundModuleState, otherwise = ''): string[
   ];
 }
 
-/** A value for the inside of a Jinja single-quoted string literal. Jinja's
- *  lexer reads `'([^'\\]*(?:\\.[^'\\]*)*)'` and decodes the body as a
- *  unicode-escape, so `\\` is a backslash and `\'` a quote: escape the
- *  backslash first, then the quote. mapBackground reads it back. */
-function jinjaStr(v: string): string {
-  return v.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-}
-
 /**
  * @param skipColor  Omit the `border: Npx solid COLOR` declaration — used
  *   when the Threshold module already owns border-color for this card, so
@@ -527,11 +520,11 @@ function borderDecls(s: BorderModuleState, skipColor = false, important = false)
     if (cond) {
       // v0.9: width reacts to a state condition. Same color both branches —
       // this control drives WIDTH; a state-driven color is Threshold's job.
-      const onVal = `${s.borderWidth}px solid ${s.borderColor}`;
+      const onVal = jinjaStr(`${s.borderWidth}px solid ${s.borderColor}`);
       // "Width otherwise" 0 = the card's own border (empty branch — see
       // ownLookBranch); a real width keeps drawing that width.
       const offVal =
-        s.widthOffPx && s.widthOffPx > 0 ? `${s.widthOffPx}px solid ${s.borderColor}` : ownLookBranch('border');
+        s.widthOffPx && s.widthOffPx > 0 ? jinjaStr(`${s.widthOffPx}px solid ${s.borderColor}`) : ownLookBranch('border');
       decls.push(asImportant(`border: {{ '${onVal}' if ${cond} else '${offVal}' }};`, important));
     } else {
       decls.push(asImportant(`border: ${s.borderWidth}px solid ${s.borderColor};`, important));
@@ -569,7 +562,7 @@ function animationDecls(s: AnimationModuleState): string[] {
     // reset the whole module to disabled on reopen (audit W8/BUG-4).
     decls.push(
       s.customEntity
-        ? `animation: {{ '${animValue}' if is_state('${s.customEntity}', 'on') else 'none' }};`
+        ? `animation: {{ '${animValue}' if is_state('${jinjaStr(s.customEntity)}', 'on') else 'none' }};`
         : `animation: ${animValue};`,
     );
   } else if (s.trigger === 'value') {
@@ -577,8 +570,8 @@ function animationDecls(s: AnimationModuleState): string[] {
       // Same value-source expressions as buildThresholdJinja, so both
       // features read a numeric state/attribute in the identical spelling.
       const stateExpr = s.valueAttribute
-        ? `state_attr('${s.valueEntity}', '${s.valueAttribute}') | float(0)`
-        : `states('${s.valueEntity}') | float(0)`;
+        ? `state_attr('${jinjaStr(s.valueEntity)}', '${jinjaStr(s.valueAttribute)}') | float(0)`
+        : `states('${jinjaStr(s.valueEntity)}') | float(0)`;
       decls.push(
         `animation: {{ '${animValue}' if ${stateExpr} ${s.valueOperator} ${s.valueThreshold} else 'none' }};`,
       );
@@ -966,10 +959,10 @@ function iconColorDecl(s: IconColorModuleState): string | null {
     return (
       `color: {{ 'rgb(' ~ (state_attr(${ref}, 'rgb_color') | join(', ')) ~ ')' ` +
       `if is_state(${ref}, 'on') and state_attr(${ref}, 'rgb_color') ` +
-      `else '${s.colorOff}' }} !important;`
+      `else '${jinjaStr(s.colorOff)}' }} !important;`
     );
   }
-  return `color: {{ '${s.colorOn}' if is_state(${ref}, 'on') else '${s.colorOff}' }} !important;`;
+  return `color: {{ '${jinjaStr(s.colorOn)}' if is_state(${ref}, 'on') else '${jinjaStr(s.colorOff)}' }} !important;`;
 }
 
 function iconColorBlock(s: IconColorModuleState): string {
@@ -1007,16 +1000,16 @@ export function buildThresholdJinja(
   mapColor: (color: string) => string = (c) => c,
 ): string {
   const stateExpr = attribute
-    ? `state_attr('${entityId}', '${attribute}') | float(0)`
-    : `states('${entityId}') | float(0)`;
+    ? `state_attr('${jinjaStr(entityId)}', '${jinjaStr(attribute)}') | float(0)`
+    : `states('${jinjaStr(entityId)}') | float(0)`;
   const sortedRules = sortThresholdRules(rules);
   let jinja = '{{ ';
   for (let i = 0; i < sortedRules.length; i++) {
     const rule = sortedRules[i];
     if (i > 0) jinja += ' else (';
-    jinja += `'${mapColor(rule.color)}' if ${stateExpr} ${rule.operator} ${rule.value}`;
+    jinja += `'${jinjaStr(mapColor(rule.color))}' if ${stateExpr} ${rule.operator} ${rule.value}`;
   }
-  jinja += ` else '${mapColor(defaultColor)}'`;
+  jinja += ` else '${jinjaStr(mapColor(defaultColor))}'`;
   jinja += ')'.repeat(sortedRules.length - 1);
   jinja += ' }}';
   return jinja;

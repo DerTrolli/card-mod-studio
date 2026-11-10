@@ -63,6 +63,7 @@ import {
   type ClaimRole,
   type CustomCardProfile,
 } from '../utils/custom-card-profiles.js';
+import { JINJA_STR_BODY, JINJA_STR_BODY_1, unescapeJinjaStr } from '../utils/jinja-str.js';
 import { fromRgbTriplet, toRgbTriplet, TRIPLET_TOKEN_SRC } from '../utils/rgb-triplet.js';
 import { ownedEntryKey, parseOwnedEntry, fontHasBaseSettings } from '../utils/owned-entries.js';
 
@@ -277,12 +278,20 @@ function claimAccentAux(
 
 /** Splits `{{ 'A' if COND else 'B' }}` into its three parts. Anchored and
  *  single-branch — richer Jinja stays unmatched (→ Advanced CSS). */
-const COND_TERNARY_PATTERN = /^\{\{\s*'([^']*)'\s+if\s+(.+?)\s+else\s+'([^']*)'\s*\}\}$/;
+const COND_TERNARY_PATTERN = new RegExp(
+  String.raw`^\{\{\s*'(${JINJA_STR_BODY})'\s+if\s+(.+?)\s+else\s+'(${JINJA_STR_BODY})'\s*\}\}$`,
+);
+
+/** The value source of a numeric condition: `states('id')` or
+ *  `state_attr('id', 'attr')`, both literals escape-aware (jinjaStr).
+ *  Groups: [1]=states entity, [2]=attr entity, [3]=attribute. */
+const VALUE_SOURCE_SRC = String.raw`(?:states\('(${JINJA_STR_BODY_1})'\)|state_attr\('(${JINJA_STR_BODY_1})',\s*'(${JINJA_STR_BODY_1})'\))`;
 
 const COND_ON_OFF_PATTERN = /^is_state\(config\.entity,\s*'(on|off)'\)$/;
-const COND_CUSTOM_PATTERN = /^is_state\('([^']+)',\s*'on'\)$/;
-const COND_VALUE_PATTERN =
-  /^(?:states\('([^']+)'\)|state_attr\('([^']+)',\s*'([^']+)'\))\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+)$/;
+const COND_CUSTOM_PATTERN = new RegExp(String.raw`^is_state\('(${JINJA_STR_BODY_1})',\s*'on'\)$`);
+const COND_VALUE_PATTERN = new RegExp(
+  String.raw`^${VALUE_SOURCE_SRC}\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+)$`,
+);
 
 /**
  * Parses a condition expression into a StyleCondition — exactly the
@@ -294,14 +303,14 @@ function parseConditionExpr(cond: string): StyleCondition | null {
   const onOff = trimmed.match(COND_ON_OFF_PATTERN);
   if (onOff) return { when: onOff[1] as 'on' | 'off' };
   const custom = trimmed.match(COND_CUSTOM_PATTERN);
-  if (custom) return { when: 'custom', customEntity: custom[1] };
+  if (custom) return { when: 'custom', customEntity: unescapeJinjaStr(custom[1]) };
   const value = trimmed.match(COND_VALUE_PATTERN);
   if (value) {
     const [, stateEntity, attrEntity, attrName, operator, numStr] = value;
     return {
       when: 'value',
-      valueEntity: stateEntity ?? attrEntity,
-      ...(attrName ? { valueAttribute: attrName } : {}),
+      valueEntity: unescapeJinjaStr((stateEntity ?? attrEntity)!),
+      ...(attrName ? { valueAttribute: unescapeJinjaStr(attrName) } : {}),
       valueOperator: operator as StyleCondition['valueOperator'],
       valueThreshold: parseFloat(numStr),
     };
@@ -318,7 +327,7 @@ function parseCondTernary(
   if (!match) return null;
   const condition = parseConditionExpr(match[2]);
   if (!condition) return null;
-  return { onValue: match[1], offValue: match[3], condition };
+  return { onValue: unescapeJinjaStr(match[1]), offValue: unescapeJinjaStr(match[3]), condition };
 }
 
 // ---------------------------------------------------------------------------
@@ -338,8 +347,9 @@ const ANIM_PATTERN =
  * Groups: [1]=animation value, [2]=states entity, [3]=attr entity,
  * [4]=attribute, [5]=operator, [6]=threshold number.
  */
-const ANIM_VALUE_TRIGGER_PATTERN =
-  /^\{\{\s*'([^']+)'\s+if\s+(?:states\('([^']+)'\)|state_attr\('([^']+)',\s*'([^']+)'\))\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+)\s+else\s+'none'\s*\}\}$/;
+const ANIM_VALUE_TRIGGER_PATTERN = new RegExp(
+  String.raw`^\{\{\s*'([^']+)'\s+if\s+${VALUE_SOURCE_SRC}\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+)\s+else\s+'none'\s*\}\}$`,
+);
 
 /**
  * Parses "cms-{preset} {speed}s {timing} infinite" into preset + speed.
@@ -425,8 +435,8 @@ function mapAnimation(
           enabled: true,
           ...parsed,
           trigger: 'value',
-          valueEntity: stateEntity ?? attrEntity,
-          ...(attrName ? { valueAttribute: attrName } : {}),
+          valueEntity: unescapeJinjaStr((stateEntity ?? attrEntity)!),
+          ...(attrName ? { valueAttribute: unescapeJinjaStr(attrName) } : {}),
           valueOperator: operator as AnimationModuleState['valueOperator'],
           valueThreshold: parseFloat(numStr),
         };
@@ -874,7 +884,7 @@ function mapAccentProfile(pc: ProfileClaims, claimed: Set<string>): AccentColorM
   if (!anchor) return { ...DEFAULT_ACCENT_COLOR };
   // `triplet: false` (Bubble): the variable carries the colour as written.
   const direct = pc.profile.emitters?.accent?.triplet === false;
-  const asColor = (v: string): string | null => (direct ? v.trim() || null : fromRgbTriplet(v));
+  const asColor = (v: string): string | null => (direct ? unescapeJinjaStr(v).trim() || null : fromRgbTriplet(v));
   if (anchor.hasCondition) {
     if (!anchor.onValue || !anchor.offValue) return { ...DEFAULT_ACCENT_COLOR };
     const on = asColor(anchor.onValue);
@@ -1387,28 +1397,29 @@ function mapIconColorCore(
   // of via CssProperty.entityId.
   if (colorProp.hasCondition && colorProp.value.includes('rgb_color')) {
     claimed.add(claimKey(haStateIcon.selector, 'color'));
-    const fallbackMatch = colorProp.value.match(/else\s+'([^']+)'/);
-    const colorOff = fallbackMatch ? fallbackMatch[1] : DEFAULT_ICON_COLOR.colorOff;
-    const entityMatch = colorProp.value.match(/is_state\(\s*'([^']+)'\s*,/);
+    const fallbackMatch = colorProp.value.match(new RegExp(String.raw`else\s+'(${JINJA_STR_BODY_1})'`));
+    const colorOff = fallbackMatch ? unescapeJinjaStr(fallbackMatch[1]) : DEFAULT_ICON_COLOR.colorOff;
+    const entityMatch = colorProp.value.match(new RegExp(String.raw`is_state\(\s*'(${JINJA_STR_BODY_1})'\s*,`));
     return {
       enabled: true,
       mode: 'light',
       color: colorOff,
       colorOn: colorOff,
       colorOff,
-      ...(entityMatch ? { entityId: entityMatch[1] } : {}),
+      ...(entityMatch ? { entityId: unescapeJinjaStr(entityMatch[1]) } : {}),
     };
   }
 
   if (colorProp.hasCondition && colorProp.onValue && colorProp.offValue) {
     // Jinja2 on/off conditional — map to conditional mode
     claimed.add(claimKey(haStateIcon.selector, 'color'));
+    const colorOn = unescapeJinjaStr(colorProp.onValue);
     return {
       enabled: true,
       mode: 'conditional',
-      color: colorProp.onValue,
-      colorOn: colorProp.onValue,
-      colorOff: colorProp.offValue,
+      color: colorOn,
+      colorOn,
+      colorOff: unescapeJinjaStr(colorProp.offValue),
       ...(colorProp.entityId ? { entityId: colorProp.entityId } : {}),
     };
   }
@@ -1452,8 +1463,8 @@ function mapAccentColor(
         ...DEFAULT_ACCENT_COLOR,
         enabled: true,
         mode: 'conditional',
-        colorOn: prop.onValue,
-        colorOff: prop.offValue,
+        colorOn: unescapeJinjaStr(prop.onValue),
+        colorOff: unescapeJinjaStr(prop.offValue),
         ...(prop.entityId ? { entityId: prop.entityId } : {}),
       };
     }
@@ -1509,11 +1520,6 @@ function parseLinearGradient(value: string): { angle: number; color1: string; co
 function isOwnLookBranch(v: string, property: string): boolean {
   const t = v.trim();
   return t === 'none' || t === (property.startsWith('--') ? 'inherit' : '');
-}
-
-/** Inverse of jinjaStr in css-generator.ts: `\'` → `'`, `\\` → `\`. */
-function unescapeJinjaStr(v: string): string {
-  return v.replace(/\\(['\\])/g, '$1');
 }
 
 function mapBackground(
@@ -2114,7 +2120,7 @@ export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet'
       ? TRIPLET_TOKEN_SRC
       : String.raw`#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+`;
   const RULE_RE = new RegExp(
-    String.raw`'(${COLOR_TOKEN})'\s+if\s+(?:states\('([^']+)'\)|state_attr\('([^']+)',\s*'([^']+)'\))\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+(?:\.\d+)?)`,
+    String.raw`'(${COLOR_TOKEN})'\s+if\s+${VALUE_SOURCE_SRC}\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+(?:\.\d+)?)`,
     'g',
   );
   // Trailing anchor is `)` or `}` ONLY — the final else is always followed
@@ -2138,12 +2144,13 @@ export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet'
     const [, rawColor, stateEntity, attrEntity, attrName, operator, numStr] = match;
     const color = format === 'rgb-triplet' ? fromRgbTriplet(rawColor) : rawColor;
     if (color === null) return null;
-    const ruleEntity = stateEntity ?? attrEntity;
+    const ruleEntity = unescapeJinjaStr((stateEntity ?? attrEntity)!);
+    const ruleAttr = attrName === undefined ? undefined : unescapeJinjaStr(attrName);
     // Every rule must read the SAME source — rules on two entities used
     // to be silently rebound to the last one (audit v0.10 #2).
-    if (idx > 0 && (ruleEntity !== entityId || attrName !== attribute)) return null;
+    if (idx > 0 && (ruleEntity !== entityId || ruleAttr !== attribute)) return null;
     entityId = ruleEntity;
-    attribute = attrName;
+    attribute = ruleAttr;
     rules.push({
       id: String(idx++),
       operator: operator as ThresholdRule['operator'],

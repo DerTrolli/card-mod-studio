@@ -30,6 +30,7 @@
  */
 
 import type { CssTarget, CssProperty } from '../types/index.js';
+import { JINJA_STR_BODY, JINJA_STR_BODY_1, unescapeJinjaStr } from '../utils/jinja-str.js';
 
 // ---------------------------------------------------------------------------
 // Jinja2 placeholder handling
@@ -105,10 +106,12 @@ function restoreJinja(value: string, map: Map<string, string>): string {
  * in css-generator.ts). Groups: [1]=first value, [2]=custom entity_id (only
  * set for the quoted-literal form), [3]=state ('on'|'off'), [4]=else value.
  */
-const ENTITY_STATE_PATTERN =
-  /^\{\{\s*'((?:[^'\\]|\\.)*)'\s+if\s+is_state\(\s*(?:config\.entity|'([^']+)')\s*,\s*'(on|off)'\s*\)\s+else\s+'((?:[^'\\]|\\.)*)'\s*\}\}$/;
-// (values may hold `\'` / `\\` escapes and are returned RAW; the module that
-// owns the value decodes them — see unescapeJinjaStr in state-mapper.ts)
+const ENTITY_STATE_PATTERN = new RegExp(
+  String.raw`^\{\{\s*'(${JINJA_STR_BODY})'\s+if\s+is_state\(\s*(?:config\.entity|'(${JINJA_STR_BODY_1})')\s*,\s*'(on|off)'\s*\)\s+else\s+'(${JINJA_STR_BODY})'\s*\}\}$`,
+);
+// (the two values may hold `\'` / `\\` escapes and are returned RAW; the module
+// that owns the value decodes them with unescapeJinjaStr. The entity id is
+// decoded here: it only ever names an entity.)
 
 interface JinjaAnalysis {
   hasCondition: boolean;
@@ -126,10 +129,10 @@ function analyzeJinja(value: string): JinjaAnalysis {
     const [, val1, entityId, state, val2] = match;
     // If the condition checks for 'off', val1 is the off-value
     if (state === 'off') {
-      return { hasCondition: true, offValue: val1, onValue: val2, entityId };
+      return { hasCondition: true, offValue: val1, onValue: val2, entityId: entityId && unescapeJinjaStr(entityId) };
     }
     // If the condition checks for 'on', val1 is the on-value
-    return { hasCondition: true, onValue: val1, offValue: val2, entityId };
+    return { hasCondition: true, onValue: val1, offValue: val2, entityId: entityId && unescapeJinjaStr(entityId) };
   }
 
   // Contains Jinja2 but doesn't match our known patterns — flag it but
