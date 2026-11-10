@@ -1250,6 +1250,7 @@ export class CmsPanel extends LitElement {
             .allowColor=${this._caps.fontColor}
             .allowSize=${this._caps.fontSize}
             .numberSize=${numberSizeKind(this._profileKey)}
+            .cardType=${this._profileKey}
             .overridden=${!!conflicts.font}
             .overriddenDetail=${(conflicts.font ?? []).join(", ")}
             .state=${s.font}

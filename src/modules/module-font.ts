@@ -3,7 +3,9 @@ import { property, state } from 'lit/decorators.js';
 import type { FontModuleState } from '../types/index.js';
 import { DEFAULT_FONT } from '../parser/state-mapper.js';
 import { NUMBER_SIZE_DEFAULT } from '../utils/owned-entries.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
+import {
+  moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown, renderResetButton, renderDefaultOption,
+} from './module-base.js';
 import '../components/cms-color-picker.js';
 
 /** Preset font-family values shown in the dropdown. '' = leave the theme's
@@ -16,6 +18,21 @@ export const FONT_FAMILY_PRESETS: Array<{ value: string; label: string }> = [
   { value: 'serif', label: 'Serif' },
   { value: 'monospace', label: 'Monospace' },
 ];
+
+/** The text size each card shows with no Font style, as measured on Home
+ *  Assistant 2026.11 (the thing the Text size slider scales: the card's name /
+ *  title text; Home Assistant's base is 14px). Display-only placeholders —
+ *  never written into a style. A card not listed (custom cards, anything not
+ *  measured) gets a neutral "Default" without a number rather than a guess. */
+export const NATIVE_FONT_SIZE: Readonly<Record<string, number>> = {
+  tile: 14, button: 16, entity: 16, sensor: 16, light: 16.8, gauge: 14, thermostat: 16,
+  markdown: 14, entities: 14, glance: 14, 'picture-elements': 14, 'media-control': 14,
+};
+
+/** The "Default (Npx)" number for a card, or undefined when not known. */
+export function fontNativeSize(cardType?: string): number | undefined {
+  return cardType ? NATIVE_FONT_SIZE[cardType] : undefined;
+}
 
 export class FontModule extends LitElement {
   @property({ attribute: false }) state: FontModuleState = {
@@ -34,9 +51,15 @@ export class FontModule extends LitElement {
   /** 'gauge' / 'thermostat' on cards with a Number size control (v0.11),
    *  '' elsewhere. */
   @property({ attribute: false }) numberSize: '' | 'gauge' | 'thermostat' = '';
+  /** The card's profile key — picks the "Default (Npx)" placeholder. */
+  @property({ attribute: false }) cardType?: string;
 
   @state() private _open = false;
-  @state() private _fontSize = DEFAULT_FONT.fontSize;
+  /** Live slider value (undefined = not set); re-synced from `state`. */
+  @state() private _fontSize?: number = undefined;
+  /** What the user typed in the Custom family field, kept while the select
+   *  moves to another family and back (not stored in the style). */
+  @state() private _customText = '';
   /** Number size while the slider is dragged (null = the state's value). */
   @state() private _numberSizeLive: number | null = null;
   /** "Custom…" chosen but nothing typed yet — picking it changes no state,
@@ -74,6 +97,11 @@ export class FontModule extends LitElement {
     );
   }
 
+  /** The stored family is a typed one (not a preset or empty). */
+  private get _isCustomStored(): boolean {
+    return !FONT_FAMILY_PRESETS.some((p) => p.value === this.state.fontFamily);
+  }
+
   private get _isCustomFamily(): boolean {
     return this._customPicked || !FONT_FAMILY_PRESETS.some((p) => p.value === this.state.fontFamily);
   }
@@ -107,6 +135,7 @@ export class FontModule extends LitElement {
   private _renderBody() {
     const family = this.state.fontFamily;
     const isCustom = this._isCustomFamily;
+    const native = fontNativeSize(this.cardType);
 
     return html`
       <div class="module-body">
@@ -115,10 +144,11 @@ export class FontModule extends LitElement {
           <span class="control-label">Text size</span>
           <div class="control-right">
             <ha-slider
+              aria-label="Text size"
               min="10"
               max="48"
               step="1"
-              .value=${String(this._fontSize)}
+              .value=${String(this._fontSize ?? Math.round(native ?? 14))}
               @input=${(e: Event) => {
                 this._fontSize = parseFloat((e.target as HTMLInputElement).value);
               }}
@@ -127,7 +157,12 @@ export class FontModule extends LitElement {
                   fontSize: parseFloat((e.target as HTMLInputElement).value),
                 })}
             ></ha-slider>
-            <span class="value-label">${this._fontSize}px</span>
+            ${this._fontSize === undefined
+              ? html`<span class="value-label unset">${native === undefined ? 'Default' : `Default (${native}px)`}</span>`
+              : html`<span class="value-label">${this._fontSize}px</span>${renderResetButton(
+                  () => this._emit({ fontSize: undefined }),
+                  'Reset text size to default',
+                )}`}
           </div>
         </div>` : nothing}
 
@@ -135,12 +170,14 @@ export class FontModule extends LitElement {
           <span class="control-label">Weight</span>
           <div class="control-right">
             <select
-              .value=${this.state.fontWeight}
+              aria-label="Weight"
+              .value=${this.state.fontWeight ?? ''}
               @change=${(e: Event) =>
                 this._emit({
-                  fontWeight: (e.target as HTMLSelectElement).value as FontModuleState['fontWeight'],
+                  fontWeight: ((e.target as HTMLSelectElement).value || undefined) as FontModuleState['fontWeight'],
                 })}
             >
+              ${renderDefaultOption(!this.state.fontWeight)}
               <option value="normal" ?selected=${this.state.fontWeight === 'normal'}>Normal</option>
               <option value="medium" ?selected=${this.state.fontWeight === 'medium'}>Medium</option>
               <option value="bold" ?selected=${this.state.fontWeight === 'bold'}>Bold</option>
@@ -156,7 +193,13 @@ export class FontModule extends LitElement {
               @change=${(e: Event) => {
                 const v = (e.target as HTMLSelectElement).value;
                 this._customPicked = v === 'custom';
-                if (v !== 'custom') this._emit({ fontFamily: v });
+                // Back to Custom: the remembered text applies again.
+                if (v === 'custom' && this._customText) this._emit({ fontFamily: this._customText });
+                if (v !== 'custom') {
+                  // Leaving a typed custom family: remember the text.
+                  if (this._isCustomStored) this._customText = family;
+                  this._emit({ fontFamily: v });
+                }
               }}
             >
               ${FONT_FAMILY_PRESETS.map(
@@ -176,10 +219,13 @@ export class FontModule extends LitElement {
                   <input
                     type="text"
                     style="width:100%;box-sizing:border-box;"
-                    .value=${family}
+                    aria-label="Custom family"
+                    .value=${this._isCustomStored ? family : this._customText}
                     placeholder="'My Font', sans-serif"
-                    @change=${(e: Event) =>
-                      this._emit({ fontFamily: (e.target as HTMLInputElement).value.trim() })}
+                    @change=${(e: Event) => {
+                      this._customText = (e.target as HTMLInputElement).value.trim();
+                      this._emit({ fontFamily: this._customText });
+                    }}
                   />
                 </div>
               </div>
@@ -191,8 +237,10 @@ export class FontModule extends LitElement {
               <span class="control-label">Text color</span>
               <div class="control-right">
                 <cms-color-picker
-                  .value=${this.state.color}
-                  @color-changed=${(e: CustomEvent) => this._emit({ color: e.detail.value })}
+                  clearable
+                  .placeholder=${'Default'}
+                  .value=${this.state.color ?? ''}
+                  @color-changed=${(e: CustomEvent) => this._emit({ color: e.detail.value || undefined })}
                 ></cms-color-picker>
               </div>
             </div>`

@@ -342,6 +342,7 @@ export class CmsChildCardSection extends LitElement {
               .allowColor=${caps.fontColor}
               .allowSize=${caps.fontSize}
               .numberSize=${numberSizeKind(cardType)}
+              .cardType=${cardType}
               .overridden=${!!conflicts.font}
               .overriddenDetail=${(conflicts.font ?? []).join(", ")}
               .state=${s.font}
