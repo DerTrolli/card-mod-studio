@@ -449,34 +449,47 @@ export function renderDefaultOption(selected: boolean, native = ''): TemplateRes
   return html`<option value="" ?selected=${selected}>${native ? `Default (${native})` : 'Default'}</option>`;
 }
 
+/** The pending observer per editor and the name it should apply. */
+const pendingNames = new WeakMap<Element, { mo: MutationObserver; name: string }>();
+
 /**
  * Names the text box inside HA's code editor. `ha-code-editor` (2026.x) takes
  * no label and its `.cm-content` role=textbox stays unnamed, so the name is
  * set on that node once CodeMirror has created it (it may not exist yet at the
  * first render). The editor's shadow root is open, so this needs no HA API.
+ * At most one observer per editor, gone once the node has its name.
  */
 export function nameCodeEditor(editor: Element, name: string): void {
   const root = editor.shadowRoot;
   if (!root) return;
-  const apply = (): boolean => {
+  const apply = (n: string): boolean => {
     const box = root.querySelector('.cm-content');
     if (!box) return false;
-    if (box.getAttribute('aria-label') !== name) box.setAttribute('aria-label', name);
+    if (box.getAttribute('aria-label') !== n) box.setAttribute('aria-label', n);
     return true;
   };
-  if (apply() || typeof MutationObserver === 'undefined') return;
-  const mo = new MutationObserver(() => {
-    if (apply()) mo.disconnect();
+  // updated() calls this on every render: keep one observer per editor.
+  const waiting = pendingNames.get(editor);
+  if (waiting) {
+    waiting.name = name;
+    if (apply(name)) { waiting.mo.disconnect(); pendingNames.delete(editor); }
+    return;
+  }
+  if (apply(name) || typeof MutationObserver === 'undefined') return;
+  const entry = { mo: undefined as unknown as MutationObserver, name };
+  entry.mo = new MutationObserver(() => {
+    if (apply(entry.name)) { entry.mo.disconnect(); pendingNames.delete(editor); }
   });
-  mo.observe(root, { childList: true, subtree: true });
+  pendingNames.set(editor, entry);
+  entry.mo.observe(root, { childList: true, subtree: true });
 }
 
 /**
  * Keyboard support for the collapsible headers (module / child / row):
  * they're `role="button" tabindex="0"` divs, so Enter / Space must toggle
- * them like a click. Key events coming from a control INSIDE the header
- * (its enable switch) are left alone, so flipping the switch with the
- * keyboard doesn't also fold the module.
+ * them like a click. Only a key pressed on the header itself counts; the
+ * enable switch is a SIBLING (see renderModuleHeader), so its keys never
+ * arrive here, and anything else focusable inside is left alone.
  */
 export function onHeaderKeydown(e: KeyboardEvent): void {
   if (e.target !== e.currentTarget) return;

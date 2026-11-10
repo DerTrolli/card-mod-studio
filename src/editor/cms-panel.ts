@@ -112,6 +112,8 @@ export class CmsPanel extends LitElement {
   /** The last preset change could not reach Home Assistant (read or write
    *  failed): it is saved on this device only. Clears on the next write that does. */
   @state() private _presetsLocalOnly = false;
+  /** Storage is full: the last preset change is not even saved on this device. */
+  @state() private _presetsUnsaved = false;
   /** Disarms the delete control on a press elsewhere or after a few seconds
    *  (blur alone never fires where a click doesn't focus the button). */
   private _deleteGuard = new ArmGuard(() => {
@@ -616,7 +618,10 @@ export class CmsPanel extends LitElement {
    *  actually written. */
   private _commitPresetChange(change: PresetChange) {
     this._presets = applyPresetChange(this._presets, change);
-    void updatePresets(change, this.hass, (reachedHa) => { this._presetsLocalOnly = !reachedHa; })
+    void updatePresets(change, this.hass, (reachedHa, kept) => {
+      this._presetsLocalOnly = !reachedHa;
+      this._presetsUnsaved = !kept;
+    })
       .then((written) => { this._presets = written; });
   }
 
@@ -898,6 +903,12 @@ export class CmsPanel extends LitElement {
     }
 
     .preset-bar.has-hint { flex-wrap: wrap; }
+
+    /* Touch: a finger needs more than the desktop 32px. */
+    @media (pointer: coarse) {
+      .preset-bar select,
+      .btn-preset-save { min-height: 40px; }
+    }
 
     /* One line inside the bar, only while a hint applies. */
     .preset-hint {
@@ -1303,9 +1314,9 @@ export class CmsPanel extends LitElement {
     }
     const armedLabel = `Delete '${this._selectedPreset}'?`;
     return html`
-      <div class="preset-bar ${this._presetsLocalOnly ? 'has-hint' : ''}">
-        <select .value=${this._selectedPreset} @change=${this._onPresetSelect}>
-          <option value="">📋 Load preset…</option>
+      <div class="preset-bar ${this._presetsLocalOnly || this._presetsUnsaved ? 'has-hint' : ''}">
+        <select aria-label="Load preset" .value=${this._selectedPreset} @change=${this._onPresetSelect}>
+          <option value="">Load preset…</option>
           ${this._presets.map(
             (p) => html`<option value=${p.name} ?selected=${p.name === this._selectedPreset}>${p.name}</option>`,
           )}
@@ -1320,10 +1331,12 @@ export class CmsPanel extends LitElement {
               @keydown=${this._onPresetDeleteKeydown}
             >${this._deleteArmed ? 'Delete?' : '×'}</button>`
           : nothing}
-        <button class="btn-preset-save" title="Save the current styling as a preset" @click=${this._startNamingPreset}>💾 Save preset</button>
-        ${this._presetsLocalOnly
-          ? html`<div class="preset-hint" role="status">Couldn't reach your Home Assistant profile — saved on this device only.</div>`
-          : nothing}
+        <button class="btn-preset-save" title="Save the current styling as a preset" @click=${this._startNamingPreset}><span aria-hidden="true">💾</span> Save preset</button>
+        ${this._presetsUnsaved
+          ? html`<div class="preset-hint" role="status">Couldn't save this preset — this browser's storage is full.</div>`
+          : this._presetsLocalOnly
+            ? html`<div class="preset-hint" role="status">Couldn't reach your Home Assistant profile — saved on this device only.</div>`
+            : nothing}
       </div>
     `;
   }

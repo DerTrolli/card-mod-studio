@@ -435,7 +435,7 @@ export class CmsColorPicker extends LitElement {
           : nothing}
         <div class="custom">
           <input type="color" aria-label="${this._name('Pick a custom color')}" .value=${this._toHex(this.value || (this.clearable ? this.placeholderColor : ''))} @input=${this._onColorInput} />
-          <input type="text" aria-label="${this._name('Color value')}" aria-invalid=${this._invalid ? 'true' : 'false'} aria-describedby=${this._invalid ? 'cms-color-hint' : nothing} spellcheck="false" autocomplete="off" .value=${this.value ?? ''} @input=${this._onTextInput} @change=${this._onTextChange} @blur=${this._onTextBlur} placeholder=${this.clearable ? (this.placeholder || 'Default') : 'Color or var(--name)'} />
+          <input type="text" aria-label="${this._name('Color value')}" aria-invalid=${this._invalid ? 'true' : 'false'} aria-describedby=${this._invalid ? 'cms-color-hint' : nothing} spellcheck="false" autocomplete="off" .value=${this.value ?? ''} @input=${this._onTextInput} @keydown=${this._onTextKeydown} @change=${this._onTextChange} @blur=${this._onTextBlur} placeholder=${this.clearable ? (this.placeholder || 'Default') : 'Color or var(--name)'} />
           ${this.clearable && this.value
             ? html`<button type="button" class="clear" aria-label="Reset color to default" title="Reset to default" @click=${this._onClear}>Default</button>`
             : nothing}
@@ -647,6 +647,15 @@ export class CmsColorPicker extends LitElement {
     this._invalid = !this._textOk((e.target as HTMLInputElement).value);
   }
 
+  /** `change` follows the Enter keydown; blur also fires it, and only an
+   *  Enter commit should move focus (see _onTextChange). */
+  private _enterPressed = false;
+  private _onTextKeydown(e: KeyboardEvent) {
+    if (e.key !== 'Enter') return;
+    this._enterPressed = true;
+    setTimeout(() => { this._enterPressed = false; }, 0);
+  }
+
   /** Enter / blur. An invalid or partial value is never emitted. */
   private _onTextChange(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -658,7 +667,14 @@ export class CmsColorPicker extends LitElement {
     this.value = input.value.trim();
     input.value = this.value;
     this._emit();
-    if (this.compact) this._closePopover();
+    if (this.compact) {
+      const viaEnter = this._enterPressed;
+      this._enterPressed = false;
+      this._closePopover();
+      // The field is gone with the popover: without this focus drops to <body>.
+      // Not on blur — the user has already moved on.
+      if (viaEnter) (this.shadowRoot?.querySelector('.swatch-trigger') as HTMLElement | null)?.focus();
+    }
   }
 
   /** Leaving the field with invalid text restores the last valid value. */
