@@ -25,7 +25,7 @@ import {
 } from '../parser/state-mapper.js';
 import { generateCss, buildThresholdJinja, settleEntityless, FONT_WEIGHT_VALUE } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
-import { generateOwnedEntries } from '../utils/owned-entries.js';
+import { generateOwnedEntries, fontHasBaseSettings } from '../utils/owned-entries.js';
 import { capsFor } from '../utils/card-caps.js';
 import { profileKeyOf } from '../utils/custom-card-profiles.js';
 import {
@@ -158,7 +158,7 @@ function mergedStudioState(
     // the mixed-form freeze (both keys preserved verbatim).
     const { dictSource: _mixed, ...frozen } = primaryState;
     // …and nothing may write owned entries into it either.
-    return applyPaletteDefaults({ ...frozen, font: { ...frozen.font, numberSizeEnabled: false } });
+    return applyPaletteDefaults({ ...frozen, font: { ...frozen.font, numberSizeEnabled: false, enabled: frozen.font.enabled && fontHasBaseSettings(frozen.font) } });
   }
 
   const secondaryUsable = outputKey === 'uix' || !usesUixOnlyFeatures(config);

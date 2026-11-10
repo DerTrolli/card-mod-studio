@@ -110,7 +110,7 @@ export function parseOwnedEntry(cardType: string | undefined, key: string, value
     // A beta entry: same percentage means the same setting; beta.1/beta.2
     // allowed up to 150 %, which now reads as the new maximum.
     const old = Math.round((Number(mw[1]) / GAUGE_BOX_BETA.width) * 100);
-    if (css1 === gaugeRuleBeta(old, true) || css1 === gaugeRuleBeta(old, false)) return Math.min(old, GAUGE_SIZE.max);
+    if ((css1 === gaugeRuleBeta(old, true) || css1 === gaugeRuleBeta(old, false))) return Math.min(old, GAUGE_SIZE.max);
     return null;
   }
   const m = css.match(/font-size: (\d+(?:\.\d)?)px !important;/);
@@ -119,11 +119,14 @@ export function parseOwnedEntry(cardType: string | undefined, key: string, value
   return css.trim() === thermostatRule(size) ? size : null;
 }
 
-/** The owned entries this state writes for this card (empty unless Number
- *  size is on, not locked by a hand-written entry, and the card has one). */
+/** The owned entries this state writes for this card (empty unless the Font
+ *  module is on, Number size is on, not locked by a hand-written entry, and
+ *  the card has one). The control lives inside the Font module, so a module
+ *  that is off writes nothing — the state keeps the setting, so switching
+ *  Font back on in the same session brings the entry back. */
 export function generateOwnedEntries(state: StudioState, cardType: string | undefined): PiercedEntry[] {
   const f = state.font;
-  if (!f.numberSizeEnabled || f.numberSizeLocked || !cardType || !NUMBER_SIZE_CARD_TYPES.has(cardType)) return [];
+  if (!f.enabled || !f.numberSizeEnabled || f.numberSizeLocked || !cardType || !NUMBER_SIZE_CARD_TYPES.has(cardType)) return [];
   const e = ownedEntryFor(cardType, f.numberSize || NUMBER_SIZE_DEFAULT[cardType]);
   return e ? [{ ...e, owned: true }] : [];
 }
@@ -131,6 +134,25 @@ export function generateOwnedEntries(state: StudioState, cardType: string | unde
 /** Just the Number size fields of a font state. */
 export function numberSizeOf(f: FontModuleState): Pick<FontModuleState, 'numberSizeEnabled' | 'numberSize' | 'numberSizeLocked'> {
   return { numberSizeEnabled: f.numberSizeEnabled, numberSize: f.numberSize, ...(f.numberSizeLocked ? { numberSizeLocked: true } : {}) };
+}
+
+/** True when the font state sets anything besides Number size. */
+export function fontHasBaseSettings(f: FontModuleState): boolean {
+  return f.fontSize !== undefined || !!f.fontFamily || f.fontWeight !== undefined || f.color !== undefined;
+}
+
+/**
+ * A preset's font state with THIS card's own Number size kept (presets never
+ * carry it). Number size is only written while Font is on, so when the
+ * preset's Font is off but the card has Number size on, Font stays on with
+ * nothing else set: the preset's Font-off does not undo the card's own
+ * setting (and none of the preset's disabled leftovers get switched on).
+ */
+export function withCardNumberSize(presetFont: FontModuleState, cardFont: FontModuleState): FontModuleState {
+  const kept = { ...presetFont, ...numberSizeOf(cardFont) };
+  if (presetFont.enabled || !cardFont.numberSizeEnabled || cardFont.numberSizeLocked) return kept;
+  const { fontSize: _s, fontWeight: _w, color: _c, ...rest } = kept;
+  return { ...rest, enabled: true, fontFamily: '' };
 }
 
 /** A font state with Number size off — presets never carry it. */

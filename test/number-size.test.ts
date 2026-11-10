@@ -45,8 +45,10 @@ function session(config: CardModCardConfig, ...edits: Array<(s: StudioState) => 
   }
   return current;
 }
+// Switching Number size on switches Font on too (the module's own switch
+// handler does the same) — the entry is only written while Font is on.
 const numberSize = (on: boolean, px = 120) => (s: StudioState): StudioState => ({
-  ...s, font: { ...s.font, numberSizeEnabled: on, numberSize: px },
+  ...s, font: { ...s.font, numberSizeEnabled: on, numberSize: px, ...(on ? { enabled: true } : {}) },
 });
 const color = (c: string) => (s: StudioState): StudioState => ({
   ...s, background: { ...s.background, enabled: true, type: 'solid', color1: c, applyWhen: 'always' },

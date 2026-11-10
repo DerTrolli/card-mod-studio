@@ -277,6 +277,8 @@ export class FontModule extends LitElement {
     const def = NUMBER_SIZE_DEFAULT[kind];
     const size = this._numberSizeLive ?? (s.numberSize || def);
     const isGauge = kind === 'gauge';
+    // Shown on only while it is actually written (Font on as well).
+    const on = s.numberSizeEnabled && s.enabled;
     const label = isGauge ? 'Number size' : 'Temperature size';
     if (s.numberSizeLocked) {
       return html`<div class="control-row">
@@ -290,17 +292,20 @@ export class FontModule extends LitElement {
       <span class="control-label">${label}</span>
       <div class="control-right">
         <ha-switch
-          .checked=${s.numberSizeEnabled}
+          .checked=${on}
           aria-label="${label}"
-          @change=${(e: Event) =>
-            this._emit({ numberSizeEnabled: (e.target as HTMLInputElement).checked, numberSize: size })}
+          @change=${(e: Event) => {
+            const checked = (e.target as HTMLInputElement).checked;
+            // Written only while Font is on, so switching it on switches Font on.
+            this._emit({ numberSizeEnabled: checked, numberSize: size, ...(checked ? { enabled: true } : {}) });
+          }}
         ></ha-switch>
         <ha-slider
           min=${isGauge ? GAUGE_SIZE.min : 24}
           max=${isGauge ? GAUGE_SIZE.max : 96}
           step=${isGauge ? GAUGE_SIZE.step : 1}
           .value=${String(size)}
-          ?disabled=${!s.numberSizeEnabled}
+          ?disabled=${!on}
           @input=${(e: Event) => { this._numberSizeLive = parseFloat((e.target as HTMLInputElement).value); }}
           @change=${(e: Event) => this._emit({ numberSize: parseFloat((e.target as HTMLInputElement).value) })}
         ></ha-slider>

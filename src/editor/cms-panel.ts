@@ -35,7 +35,7 @@ import {
 } from '../utils/card-caps.js';
 import { profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
 import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles, refreshPaletteDefaults, applyStudioState, refreshCarrier } from './studio-state.js';
-import { numberSizeOf, withoutNumberSize, userEntries, numberSizeKind } from '../utils/owned-entries.js';
+import { withCardNumberSize, withoutNumberSize, userEntries, numberSizeKind } from '../utils/owned-entries.js';
 import './cms-child-card-section.js';
 import './cms-preview-picker.js';
 import type { PickEventDetail } from './cms-preview-picker.js';
@@ -632,7 +632,7 @@ export class CmsPanel extends LitElement {
       ),
       ...(currentDictSource ? { dictSource: currentDictSource } : {}),
     };
-    if (current) this._studioState = { ...this._studioState, font: { ...this._studioState.font, ...numberSizeOf(current.font) } };
+    if (current) this._studioState = { ...this._studioState, font: withCardNumberSize(this._studioState.font, current.font) };
     this._emitConfigChanged();
   }
 

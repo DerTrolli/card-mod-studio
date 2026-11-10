@@ -58,7 +58,7 @@ import {
   type CustomCardProfile,
 } from '../utils/custom-card-profiles.js';
 import { fromRgbTriplet, toRgbTriplet, TRIPLET_TOKEN_SRC } from '../utils/rgb-triplet.js';
-import { ownedEntryKey, parseOwnedEntry } from '../utils/owned-entries.js';
+import { ownedEntryKey, parseOwnedEntry, fontHasBaseSettings } from '../utils/owned-entries.js';
 
 // ---------------------------------------------------------------------------
 // Default states
@@ -556,6 +556,8 @@ function claimNumberSize(
     }
     font.numberSizeEnabled = true;
     font.numberSize = px;
+    // Number size is only written while Font is on: the entry switches it on.
+    font.enabled = true;
     return { ...e, owned: true as const };
   });
   if (!font.numberSizeEnabled) return { font, dictSource };
@@ -593,8 +595,11 @@ export function mergeStudioStates(primary: StudioState, secondary: StudioState):
     headingStyle: primary.headingStyle.enabled ? primary.headingStyle : secondary.headingStyle,
     // Number size lives in the primary's dict (a string secondary can't
     // carry it), whichever side's base font wins.
+    // A Font switched on only by that entry (nothing else set) is not a
+    // base font: the other side's real one still wins.
     font: {
-      ...(primary.font.enabled ? primary.font : secondary.font),
+      ...(primary.font.enabled && (!primary.font.numberSizeEnabled || fontHasBaseSettings(primary.font)) ? primary.font : secondary.font),
+      enabled: primary.font.enabled || secondary.font.enabled,
       numberSizeEnabled: primary.font.numberSizeEnabled,
       numberSize: primary.font.numberSize,
       ...(primary.font.numberSizeLocked ? { numberSizeLocked: true } : {}),
