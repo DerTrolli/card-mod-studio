@@ -29,6 +29,7 @@ function fakeSlider(opts: { pad?: string; late?: boolean; partLate?: boolean }) 
   const part = { id: 'slider' };
   const sl = {
     localName: 'ha-slider',
+    getAttribute: () => null,
     style: {
       setProperty: (k: string, v: string) => { props.set(k, v); },
       removeProperty: (k: string) => { props.delete(k); },

@@ -667,11 +667,56 @@ export function markSliderPadding(sl: HTMLElement): void {
   }
 }
 
-/** Gets every `ha-slider` under `root` ready for the module styles — call
- *  after render, next to nameSwitches. */
+/** The name each slider was last given (see nameSlider). */
+const namedSliders = new WeakMap<HTMLElement, string>();
+
+/**
+ * Gives a slider built on a native range input its accessible name.
+ *
+ * Home Assistant 2025.9's slider keeps its input in its shadow root and names
+ * it from its `ariaLabel` property, falling back to the current value (so a
+ * screen reader hears `slider "14"`). It drops the host's `aria-label`
+ * attribute without keeping it, and ignores `label`. Setting the `ariaLabel`
+ * property on the host with the name gives the input that label, and, unlike
+ * rewriting the input's attribute, survives the slider re-rendering when its
+ * value changes; the value stays on the input as its value text. Newer sliders
+ * (no such input: they name their slider part from `label`) are left alone.
+ * The name comes from the host's `aria-label`, else its `label`.
+ */
+export function nameSlider(sl: HTMLElement): void {
+  const name = (sl.getAttribute('aria-label') ?? sl.getAttribute('label') ?? '').trim();
+  if (!name) return;
+  namedSliders.set(sl, name);
+  const apply = (): boolean => {
+    const root = sl.shadowRoot;
+    if (!root) return false;
+    if (root.querySelector('input[type="range"]')) {
+      (sl as { ariaLabel: string | null }).ariaLabel = name;
+      return true;
+    }
+    return !!root.querySelector('[part~="slider"]');
+  };
+  const updated = (): Promise<unknown> | undefined =>
+    (sl as { updateComplete?: Promise<unknown> }).updateComplete;
+  const retry = (): void => {
+    if (!apply()) void updated()?.then(() => { apply(); }, () => undefined);
+  };
+  if (apply()) return;
+  if (customElements.get(sl.localName) || !customElements.whenDefined) {
+    retry();
+  } else {
+    void customElements.whenDefined(sl.localName).then(retry, retry);
+  }
+}
+
+/** Gets every `ha-slider` under `root` ready — its name and the module
+ *  styles' offset. Call after render, next to nameSwitches. A slider already
+ *  given its current name is left alone. */
 export function prepareSliders(root: ParentNode | null | undefined): void {
   root?.querySelectorAll?.<HTMLElement>('ha-slider').forEach((sl) => {
     markSliderPadding(sl);
+    const name = (sl.getAttribute('aria-label') ?? sl.getAttribute('label') ?? '').trim();
+    if (namedSliders.get(sl) !== name) nameSlider(sl);
   });
 }
 
