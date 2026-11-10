@@ -63,6 +63,8 @@ import '../modules/module-entities-rows.js';
 
 declare const __APP_VERSION__: string;
 const VERSION = __APP_VERSION__;
+/** Longest preset name the bar accepts. */
+const PRESET_NAME_MAX = 60;
 
 // Per-card-type capability tables live in ../utils/card-caps.ts, shared with
 // cms-child-card-section so a stack child gets the exact same module gating
@@ -99,6 +101,10 @@ export class CmsPanel extends LitElement {
    *  Companion app's web views). */
   @state() private _namingPreset = false;
   @state() private _presetName = '';
+  /** Save was attempted with no name — keeps the "type a name" hint up. */
+  @state() private _presetNameTried = false;
+  /** First click on the delete (x) control arms it; the second deletes. */
+  @state() private _deleteArmed = false;
   @state() private _entityRowStyles: EntitiesRowStyles = {};
   /** The card arrived with CSS the modules didn't adopt (now in Advanced
    *  CSS) — drives the "weren't recognised" note, which must not appear
@@ -502,6 +508,7 @@ export class CmsPanel extends LitElement {
 
   private _startNamingPreset() {
     this._presetName = '';
+    this._presetNameTried = false;
     this._namingPreset = true;
     void this.updateComplete.then(() => {
       (this.shadowRoot?.querySelector('.preset-name') as HTMLInputElement | null)?.focus();
@@ -511,6 +518,19 @@ export class CmsPanel extends LitElement {
   private _cancelNamingPreset() {
     this._namingPreset = false;
     this._presetName = '';
+    this._presetNameTried = false;
+  }
+
+  /** Leading blanks are dropped and the length capped as the user types; the
+   *  trailing end is only trimmed on save (trimming it here would make
+   *  "my preset" untypeable). */
+  private _onPresetNameInput(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const name = input.value.replace(/^\s+/, '').slice(0, PRESET_NAME_MAX);
+    // Blanks only: nothing is left to show, so say why Save stays disabled.
+    if (!name && input.value) this._presetNameTried = true;
+    if (name !== input.value) input.value = name;
+    this._presetName = name;
   }
 
   private _onPresetNameKeydown(e: KeyboardEvent) {
@@ -530,8 +550,11 @@ export class CmsPanel extends LitElement {
   /** Saves the current styling under the name typed into the preset bar. */
   private _saveCurrentAsPreset() {
     if (!this._studioState) return;
-    const trimmed = this._presetName.trim();
-    if (!trimmed) return;
+    const trimmed = this._presetName.trim().slice(0, PRESET_NAME_MAX);
+    if (!trimmed) {
+      this._presetNameTried = true;
+      return;
+    }
     this._namingPreset = false;
     this._presetName = '';
     // A dict card's carrier (its pierced entries) belongs to THAT card — a
@@ -553,7 +576,21 @@ export class CmsPanel extends LitElement {
     void updatePresets(change, this.hass).then((written) => { this._presets = written; });
   }
 
+  private _disarmDelete() {
+    this._deleteArmed = false;
+  }
+
+  private _onPresetDeleteKeydown(e: KeyboardEvent) {
+    // Escape would otherwise close HA's whole card-edit dialog.
+    if (e.key === 'Escape' && this._deleteArmed) {
+      e.preventDefault();
+      e.stopPropagation();
+      this._deleteArmed = false;
+    }
+  }
+
   private _onPresetSelect(e: Event) {
+    this._deleteArmed = false;
     const name = (e.target as HTMLSelectElement).value;
     this._selectedPreset = name;
     if (!name) return;
@@ -591,8 +628,15 @@ export class CmsPanel extends LitElement {
     this._emitConfigChanged();
   }
 
+  /** Two-step: the first click only arms the control (its label asks), the
+   *  second deletes. Blur and Escape disarm it. */
   private _deleteSelectedPreset() {
     if (!this._selectedPreset) return;
+    if (!this._deleteArmed) {
+      this._deleteArmed = true;
+      return;
+    }
+    this._deleteArmed = false;
     const name = this._selectedPreset;
     this._selectedPreset = '';
     this._commitPresetChange({ kind: 'delete', name });
@@ -801,6 +845,20 @@ export class CmsPanel extends LitElement {
     }
 
     .btn-preset-delete:hover { background: var(--cms-tint-error-hover); }
+    .btn-preset-delete.armed {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .preset-bar.has-hint { flex-wrap: wrap; }
+
+    /* One line inside the bar, only while a hint applies. */
+    .preset-hint {
+      flex: 1 0 100%;
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--secondary-text-color, #727272);
+    }
 
     :is(.btn-preset-save, .btn-preset-delete, .btn-preset-cancel, .btn-banner-action, .preset-bar select, .preset-name):focus-visible {
       outline: 2px solid var(--primary-color, #03a9f4);
@@ -1146,26 +1204,37 @@ export class CmsPanel extends LitElement {
 
   private _renderPresetBar() {
     if (this._namingPreset) {
+      const name = this._presetName.trim();
+      const exists = !!name && this._presets.some((p) => p.name === name);
+      const hint = !name && (this._presetName.length > 0 || this._presetNameTried)
+        ? 'Type a name to save this preset.'
+        : exists
+          ? `Replaces the existing preset "${name}".`
+          : '';
       return html`
-        <div class="preset-bar">
+        <div class="preset-bar ${hint ? 'has-hint' : ''}">
           <input
             class="preset-name"
             type="text"
             aria-label="Preset name"
+            aria-describedby=${hint ? 'preset-hint' : nothing}
             placeholder="Preset name"
+            maxlength=${PRESET_NAME_MAX}
             .value=${this._presetName}
-            @input=${(e: Event) => { this._presetName = (e.target as HTMLInputElement).value; }}
+            @input=${this._onPresetNameInput}
             @keydown=${this._onPresetNameKeydown}
           />
           <button
             class="btn-preset-save"
-            ?disabled=${!this._presetName.trim()}
+            ?disabled=${!name}
             @click=${this._saveCurrentAsPreset}
-          >💾 Save</button>
+          >${exists ? '💾 Overwrite' : '💾 Save'}</button>
           <button class="btn-preset-cancel" @click=${this._cancelNamingPreset}>Cancel</button>
+          ${hint ? html`<div class="preset-hint" id="preset-hint" role="status">${hint}</div>` : nothing}
         </div>
       `;
     }
+    const armedLabel = `Delete '${this._selectedPreset}'?`;
     return html`
       <div class="preset-bar">
         <select .value=${this._selectedPreset} @change=${this._onPresetSelect}>
@@ -1175,7 +1244,14 @@ export class CmsPanel extends LitElement {
           )}
         </select>
         ${this._selectedPreset
-          ? html`<button class="btn-preset-delete" title="Delete preset" @click=${this._deleteSelectedPreset}>×</button>`
+          ? html`<button
+              class="btn-preset-delete ${this._deleteArmed ? 'armed' : ''}"
+              title=${this._deleteArmed ? armedLabel : 'Delete preset'}
+              aria-label=${this._deleteArmed ? armedLabel : `Delete preset '${this._selectedPreset}'`}
+              @click=${this._deleteSelectedPreset}
+              @blur=${this._disarmDelete}
+              @keydown=${this._onPresetDeleteKeydown}
+            >${this._deleteArmed ? 'Delete?' : '×'}</button>`
           : nothing}
         <button class="btn-preset-save" title="Save the current styling as a preset" @click=${this._startNamingPreset}>💾 Save preset</button>
       </div>

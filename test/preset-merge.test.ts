@@ -135,7 +135,8 @@ describe('the panel (rendered handlers)', () => {
     const p = await open(hass);
     box.stored = [preset('a'), preset('fromB')];
     p._selectedPreset = 'a';
-    click(p, 'click');
+    click(p, 'click'); // arms
+    click(p, 'click'); // confirms
     await settle();
     expect(names(box.stored!)).toEqual(['fromB']);
     expect(names(p._presets)).toEqual(['fromB']);
