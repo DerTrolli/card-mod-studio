@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { CustomPalette } from '../src/utils/palette-storage.js';
+import type { CustomPalette, PaletteEdit } from '../src/utils/palette-storage.js';
 
 type PaletteModule = typeof import('../src/utils/palette-storage.js');
 
@@ -174,8 +174,8 @@ describe('updatePalette: one change on the stored palette', () => {
       },
     },
   });
-  const add = (id: string) => (p: CustomPalette): CustomPalette =>
-    p.colors.some((c) => c.id === id) ? p : { ...p, colors: [...p.colors, { id, name: id, hex: '#000000' }] };
+  // Edits are data now (so they can be kept across a reload); `add` is idempotent by id.
+  const add = (id: string): PaletteEdit => ({ kind: 'add', color: { id, name: id, hex: '#000000' } });
 
   beforeEach(async () => {
     vi.resetModules();

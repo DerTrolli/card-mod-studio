@@ -5,7 +5,7 @@
  * Mirrors preset-sync-failure.test.ts.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { CustomPalette } from '../src/utils/palette-storage.js';
+import type { CustomPalette, PaletteEdit } from '../src/utils/palette-storage.js';
 
 type PaletteModule = typeof import('../src/utils/palette-storage.js');
 
@@ -17,8 +17,7 @@ class FakeLocalStorage {
 
 const col = (id: string, name = id) => ({ id, name, hex: '#000000' });
 const pal = (...c: Array<ReturnType<typeof col>>): CustomPalette => ({ colors: c, defaults: {} });
-const rename = (id: string, name: string) => (p: CustomPalette): CustomPalette =>
-  ({ ...p, colors: p.colors.map((c) => (c.id === id ? { ...c, name } : c)) });
+const rename = (id: string, name: string): PaletteEdit => ({ kind: 'set', id, field: 'name', value: name });
 const names = (p: CustomPalette) => p.colors.map((c) => `${c.id}:${c.name}`);
 
 describe('updatePalette after a failed Home Assistant read / write', () => {

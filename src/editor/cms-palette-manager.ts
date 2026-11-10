@@ -17,6 +17,7 @@ import {
   PALETTE_CHANGED_EVENT,
   type CustomPalette,
   type CustomColor,
+  type PaletteEdit,
 } from '../utils/palette-storage.js';
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
@@ -33,8 +34,6 @@ export function normalizeHex(raw: string): string | undefined {
   const m = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(t);
   return m ? `#${m[1]}${m[1]}${m[2]}${m[2]}${m[3]}${m[3]}` : undefined;
 }
-
-type Edit = (p: CustomPalette) => CustomPalette;
 
 export class CmsPaletteManager extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
@@ -54,7 +53,7 @@ export class CmsPaletteManager extends LitElement {
   private _armGuard = new ArmGuard(() => {
     this._armed = null;
   });
-  private _pending = new Map<string, Edit>();
+  private _pending = new Map<string, PaletteEdit>();
   private _timer: ReturnType<typeof setTimeout> | undefined;
 
   static override styles = [
@@ -175,33 +174,35 @@ export class CmsPaletteManager extends LitElement {
   private _paletteChangedHandler = () => this.requestUpdate();
 
   /** A page unload or tab hide inside the debounce window would drop the edit. */
-  private _flushNow = () => {
+  private _flushNow = (leaving: boolean) => {
     this._flush();
     // updatePalette re-reads Home Assistant first, which an unload cancels.
-    flushPaletteOnUnload(this.hass);
+    flushPaletteOnUnload(this.hass, leaving);
   };
+  // Only a real pagehide (not a bfcache one) may write without reading first.
+  private _onPageHide = (e?: PageTransitionEvent) => this._flushNow(!e?.persisted);
   private _flushIfHidden = () => {
-    if (document.visibilityState === 'hidden') this._flushNow();
+    if (document.visibilityState === 'hidden') this._flushNow(false);
   };
 
   override connectedCallback() {
     super.connectedCallback();
     window.addEventListener(PALETTE_CHANGED_EVENT, this._paletteChangedHandler);
-    window.addEventListener('pagehide', this._flushNow);
+    window.addEventListener('pagehide', this._onPageHide);
     window.addEventListener('visibilitychange', this._flushIfHidden); // fires on document, bubbles to window
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener(PALETTE_CHANGED_EVENT, this._paletteChangedHandler);
-    window.removeEventListener('pagehide', this._flushNow);
+    window.removeEventListener('pagehide', this._onPageHide);
     window.removeEventListener('visibilitychange', this._flushIfHidden);
     this._armGuard.stop();
     this._flush(); // a commit still waiting on the debounce must not be lost
   }
 
   /** Queues one palette edit; rapid commits collapse into a single storage write. */
-  private _queue(key: string, edit: Edit) {
+  private _queue(key: string, edit: PaletteEdit) {
     this._pending.set(key, edit);
     clearTimeout(this._timer);
     this._timer = setTimeout(() => this._flush(), COMMIT_DEBOUNCE_MS);
@@ -214,12 +215,12 @@ export class CmsPaletteManager extends LitElement {
     for (const key of this._pending.keys()) this._live.delete(key);
     this._pending.clear();
     // Applied to the palette as stored (re-read first), not this page's cache.
-    void updatePalette((palette) => edits.reduce((acc, e) => e(acc), palette), this.hass);
+    void updatePalette(edits, this.hass);
     this.requestUpdate();
   }
 
   /** Add / remove are single deliberate actions: applied at once, after any waiting edit. */
-  private _saveNow(edit: Edit) {
+  private _saveNow(edit: PaletteEdit) {
     this._flush();
     void updatePalette(edit, this.hass);
   }
@@ -230,23 +231,16 @@ export class CmsPaletteManager extends LitElement {
 
   private _addColor() {
     const id = `color-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    this._saveNow((palette) =>
-      palette.colors.some((c) => c.id === id) // edits are replayed on the stored palette
-        ? palette
-        : {
-            ...palette,
-            colors: [...palette.colors, { id, name: `My color ${palette.colors.length + 1}`, hex: '#03a9f4' }],
-          },
-    );
+    this._saveNow({
+      kind: 'add',
+      color: { id, name: `My color ${getCachedPalette().colors.length + 1}`, hex: '#03a9f4' },
+    });
     // Keyboard users land on the new entry's name, ready to rename it.
     void this.updateComplete.then(() => this._focus(`[data-row="${id}"] .name-input`));
   }
 
   private _updateColor(id: string, field: 'hex' | 'name', value: string) {
-    this._queue(`${id}:${field}`, (palette) => ({
-      ...palette,
-      colors: palette.colors.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
-    }));
+    this._queue(`${id}:${field}`, { kind: 'set', id, field, value });
   }
 
   private _disarm() {
@@ -256,18 +250,13 @@ export class CmsPaletteManager extends LitElement {
 
   private _deleteColor(id: string) {
     this._disarm();
-    this._saveNow((palette) => ({ ...palette, colors: palette.colors.filter((c) => c.id !== id) }));
+    this._saveNow({ kind: 'remove', id });
     // The focused button is gone; keep keyboard users in the manager.
     void this.updateComplete.then(() => this._focus('.add-btn'));
   }
 
   private _setDefault(key: 'onColor' | 'offColor', value: string | undefined) {
-    this._queue(key, (palette) => {
-      const defaults = { ...palette.defaults };
-      if (value) defaults[key] = value;
-      else delete defaults[key];
-      return { ...palette, defaults };
-    });
+    this._queue(key, { kind: 'default', key, ...(value ? { value } : {}) });
   }
 
   // --- colour field behaviour shared by entries and the ON/OFF defaults ----
@@ -338,7 +327,7 @@ export class CmsPaletteManager extends LitElement {
           @keydown=${onHeaderKeydown}
         >
           <span class="module-chevron" aria-hidden="true">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">🖌️ My Color Palette</span>
+          <span class="module-title"><span aria-hidden="true">🖌️</span> My Color Palette</span>
           ${hasContent && !this._open
             ? html`<span class="header-summary">
                 ${palette.colors.length ? `${palette.colors.length} color${palette.colors.length === 1 ? '' : 's'}` : 'defaults set'}
