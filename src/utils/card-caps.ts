@@ -340,14 +340,27 @@ export function thresholdPropertyAllowed(
   return capsFor(cardType, config).thresholdProperty(property);
 }
 
-/** Domains whose entities carry a binary on/off state usable in an
- *  is_state(x, 'on'/'off') condition even when the state string itself
- *  isn't literally on/off right now. */
+/** Domains whose entities report `on` / `off` as their state, so
+ *  is_state(x, 'on'/'off') is meaningful even while the state string is
+ *  momentarily `unavailable` / `unknown` (which is why the domain, not just
+ *  the current state, decides). Home Assistant's state lists: switch, light,
+ *  binary_sensor, input_boolean, fan, humidifier, siren, remote, automation,
+ *  script — on/off; group — on/off for the usual switch/light groups. */
 const BINARY_DOMAINS = [
-  'switch', 'light', 'binary_sensor', 'input_boolean', 'lock',
-  'fan', 'cover', 'climate', 'alarm_control_panel', 'person',
-  'automation', 'script', 'timer', 'group', 'input_button',
+  'switch', 'light', 'binary_sensor', 'input_boolean', 'fan', 'humidifier',
+  'siren', 'remote', 'automation', 'script', 'group',
 ];
+
+/** Domains that never report `on`, whatever their current state (HA's own
+ *  state lists): lock locked/unlocked/…, cover open/closed/opening/closing,
+ *  climate off|heat|cool|auto|dry|fan_only|heat_cool (an HVAC mode — it can
+ *  be `off`, never `on`), alarm_control_panel disarmed/armed_home/armed_away/…, person
+ *  home/not_home/<zone>, timer idle/active/paused, input_button a timestamp.
+ *  An "ON" condition can never match there, so they are decided by the domain
+ *  alone — a climate that happens to be `off` right now is not state-aware. */
+const NEVER_ON_OFF_DOMAINS = new Set([
+  'lock', 'cover', 'climate', 'alarm_control_panel', 'person', 'timer', 'input_button',
+]);
 
 /**
  * Whether a card config has an entity of its own — the one `config.entity`
@@ -362,7 +375,8 @@ export function hasOwnEntity(config?: Record<string, unknown> | null): boolean {
 
 /**
  * Whether a card's own entity meaningfully has an on/off state to condition
- * on. Mirrors the old cms-panel._isStateAware exactly. With no entity id it
+ * on. Domains that never report on/off say no (see NEVER_ON_OFF_DOMAINS); the
+ * rest mirror the old cms-panel._isStateAware. With no entity id it
  * only answers for the card TYPE; the panels additionally require
  * hasOwnEntity() before offering "own entity is ON / OFF".
  */
@@ -371,6 +385,9 @@ export function isStateAware(
   entityId: string | undefined,
   hass?: { states?: Record<string, { state: string }> },
 ): boolean {
+  // The domain alone settles it for an entity that never reports on/off —
+  // with or without hass, and whatever its current state is.
+  if (entityId && NEVER_ON_OFF_DOMAINS.has(entityId.split('.')[0])) return false;
   if (!entityId || !hass?.states) {
     return capsFor(cardType).stateAwareByDefault;
   }
