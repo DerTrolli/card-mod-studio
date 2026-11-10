@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { closeStudioOnModeSwitch } from '../src/editor/cms-injector.js';
 
-function fakeDialog(opts: { active: boolean; gui: boolean }) {
+function fakeDialog(opts: { active: boolean; gui: boolean; guiAvailable?: boolean }) {
   const tab = { active: opts.active };
   const panel = { style: { display: '' } };
   const cardEditor = {
@@ -19,7 +19,7 @@ function fakeDialog(opts: { active: boolean; gui: boolean }) {
     querySelector: (sel: string) => (sel.includes('data-cms-injected') ? tab : cardEditor),
     getElementById: () => ({}), // the cover <style> already exists
   };
-  const dialog = { _GUImode: opts.gui, shadowRoot: dialogRoot } as unknown as Parameters<typeof closeStudioOnModeSwitch>[0];
+  const dialog = { _GUImode: opts.gui, _guiModeAvailable: opts.guiAvailable, shadowRoot: dialogRoot } as unknown as Parameters<typeof closeStudioOnModeSwitch>[0];
   return { dialog, tab, panel, cardEditor };
 }
 const changed = (prev: unknown) => new Map<PropertyKey, unknown>([['_GUImode', prev]]);
@@ -42,6 +42,18 @@ describe('closeStudioOnModeSwitch', () => {
     closeStudioOnModeSwitch(f.dialog, changed(true));
     expect(f.panel.style.display).toBe('');
     expect(f.cardEditor.toggled).toEqual([]);
+  });
+  it('Home Assistant falling back to the code editor on a card error (visual editor unavailable) keeps the Studio open', () => {
+    const f = fakeDialog({ active: true, gui: false, guiAvailable: false });
+    closeStudioOnModeSwitch(f.dialog, changed(true));
+    expect(f.tab.active).toBe(true);
+    expect(f.panel.style.display).toBe('');
+    expect(f.cardEditor.toggled).toEqual([]);
+  });
+  it('a user switch with the visual editor available still closes it', () => {
+    const f = fakeDialog({ active: true, gui: false, guiAvailable: true });
+    closeStudioOnModeSwitch(f.dialog, changed(true));
+    expect(f.tab.active).toBe(false);
   });
   it('ignores the first render (no previous value) and unrelated updates', () => {
     const f = fakeDialog({ active: true, gui: true });
