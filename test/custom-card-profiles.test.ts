@@ -83,7 +83,7 @@ const OLD_NO_ACCENT_TYPES = new Set<string>([
   'webpage',
 ]);
 const OLD_NO_FONT_SIZE_TYPES = new Set<string>([
-  'alarm-panel', 'area', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast',
+  'area', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast', // alarm-panel left: its title follows the size
   'date',
 ]);
 const OLD_NO_TEXT_COLOR_TYPES = new Set<string>([
@@ -102,6 +102,8 @@ const OLD_TRANSITION_IMPORTANT_TYPES = new Set<string>(['tile', 'sensor', 'entit
 const OLD_HEADER_TITLE_CARD_TYPES = new Set<string>([
   'entities', 'glance', 'history-graph', 'statistics-graph', 'statistic',
   'calendar', 'todo-list', 'shopping-list', 'logbook',
+  // added with the Font-reach work: markdown's and alarm-panel's titles are an ha-card header too
+  'markdown', 'alarm-panel',
 ]);
 
 const ALL_OLD = [

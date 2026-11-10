@@ -21,16 +21,16 @@ const COLOR = { color: '#ff0000' };
 const ALL = { fontSize: 18, fontWeight: 'medium' as const, color: '#00ff00' };
 
 describe('enabling Font writes nothing by itself', () => {
-  for (const t of ['tile', 'markdown', 'sensor', 'gauge', 'thermostat', 'light', 'entities', 'button', 'media-control', 'picture-elements', 'custom:mushroom-entity-card', 'custom:bubble-card/button']) {
+  for (const t of ['tile', 'sun', 'sensor', 'gauge', 'thermostat', 'light', 'entities', 'button', 'media-control', 'picture-elements', 'custom:mushroom-entity-card', 'custom:bubble-card/button']) {
     it(t, () => expect(gen({}, t)).toBe(''));
   }
 });
 
 describe('one control -> only its own property and companions', () => {
   it('plain card: weight only / colour only / size only', () => {
-    expect(gen(WEIGHT, 'markdown')).toBe('ha-card {\n  font-weight: bold;\n}');
-    expect(gen(COLOR, 'markdown')).toBe('ha-card {\n  color: #ff0000;\n}');
-    expect(gen(SIZE, 'markdown')).toBe('ha-card {\n  font-size: 20px;\n}');
+    expect(gen(WEIGHT, 'sun')).toBe('ha-card {\n  font-weight: bold;\n}');
+    expect(gen(COLOR, 'sun')).toBe('ha-card {\n  color: #ff0000;\n}');
+    expect(gen(SIZE, 'sun')).toBe('ha-card {\n  font-size: 20px;\n}');
   });
 
   it('tile', () => {
@@ -118,7 +118,7 @@ describe('one control -> only its own property and companions', () => {
 
 describe('a 0 value is a value (never dropped on save)', () => {
   it('base, tile companions, header, sensor value, mushroom', () => {
-    expect(gen({ fontSize: 0 }, 'markdown')).toBe('ha-card {\n  font-size: 0px;\n}');
+    expect(gen({ fontSize: 0 }, 'sun')).toBe('ha-card {\n  font-size: 0px;\n}');
     expect(gen({ fontSize: 0 }, 'tile')).toContain('--ha-tile-info-primary-font-size: 0px;');
     expect(gen({ fontSize: 0 }, 'glance')).toContain('--ha-card-header-font-size: calc(0px * 1.5);');
     expect(gen({ fontSize: 0 }, 'sensor')).toContain('.value {\n  font-size: calc(0px * 1.75) !important;');
@@ -126,7 +126,7 @@ describe('a 0 value is a value (never dropped on save)', () => {
   });
 
   it('round-trips byte for byte', () => {
-    for (const t of ['markdown', 'tile', 'sensor', 'glance', 'custom:mushroom-entity-card']) {
+    for (const t of ['sun', 'tile', 'sensor', 'glance', 'custom:mushroom-entity-card']) {
       const css = gen({ fontSize: 0 }, t);
       const back = parse(css, t);
       expect(back.font.fontSize, t).toBe(0);
@@ -137,7 +137,7 @@ describe('a 0 value is a value (never dropped on save)', () => {
 });
 
 describe('all-set styles (every earlier version) re-save identically', () => {
-  const TYPES = ['markdown', 'tile', 'button', 'sensor', 'entity', 'gauge', 'thermostat', 'light', 'entities', 'media-control', 'picture-elements', 'glance',
+  const TYPES = ['sun', 'tile', 'button', 'sensor', 'entity', 'gauge', 'thermostat', 'light', 'entities', 'media-control', 'picture-elements', 'glance',
     'custom:mushroom-entity-card', 'custom:mushroom-chips-card', 'custom:mushroom-title-card', 'custom:bubble-card/button', 'custom:bubble-card/separator'];
   for (const t of TYPES) {
     it(t, () => {
@@ -152,15 +152,15 @@ describe('all-set styles (every earlier version) re-save identically', () => {
 
   it('an old default-valued style keeps its visible values (16px / normal / theme colour)', () => {
     const old = 'ha-card {\n  font-size: 16px;\n  font-weight: normal;\n  color: var(--primary-text-color);\n}';
-    const back = parse(old, 'markdown');
+    const back = parse(old, 'sun');
     expect(back.font).toMatchObject({ enabled: true, fontSize: 16, fontWeight: 'normal', color: 'var(--primary-text-color)' });
-    expect(generateCss(back, 'markdown')).toBe(old);
+    expect(generateCss(back, 'sun')).toBe(old);
   });
 });
 
 describe('size-less styles reload', () => {
   it('weight-only reloads as Font enabled with only weight, on every card family', () => {
-    for (const t of ['markdown', 'tile', 'sensor', 'gauge', 'thermostat', 'light', 'entities', 'button', 'media-control', 'custom:mushroom-entity-card', 'custom:bubble-card/button']) {
+    for (const t of ['sun', 'tile', 'sensor', 'gauge', 'thermostat', 'light', 'entities', 'button', 'media-control', 'custom:mushroom-entity-card', 'custom:bubble-card/button']) {
       const css = gen(WEIGHT, t);
       const back = parse(css, t);
       expect(back.font.enabled, t).toBe(true);
@@ -173,7 +173,7 @@ describe('size-less styles reload', () => {
   });
 
   it('colour-only and weight+colour round-trip', () => {
-    for (const [t, f] of [['tile', COLOR], ['sensor', COLOR], ['gauge', COLOR], ['markdown', { ...WEIGHT, ...COLOR }], ['media-control', COLOR]] as const) {
+    for (const [t, f] of [['tile', COLOR], ['sensor', COLOR], ['gauge', COLOR], ['sun', { ...WEIGHT, ...COLOR }], ['media-control', COLOR]] as const) {
       const css = gen(f, t);
       const back = parse(css, t);
       expect(back.font.enabled, t).toBe(true);
@@ -182,19 +182,19 @@ describe('size-less styles reload', () => {
     }
   });
 
-  it('a hand-written `ha-card { color: red }` is NOT adopted on a tile, IS adopted (identically) on markdown', () => {
+  it('a hand-written `ha-card { color: red }` is NOT adopted on a tile, IS adopted (identically) on a plain card (sun)', () => {
     const css = 'ha-card {\n  color: red;\n}';
     const tile = parse(css, 'tile');
     expect(tile.font.enabled).toBe(false);
     expect(tile.advanced.rawCss).toContain('color: red');
-    const md = parse(css, 'markdown');
+    const md = parse(css, 'sun');
     expect(md.font).toMatchObject({ enabled: true, color: 'red' });
     expect(md.advanced.rawCss).toBe('');
-    expect(generateCss(md, 'markdown')).toBe(css);
+    expect(generateCss(md, 'sun')).toBe(css);
   });
 
   it('is not adopted when the card has a non-px font-size of its own, or a lone companion', () => {
-    const odd = parse('ha-card {\n  font-size: 1.2em;\n  font-weight: bold;\n}', 'markdown');
+    const odd = parse('ha-card {\n  font-size: 1.2em;\n  font-weight: bold;\n}', 'sun');
     expect(odd.font.enabled).toBe(false);
     expect(odd.advanced.rawCss).toContain('font-weight: bold');
     // A different !important flag than the module writes: not reproducible.
@@ -215,9 +215,9 @@ describe('size-less styles reload', () => {
   });
 
   it('a hand-written size-only style loads with only the size', () => {
-    const back = parse('ha-card {\n  font-size: 18px;\n}', 'markdown');
+    const back = parse('ha-card {\n  font-size: 18px;\n}', 'sun');
     expect(back.font).toMatchObject({ enabled: true, fontSize: 18 });
     expect(back.font.fontWeight).toBeUndefined();
-    expect(generateCss(back, 'markdown')).toBe('ha-card {\n  font-size: 18px;\n}');
+    expect(generateCss(back, 'sun')).toBe('ha-card {\n  font-size: 18px;\n}');
   });
 });

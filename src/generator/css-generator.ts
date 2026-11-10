@@ -651,6 +651,13 @@ export function valueFontSize(sizePx: number): string {
   return `calc(${sizePx}px * 1.75)`;
 }
 
+/** The button card's state line is 0.9rem next to a 16px name (a ratio of
+ *  0.7875): scaled with the name so "make the text bigger" keeps both lines
+ *  in proportion. Exported for the parser's companion-claiming. */
+export function buttonStateFontSize(sizePx: number): string {
+  return `calc(${sizePx}px * 0.7875)`;
+}
+
 /**
  * Many stock cards override some font property internally, each their own
  * way — a bare inherited `ha-card { font-size }` only reaches the ones that
@@ -702,7 +709,9 @@ function fontCompanionBlocks(
     block('.brightness', [sizeDecl]);
   }
 
-  if (cardType === 'sensor' || cardType === 'entity') {
+  // The statistic card shares the sensor card's layout and its fixed sizes
+  // (16px name / 28px value / 16px unit): same selectors, same ratio.
+  if (cardType === 'sensor' || cardType === 'entity' || cardType === 'statistic') {
     block('.name', [sizeDecl, weightDecl, colorDecl]);
     block('.value', [sizePx != null ? `  font-size: ${valueFontSize(sizePx)} !important;` : null]);
     block('.measurement', [sizeDecl, colorDecl]);
@@ -717,6 +726,21 @@ function fontCompanionBlocks(
     if (cardType === 'gauge') block('.name', titleDecls);
   }
 
+  if (cardType === 'picture-glance') {
+    // The title over the picture carries a fixed weight of its own (the card
+    // sizes and colours its text itself, so only the weight is offered).
+    block('.title', [weightDecl]);
+  }
+
+  if (cardType === 'button') {
+    // The state line has its own fixed size (0.9rem) and a grey colour that
+    // doesn't depend on the entity's state; the name follows the base rule.
+    block('.state', [
+      sizePx != null ? `  font-size: ${buttonStateFontSize(sizePx)} !important;` : null,
+      colorDecl,
+    ]);
+  }
+
   if (cardType === 'entities') {
     // The slotted h1 is in the card's own shadow root — a plain rule beats
     // ha-card's internal ::slotted() styling, no !important needed. Weight
@@ -725,6 +749,14 @@ function fontCompanionBlocks(
   }
 
   return blocks;
+}
+
+/** Header-title cards whose title weight rides on `--ha-font-weight-normal`
+ *  (everything with an ha-card header except entities, whose slotted h1 takes
+ *  the plain `.card-header` rule, and statistic, whose title is its `.name`).
+ *  Exported for the parser. */
+export function headerWeightViaToken(cardType: string | undefined, caps: CardCaps): boolean {
+  return caps.headerTitle && cardType !== 'entities' && cardType !== 'statistic';
 }
 
 /** ha-card-block companion declarations (variables that must ride in the
@@ -767,6 +799,18 @@ function fontCompanionDecls(
     // control reads these tokens.
     if (size) decls.push(`--ha-font-size-l: ${size};`);
     if (weight) decls.push(`--ha-font-weight-medium: ${weight};`);
+  }
+
+  if (cardType === 'humidifier' && weight) {
+    // Same token, same label ("Humidifying"): it kept weight 500 otherwise.
+    decls.push(`--ha-font-weight-medium: ${weight};`);
+  }
+
+  if (weight && headerWeightViaToken(cardType, caps)) {
+    // The title is an h1 inside ha-card's own shadow root, which takes its
+    // weight from this token (and has no other hook): a selector can't get
+    // in, the variable can. Scoped to this card, like the tile variables.
+    decls.push(`--ha-font-weight-normal: ${weight};`);
   }
 
   if (caps.headerTitle) {

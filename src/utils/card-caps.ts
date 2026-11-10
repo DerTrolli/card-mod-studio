@@ -110,9 +110,11 @@ export const NO_ACCENT_TYPES = new Set([
  *  their own text (module-effect audit, `font:size` slice, HA 2026.10.4 and
  *  2026.6, card-mod and UIX). Weight, family and colour stay where they work.
  *  The size declaration is still written: it's what the parser recognises
- *  the Font module by, and it has no visible effect on these cards. */
+ *  the Font module by, and it has no visible effect on these cards.
+ *  (alarm-panel is not here: its title follows the header variables — size
+ *  and colour reach it, measured on 2026.11.) */
 export const NO_FONT_SIZE_TYPES = new Set([
-  'alarm-panel', 'area', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast',
+  'area', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast',
   // HA 2026.11 date card (module-effect audit, UIX 9)
   'date',
 ]);
@@ -126,6 +128,9 @@ export const NO_FONT_SIZE_TYPES = new Set([
  * graph labels are canvas-drawn, but the colour reaches the card title.)
  */
 export const NO_TEXT_COLOR_TYPES = new Set([
+  // alarm-panel: the title and Arm buttons DO follow a colour (measured 2026.11),
+  // but this set also gates Threshold's Text Color target, which was not
+  // verified there — left hidden until it is.
   'alarm-panel', 'area', 'media-control', 'picture-elements', 'picture-entity',
   'picture-glance',
   // HA 2026.11 date card (module-effect audit, UIX 9)
@@ -187,6 +192,9 @@ export const TRANSITION_IMPORTANT_TYPES = new Set(['tile', 'sensor', 'entity', '
 export const HEADER_TITLE_CARD_TYPES = new Set([
   'entities', 'glance', 'history-graph', 'statistics-graph', 'statistic',
   'calendar', 'todo-list', 'shopping-list', 'logbook',
+  // v0.11 measured on 2026.11: markdown's title and alarm-panel's title are
+  // the same ha-card header (h1.card-header) and follow the header variables.
+  'markdown', 'alarm-panel',
 ]);
 
 /**

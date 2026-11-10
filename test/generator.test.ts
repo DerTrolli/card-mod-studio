@@ -756,7 +756,7 @@ describe('generateCss — font', () => {
         font: { ...DEFAULT_FONT, enabled: true, fontSize: 21, fontWeight: 'bold', color: '#123456', fontFamily: 'serif' },
       });
       const css = generateCss(state, type);
-      const reparsed = mapToStudioState(parseCardModConfig({ type, card_mod: { style: css } }));
+      const reparsed = mapToStudioState(parseCardModConfig({ type, card_mod: { style: css } }), type);
       expect(reparsed.font, type).toEqual(state.font);
       expect(reparsed.advanced.rawCss, type).toBe('');
       expect(generateCss(reparsed, type), type).toBe(css);

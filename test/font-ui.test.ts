@@ -81,14 +81,14 @@ describe('native size placeholder', () => {
 
 describe('rendered handlers emit only what the user sets', () => {
   it('slider @change emits only fontSize; the style has only the size', () => {
-    const { hs, emitted } = make({}, 'markdown');
+    const { hs, emitted } = make({}, 'sun');
     hs()[IDX.change]({ target: { value: '20' } });
     expect(emitted).toHaveLength(1);
     expect(emitted[0]).toEqual({ ...DEFAULT_FONT, enabled: true, fontSize: 20 });
-    expect(gen(emitted[0], 'markdown')).toBe('ha-card {\n  font-size: 20px;\n}');
+    expect(gen(emitted[0], 'sun')).toBe('ha-card {\n  font-size: 20px;\n}');
   });
   it('slider @input alone emits nothing (live value only)', () => {
-    const { hs, emitted, el } = make({}, 'markdown');
+    const { hs, emitted, el } = make({}, 'sun');
     hs()[IDX.input]({ target: { value: '22' } });
     expect(emitted).toHaveLength(0);
     expect(el._fontSize).toBe(22);
@@ -105,7 +105,7 @@ describe('rendered handlers emit only what the user sets', () => {
     expect(gen(set.emitted[0], 'tile')).toBe('');
   });
   it('colour @color-changed: only colour; empty / cleared emits undefined', () => {
-    const { hs, emitted } = make({}, 'markdown');
+    const { hs, emitted } = make({}, 'sun');
     const h = hs();
     h[h.length - 1]({ detail: { value: '#ff0000' } });
     expect(emitted[0]).toEqual({ ...DEFAULT_FONT, enabled: true, color: '#ff0000' });
@@ -138,7 +138,7 @@ const fieldValues = (t: unknown): unknown[] => {
 describe('Custom font family', () => {
   const familyHandlers = (el: El) => handlers(el._renderBody());
   it('first choosing Custom shows an empty field (placeholder), not the previous preset', () => {
-    const { el, hs, emitted } = make({ fontFamily: 'monospace', fontSize: 20 }, 'markdown');
+    const { el, hs, emitted } = make({ fontFamily: 'monospace', fontSize: 20 }, 'sun');
     // input, change, reset, weight, family, colour
     hs()[4]({ target: { value: 'custom' } });
     expect(emitted).toHaveLength(0); // nothing typed yet: nothing changes
@@ -151,7 +151,7 @@ describe('Custom font family', () => {
     expect(el._customText).toBe('');
   });
   it('typed text is remembered across Serif and back, and re-applies', () => {
-    const { el, hs, emitted } = make({ fontSize: 20 }, 'markdown');
+    const { el, hs, emitted } = make({ fontSize: 20 }, 'sun');
     hs()[4]({ target: { value: 'custom' } }); // Custom…
     // input, change, reset, weight, family, CUSTOM FIELD change, colour
     const h1 = familyHandlers(el);
@@ -168,7 +168,7 @@ describe('Custom font family', () => {
   const sync = (el: El, prev: FontModuleState, extra: [string, unknown][] = []) =>
     (el as unknown as { updated(c: Map<PropertyKey, unknown>): void }).updated(new Map<PropertyKey, unknown>([['state', prev], ...extra]));
   it('the remembered text does not follow the element to another card', () => {
-    const { el, hs, emitted } = make({ fontSize: 20 }, 'markdown');
+    const { el, hs, emitted } = make({ fontSize: 20 }, 'sun');
     hs()[4]({ target: { value: 'custom' } });
     familyHandlers(el)[5]({ target: { value: "'Old Card', serif" } });
     // our own emit coming back keeps it
@@ -186,13 +186,13 @@ describe('Custom font family', () => {
     expect(emitted).toHaveLength(n); // nothing written from the old card's text
   });
   it('a different card type drops it too', () => {
-    const { el } = make({}, 'markdown');
+    const { el } = make({}, 'sun');
     el._customText = 'x';
-    sync(el, el.state, [['cardType', 'markdown']]);
+    sync(el, el.state, [['cardType', 'sun']]);
     expect(el._customText).toBe('');
   });
   it('the stored CSS format is unchanged (plain font-family)', () => {
-    expect(gen({ ...DEFAULT_FONT, enabled: true, fontFamily: "'My Font', sans-serif" }, 'markdown'))
+    expect(gen({ ...DEFAULT_FONT, enabled: true, fontFamily: "'My Font', sans-serif" }, 'sun'))
       .toBe("ha-card {\n  font-family: 'My Font', sans-serif;\n}");
   });
 });

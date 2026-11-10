@@ -49,6 +49,8 @@ import {
   tileCirclePx,
   iconSizeValue,
   fontBlock,
+  headerWeightViaToken,
+  buttonStateFontSize,
 } from '../generator/css-generator.js';
 import { capsFor } from '../utils/card-caps.js';
 import {
@@ -1793,6 +1795,8 @@ function claimFontCompanions(
   color: string | null,
   family: string | null,
   claimed: Set<string>,
+  cardType?: string,
+  headerWeight = false,
 ): void {
   const claimIf = (target: CssTarget | null, property: string, expected: string | null) => {
     if (!target || expected === null) return;
@@ -1816,6 +1820,16 @@ function claimFontCompanions(
     ['--ha-card-header-font-family', family],
   ] as Array<[string, string | null]>) {
     claimIf(haCard, name, expected);
+  }
+
+  // Companions of one card type each: claimed only for that type, so the same
+  // declaration written by hand on another card stays in Advanced CSS.
+  if (headerWeight) claimIf(haCard, '--ha-font-weight-normal', weight);
+  if (cardType === 'humidifier') claimIf(haCard, '--ha-font-weight-medium', weight);
+  if (cardType === 'button') {
+    const state = findTarget(targets, '.state');
+    claimIf(state, 'font-size', sizePx != null ? buttonStateFontSize(sizePx) : null);
+    claimIf(state, 'color', color);
   }
 
   // Selector-block companions (light/sensor/entity/gauge/thermostat/entities)
@@ -1933,6 +1947,7 @@ function mapFont(
     writes = new Set(parseCss(emitted).flatMap((t) => t.properties.map((p) => claimKey(t.selector, p.property))));
   }
 
+  const headerWeight = headerWeightViaToken(emitKeyOf(cardType) || undefined, capsFor(cardType));
   const sizeStr = sizeMatch ? fontSizeProp!.value.trim() : null;
   if (sizeStr) claimed.add(claimKey(haCard.selector, 'font-size'));
   if (weightStr) claimed.add(claimKey(haCard.selector, 'font-weight'));
@@ -1941,10 +1956,10 @@ function mapFont(
 
   if (writes) {
     const companions = new Set<string>();
-    claimFontCompanions(targets, haCard, null, null, weightStr, colorStr, familyStr, companions);
+    claimFontCompanions(targets, haCard, null, null, weightStr, colorStr, familyStr, companions, emitKeyOf(cardType) || undefined, headerWeight);
     for (const k of companions) if (writes.has(k)) claimed.add(k);
   } else {
-    claimFontCompanions(targets, haCard, state.fontSize ?? null, sizeStr, weightStr, colorStr, familyStr, claimed);
+    claimFontCompanions(targets, haCard, state.fontSize ?? null, sizeStr, weightStr, colorStr, familyStr, claimed, emitKeyOf(cardType) || undefined, headerWeight);
   }
 
   return state;
