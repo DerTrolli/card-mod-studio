@@ -203,20 +203,27 @@ export class CmsPreviewPicker extends LitElement {
   }
 
   private static _describe(el: Element): PickChainElement {
-    let text: PickRect | null = null;
-    let done = false;
+    let words: PickRect[] | undefined;
+    const lines = () => (words ??= CmsPreviewPicker._textRects(el));
     return {
       tag: el.tagName.toLowerCase(),
       id: el.id ?? '',
       classes: Array.from(el.classList),
       rect: CmsPreviewPicker._rectOf(el.getBoundingClientRect()),
       // lazy: walking a big element's text on every move is wasted unless a rule asks
+      get textRects() {
+        return lines();
+      },
       get textRect() {
-        if (!done) {
-          text = CmsPreviewPicker._textRect(el);
-          done = true;
-        }
-        return text;
+        const all = lines();
+        return all.length
+          ? {
+              left: Math.min(...all.map((r) => r.left)),
+              top: Math.min(...all.map((r) => r.top)),
+              right: Math.max(...all.map((r) => r.right)),
+              bottom: Math.max(...all.map((r) => r.bottom)),
+            }
+          : null;
       },
     };
   }
@@ -242,22 +249,20 @@ export class CmsPreviewPicker extends LitElement {
     }
   }
 
-  /** The box of the words under the element (not of the block around them —
-   *  a block that spans the card is not "the text"); null when there are none. */
-  private static _textRect(el: Element): PickRect | null {
+  /** The boxes of the words under the element, one per text line (not of the
+   *  block around them — a block that spans the card is not "the text"). */
+  private static _textRects(el: Element): PickRect[] {
     const texts: Text[] = [];
     CmsPreviewPicker._collectText(el, texts);
-    let box: PickRect | null = null;
+    const out: PickRect[] = [];
     for (const t of texts) {
       const range = document.createRange();
       range.selectNodeContents(t);
-      const r = range.getBoundingClientRect();
-      if (r.width <= 0 || r.height <= 0) continue;
-      box = box
-        ? { left: Math.min(box.left, r.left), top: Math.min(box.top, r.top), right: Math.max(box.right, r.right), bottom: Math.max(box.bottom, r.bottom) }
-        : CmsPreviewPicker._rectOf(r);
+      for (const r of Array.from(range.getClientRects())) {
+        if (r.width > 0 && r.height > 0) out.push(CmsPreviewPicker._rectOf(r));
+      }
     }
-    return box;
+    return out;
   }
 
   /** All entity-row elements inside the card, in document order — used to

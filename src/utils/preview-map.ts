@@ -23,13 +23,15 @@ export interface PickRect {
 
 /** One element of the hovered element's ancestor chain (lowercased tag). The
  *  geometry is optional (pure callers/tests omit it): `rect` is the element's
- *  box, `textRect` the box of its own text (null: it has none). */
+ *  box, `textRects` the boxes of the words under it (one per line; `textRect`
+ *  is their union, null: it has none). */
 export interface PickChainElement {
   tag: string;
   id: string;
   classes: string[];
   rect?: PickRect;
   textRect?: PickRect | null;
+  textRects?: PickRect[];
 }
 
 /** The pointer and what is under it, for rules that need geometry. */
@@ -43,10 +45,14 @@ export interface PickPointer {
 const inRect = (r: PickRect, x: number, y: number, slop = 0): boolean =>
   x >= r.left - slop && x <= r.right + slop && y >= r.top - slop && y <= r.bottom + slop;
 
-/** A block wider than its label only counts where the text itself is. Callers
- *  without geometry (pure tests) keep the plain match. */
-const onText = (el: PickChainElement, p?: PickPointer): boolean =>
-  !p || !el.rect || (!!el.textRect && inRect(el.textRect, p.x, p.y, 2));
+/** A block wider than its label only counts where the text itself is: the box
+ *  of the words under the pointer, or `true` for callers without geometry
+ *  (pure tests), which keep the plain match. */
+const textUnder = (el: PickChainElement, p?: PickPointer): PickRect | true | null => {
+  if (!p || !el.rect) return true;
+  const boxes = el.textRects ?? (el.textRect ? [el.textRect] : []);
+  return boxes.find((r) => inRect(r, p.x, p.y, 2)) ?? null;
+};
 
 /** What the picker resolved a hovered element to. */
 export interface PickTarget {
@@ -332,12 +338,13 @@ export function mapElementToMatch(
       (!r.tag || r.tag === el.tag) && (!r.className || el.classes.includes(r.className));
     // `textOnly` needs geometry; callers that give none keep the plain match.
     const textOk = (r: ClickRule, el: PickChainElement): boolean =>
-      !r.textOnly || onText(el, pointer);
+      !r.textOnly || textUnder(el, pointer) !== null;
     const walk = (rows: ClickRule[]): PickMatch | null => {
       for (let i = 0; i < chain.length; i++) {
         const hit = rows.find((r) => rowMatches(r, chain[i]) && textOk(r, chain[i]));
         // a text rule highlights the text itself, not its full-width block
-        if (hit) return { target: { module: hit.module, label: hit.label }, index: i, ...(hit.textOnly && chain[i].textRect ? { rect: chain[i].textRect! } : {}) };
+        const words = hit?.textOnly ? textUnder(chain[i], pointer) : null;
+        if (hit) return { target: { module: hit.module, label: hit.label }, index: i, ...(words && words !== true ? { rect: words } : {}) };
       }
       return null;
     };
@@ -363,8 +370,9 @@ export function mapElementToMatch(
     if (CARD_SURFACE_PARTS[key]?.(el)) return surface();
     if (CARD_TEXT_ONLY[key]?.(el, chain[i + 1])) {
       // off the words: not Font here, and no generic marker (`info`, …) may claim it
-      if (!onText(el, pointer) || !capsFor(cardType).modules.font) continue;
-      return { target: { module: 'cms-font-module', label: 'Font' }, index: i, ...(el.textRect ? { rect: el.textRect } : {}) };
+      const words = textUnder(el, pointer);
+      if (!words || !capsFor(cardType).modules.font) continue;
+      return { target: { module: 'cms-font-module', label: 'Font' }, index: i, ...(words !== true ? { rect: words } : {}) };
     }
     for (const rule of RULES) {
       if (!rule.test(el, i, ctx)) continue;

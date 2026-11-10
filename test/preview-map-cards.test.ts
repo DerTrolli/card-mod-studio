@@ -95,6 +95,14 @@ describe('media-control', () => {
     expect(labelOf(chain('div', 'div.icon-name', 'div.top-info', ...tail), 'media-control')).toBe(FONT);
     expect(labelOf(chain('span', 'div.marquee-inner', 'hui-marquee', 'div.media-info', 'div.title-controls', 'div', ...tail), 'media-control')).toBe(FONT);
   });
+  it('a block of several text lines counts per line, not as one box around them', () => {
+    const lines = [box(0, 60, 280, 16), box(0, 82, 50, 16)];
+    const info: PickChainElement = { ...e('div.media-info'), rect: box(0, 56, 320, 44), textRect: box(0, 60, 280, 38), textRects: lines };
+    const c = [info, ...chain(...tail)];
+    expect(labelOf(c, 'media-control', undefined, at(30, 90))).toBe(FONT);
+    expect(mapElementToMatch(c, 'media-control', undefined, at(30, 90))?.rect).toEqual(lines[1]);
+    expect(labelOf(c, 'media-control', undefined, at(200, 90))).toBe(BG);
+  });
   it('the blank beside a title line and the controls → Background', () => {
     const marquee = wide('div.marquee-inner', box(0, 60, 320, 20), null);
     const span = wide('span', box(0, 62, 150, 16), box(0, 62, 150, 16));
