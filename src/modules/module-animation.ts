@@ -37,6 +37,8 @@ export class AnimationModule extends LitElement {
   @property({ type: String }) cardEntity = '';
 
   @property({ attribute: false }) hass?: HomeAssistant;
+  /** Presets this card cannot use (card-caps noAnimationPresets); the saved one stays listed. */
+  @property({ attribute: false }) hiddenPresets: string[] = [];
 
   /** True when Advanced CSS overrides this module's output — shows the
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
@@ -122,7 +124,7 @@ export class AnimationModule extends LitElement {
                   preset: (e.target as HTMLSelectElement).value as AnimationPreset,
                 })}
             >
-              ${PRESETS.map(
+              ${PRESETS.filter((p) => !this.hiddenPresets.includes(p.value) || p.value === this.state.preset).map(
                 (p) => html`
                   <option value=${p.value} ?selected=${this.state.preset === p.value}>
                     ${p.label}

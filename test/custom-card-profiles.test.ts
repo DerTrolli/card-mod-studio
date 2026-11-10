@@ -45,8 +45,6 @@ const OLD_STYLABLE_CHILDREN_CARD_TYPES = new Set<string>([
 // v0.11: shrunk after animations were operated with real input on 10 of the
 // listed types (see card-caps.ts). Everything else is the old set verbatim.
 const OLD_NO_ANIMATION_TYPES = new Set<string>([
-  'thermostat', 'humidifier', 'light',
-  'map', 'iframe', 'picture', 'picture-entity', 'picture-glance', 'picture-elements',
   'heading',
   'energy-distribution', 'energy-usage-graph', 'activity', 'webpage', 'shopping-list',
 ]);

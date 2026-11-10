@@ -437,6 +437,7 @@ export class CmsChildCardSection extends LitElement {
               .overridden=${!!conflicts.animation}
               .overriddenDetail=${(conflicts.animation ?? []).join(", ")}
               .state=${s.animation}
+              .hiddenPresets=${caps.noAnimationPresets}
               .stateAware=${stateAware}
               .hass=${this.hass}
               @state-changed=${(e: CustomEvent<AnimationModuleState>) =>

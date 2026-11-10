@@ -55,11 +55,13 @@ export const STYLABLE_CHILDREN_CARD_TYPES = new Set([
  *  - never measured: energy cards, activity, webpage, shopping-list.
  */
 export const NO_ANIMATION_TYPES = new Set([
-  'thermostat', 'humidifier', 'light',
-  'map', 'iframe', 'picture', 'picture-entity', 'picture-glance', 'picture-elements',
   'heading',
   'energy-distribution', 'energy-usage-graph', 'activity', 'webpage', 'shopping-list',
 ]);
+
+/** Cards where Spin breaks the pointer: the dial handle (thermostat,
+ *  humidifier, light) and the map's pan drift away from it. */
+export const NO_SPIN_TYPES = new Set(['thermostat', 'humidifier', 'light', 'map']);
 
 export const NO_BACKGROUND_TYPES = new Set([
   'picture', 'picture-entity', 'picture-glance', 'picture-elements',
@@ -262,6 +264,9 @@ export interface CardCaps {
   stylableChildren: boolean;
   /** Which panel modules show. */
   modules: Record<ProfileModule, boolean>;
+  /** Animation presets left out of this card's list: Spin where it breaks a
+   *  drag, Gradient Shift where Background is hidden (nothing to shift). */
+  noAnimationPresets: string[];
   /** Font's colour picker / size slider reach something. */
   fontColor: boolean;
   fontSize: boolean;
@@ -319,6 +324,7 @@ function buildCaps(
     isContainer: !custom && CONTAINER_CARD_TYPES.has(key),
     stylableChildren: !custom && STYLABLE_CHILDREN_CARD_TYPES.has(key),
     modules: m,
+    noAnimationPresets: custom ? [] : [...(NO_SPIN_TYPES.has(key) ? ['spin'] : []), ...(m.background ? [] : ['gradient-shift'])],
     ...flags,
     iconSizeMax: iconSizeMax ?? (custom ? DEFAULT_ICON_SIZE_MAX : ICON_SIZE_MAX_BY_TYPE[key] ?? DEFAULT_ICON_SIZE_MAX),
     fontWeight: fontWeight !== false,

@@ -1492,6 +1492,7 @@ export class CmsPanel extends LitElement {
             .overridden=${!!conflicts.animation}
             .overriddenDetail=${(conflicts.animation ?? []).join(", ")}
             .state=${s.animation}
+            .hiddenPresets=${this._caps.noAnimationPresets}
             .stateAware=${stateAware}
             .hass=${this.hass}
             @state-changed=${this._onAnimationChanged}
