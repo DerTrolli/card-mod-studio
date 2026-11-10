@@ -169,7 +169,9 @@ run.sh
 ```
 
 - **`config/configuration.yaml`** — minimal HA: the `demo` integration (≈117 test
-  entities), YAML-mode dashboard, card-mod + the plugin as resources.
+  entities), YAML-mode dashboard, card-mod loaded via `frontend: extra_module_url`
+  (its recommended install; as a dashboard resource it races), the plugin,
+  Mushroom and Bubble as dashboard resources.
 - **`harness/onboard.py`** — drives HA's onboarding HTTP API to create a user and
   emit `tokens.json` (no manual login, no `.storage` seeding).
 - **`harness/matrix.mjs`** — renders each card type, applies the CSS the tool

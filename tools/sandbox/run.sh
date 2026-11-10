@@ -37,6 +37,12 @@ mkdir -p "$CFG/www"
 cp "$REPO/dist/card-mod-studio.js" "$CFG/www/card-mod-studio.js"
 
 echo "==> [3/6] fetch card-mod ($CARD_MOD_TAG)"
+# card-mod must be loaded the way its README recommends: configuration.yaml
+# has it under frontend: extra_module_url (the frontend waits for those before
+# it renders). As a plain lovelace resource it loads too late and styled cards
+# stay unstyled on most cold loads. An older CFG folder keeps its own file:
+grep -q 'extra_module_url' "$CFG/configuration.yaml" \
+  || echo "    WARNING: $CFG/configuration.yaml has no frontend: extra_module_url for /local/card-mod.js (see $HERE/config/configuration.yaml)"
 curl -fsSL -o "$CFG/www/card-mod.js" \
   "https://raw.githubusercontent.com/thomasloven/lovelace-card-mod/${CARD_MOD_TAG}/card-mod.js"
 
