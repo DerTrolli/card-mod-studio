@@ -1420,6 +1420,7 @@ export class CmsPanel extends LitElement {
       ${showFont
         ? html`<cms-font-module
             .allowColor=${this._caps.fontColor}
+            .thresholdOwned=${thresholdOwned.has('text-color') && !(this._caps.custom && !this._caps.modules.threshold)}
             .allowSize=${this._caps.fontSize}
             .numberSize=${numberSizeKind(this._profileKey)}
             .cardType=${this._profileKey}

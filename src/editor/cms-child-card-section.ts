@@ -346,6 +346,7 @@ export class CmsChildCardSection extends LitElement {
         ${mods.font
           ? html`<cms-font-module
               .allowColor=${caps.fontColor}
+              .thresholdOwned=${thresholdOwned.has('text-color') && !(caps.custom && !caps.modules.threshold)}
               .allowSize=${caps.fontSize}
               .numberSize=${numberSizeKind(cardType)}
               .cardType=${cardType}

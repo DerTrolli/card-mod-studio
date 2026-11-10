@@ -6,7 +6,7 @@ import { capsFor } from '../utils/card-caps.js';
 import { GAUGE_SIZE, NUMBER_SIZE_DEFAULT } from '../utils/owned-entries.js';
 import {
   moduleStyles, renderOverrideHint, renderModuleHeader, renderResetButton, renderDefaultOption,
-  guardSliderTouch,
+  guardSliderTouch, renderThresholdOwnedHint,
 } from './module-base.js';
 import '../components/cms-color-picker.js';
 
@@ -50,6 +50,10 @@ export class FontModule extends LitElement {
   @property({ attribute: false }) allowColor = true;
   /** False on cards that size their own text (NO_FONT_SIZE_TYPES). */
   @property({ attribute: false }) allowSize = true;
+  /** True when Threshold Colors is writing the text colour (the panel's
+   *  thresholdOwnedProperties has 'text-color'): the generator then drops the
+   *  colour chosen here, while size / weight / family still apply. */
+  @property({ attribute: false }) thresholdOwned = false;
   /** 'gauge' / 'thermostat' on cards with a Number size control (v0.11),
    *  '' elsewhere. */
   @property({ attribute: false }) numberSize: '' | 'gauge' | 'thermostat' = '';
@@ -266,7 +270,12 @@ export class FontModule extends LitElement {
                   @color-changed=${(e: CustomEvent) => this._emit({ color: e.detail.value || undefined })}
                 ></cms-color-picker>
               </div>
-            </div>`
+            </div>
+            ${renderThresholdOwnedHint(
+              this.thresholdOwned && this.state.enabled && !!this.state.color,
+              'text color',
+              'Text Color',
+            )}`
           : nothing}
         ${this.numberSize ? this._renderNumberSize(this.numberSize) : nothing}
       </div>
