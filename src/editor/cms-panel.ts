@@ -330,6 +330,14 @@ export class CmsPanel extends LitElement {
     return this._caps.isContainer;
   }
 
+  /** A card with no style modules at all (Mushroom's empty card renders
+   *  nothing): only Advanced CSS reaches it. Decided from the capabilities,
+   *  so containers (their own layout) and entities (row styling) don't match. */
+  private get _nothingToStyle(): boolean {
+    const caps = this._caps;
+    return !caps.isContainer && !caps.isEntities && Object.values(caps.modules).every((on) => !on);
+  }
+
   private get _showIconColor(): boolean {
     return this._caps.modules.iconColor;
   }
@@ -1019,8 +1027,9 @@ export class CmsPanel extends LitElement {
 
           ${this._studioState
             ? html`
-                ${this._isLocked ? nothing : this._renderPresetBar()}
+                ${this._isLocked || this._nothingToStyle ? nothing : this._renderPresetBar()}
                 <cms-palette-manager .hass=${this.hass}></cms-palette-manager>
+                ${this._renderNothingToStyleNote()}
                 ${this._renderUnprofiledNotice()}
                 ${this._renderModuleList(settleEntityless(this._studioState, this.config as unknown as Record<string, unknown>))}
               `
@@ -1202,6 +1211,12 @@ export class CmsPanel extends LitElement {
     return html`<div class="info-banner">ℹ️ ${UNPROFILED_CARD_NOTICE}</div>`;
   }
 
+  /** A card that renders nothing: say so instead of an empty preview. */
+  private _renderNothingToStyleNote() {
+    if (this._isLocked || !this._nothingToStyle) return nothing;
+    return html`<div class="info-banner">ℹ️ This card renders nothing, so there is nothing to style — Advanced CSS still applies.</div>`;
+  }
+
   private _renderPresetBar() {
     if (this._namingPreset) {
       const name = this._presetName.trim();
@@ -1304,7 +1319,9 @@ export class CmsPanel extends LitElement {
     const showBorder = this._showBorder;
     const showHeadingStyle = this._showHeadingStyle;
     const showFont = this._showFont;
-    const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
+    const loadedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
+    // A module-less card has nothing that could have recognised anything.
+    const hasUnrecognisedCss = loadedCss && !this._nothingToStyle;
     // "Custom CSS is overriding this control" warnings (style-conflicts.ts)
     const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s, this._profileKey);
     const thresholdOwned = thresholdOwnedProperties(s.threshold);
@@ -1433,7 +1450,7 @@ export class CmsPanel extends LitElement {
       <cms-advanced-module
         .state=${s.advanced}
         .pierced=${userEntries(s.dictSource)}
-        .autoOpen=${hasUnrecognisedCss || userEntries(s.dictSource).length > 0}
+        .autoOpen=${loadedCss || userEntries(s.dictSource).length > 0}
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
 
@@ -1465,7 +1482,8 @@ export class CmsPanel extends LitElement {
 
   private _renderContainerCard(s: StudioState) {
     const cardType = this.config?.type ?? 'layout';
-    const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
+    // Its CSS all lives in Advanced CSS by design — nothing was "unrecognised".
+    const loadedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
     const childCards = this._caps.stylableChildren
       ? ((this.config as unknown as { cards?: CardModCardConfig[] }).cards ?? [])
       : null;
@@ -1501,16 +1519,10 @@ export class CmsPanel extends LitElement {
             </div>
           `}
 
-      ${hasUnrecognisedCss
-        ? html`<div class="info-banner">
-            ℹ️ Some existing styles weren't recognised — preserved in Advanced CSS.
-          </div>`
-        : nothing}
-
       <cms-advanced-module
         .state=${s.advanced}
         .pierced=${userEntries(s.dictSource)}
-        .autoOpen=${hasUnrecognisedCss || userEntries(s.dictSource).length > 0}
+        .autoOpen=${loadedCss || userEntries(s.dictSource).length > 0}
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
     `;
