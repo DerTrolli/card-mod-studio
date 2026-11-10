@@ -41,16 +41,20 @@ export const STYLABLE_CHILDREN_CARD_TYPES = new Set([
  * HA 2026.11, every preset, card-mod): alarm-panel keypad, calendar day and
  * event, gauge / statistic / weather more-info, history- and statistics-graph
  * tooltip, logbook row, media-control buttons, to-do tick all work and their
- * dialogs open centred, so those are no longer listed. Still hidden, with the
- * measured reason:
- *  - thermostat, humidifier, light: Spin drags the arc handle ~40° (60-130 px)
- *    away from the pointer (the slider reads the screen angle, the dial is
- *    drawn rotated). The other presets end on the same value as an
- *    un-animated card — they return once the preset list can leave Spin out.
- *  - map: Spin pans the map sideways (drag -120 px moved the marker +73 px);
- *    iframe, picture, picture-entity, picture-glance, picture-elements, map:
- *    Gradient Shift moves a `background-position` those cards cannot show
- *    (Background is hidden there) — they return with the same per-preset gate.
+ * dialogs open centred, so those are no longer listed.
+ *
+ * Some cards are offered the module with single presets left out (see
+ * `noAnimationPresets` in buildCaps; a preset already stored stays listed):
+ *  - Spin on thermostat, humidifier, light: it drags the arc handle ~40°
+ *    (60-130 px) away from the pointer (the slider reads the screen angle, the
+ *    dial is drawn rotated); on map it pans the map sideways (drag -120 px
+ *    moved the marker +73 px). The other presets end on the same value as an
+ *    un-animated card.
+ *  - Gradient Shift on every card whose Background module is hidden (iframe,
+ *    picture, picture-entity, picture-glance, picture-elements, map …): it
+ *    moves a `background-position` those cards cannot show.
+ *
+ * Still hidden altogether, with the measured reason:
  *  - heading: no painted box, the glow outlines bare text.
  *  - never measured: energy cards, activity, webpage, shopping-list.
  */
