@@ -24,6 +24,7 @@ import { capsFor, hasOwnEntity, type CardCaps } from '../utils/card-caps.js';
 import {
   getCustomCardProfile,
   emitKeyOf,
+  scaledFontValue,
   type AccentEmitter,
   type BorderEmitter,
   type FontEmitter,
@@ -838,6 +839,12 @@ function fontVarBlock(s: FontModuleState, e: FontEmitter, skipColor = false): st
   const weight = s.fontWeight ? FONT_WEIGHT_VALUE[s.fontWeight] : null;
   const decls = [
     ...(s.fontSize != null ? (e.size ?? []).map((v) => `${v}: ${s.fontSize}px;`) : []),
+    ...(s.fontSize != null
+      ? (e.scaled ?? []).flatMap((v) => {
+          const val = scaledFontValue(v, s.fontSize!);
+          return val ? [`${v.prop}: ${val};`] : [];
+        })
+      : []),
     ...(weight ? (e.weight ?? []).map((v) => `${v}: ${weight};`) : []),
     ...(skipColor || !s.color ? [] : (e.color ?? []).map((v) => `${v}: ${s.color};`)),
     ...(e.family && family ? [`font-family: ${family};`] : []),

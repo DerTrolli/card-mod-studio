@@ -91,6 +91,11 @@ function classic(type: string): CustomCardProfile {
         weight: ['--card-primary-font-weight', '--card-secondary-font-weight'],
         color: ['--card-primary-color', '--card-secondary-color'],
         family: true,
+        // fixed 20px / 16px lines (overflow: hidden) would clip a larger text
+        scaled: [
+          { prop: '--card-primary-line-height', ratio: 20 / 14 },
+          { prop: '--card-secondary-line-height', ratio: 16 / 12 },
+        ],
       },
       // shape 36→60px with the variable (the glyph follows at 2/3)
       iconSize: { selector: HA_CARD, box: ['--icon-size'] },
@@ -147,6 +152,8 @@ const chips = profile('custom:mushroom-chips-card', {
       size: ['--chip-font-size'],
       weight: ['--chip-font-weight'],
       family: true,
+      // the pill is a fixed 36px high; text taller than ~20px spills out of it
+      scaled: [{ prop: '--chip-height', ratio: 1, add: 16, min: 36 }],
     },
     // The chips' icons sit in nested shadow roots no selector reaches: Icon
     // Color is a size-only control here.
@@ -181,6 +188,8 @@ const title = profile('custom:mushroom-title-card', {
       weight: ['--title-font-weight'],
       color: ['--title-color'],
       family: true,
+      // fixed 32px line (24px text) would overlap the subtitle when larger
+      scaled: [{ prop: '--title-line-height', ratio: 32 / 24 }],
     },
   },
 });

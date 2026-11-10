@@ -52,6 +52,25 @@ export interface FontEmitter {
   weight?: string[];
   color?: string[];
   family?: boolean;
+  /** Variables derived from the text size, written only together with it: the
+   *  card keeps fixed line-heights / box heights that would clip a larger text. */
+  scaled?: ScaledVar[];
+}
+
+/** `prop: round(size × ratio + add)px`. `ratio` reproduces the card's own
+ *  proportion at its native size (Mushroom: 20px line at 14px text). With
+ *  `min` (the card's native value) nothing is written while the result stays
+ *  at or below it. */
+export interface ScaledVar {
+  prop: string;
+  ratio: number;
+  add?: number;
+  min?: number;
+}
+
+export function scaledFontValue(v: ScaledVar, sizePx: number): string | null {
+  const px = Math.round(sizePx * v.ratio + (v.add ?? 0));
+  return v.min != null && px <= v.min ? null : `${px}px`;
 }
 
 /** Icon size: `box` variables get the slider's value; `glyph` variables get
@@ -142,6 +161,7 @@ export type ClaimRole =
   | 'fontWeight'
   | 'fontColor'
   | 'fontFamily'
+  | 'fontScaled'
   | 'iconSize'
   | 'iconGlyph'
   | 'iconColor'

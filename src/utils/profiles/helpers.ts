@@ -37,6 +37,7 @@ export function claimsFromEmitters(e: ProfileEmitters): ClaimRule[] {
     add('font', e.font.selector, 'fontWeight', e.font.weight);
     add('font', e.font.selector, 'fontColor', e.font.color);
     if (e.font.family) add('font', e.font.selector, 'fontFamily', ['font-family']);
+    add('font', e.font.selector, 'fontScaled', e.font.scaled?.map((v) => v.prop));
   }
   if (e.iconSize) {
     add('iconColor', e.iconSize.selector, 'iconSize', e.iconSize.box);
@@ -75,7 +76,7 @@ export function conflictsFromEmitters(e: ProfileEmitters): ConflictRow[] {
   const comp = (cs?: Companion[]) => (cs ?? []).map((c) => c.prop);
   if (e.font) {
     const f = e.font;
-    add('font', f.selector, [...(f.size ?? []), ...(f.weight ?? []), ...(f.color ?? [])]);
+    add('font', f.selector, [...(f.size ?? []), ...(f.weight ?? []), ...(f.color ?? []), ...(f.scaled ?? []).map((v) => v.prop)]);
     add('threshold', f.selector, f.color ?? [], 'text-color');
   }
   if (e.iconSize) add('iconColor', e.iconSize.selector, [...e.iconSize.box, ...(e.iconSize.glyph ?? [])]);

@@ -110,6 +110,8 @@ describe('M-classic — the 14 state cards', () => {
         'ha-card {',
         '  --card-primary-font-size: 22px;',
         '  --card-secondary-font-size: 22px;',
+        '  --card-primary-line-height: 31px;',
+        '  --card-secondary-line-height: 29px;',
         '  --card-primary-font-weight: bold;',
         '  --card-secondary-font-weight: bold;',
         '  --card-primary-color: #ee1111;',
@@ -512,6 +514,7 @@ describe('M-title', () => {
       [
         'ha-card {',
         '  --title-font-size: 22px;',
+        '  --title-line-height: 29px;',
         '  --title-font-weight: bold;',
         '  --title-color: #ee1111;',
         '  font-family: monospace;',
@@ -796,5 +799,95 @@ describe('F3 — a custom profile adopts nothing into a module its panel hides',
   it('built-in cards still adopt as before (tile: hand-written ha-card background)', () => {
     expect(parse('ha-card { background: red; }', 'tile').background.enabled).toBe(true);
     expect(parse('ha-card { background: red; }', key('light')).background.enabled).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Text size carries a matching line-height (fixed 20px / 16px lines with
+// overflow: hidden clipped anything above ~18px; measured on both engines).
+// ---------------------------------------------------------------------------
+describe('Font text size → line-height / box height', () => {
+  const sized = (size: number, extra: Partial<StudioState['font']> = {}) =>
+    withState({ font: { ...EMPTY.font, enabled: true, fontSize: size, ...extra } });
+
+  it('classic: 20/14 and 16/12 of the size, native 20px at 14px primary (secondary 16px at 12px)', () => {
+    const want: Record<number, [number, number]> = { 10: [14, 13], 14: [20, 19], 22: [31, 29], 30: [43, 40], 48: [69, 64] };
+    for (const [size, [p, s]] of Object.entries(want)) {
+      const css = generateCss(sized(Number(size)), key('entity'));
+      expect(css).toContain(`--card-primary-line-height: ${p}px;`);
+      expect(css).toContain(`--card-secondary-line-height: ${s}px;`);
+    }
+  });
+
+  it('only with a size: weight / colour alone write no line-height', () => {
+    const css = generateCss(withState({ font: { ...EMPTY.font, enabled: true, fontWeight: 'bold', color: '#ee1111' } }), key('entity'));
+    expect(css).not.toContain('line-height');
+  });
+
+  it('round-trips byte-identically on all 14 types at every tested size, nothing left in Advanced CSS', () => {
+    for (const t of MUSHROOM_CLASSIC_TYPES) {
+      for (const size of [10, 14, 22, 30, 48]) {
+        const { back } = roundTrip(sized(size, { fontWeight: 'bold', color: '#ee1111' }), key(t));
+        expect(back.font.fontSize, `${t} ${size}`).toBe(size);
+      }
+    }
+  });
+
+  it('a style from before the line-height (0.11.0-beta.2 shape) loads the same controls and gains it on save', () => {
+    const old = [
+      'ha-card {',
+      '  --card-primary-font-size: 22px;',
+      '  --card-secondary-font-size: 22px;',
+      '  --card-primary-font-weight: bold;',
+      '  --card-secondary-font-weight: bold;',
+      '}',
+    ].join('\n');
+    const back = parse(old, key('light'));
+    expect(back.font).toMatchObject({ enabled: true, fontSize: 22, fontWeight: 'bold' });
+    expect(back.advanced.rawCss).toBe('');
+    const next = generateCss(back, key('light'));
+    expect(next).toContain('--card-primary-line-height: 31px;');
+    expect(roundTrip(back, key('light')).css).toBe(next);
+  });
+
+  it('a line-height the user set to another value stays in Advanced CSS (and wins: it is written last)', () => {
+    const css = 'ha-card {\n  --card-primary-font-size: 22px;\n  --card-primary-line-height: 40px;\n}';
+    const back = parse(css, key('light'));
+    expect(back.font.fontSize).toBe(22);
+    expect(back.advanced.rawCss).toContain('--card-primary-line-height: 40px');
+    const out = generateCss(back, key('light'));
+    expect(out.lastIndexOf('--card-primary-line-height: 40px')).toBeGreaterThan(out.indexOf('--card-primary-line-height: 31px'));
+  });
+
+  it('a line-height without a size is not claimed', () => {
+    const back = parse('ha-card { --card-primary-line-height: 31px; }', key('light'));
+    expect(back.font.enabled).toBe(false);
+    expect(back.advanced.rawCss).toContain('--card-primary-line-height');
+  });
+
+  it('hand-written Advanced CSS on the line-height variable is flagged as overriding Font', () => {
+    const state = { ...sized(22), advanced: { rawCss: '' } };
+    expect(findAdvancedCssConflicts('ha-card { --card-secondary-line-height: 30px; }', state, key('light')).font)
+      .toEqual(['ha-card { --card-secondary-line-height }']);
+  });
+
+  it('title: --title-line-height = 4/3 of the size, the subtitle is not written', () => {
+    expect(generateCss(sized(24), key('title'))).toContain('--title-line-height: 32px;');
+    const css = generateCss(sized(48), key('title'));
+    expect(css).toContain('--title-line-height: 64px;');
+    expect(css).not.toContain('--subtitle');
+    roundTrip(sized(48), key('title'));
+  });
+
+  it('chips: --chip-height grows with the text above the native 36px, nothing below it', () => {
+    expect(generateCss(sized(14), key('chips'))).not.toContain('--chip-height');
+    expect(generateCss(sized(20), key('chips'))).not.toContain('--chip-height');
+    expect(generateCss(sized(30), key('chips'))).toContain('--chip-height: 46px;');
+    expect(generateCss(sized(48), key('chips'))).toContain('--chip-height: 64px;');
+    for (const size of [10, 14, 22, 30, 48]) roundTrip(sized(size), key('chips'));
+  });
+
+  it('the template card (tile text) needs none: its lines scale with the text', () => {
+    expect(generateCss(sized(30), key('template'))).not.toContain('line-height');
   });
 });
