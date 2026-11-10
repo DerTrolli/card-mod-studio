@@ -5,6 +5,7 @@ import { DEFAULT_BACKGROUND } from '../parser/state-mapper.js';
 import { moduleStyles, renderWhen,  renderOverrideHint, renderThresholdOwnedHint, renderModuleHeader, guardSliderTouch, } from './module-base.js';
 import '../components/cms-color-picker.js';
 import { stateKindFor } from '../utils/card-caps.js';
+import { isValidCssColor } from '../utils/css-color.js';
 
 export class BackgroundModule extends LitElement {
   @property({ attribute: false }) state: BackgroundModuleState = {
@@ -54,6 +55,19 @@ export class BackgroundModule extends LitElement {
     );
   }
 
+  /** Solid takes images, a gradient stop does not (and the other way round
+   *  for `red 0%`): a value the TARGET field would refuse is not carried over
+   *  — it would write invalid CSS under a hint-less field. */
+  private _changeType(type: 'solid' | 'gradient') {
+    const mode = type === 'gradient' ? 'stop' : 'background';
+    const keep = (v: string, fallback: string) => (isValidCssColor(v, mode) ? v : fallback);
+    this._emit({
+      type,
+      color1: keep(this.state.color1, DEFAULT_BACKGROUND.color1),
+      ...(type === 'gradient' ? { color2: keep(this.state.color2, DEFAULT_BACKGROUND.color2) } : {}),
+    });
+  }
+
   override connectedCallback() {
     super.connectedCallback();
     guardSliderTouch(this.renderRoot);
@@ -90,9 +104,7 @@ export class BackgroundModule extends LitElement {
               aria-labelledby="lbl-type"
               .value=${this.state.type}
               @change=${(e: Event) =>
-                this._emit({
-                  type: (e.target as HTMLSelectElement).value as 'solid' | 'gradient',
-                })}
+                this._changeType((e.target as HTMLSelectElement).value as 'solid' | 'gradient')}
             >
               <option value="solid" ?selected=${this.state.type === 'solid'}>Solid color</option>
               <option value="gradient" ?selected=${this.state.type === 'gradient'}>
