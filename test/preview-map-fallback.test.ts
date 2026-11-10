@@ -109,18 +109,41 @@ describe('a hover never names a module that is hidden for the card', () => {
   ];
   const inside = [['ha-card', 'hui-x-card', 'hui-card'], ['div', 'ha-card', 'hui-x-card', 'hui-card']];
 
+  // Configs the panel's gates read: generic ones plus the keys the Bubble and
+  // Mushroom profiles gate on (icon / picture, icon_type, primary/secondary
+  // info and their legacy hide_* flags, show_icon / show_name / state options).
+  const configs: Record<string, unknown>[] = [
+    {}, { icon: 'mdi:x' }, { entity: 'light.a' }, { picture: '/a.png' }, { icon_color: 'red' },
+    { icon_type: 'none' }, { hide_icon: true }, { primary_info: 'none', secondary_info: 'none' },
+    { hide_name: true, hide_state: true }, { icon_type: 'none', show_brightness_control: true },
+    { display_mode: 'buttons', primary_info: 'none', secondary_info: 'none' },
+    { show_icon: false }, { show_name: false, show_state: false },
+    { button_type: 'state', show_name: false, show_state: false, show_attribute: false },
+    { show_name: false, state_content: 'state' },
+    { show_icon: false, show_name: false, button_type: 'switch' },
+  ];
+
   it.each(types)('%s', (type) => {
-    const shown = capsFor(type).modules;
-    for (const shape of SHAPES) {
-      for (const up of inside) {
-        const c = [shape, ...up].map(e);
-        const t = mapElementToTarget(c, type);
-        expect(t, `${type} / ${shape}`).not.toBeNull();
-        const gate = MODULE_OF[t!.module];
-        expect(gate !== undefined, `${t!.module} is a module`).toBe(true);
-        if (gate) expect(shown[gate], `${type} / ${shape} → ${t!.module} is hidden`).toBe(true);
-        if (t!.module === 'cms-entities-rows-module') expect(capsFor(type).isEntities, `${type} / ${shape}`).toBe(true);
+    for (const config of configs) {
+      const shown = capsFor(type, config).modules;
+      const isEntities = capsFor(type, config).isEntities;
+      const at = (shape: string) => `${type} ${JSON.stringify(config)} / ${shape}`;
+      for (const shape of SHAPES) {
+        for (const up of inside) {
+          const c = [shape, ...up].map(e);
+          const t = mapElementToTarget(c, type, config);
+          expect(t, at(shape)).not.toBeNull();
+          const gate = MODULE_OF[t!.module];
+          expect(gate !== undefined, `${t!.module} is a module`).toBe(true);
+          if (gate) expect(shown[gate], `${at(shape)} → ${t!.module} is hidden`).toBe(true);
+          if (t!.module === 'cms-entities-rows-module') expect(isEntities, at(shape)).toBe(true);
+        }
       }
     }
+  });
+
+  it('a Mushroom template card without icon or picture has no Icon Color label', () => {
+    const t = mapElementToTarget(['ha-state-icon', 'ha-card'].map(e), 'custom:mushroom-template-card', {});
+    expect(t?.module).not.toBe('cms-icon-color-module');
   });
 });

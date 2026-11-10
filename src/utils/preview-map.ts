@@ -188,19 +188,19 @@ const RULES: PickRule[] = [
       ICON_TAGS.has(el.tag) ||
       (CARD_ICON_MATCHERS[emitKeyOf(ctx.cardType)]?.(el) ?? false) ||
       (el.tag === 'ha-icon' && (ctx.titleIndex === -1 || i > ctx.titleIndex)),
-    target: (cardType) =>
+    target: (cardType, config) =>
       // Mirror cms-panel._showIconColor: hidden on NO_ICON_COLOR_TYPES and on
       // entities cards (rows carry their own per-row icon color instead — the
       // walk falls through to the entity-row rule there).
-      !capsFor(cardType).modules.iconColor
+      !capsFor(cardType, config).modules.iconColor
         ? null
         : { module: 'cms-icon-color-module', label: 'Icon Color' },
   },
   {
     // Heading card title (.title wraps the p + ha-icon) → Heading Style.
     test: (_el, i, ctx) => ctx.titleIndex !== -1 && i <= ctx.titleIndex,
-    target: (cardType) =>
-      capsFor(cardType).modules.headingStyle
+    target: (cardType, config) =>
+      capsFor(cardType, config).modules.headingStyle
         ? { module: 'cms-heading-style-module', label: 'Heading Style' }
         : null,
     highlightIndex: (_i, ctx) => ctx.titleIndex,
@@ -258,16 +258,16 @@ const RULES: PickRule[] = [
         el.classes.some((c) => GENERIC_ROW_TEXT_CLASSES.has(c))) ||
       // a profile's `emitAs` borrows the built-in card's text matchers (D4)
       (CARD_TEXT_MATCHERS[emitKeyOf(ctx.cardType)]?.(el) ?? false),
-    target: (cardType) =>
-      !capsFor(cardType).modules.font ? null : { module: 'cms-font-module', label: 'Font' },
+    target: (cardType, config) =>
+      !capsFor(cardType, config).modules.font ? null : { module: 'cms-font-module', label: 'Font' },
   },
   {
     // A row element on an entities card → the per-row styling module.
     // rowEntity is resolved by the caller (the picker), which can see the
     // actual DOM order and the card's entity list — this mapper can't.
     test: (el) => ENTITY_ROW_TAG_RE.test(el.tag),
-    target: (cardType) =>
-      capsFor(cardType).isEntities
+    target: (cardType, config) =>
+      capsFor(cardType, config).isEntities
         ? { module: 'cms-entities-rows-module', label: 'Entity Rows' }
         : null,
   },
@@ -283,13 +283,17 @@ function fallbackTarget(cardType: string, config?: Record<string, unknown> | nul
   return { module: 'cms-advanced-module', label: 'Advanced CSS' };
 }
 
-function buildContext(chain: PickChainElement[], cardType: string): ChainContext {
+function buildContext(
+  chain: PickChainElement[],
+  cardType: string,
+  config?: Record<string, unknown> | null,
+): ChainContext {
   return {
     cardType,
     // Heading cards: `.content.title`, or `.content.subtitle` for
     // `heading_style: subtitle` — both are the Heading Style module's.
     titleIndex: chain.findIndex(
-      (el) => el.classes.includes('title') || (capsFor(cardType).isHeading && el.classes.includes('subtitle')),
+      (el) => el.classes.includes('title') || (capsFor(cardType, config).isHeading && el.classes.includes('subtitle')),
     ),
     genericRowIndex: chain.findIndex((el) => el.tag === 'hui-generic-entity-row'),
   };
@@ -310,13 +314,13 @@ export function mapElementToMatch(
   pointer?: PickPointer,
 ): PickMatch | null {
   if (!chain.length) return null;
-  const ctx = buildContext(chain, cardType);
+  const ctx = buildContext(chain, cardType, config);
 
   // Entities card: anywhere inside a row — icon, name, state, toggle — is
   // that row (its section holds the row's icon/text colour and font). The
   // OUTERMOST row element is the row itself; HA nests a
   // hui-generic-entity-row inside every row, which the same pattern matches.
-  if (capsFor(cardType).isEntities) {
+  if (capsFor(cardType, config).isEntities) {
     for (let i = chain.length - 1; i >= 0; i--) {
       if (ENTITY_ROW_TAG_RE.test(chain[i].tag)) {
         return { target: { module: 'cms-entities-rows-module', label: 'Entity Rows' }, index: i };
@@ -372,7 +376,7 @@ export function mapElementToMatch(
     if (CARD_TEXT_ONLY[key]?.(el, chain[i + 1])) {
       // off the words: not Font here, and no generic marker (`info`, …) may claim it
       const words = textUnder(el, pointer);
-      if (!words || !capsFor(cardType).modules.font) continue;
+      if (!words || !capsFor(cardType, config).modules.font) continue;
       return { target: { module: 'cms-font-module', label: 'Font' }, index: i, ...(words !== true ? { rect: words } : {}) };
     }
     for (const rule of RULES) {
