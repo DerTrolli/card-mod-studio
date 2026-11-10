@@ -30,7 +30,7 @@
  */
 
 import type { CssTarget, CssProperty } from '../types/index.js';
-import { JINJA_STR_BODY, JINJA_STR_BODY_1, hasForeignEscape, unescapeJinjaStr } from '../utils/jinja-str.js';
+import { JINJA_STR_BODY, JINJA_STR_BODY_1, endOfTag, hasForeignEscape, unescapeJinjaStr } from '../utils/jinja-str.js';
 
 // ---------------------------------------------------------------------------
 // Jinja2 placeholder handling
@@ -48,24 +48,43 @@ const STATEMENT_RE = /__CMS_S\d+__/;
 const COMMENT_RE = /__CMS_C\d+__/;
 
 /** Replaces every {{ … }}, {% … %} and {# … #} span with a stable placeholder token. */
-function extractJinja(
+export function extractJinja(
   css: string,
 ): { cleaned: string; map: Map<string, string> } {
   const map = new Map<string, string>();
   let index = 0;
+  let cleaned = '';
+  let last = 0;
+  const open = /\{[{%#]/g;
 
-  // Non-greedy match between the delimiters — handles single-line and
-  // multi-line templates ([\s\S] matches newlines).
-  const cleaned = css.replace(/\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}|\{#[\s\S]*?#\}/g, (match) => {
-    const prefix =
-      match[1] === '{' ? PLACEHOLDER_PREFIX : match[1] === '%' ? STATEMENT_PREFIX : COMMENT_PREFIX;
+  // A tag ends at the first closing delimiter that is not inside a quoted
+  // literal (`{{ 'a}}b' if … }}` is one template). Multi-line templates work
+  // as before. With no quote-aware end (an unbalanced quote) the first
+  // delimiter ends it, as it always did; with no delimiter at all the text is
+  // not a template and stays as it is.
+  for (let m = open.exec(css); m; m = open.exec(css)) {
+    const kind = m[0][1];
+    const close = kind === '{' ? '}}' : kind === '%' ? '%}' : '#}';
+    let end = -1;
+    if (kind !== '#') end = endOfTag(css, m.index + 2, close as '}}' | '%}', false);
+    if (end < 0) {
+      const at = css.indexOf(close, m.index + 2);
+      if (at < 0) {
+        open.lastIndex = m.index + 1;
+        continue;
+      }
+      end = at + 2;
+    }
+    const prefix = kind === '{' ? PLACEHOLDER_PREFIX : kind === '%' ? STATEMENT_PREFIX : COMMENT_PREFIX;
     const key = `${prefix}${index}${PLACEHOLDER_SUFFIX}`;
-    map.set(key, match);
+    map.set(key, css.slice(m.index, end));
     index++;
-    return key;
-  });
+    cleaned += css.slice(last, m.index) + key;
+    last = end;
+    open.lastIndex = end;
+  }
 
-  return { cleaned, map };
+  return { cleaned: cleaned + css.slice(last), map };
 }
 
 /**

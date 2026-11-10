@@ -36,3 +36,30 @@ export const JINJA_STR_BODY = String.raw`(?:[^'\\]|\\.)*`;
 
 /** Same, one or more characters. */
 export const JINJA_STR_BODY_1 = String.raw`(?:[^'\\]|\\.)+`;
+
+/**
+ * Index just past the closing delimiter of a `{{` / `{%` tag whose body starts
+ * at `from`, or -1 when none is found. Quote-aware: a `}}` / `%}` inside a
+ * single- or double-quoted literal (backslash escapes honoured) does not end
+ * the tag. With `countBraces` (the default) a `{ … }` pair inside a `{{` tag
+ * is skipped too, so a dict literal's `}}` is not taken for the close.
+ */
+export function endOfTag(s: string, from: number, close: '}}' | '%}', countBraces = true): number {
+  let braces = 0;
+  let quote = '';
+  for (let i = from; i < s.length; i++) {
+    const ch = s[i];
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = '';
+      continue;
+    }
+    if (ch === '"' || ch === "'") quote = ch;
+    else if (close === '}}' && countBraces && ch === '{') braces++;
+    else if (close === '}}' && ch === '}') {
+      if (braces > 0) braces--;
+      else if (s[i + 1] === '}') return i + 2;
+    } else if (close === '%}' && ch === '%' && s[i + 1] === '}') return i + 2;
+  }
+  return -1;
+}

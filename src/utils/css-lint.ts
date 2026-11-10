@@ -11,6 +11,8 @@
  * way Jinja's lexer does — `}}` only closes when no inner `{` is open.
  */
 
+import { endOfTag } from './jinja-str.js';
+
 export interface CssIssue {
   message: string;
   /** 1-based line the problem starts on. */
@@ -25,27 +27,6 @@ const END_OF: Record<string, string> = {
   endblock: 'block', endwith: 'with', endautoescape: 'autoescape', endset: 'set',
 };
 const OPENERS = new Set(['if', 'for', 'macro', 'call', 'filter', 'block', 'with', 'autoescape']);
-
-/** Index just past the closing delimiter of a `{{` / `{%` tag starting its body at `from`, or -1. */
-function endOfTag(s: string, from: number, close: '}}' | '%}'): number {
-  let braces = 0;
-  let quote = '';
-  for (let i = from; i < s.length; i++) {
-    const ch = s[i];
-    if (quote) {
-      if (ch === '\\') i++;
-      else if (ch === quote) quote = '';
-      continue;
-    }
-    if (ch === '"' || ch === "'") quote = ch;
-    else if (close === '}}' && ch === '{') braces++;
-    else if (close === '}}' && ch === '}') {
-      if (braces > 0) braces--;
-      else if (s[i + 1] === '}') return i + 2;
-    } else if (close === '%}' && ch === '%' && s[i + 1] === '}') return i + 2;
-  }
-  return -1;
-}
 
 interface Found { issue: CssIssue; rank: number }
 
