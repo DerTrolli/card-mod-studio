@@ -20,7 +20,8 @@
  *                     are filtered by thresholdPropertyAllowed (on 'entities':
  *                     Background, Text colour and Border colour only)
  *   - background    → hidden per NO_BACKGROUND_TYPES
- *   - animation     → hidden per NO_ANIMATION_TYPES
+ *   - animation     → hidden per NO_ANIMATION_TYPES; also reset when its preset
+ *                     is in caps.noAnimationPresets (Spin on a dial card …)
  *   - border        → hidden per NO_BORDER_TYPES
  *   - font          → hidden per NO_FONT_TYPES; a visible Font also loses the
  *                     colour / size / weight its card hides (caps.fontColor…)
@@ -94,7 +95,12 @@ export function filterPresetStateForCardType(
     next.threshold = props.length ? { ...next.threshold, properties: props } : freshThreshold();
   }
   if (!mods.background) next.background = { ...DEFAULT_BACKGROUND };
-  if (!mods.animation) next.animation = { ...DEFAULT_ANIMATION };
+  // Animation: off when the whole module is hidden, and also when the loaded
+  // preset is one this card cannot use (Spin on a dial card, Gradient Shift
+  // without a Background) — the module's list leaves it out there too.
+  if (!mods.animation || caps.noAnimationPresets.includes(next.animation?.preset)) {
+    next.animation = { ...DEFAULT_ANIMATION };
+  }
   if (!mods.filter) next.filter = { ...DEFAULT_FILTER };
   if (!mods.border) next.border = { ...DEFAULT_BORDER };
   if (!mods.font) next.font = { ...DEFAULT_FONT };
