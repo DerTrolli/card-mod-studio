@@ -153,6 +153,19 @@ const swatchStyles = css`
     outline-offset: 2px;
   }
   .custom { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+  .clear {
+    flex-shrink: 0;
+    height: 28px;
+    padding: 0 8px;
+    font: inherit;
+    font-size: 12px;
+    color: var(--secondary-text-color, #727272);
+    background: none;
+    border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .clear:hover { background: color-mix(in srgb, var(--primary-text-color, #212121) 8%, transparent); }
   .custom input[type="color"] {
     -webkit-appearance: none;
     appearance: none;
@@ -217,6 +230,16 @@ export class CmsColorPicker extends LitElement {
   @property() value = '#ffffff';
   /** Compact mode: renders a single small swatch button that opens a floating popover on click, instead of always showing the full picker inline. Use where many pickers appear in a dense list (e.g. one per threshold rule) and the always-expanded form would be too tall. */
   @property({ type: Boolean }) compact = false;
+  /** Opt-in "not set" state: an empty `value` means "leave the card's own
+   *  colour alone". Shows `placeholder` in the text field and a clear button
+   *  on the same row; clearing emits `color-changed` with `value: ''`.
+   *  Default false, so every other usage is untouched. */
+  @property({ type: Boolean }) clearable = false;
+  /** Text shown while a clearable picker is unset, e.g. "Default (primary text)".
+   *  Display-only — never written to the style. */
+  @property() placeholder = '';
+  /** Colour the swatch shows while unset (a hex or var(--x)); display-only. */
+  @property({ attribute: false }) placeholderColor = '';
 
   @state() private _popoverOpen = false;
   @state() private _popoverPos: { top: number; left: number } | null = null;
@@ -340,8 +363,11 @@ export class CmsColorPicker extends LitElement {
             </div>`
           : nothing}
         <div class="custom">
-          <input type="color" aria-label="Pick a custom color" .value=${this._toHex(this.value)} @input=${this._onColorInput} />
-          <input type="text" aria-label="Color value" .value=${this.value} @change=${this._onTextChange} placeholder="Color or var(--name)" />
+          <input type="color" aria-label="Pick a custom color" .value=${this._toHex(this.value || (this.clearable ? this.placeholderColor : ''))} @input=${this._onColorInput} />
+          <input type="text" aria-label="Color value" .value=${this.value ?? ''} @change=${this._onTextChange} placeholder=${this.clearable ? (this.placeholder || 'Default') : 'Color or var(--name)'} />
+          ${this.clearable && this.value
+            ? html`<button type="button" class="clear" aria-label="Reset color to default" title="Reset to default" @click=${this._onClear}>Default</button>`
+            : nothing}
         </div>
       </div>
     `;
@@ -521,6 +547,11 @@ export class CmsColorPicker extends LitElement {
 
   private _onColorInput(e: Event) {
     this.value = (e.target as HTMLInputElement).value;
+    this._emit();
+  }
+
+  private _onClear() {
+    this.value = '';
     this._emit();
   }
 

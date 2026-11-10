@@ -293,8 +293,68 @@ export const moduleStyles = [
       min-height: 36px;
     }
   }
+
+  /* "Not set" affordances (see renderResetButton / renderDefaultOption). */
+  .value-label.unset {
+    font-style: italic;
+    opacity: 0.8;
+  }
+  .reset-btn {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--secondary-text-color, #727272);
+    background: none;
+    border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .reset-btn:hover {
+    background: var(--cms-fill-hover);
+  }
+  .reset-btn:focus-visible {
+    outline: 2px solid var(--primary-color, #03a9f4);
+    outline-offset: 1px;
+  }
 `,
 ];
+
+/**
+ * "Not set" support for controls whose property is optional (undefined =
+ * the card keeps its native value; nothing is written to the style).
+ *
+ * Sliders: while unset, show the native value as a neutral placeholder
+ * (`<span class="value-label unset">Default (16px)</span>`), emit only on
+ * the user's own `@change`, and once set follow the label with this button.
+ * It sits on the control's existing line (inside `.control-right`) and
+ * `onClick` should emit the field as `undefined`.
+ * Colour pickers use `<cms-color-picker clearable>` instead.
+ */
+export function renderResetButton(
+  onClick: () => void,
+  label = 'Reset to default',
+): TemplateResult {
+  return html`<button
+    type="button"
+    class="reset-btn"
+    aria-label=${label}
+    title=${label}
+    @click=${onClick}
+  >↺</button>`;
+}
+
+/**
+ * First option of a `<select>` whose property is optional: value `''` means
+ * "not set"; handlers map it to `undefined`. `native` names the card's own
+ * value, e.g. `renderDefaultOption(!weight, 'medium')` → "Default (medium)".
+ */
+export function renderDefaultOption(selected: boolean, native = ''): TemplateResult {
+  return html`<option value="" ?selected=${selected}>${native ? `Default (${native})` : 'Default'}</option>`;
+}
 
 /**
  * Keyboard support for the collapsible headers (module / child / row):
