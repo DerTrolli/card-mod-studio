@@ -737,13 +737,20 @@ class ProfileClaims {
     readonly profile: CustomCardProfile,
   ) {}
 
-  /** The role's rule whose selector is present in the CSS, else its first
-   *  rule. A profile lists a role's older selectors after the current one, so
-   *  styles written by an earlier version still parse (and re-save in the
-   *  current shape). */
+  /** The role's rule whose selector is present AND carries one of its
+   *  properties, else the first present selector, else its first rule. A
+   *  profile lists a role's older selectors after the current one, so styles
+   *  written by an earlier version still parse (and re-save in the current
+   *  shape) — also next to a hand-written rule on the current selector, which
+   *  must not shadow them. With claimable properties on both, the first
+   *  (current) rule wins and the older selector's stay in Advanced CSS. */
   rule(role: ClaimRole): ClaimRule | undefined {
     const rules = (this.profile.claims ?? []).filter((c) => c.role === role);
-    return rules.find((r) => findTargetNormalized(this.targets, r.selector)) ?? rules[0];
+    const present = rules.flatMap((r) => {
+      const t = findTargetNormalized(this.targets, r.selector);
+      return t ? [{ r, t }] : [];
+    });
+    return (present.find(({ r, t }) => r.props.some((p) => findProp(t, p))) ?? present[0])?.r ?? rules[0];
   }
 
   has(role: ClaimRole): boolean {
@@ -770,6 +777,12 @@ class ProfileClaims {
   claimCompanions(module: ClaimRule['module'], claimed: Set<string>): void {
     for (const rule of this.profile.claims ?? []) {
       if (rule.role !== 'companion' || rule.module !== module) continue;
+      // An older shape's companion (slider Background's pill opacity) is
+      // claimed only when that older selector is the one adopted.
+      const older = (this.profile.claims ?? []).find(
+        (r) => r.role !== 'companion' && r.module === module && r.selector === rule.selector && !r.props.includes(rule.props[0]),
+      );
+      if (older && this.rule(older.role)?.selector !== older.selector) continue;
       const target = findTargetNormalized(this.targets, rule.selector);
       for (const name of rule.props) {
         const prop = target ? findProp(target, name) : null;
