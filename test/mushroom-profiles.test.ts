@@ -732,7 +732,7 @@ describe('F4 — the literal Accent variable table, all 14 classic types', () =>
 describe('F2 — the icon_color gate reaches the generator, the preset filter and click-to-edit', () => {
   const gated = { type: key('light'), entity: 'light.x', icon_color: 'blue' } as Record<string, unknown>;
 
-  it('the generator writes no accent variables (Accent or Threshold) while the gate applies', () => {
+  it('the generator keeps writing a stored Accent / Threshold accent while the gate hides its control', () => {
     const state = withState({
       accentColor: { ...EMPTY.accentColor, ...ACCENT },
       threshold: switchThreshold(['accent-color', 'text-color']),
@@ -740,8 +740,10 @@ describe('F2 — the icon_color gate reaches the generator, the preset filter an
     });
     expect(generateCss(state, key('light'))).toContain('--rgb-state-light');
     const css = generateCss(state, key('light'), { config: gated });
-    expect(css).not.toContain('--rgb-state');
-    expect(css).toContain('--card-primary-color: {{ '); // the rest still writes
+    // hidden, not lost: the same output as without the config (review fix 4)
+    expect(css).toBe(generateCss(state, key('light')));
+    expect(css).toContain('--rgb-state-light: {{ ');
+    expect(css).toContain('--card-primary-color: {{ ');
     expect(css).toContain('--card-primary-font-size: 22px;');
     // a stack child's config takes the same path (applyStudioState passes it)
     const original = globalThis.customElements;
@@ -749,7 +751,7 @@ describe('F2 — the icon_color gate reaches the generator, the preset filter an
     (globalThis as { customElements: unknown }).customElements = { get: (n: string) => reg.get(n), define: () => {} };
     try {
       const out = applyStudioState(state, gated as unknown as CardModCardConfig);
-      expect(JSON.stringify(out)).not.toContain('--rgb-state');
+      expect(JSON.stringify(out)).toContain('--rgb-state-light');
       expect(JSON.stringify(out)).toContain('--card-primary-font-size');
     } finally {
       (globalThis as { customElements: unknown }).customElements = original;

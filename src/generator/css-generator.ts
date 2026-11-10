@@ -1142,8 +1142,6 @@ export function thresholdAccentJinja(s: ThresholdModuleState | undefined): strin
 
 /** What the generator knows about the card when it writes a module. */
 interface EmitCtx {
-  /** A profile's accent variables are switched off by a config gate. */
-  skipAccent?: boolean;
   /** The key built-in emitter choices compare against (the profile's `emitAs`). */
   emitType: string | undefined;
   caps: CardCaps;
@@ -1260,7 +1258,6 @@ function thresholdBlock(s: ThresholdModuleState | undefined, ctx: EmitCtx): stri
   // the byte-stable round-trip once (audit C1).
   const CANONICAL: ThresholdProperty[] = ['background', 'text-color', 'accent-color', 'border-color', 'icon-color'];
   const ordered = [...s.properties]
-    .filter((p) => !(p === 'accent-color' && ctx.skipAccent && ctx.em?.accent))
     .sort((a, b) => CANONICAL.indexOf(a) - CANONICAL.indexOf(b));
   return ordered
     .map((property) => thresholdPropertyBlock(property, jinja, s.borderWidth ?? 2, gradientMarker, ctx, tripletJinja))
@@ -1292,10 +1289,10 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   const caps = capsFor(cardType, opts?.config);
   const profile = getCustomCardProfile(cardType ?? '');
   const em = profile?.emitters;
-  // A config gate that hides Accent (Mushroom `icon_color`) means the accent
-  // variables reach nothing — write none (also from a loaded preset).
-  const skipAccent = !!em?.accent && !caps.modules.accentColor;
-  const ctx: EmitCtx = { emitType: emitKeyOf(cardType) || undefined, caps, em, opts, skipAccent };
+  // A module the card config hides (Mushroom `icon_color` → Accent) is still
+  // written when it holds a value, like every other hidden module: it is not
+  // lost, and comes back with the control when the option goes.
+  const ctx: EmitCtx = { emitType: emitKeyOf(cardType) || undefined, caps, em, opts };
   const emitType = ctx.emitType;
 
   // Keyframes only ever ride along an actual `animation:` declaration — an
@@ -1319,7 +1316,7 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // …but only for what is actually written: a profile's accent property with
   // nothing convertible (or gated off) emits no block, so it must not silence
   // the Accent module's own, valid value.
-  if (em?.accent && (skipAccent || thresholdAccentJinja(state.threshold) === null)) thresholdProps.delete('accent-color');
+  if (em?.accent && thresholdAccentJinja(state.threshold) === null) thresholdProps.delete('accent-color');
 
   // Profile emitters on a selector other than ha-card get their own block —
   // one per selector, in first-use order (Bubble: background + border share
@@ -1336,9 +1333,7 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
     ...(thresholdProps.has('accent-color')
       ? []
       : em?.accent
-        ? skipAccent
-          ? []
-          : onHaCard(em.accent.selector, accentVarDecls(state.accentColor, em.accent))
+        ? onHaCard(em.accent.selector, accentVarDecls(state.accentColor, em.accent))
         : accentColorDecls(state.accentColor, emitType)),
     ...filterDecls(state.filter, caps, state.advanced.rawCss),
     ...(thresholdProps.has('background')
