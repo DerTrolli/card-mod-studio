@@ -41,6 +41,8 @@ const VALID: Array<[string, number]> = [
 ];
 const INVALID = [
   '', '   ', '-', '--', '.', ',', 'abc', '12.5.3', '1,2,3', '1,000.5', '1.000,5', '1e', 'e5', '1e20', '1e999', '-1e16', '1000000000000001',
+  // thousands separators are ambiguous with a decimal comma: refused, never read as 1 / 10
+  '1,000', '10,000', '12,345', '-1,000', '+1,000', '999,999',
   'Infinity', 'NaN', '0x10', '1 2', '2,5,', '1e-7', '0.0000001', '--5', '5-', '٣',
 ];
 

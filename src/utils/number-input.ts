@@ -22,7 +22,11 @@ const PLAIN = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i;
 export function parseRuleNumber(raw: string): number | undefined {
   let t = raw.trim();
   // One comma and no dot is a decimal comma ("2,5"); "1,000.5" / "1,2,3" are ambiguous → invalid.
-  if (/^[^,.]*,[^,.]*$/.test(t)) t = t.replace(',', '.');
+  // So is "1,000" / "12,345": a thousands separator, which must not silently become 1 / 12.
+  if (/^[^,.]*,[^,.]*$/.test(t)) {
+    if (/^[+-]?\d*[1-9]\d*,\d{3}$/.test(t)) return undefined;
+    t = t.replace(',', '.');
+  }
   if (!PLAIN.test(t)) return undefined;
   const n = Number(t);
   if (!Number.isFinite(n) || Math.abs(n) > MAX_RULE_VALUE) return undefined;
