@@ -103,12 +103,15 @@ const clicksFor = (...more: ReturnType<typeof clickUnder>[]) => [
  *  positioned pill is cut by the container's `overflow: clip` (measured: only
  *  a sliver of the left edge shows). The container's clip is then the pill's
  *  shape, so the pieces inside lose their own 28px radius — else they leave
- *  container-coloured slivers in the corners. Plain `border-radius` on the
- *  container works on both engines; the pieces need `!important` (Bubble's
- *  slider rules win otherwise). */
+ *  container-coloured slivers in the corners. The container's radius needs
+ *  `!important` too: Bubble's `.large .bubble-container { border-radius }`
+ *  out-ranks a plain rule (measured: 28px stays with `card_layout: large`,
+ *  `large-2-rows` and in a sections view; normal layout is fine). Styles
+ *  written without it are still claimed and upgraded on the next save. */
 const borderOn = (...inner: string[]) => ({
   selector: S.container,
   direct: true,
+  important: ['border-radius'],
   companions: inner.map((selector) => ({ selector, prop: 'border-radius', value: '0', important: true })),
 });
 

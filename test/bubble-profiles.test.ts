@@ -100,7 +100,7 @@ describe('Bubble 3 profiles — emitted CSS (literal) and round trip', () => {
         '}',
         '',
         '.bubble-container {',
-        '  border-radius: 8px;',
+        '  border-radius: 8px !important;',
         '  border: 3px solid #11ee11;',
         '}',
         '',
@@ -138,7 +138,7 @@ describe('Bubble 3 profiles — emitted CSS (literal) and round trip', () => {
         // paints above it): the fill stays visible.
         '.bubble-container {',
         '  background: #112244;',
-        '  border-radius: 8px;',
+        '  border-radius: 8px !important;',
         '  border: 3px solid #11ee11;',
         '}',
         '',
@@ -222,7 +222,7 @@ describe('Bubble 3 profiles — emitted CSS (literal) and round trip', () => {
         '}',
         '',
         '.bubble-container {',
-        '  border-radius: 8px;',
+        '  border-radius: 8px !important;',
         '  border: 3px solid #11ee11;',
         '}',
         '',
@@ -336,7 +336,7 @@ describe('Bubble 3 profiles — styles written by 0.11.0-beta.2 (border and slid
     expect(css).toBe(
       [
         '.bubble-container {',
-        '  border-radius: 6px;',
+        '  border-radius: 6px !important;',
         '}',
         '',
         '.bubble-button-background {',

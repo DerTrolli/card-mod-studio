@@ -650,7 +650,10 @@ function claimWritesImportant(profile: CustomCardProfile, rule: ClaimRule, prop:
   switch (rule.role) {
     case 'iconColor': return true; // Icon Color is always `color: … !important`
     case 'accent': return !!e?.accent?.important;
-    case 'borderDirect': return !!e?.border?.important?.includes(prop);
+    // Only on the emitter's own selector: an older shape's rule (Bubble's
+    // pill in 0.11.0-beta.2) never carried `!important`.
+    case 'borderDirect':
+      return !!e?.border?.important?.includes(prop) && normSelector(e.border.selector) === normSelector(rule.selector);
     case 'companion': {
       const list = [
         ...(e?.accent?.companions ?? []),
@@ -661,6 +664,19 @@ function claimWritesImportant(profile: CustomCardProfile, rule: ClaimRule, prop:
     }
     default: return false;
   }
+}
+
+/** A direct-border rule whose generator also resets the inner pieces
+ *  (`companions`) is ours WITH `!important` only while those resets are there:
+ *  a lone hand-written `.bubble-container { border-radius: 8px !important }`
+ *  looks exactly like our radius and would otherwise be adopted. */
+function borderCompanionsPresent(profile: CustomCardProfile, parsed: CardModStyleState): boolean {
+  const cs = profile.emitters?.border?.companions ?? [];
+  return cs.every((c) => {
+    const t = findTargetNormalized(parsed.targets, c.selector ?? profile.emitters!.border!.selector);
+    const p = t ? findProp(t, c.prop.toLowerCase()) : null;
+    return !!p && !p.hasCondition && p.value.trim() === c.value;
+  });
 }
 
 /** Plain properties the built-in recognisers read off `ha-card`: none of them
@@ -680,6 +696,7 @@ function withoutUnclaimableImportant(parsed: CardModStyleState, cardType?: strin
   const profile = getCustomCardProfile(cardType ?? '');
   if (!profile || !parsed.targets.some((t) => t.properties.some((p) => p.important))) return parsed;
   const rules = profile.claims ?? [];
+  const companionsOk = borderCompanionsPresent(profile, parsed);
   const targets = parsed.targets.map((t) => {
     const sel = normSelector(t.selector);
     const mine = rules.filter((r) => normSelector(r.selector) === sel);
@@ -692,6 +709,7 @@ function withoutUnclaimableImportant(parsed: CardModStyleState, cardType?: strin
         return hit.some(
           (r) =>
             claimWritesImportant(profile, r, p.property) &&
+            (r.role !== 'borderDirect' || companionsOk) &&
             (r.role !== 'companion' || p.hasCondition || p.value.trim() === r.equals),
         );
       }
