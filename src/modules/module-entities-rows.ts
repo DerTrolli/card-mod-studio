@@ -44,6 +44,34 @@ export function entityRowLabel(hass: HomeAssistant | undefined, entityId: string
   return explicit || (typeof friendly === 'string' && friendly) || entityId.split('.')[1] || entityId;
 }
 
+/**
+ * Labels for every styleable row of an entities card, keyed by config index.
+ * A label shared by several rows (two rows on one entity, or two entities
+ * with the same name) is numbered on ALL of them ("Name (1)", "Name (2)");
+ * a label that is unique stays bare. Exported so the preview's hover chip can
+ * use the same text.
+ */
+export function entityRowLabels(
+  hass: HomeAssistant | undefined,
+  rows: Array<EntitiesCardRow | string>,
+): Map<number, string> {
+  const base: Array<[number, string]> = [];
+  rows.forEach((r, index) => {
+    const row = typeof r === 'string' ? ({ entity: r } as EntitiesCardRow) : r;
+    if (row && typeof row === 'object' && row.entity) base.push([index, entityRowLabel(hass, row.entity, row.name)]);
+  });
+  const total = new Map<string, number>();
+  for (const [, l] of base) total.set(l, (total.get(l) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  const out = new Map<number, string>();
+  for (const [index, l] of base) {
+    const n = (seen.get(l) ?? 0) + 1;
+    seen.set(l, n);
+    out.set(index, (total.get(l) ?? 0) > 1 ? `${l} (${n})` : l);
+  }
+  return out;
+}
+
 /** An entities-card row's text size when nothing is set (measured on HA 2026.11).
  *  Display-only: never written into a style. */
 const ROW_NATIVE_FONT_SIZE = 14;
@@ -245,6 +273,12 @@ export class EntitiesRowsModule extends LitElement {
         line-height: 1.5;
         color: var(--secondary-text-color, #727272);
       }
+      .rows-note {
+        margin: 2px 0 0;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--secondary-text-color, #727272);
+      }
       @media (pointer: coarse) {
         .mode-btn { min-height: 36px; }
         .rule > button { min-width: 36px; min-height: 36px; }
@@ -297,11 +331,13 @@ export class EntitiesRowsModule extends LitElement {
         index,
       }))
       .filter((x): x is { row: EntitiesCardRow & { entity: string }; index: number } => !!x.row?.entity);
-    if (!entityRows.length) return nothing;
+    // Section / divider / weblink / entity-less button rows get no section.
+    const unstyleable = this.rows.length - entityRows.length;
+    if (!entityRows.length && !unstyleable) return nothing;
 
     // Duplicate-entity rows are valid YAML and hold independent styles —
-    // number the repeats ("(2)", "(3)") so the sections are tellable apart.
-    const seen = new Map<string, number>();
+    // an ambiguous label is numbered on every row sharing it.
+    const labels = entityRowLabels(this.hass, this.rows);
 
     return html`
       <div class="module">
@@ -310,21 +346,19 @@ export class EntitiesRowsModule extends LitElement {
         </div>
         <div class="module-body">
           ${entityRows.map(({ row, index }) => {
-            const occurrence = (seen.get(row.entity) ?? 0) + 1;
-            seen.set(row.entity, occurrence);
-            return this._renderRow(row, index, occurrence);
+            return this._renderRow(row, index, labels.get(index) ?? row.entity);
           })}
+          ${unstyleable
+            ? html`<p class="when-hint rows-note">Section, divider and link rows have no styling controls.</p>`
+            : nothing}
         </div>
       </div>
     `;
   }
 
-  private _renderRow(row: EntitiesCardRow & { entity: string }, index: number, occurrence: number) {
+  private _renderRow(row: EntitiesCardRow & { entity: string }, index: number, label: string) {
     const rowKey = String(index);
     const id = row.entity;
-    // HA's own row text (see entityRowLabel).
-    const baseLabel = entityRowLabel(this.hass, id, row.name);
-    const label = occurrence > 1 ? `${baseLabel} (${occurrence})` : baseLabel;
     const isOpen = this._openRows.has(rowKey);
     const rowStyle = this.styles[rowKey] ?? { iconColor: '', textColor: '' };
     const hasStyle = !!(
