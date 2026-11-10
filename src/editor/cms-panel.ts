@@ -50,6 +50,7 @@ import './cms-palette-manager.js';
 import { thresholdOwnedProperties, settleEntityless } from '../generator/css-generator.js';
 import { cmsTokens } from '../modules/module-base.js';
 import { hasTopLevelJinjaStatement } from '../utils/css-lint.js';
+import { uixStyleUsesMacro } from '../utils/uix-macro-use.js';
 
 import '../modules/module-filter.js';
 import '../modules/module-icon-color.js';
@@ -263,23 +264,21 @@ export class CmsPanel extends LitElement {
     // check): a dict-form uix style with $$/& keys is preserved or frozen
     // outright (mixed-form gate), so this "can't be auto-synced" note
     // doesn't describe it.
-    return !!this.config && this._cardModPresent && usesUixMacroBlockFeatures(this.config.uix);
+    // Only relevant when a uix.style exists to keep rendering — macros
+    // defined next to no uix style change nothing for the user.
+    return !!this.config && this._cardModPresent && usesUixMacroBlockFeatures(this.config.uix) && !!this.config.uix?.style;
   }
 
   /**
-   * True when UIX is the active write target (pickOutputKey() would resolve
-   * to 'uix' — UIX installed, card-mod not) and the card's existing uix:
-   * block already uses macros/billets. Unlike the card_mod-primary case
-   * above, there's no fallback key to write to instead, so studio edits here
-   * DO overwrite uix.style directly — this is a heads-up that doing so will
-   * replace the hand-authored macro/billet-driven styling, not a "safe, no
-   * data lost" guarantee.
+   * UIX is the active write target and the card's uix style CALLS a macro or
+   * billet. A save replaces uix.style with the generated CSS, but the Studio
+   * keeps the macro call verbatim in Advanced CSS (so the card renders as
+   * before) and never rewrites `uix.macros` / `billets` — nothing is lost,
+   * so this is informational. Macros merely defined next to plain CSS don't
+   * qualify.
    */
-  private get _uixMacrosWillBeOverwritten(): boolean {
-    // Macro/billet-only for the same reason as _uixMacrosCoexist: a uix-keyed
-    // save on a dict-form style rebuilds it around `.` with every pierced
-    // ($$/&) entry byte-identical — nothing is overwritten there.
-    return !!this.config && this._uixPresent && !this._cardModPresent && usesUixMacroBlockFeatures(this.config.uix);
+  private get _uixMacroStyleKept(): boolean {
+    return !!this.config && this._uixPresent && !this._cardModPresent && uixStyleUsesMacro(this.config.uix);
   }
 
   /**
@@ -1241,10 +1240,10 @@ export class CmsPanel extends LitElement {
       </div>`;
     }
 
-    if (this._uixMacrosWillBeOverwritten) {
+    if (this._uixMacroStyleKept) {
       return html`<div class="info-banner">
-        ℹ️ This card's uix: styling uses macros/billets — editing it here will replace that with
-        plain generated CSS (macros/billets can't be regenerated from the visual controls).
+        ℹ️ This card's uix: style uses macros/billets. They are kept as they are — the part of the style
+        that calls them stays in Advanced CSS.
       </div>`;
     }
 
