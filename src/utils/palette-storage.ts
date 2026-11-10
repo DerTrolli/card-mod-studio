@@ -139,7 +139,10 @@ export function initPaletteCache(hass: HassSub | undefined): Promise<void> {
 async function replayBacklog(hass: HassSub | undefined): Promise<CustomPalette> {
   const { palette, readFailed } = await readPalette(hass);
   const backlog = readUnsynced();
-  if (readFailed || backlog.length === 0) return palette;
+  // Not read: `palette` is only this browser's older copy. The kept edits go on
+  // top, so what the caller shows still has them (nothing is written).
+  if (readFailed) return sanitize(backlog.reduce(applyPaletteEdit, palette));
+  if (backlog.length === 0) return palette;
   const next = sanitize(backlog.reduce(applyPaletteEdit, palette));
   storeLocal(next);
   if (hassAvailable(hass)) {
