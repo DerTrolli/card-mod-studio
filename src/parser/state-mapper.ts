@@ -34,7 +34,7 @@ import type {
   StyleCondition,
   DictSource,
 } from '../types/index.js';
-import { parseCss, parseCssDetailed, isBareDeclarations } from './css-parser.js';
+import { parseCss, parseCssDetailed, isBareDeclarations, keptCmsKeyframes } from './css-parser.js';
 import {
   GRADIENT_MARKER_PROPERTY,
   ANIMATION_TIMING,
@@ -579,7 +579,11 @@ export function mapToStudioState(fullParsed: CardModStyleState, cardType?: strin
   if (pc && state.background.enabled) pc.claimCompanions('background', claimed);
   if (pc && state.accentColor.enabled) pc.claimCompanions('accentColor', claimed);
   if (pc && state.border.enabled) pc.claimCompanions('border', claimed);
-  return { ...state, advanced: mapAdvanced(fullParsed, claimed) };
+  return {
+    ...state,
+    // The generator writes the enabled preset's keyframes itself.
+    advanced: mapAdvanced(fullParsed, claimed, state.animation.enabled ? `cms-${state.animation.preset}` : undefined),
+  };
 }
 
 /**
@@ -2375,8 +2379,10 @@ export function parseEntityRowCss(css: string, rowEntity?: string): EntitiesRowS
   // Without this, any unrelated panel edit rewrites the row and deletes it.
   const extraParts: string[] = [];
   if (detailed.passthroughCss) extraParts.push(detailed.passthroughCss);
+  let animationRefs = detailed.tailCss;
   for (const t of targets) {
     const leftover = t === target ? properties.filter((p) => !consumed.has(p.property)) : t.properties;
+    for (const p of leftover) if (ANIMATION_PROP_RE.test(p.property)) animationRefs += `\n${p.value}`;
     if (leftover.length > 0) {
       const decls = leftover
         .map((p) => `  ${p.property}: ${p.value}${p.important ? ' !important' : ''};`)
@@ -2384,6 +2390,10 @@ export function parseEntityRowCss(css: string, rowEntity?: string): EntitiesRowS
       extraParts.push(`${t.selector} {\n${decls}\n}`);
     }
   }
+  // A row has no Animation module: every `@keyframes cms-*` a leftover
+  // declaration still names stays (the parser leaves them out of passthroughCss).
+  const keptKf = keptCmsKeyframes(css, animationRefs);
+  if (keptKf) extraParts.unshift(keptKf);
   if (detailed.tailCss) extraParts.push(detailed.tailCss);
   if (extraParts.length > 0) style.extraCss = extraParts.join('\n\n');
 
@@ -2668,11 +2678,17 @@ function mapThreshold(
 // Advanced module — unclaimed CSS remainder
 // ---------------------------------------------------------------------------
 
+const ANIMATION_PROP_RE = /^(?:-\w+-)?animation(?:-name)?$/i;
+
 function mapAdvanced(
   parsed: CardModStyleState,
   claimed: Set<string>,
+  regeneratedKeyframes?: string,
 ): AdvancedModuleState {
   const parts: string[] = [];
+  // Text a kept `@keyframes cms-*` may still be referenced from: the
+  // unclaimed animation declarations and the verbatim tail.
+  let animationRefs = parsed.tailCss ?? '';
 
   // Blocks the structured parser can't model (@keyframes, @media, ...) —
   // preserved verbatim so a hand-authored @keyframes isn't deleted on save.
@@ -2687,8 +2703,16 @@ function mapAdvanced(
         .map((p) => `  ${p.property}: ${p.value}${p.important ? ' !important' : ''};`)
         .join('\n');
       parts.push(`${target.selector} {\n${decls}\n}`);
+      for (const p of unclaimed) if (ANIMATION_PROP_RE.test(p.property)) animationRefs += `\n${p.value}`;
     }
   }
+
+  // The parser leaves `@keyframes cms-*` out of passthroughCss because the
+  // Animation module regenerates them — true only when the module adopted
+  // the declaration. One a hand-written `animation` still names comes back
+  // with it, in front of the blocks that use it (as the generator writes it).
+  const kept = keptCmsKeyframes(parsed.rawCss ?? '', animationRefs, regeneratedKeyframes);
+  if (kept) parts.unshift(kept);
 
   // Order-sensitive remainder (@media overrides, nested rules, Jinja
   // statements) — byte-for-byte and LAST, exactly where it sat relative to

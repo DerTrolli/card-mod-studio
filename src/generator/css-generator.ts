@@ -1317,7 +1317,11 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // Keyframes only ever ride along an actual `animation:` declaration — an
   // orphan @keyframes block resets the module on reopen (audit W8/BUG-4).
   const animDecls = animationDecls(state.animation);
-  const kf = animDecls.some((d) => d.startsWith('animation')) ? animationKeyframes(state.animation) : '';
+  let kf = animDecls.some((d) => d.startsWith('animation')) ? animationKeyframes(state.animation) : '';
+  // A hand-written block of the same name already sits in Advanced CSS (kept
+  // because an unadopted `animation:` names it): writing the preset's too
+  // would define it twice.
+  if (kf && new RegExp(`@keyframes\\s+cms-${state.animation.preset}\\s*\\{`).test(state.advanced.rawCss)) kf = '';
   if (kf) parts.push(kf);
 
   // A property the Threshold module already drives is skipped in the

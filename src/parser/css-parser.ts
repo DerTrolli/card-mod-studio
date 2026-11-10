@@ -449,7 +449,7 @@ export function parseCssDetailed(css: string): { targets: CssTarget[]; passthrou
 
   const passthroughCss = keyframes
     .map((block) => restoreJinja(block, map))
-    .filter((block) => !/^@keyframes\s+cms-/.test(block))
+    .filter((block) => !CMS_KEYFRAMES_RE.test(block))
     .join('\n\n');
 
   // Placeholders map 1:1 back to their source text, so this is the
@@ -457,6 +457,44 @@ export function parseCssDetailed(css: string): { targets: CssTarget[]; passthrou
   const tailCss = tailStart === null ? '' : restoreJinja(cleaned.slice(tailStart), map).trim();
 
   return { targets: coalesceBySelector(targets), passthroughCss, tailCss };
+}
+
+const CMS_KEYFRAMES_RE = /^@keyframes\s+cms-/;
+
+/**
+ * The studio-named `@keyframes cms-*` blocks of the claimable head, verbatim,
+ * in source order — the ones parseCssDetailed leaves out of `passthroughCss`
+ * because the Animation module regenerates them. When the module does NOT
+ * adopt the `animation:` declaration that uses one, the declaration stays
+ * hand-written and its keyframes must come back with it: callers (mapAdvanced,
+ * parseEntityRowCss) re-insert the ones a remaining declaration still names.
+ */
+export function cmsKeyframesOf(css: string): { name: string; text: string }[] {
+  if (!css || !css.trim()) return [];
+  const { cleaned, map } = extractJinja(css);
+  const { keyframes, verbatim } = splitIntoBlocks(cleaned);
+  if (verbatim) return [];
+  const out: { name: string; text: string }[] = [];
+  for (const block of keyframes) {
+    const text = restoreJinja(block, map);
+    const m = /^@keyframes\s+(cms-[^\s{]+)/.exec(text);
+    if (m) out.push({ name: m[1], text });
+  }
+  return out;
+}
+
+/** The kept keyframes blocks (see cmsKeyframesOf) that `referencedIn` still
+ *  names as a whole word (a Jinja literal counts), minus `regenerated` — the
+ *  one the generator writes itself. Joined with blank lines; '' when none. */
+export function keptCmsKeyframes(css: string, referencedIn: string, regenerated?: string): string {
+  return cmsKeyframesOf(css)
+    .filter(({ name }) => {
+      if (name === regenerated) return false;
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`).test(referencedIn);
+    })
+    .map(({ text }) => text)
+    .join('\n\n');
 }
 
 /**
