@@ -63,15 +63,15 @@ describe('updatePresets when Home Assistant cannot be read', () => {
     expect(seen).toEqual([false]);
   });
 
-  it('recovers: the next change after the read works writes HA\'s list plus the change', async () => {
+  it('recovers: the next change after the read works writes HA\'s list, the changes made offline, and the change', async () => {
     const { hass, box } = fakeHass([preset('real')]);
     box.failRead = true;
     const seen: boolean[] = [];
     await updatePresets({ kind: 'save', preset: preset('offline') }, hass, (ok) => seen.push(ok));
     box.failRead = false;
     const written = await updatePresets({ kind: 'save', preset: preset('online') }, hass, (ok) => seen.push(ok));
-    expect(names(written)).toEqual(['real', 'online']);
-    expect(names(box.stored)).toEqual(['real', 'online']);
+    expect(names(written)).toEqual(['real', 'offline', 'online']);
+    expect(names(box.stored)).toEqual(['real', 'offline', 'online']);
     expect(seen).toEqual([false, true]);
   });
 });

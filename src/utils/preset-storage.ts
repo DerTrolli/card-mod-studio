@@ -38,6 +38,8 @@ interface HassSub {
 
 const HA_KEY = 'cms_presets';
 const LS_KEY = 'cms-presets';
+/** Changes made while Home Assistant could not be read or written. */
+const LS_UNSYNCED = 'cms-presets-unsynced';
 
 function hassAvailable(hass: HassSub | undefined): hass is HassSub {
   return !!hass?.connection?.sendMessagePromise;
@@ -75,10 +77,41 @@ async function readPresets(hass: HassSub | undefined): Promise<{ list: StylePres
 
 /**
  * Load presets. Tries HA WebSocket storage first (cross-device); falls back
- * to localStorage. Returns [] if both fail or are empty.
+ * to localStorage. Returns [] if both fail or are empty. The first
+ * successful Home Assistant read after an outage also replays the changes
+ * made meanwhile (see `updatePresets`) and writes the result back.
  */
-export async function loadPresets(hass: HassSub | undefined): Promise<StylePreset[]> {
-  return (await readPresets(hass)).list;
+export function loadPresets(hass: HassSub | undefined): Promise<StylePreset[]> {
+  if (!hassAvailable(hass) || readUnsynced().length === 0) return readPresets(hass).then((r) => r.list);
+  const run = async (): Promise<StylePreset[]> => {
+    const { list, readFailed } = await readPresets(hass);
+    const backlog = readUnsynced();
+    if (readFailed || backlog.length === 0) return list;
+    const merged = backlog.reduce(applyPresetChange, list);
+    if (await savePresets(merged, hass)) writeUnsynced([]);
+    return merged;
+  };
+  const result = writeQueue.then(run, run);
+  writeQueue = result.catch(() => undefined);
+  return result;
+}
+
+function readUnsynced(): PresetChange[] {
+  try {
+    const raw = localStorage.getItem(LS_UNSYNCED);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as PresetChange[]).filter((c) => c && (c.kind === 'save' || c.kind === 'delete')) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeUnsynced(changes: PresetChange[]): void {
+  try {
+    localStorage.setItem(LS_UNSYNCED, JSON.stringify(changes));
+  } catch {
+    // quota exceeded — the change still sits in the device list
+  }
 }
 
 /**
@@ -146,9 +179,18 @@ export function updatePresets(
 ): Promise<StylePreset[]> {
   const run = async (): Promise<StylePreset[]> => {
     const { list, readFailed } = await readPresets(hass);
-    const next = applyPresetChange(list, change);
+    // Earlier changes that never reached Home Assistant go back on top of
+    // what it holds now, then this one. A name saved both here during the
+    // outage and elsewhere keeps the version saved here (applied last); a
+    // delete made during the outage stays deleted.
+    const backlog = hassAvailable(hass) && !readFailed ? readUnsynced() : [];
+    const next = applyPresetChange(backlog.reduce(applyPresetChange, list), change);
     const wrote = await savePresets(next, readFailed ? undefined : hass);
-    if (hassAvailable(hass)) onSync?.(!readFailed && wrote);
+    if (hassAvailable(hass)) {
+      const reached = !readFailed && wrote;
+      writeUnsynced(reached ? [] : [...(readFailed ? readUnsynced() : backlog), change]);
+      onSync?.(reached);
+    }
     return next;
   };
   const result = writeQueue.then(run, run);
