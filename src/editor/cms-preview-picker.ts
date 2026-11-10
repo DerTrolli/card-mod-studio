@@ -195,12 +195,21 @@ export class CmsPreviewPicker extends LitElement {
   }
 
   private static _describe(el: Element): PickChainElement {
+    let text: PickRect | null = null;
+    let done = false;
     return {
       tag: el.tagName.toLowerCase(),
       id: el.id ?? '',
       classes: Array.from(el.classList),
       rect: CmsPreviewPicker._rectOf(el.getBoundingClientRect()),
-      textRect: CmsPreviewPicker._textRect(el),
+      // lazy: walking a big element's text on every move is wasted unless a rule asks
+      get textRect() {
+        if (!done) {
+          text = CmsPreviewPicker._textRect(el);
+          done = true;
+        }
+        return text;
+      },
     };
   }
 
@@ -208,14 +217,39 @@ export class CmsPreviewPicker extends LitElement {
     return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
   }
 
-  /** The box of the element's OWN text nodes (a block that spans the card is
-   *  not "the text"); null when it has none. */
+  /** Visible text nodes under `node`, as the browser flattens them: through
+   *  shadow roots and into whatever a <slot> shows (HA's tile-style info
+   *  blocks keep the words in a slotted light-DOM child). */
+  private static _collectText(node: Node, out: Text[]): void {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.textContent?.trim()) out.push(node as Text);
+      return;
+    }
+    if (!(node instanceof Element) || node.localName === 'style' || node.localName === 'script') return;
+    if (node instanceof HTMLSlotElement) {
+      const assigned = node.assignedNodes();
+      (assigned.length ? assigned : Array.from(node.childNodes)).forEach((n) => CmsPreviewPicker._collectText(n, out));
+    } else {
+      (node.shadowRoot ?? node).childNodes.forEach((n) => CmsPreviewPicker._collectText(n, out));
+    }
+  }
+
+  /** The box of the words under the element (not of the block around them —
+   *  a block that spans the card is not "the text"); null when there are none. */
   private static _textRect(el: Element): PickRect | null {
-    if (!Array.from(el.childNodes).some((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim())) return null;
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    const r = range.getBoundingClientRect();
-    return r.width > 0 && r.height > 0 ? CmsPreviewPicker._rectOf(r) : null;
+    const texts: Text[] = [];
+    CmsPreviewPicker._collectText(el, texts);
+    let box: PickRect | null = null;
+    for (const t of texts) {
+      const range = document.createRange();
+      range.selectNodeContents(t);
+      const r = range.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      box = box
+        ? { left: Math.min(box.left, r.left), top: Math.min(box.top, r.top), right: Math.max(box.right, r.right), bottom: Math.max(box.bottom, r.bottom) }
+        : CmsPreviewPicker._rectOf(r);
+    }
+    return box;
   }
 
   /** All entity-row elements inside the card, in document order — used to

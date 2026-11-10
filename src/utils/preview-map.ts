@@ -43,6 +43,11 @@ export interface PickPointer {
 const inRect = (r: PickRect, x: number, y: number, slop = 0): boolean =>
   x >= r.left - slop && x <= r.right + slop && y >= r.top - slop && y <= r.bottom + slop;
 
+/** A block wider than its label only counts where the text itself is. Callers
+ *  without geometry (pure tests) keep the plain match. */
+const onText = (el: PickChainElement, p?: PickPointer): boolean =>
+  !p || !el.rect || (!!el.textRect && inRect(el.textRect, p.x, p.y, 2));
+
 /** What the picker resolved a hovered element to. */
 export interface PickTarget {
   /** cms-* module tag name, e.g. 'cms-font-module'. */
@@ -94,18 +99,40 @@ const GENERIC_ROW_TEXT_CLASSES = new Set(['text-content', 'secondary', 'state'])
 /** Per-card text containers that carry none of the generic markers —
  *  verified against each card's live DOM (picker coverage probe): the
  *  button card's name/state are bare `<span>`/`span.state`, glance entities
- *  are `div.entity`, media-control titles sit in hui-marquee /
- *  div.media-info / div.icon-name, picture footers are div.footer/div.box. */
+ *  are `div.entity`. */
 const CARD_TEXT_MATCHERS: Record<string, (el: PickChainElement) => boolean> = {
   button: (el) => el.tag === 'span',
   markdown: (el) => el.tag === 'ha-markdown' || el.tag === 'ha-markdown-element',
   glance: (el) => el.classes.includes('entity'),
-  'media-control': (el) =>
-    el.tag === 'hui-marquee' ||
+};
+
+/** Text parts whose element is wider than the words (HA 2026.11 DOM): only
+ *  the words read as Font, the blank beside them is the card surface. `up` is
+ *  the element's parent in the chain. */
+const CARD_TEXT_ONLY: Record<string, (el: PickChainElement, up?: PickChainElement) => boolean> = {
+  date: (el) => el.classes.includes('date-text'),
+  area: (el) => el.id === 'info',
+  'media-control': (el, up) =>
     el.classes.includes('media-info') ||
-    el.classes.includes('icon-name'),
-  'picture-entity': (el) => el.classes.includes('footer'),
-  'picture-glance': (el) => el.classes.includes('box'),
+    el.classes.includes('icon-name') ||
+    (el.tag === 'span' && !!up?.classes.includes('marquee-inner')) ||
+    (el.tag === 'div' && !el.classes.length && !!up?.classes.includes('icon-name')),
+  'picture-entity': (el, up) =>
+    el.tag === 'div' && !!up?.classes.includes('footer'),
+  'picture-elements': (el, up) => el.tag === 'div' && up?.tag === 'hui-state-label-element',
+};
+
+/** Icon parts beyond ICON_TAGS: picture-glance's entity buttons. */
+const CARD_ICON_MATCHERS: Record<string, (el: PickChainElement) => boolean> = {
+  'picture-glance': (el) => el.tag === 'ha-icon-button',
+};
+
+/** Parts nothing styles (a wrapper spanning the card, an icon the card's
+ *  modules don't reach): the walk stops there and the card-level fallback
+ *  answers, instead of a class like `header` reading as Font. */
+const CARD_SURFACE_PARTS: Record<string, (el: PickChainElement) => boolean> = {
+  statistic: (el) => ['header', 'info', 'icon'].some((c) => el.classes.includes(c)),
+  area: (el) => el.classes.includes('header'),
 };
 
 /** Panel module tag → the profile module that shows/hides it (click rules). */
@@ -152,6 +179,7 @@ const RULES: PickRule[] = [
     // a heading card's .title (those belong to Heading Style below).
     test: (el, i, ctx) =>
       ICON_TAGS.has(el.tag) ||
+      (CARD_ICON_MATCHERS[emitKeyOf(ctx.cardType)]?.(el) ?? false) ||
       (el.tag === 'ha-icon' && (ctx.titleIndex === -1 || i > ctx.titleIndex)),
     target: (cardType) =>
       // Mirror cms-panel._showIconColor: hidden on NO_ICON_COLOR_TYPES and on
@@ -304,7 +332,7 @@ export function mapElementToMatch(
       (!r.tag || r.tag === el.tag) && (!r.className || el.classes.includes(r.className));
     // `textOnly` needs geometry; callers that give none keep the plain match.
     const textOk = (r: ClickRule, el: PickChainElement): boolean =>
-      !r.textOnly || !pointer || !el.rect || (!!el.textRect && inRect(el.textRect, pointer.x, pointer.y, 2));
+      !r.textOnly || onText(el, pointer);
     const walk = (rows: ClickRule[]): PickMatch | null => {
       for (let i = 0; i < chain.length; i++) {
         const hit = rows.find((r) => rowMatches(r, chain[i]) && textOk(r, chain[i]));
@@ -324,8 +352,20 @@ export function mapElementToMatch(
     if (last) return last;
   }
 
+  const key = emitKeyOf(cardType);
+  const haCardIndex = chain.findIndex((el) => el.tag === 'ha-card');
+  const surface = (): PickMatch => ({
+    target: fallbackTarget(cardType, config),
+    index: haCardIndex !== -1 ? haCardIndex : chain.length - 1,
+  });
   for (let i = 0; i < chain.length; i++) {
     const el = chain[i];
+    if (CARD_SURFACE_PARTS[key]?.(el)) return surface();
+    if (CARD_TEXT_ONLY[key]?.(el, chain[i + 1])) {
+      // off the words: not Font here, and no generic marker (`info`, …) may claim it
+      if (!onText(el, pointer) || !capsFor(cardType).modules.font) continue;
+      return { target: { module: 'cms-font-module', label: 'Font' }, index: i, ...(el.textRect ? { rect: el.textRect } : {}) };
+    }
     for (const rule of RULES) {
       if (!rule.test(el, i, ctx)) continue;
       const target = rule.target(cardType, config);
@@ -336,11 +376,7 @@ export function mapElementToMatch(
 
   // Nothing specific matched → the card surface. Highlight ha-card if the
   // chain has one, else the outermost element.
-  const haCardIndex = chain.findIndex((el) => el.tag === 'ha-card');
-  return {
-    target: fallbackTarget(cardType, config),
-    index: haCardIndex !== -1 ? haCardIndex : chain.length - 1,
-  };
+  return surface();
 }
 
 /** Target-only convenience wrapper (the unit-tested surface). */
