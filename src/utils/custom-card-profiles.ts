@@ -187,6 +187,17 @@ export interface ClickRule {
   className?: string;
   module: string; // custom-element tag of the panel module, e.g. 'cms-font-module'
   label: string;
+  /** Match only while the pointer is over the element's OWN text (not its
+   *  full-width box): Bubble's name/state blocks span the whole pill. */
+  textOnly?: boolean;
+  /** Match any element UNDER the pointer with this class, not only the
+   *  hit-tested one's ancestors (Bubble's slider fill is a separate branch
+   *  of the DOM, painted below the text). Tried after the ancestor rules. */
+  under?: boolean;
+  /** Tried last (after `under`), before the generic rules: the card's own
+   *  surface, so empty areas and unstyled parts read Background instead of
+   *  whatever generic rule their tag would match. */
+  last?: boolean;
 }
 
 /** One test on a card config key: `set` (default) — a non-empty value other

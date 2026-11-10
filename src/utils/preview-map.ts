@@ -11,14 +11,37 @@
  */
 
 import { capsFor } from './card-caps.js';
-import { getCustomCardProfile, emitKeyOf, type ProfileModule } from './custom-card-profiles.js';
+import { getCustomCardProfile, emitKeyOf, type ClickRule, type ProfileModule } from './custom-card-profiles.js';
 
-/** One element of the hovered element's ancestor chain (lowercased tag). */
+/** Viewport rect (client coordinates). */
+export interface PickRect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** One element of the hovered element's ancestor chain (lowercased tag). The
+ *  geometry is optional (pure callers/tests omit it): `rect` is the element's
+ *  box, `textRect` the box of its own text (null: it has none). */
 export interface PickChainElement {
   tag: string;
   id: string;
   classes: string[];
+  rect?: PickRect;
+  textRect?: PickRect | null;
 }
+
+/** The pointer and what is under it, for rules that need geometry. */
+export interface PickPointer {
+  x: number;
+  y: number;
+  /** Every (non-overlay) element of the card whose box contains the point. */
+  under?: PickChainElement[];
+}
+
+const inRect = (r: PickRect, x: number, y: number, slop = 0): boolean =>
+  x >= r.left - slop && x <= r.right + slop && y >= r.top - slop && y <= r.bottom + slop;
 
 /** What the picker resolved a hovered element to. */
 export interface PickTarget {
@@ -37,6 +60,8 @@ export interface PickMatch {
   target: PickTarget;
   /** Index into the chain (0 = deepest) of the element to highlight. */
   index: number;
+  /** Highlight this box instead (a match on an element outside the chain). */
+  rect?: PickRect;
 }
 
 /** Entity-row custom elements on an entities card (hui-sensor-entity-row,
@@ -245,6 +270,7 @@ export function mapElementToMatch(
   chain: PickChainElement[],
   cardType: string,
   config?: Record<string, unknown> | null,
+  pointer?: PickPointer,
 ): PickMatch | null {
   if (!chain.length) return null;
   const ctx = buildContext(chain, cardType);
@@ -261,24 +287,39 @@ export function mapElementToMatch(
     }
   }
 
-  // A custom-card profile's own click-to-edit rows win over the generic walk
-  // (deepest element first, like the rule table below). A row whose module the
-  // panel hides for this card (profile or config gate) is skipped — the picker
-  // never points at a module that isn't on screen.
+  // A custom-card profile's own click-to-edit rows win over the generic walk.
+  // Order: ancestor rows (deepest element first, like the rule table below),
+  // then `under` rows (elements under the pointer outside the chain), then
+  // `last` rows (the card surface). A row whose module the panel hides for
+  // this card (profile or config gate) is skipped — the picker never points
+  // at a module that isn't on screen.
   const clicks = getCustomCardProfile(cardType)?.clickToEdit;
   if (clicks?.length) {
     const shown = capsFor(cardType, config).modules;
-    for (let i = 0; i < chain.length; i++) {
-      const el = chain[i];
-      const hit = clicks.find(
-        (r) =>
-          (!r.tag || r.tag === el.tag) &&
-          (!r.className || el.classes.includes(r.className)) &&
-          (r.tag || r.className) &&
-          (!MODULE_OF_TAG[r.module] || shown[MODULE_OF_TAG[r.module]]),
-      );
-      if (hit) return { target: { module: hit.module, label: hit.label }, index: i };
+    const usable = (r: ClickRule): boolean =>
+      (!!r.tag || !!r.className) && (!MODULE_OF_TAG[r.module] || shown[MODULE_OF_TAG[r.module]]);
+    const rowMatches = (r: ClickRule, el: PickChainElement): boolean =>
+      (!r.tag || r.tag === el.tag) && (!r.className || el.classes.includes(r.className));
+    // `textOnly` needs geometry; callers that give none keep the plain match.
+    const textOk = (r: ClickRule, el: PickChainElement): boolean =>
+      !r.textOnly || !pointer || !el.rect || (!!el.textRect && inRect(el.textRect, pointer.x, pointer.y, 2));
+    const walk = (rows: ClickRule[]): PickMatch | null => {
+      for (let i = 0; i < chain.length; i++) {
+        const hit = rows.find((r) => rowMatches(r, chain[i]) && textOk(r, chain[i]));
+        // a text rule highlights the text itself, not its full-width block
+        if (hit) return { target: { module: hit.module, label: hit.label }, index: i, ...(hit.textOnly && chain[i].textRect ? { rect: chain[i].textRect! } : {}) };
+      }
+      return null;
+    };
+    const plain = clicks.filter((r) => usable(r) && !r.under && !r.last);
+    const hit = walk(plain);
+    if (hit) return hit;
+    for (const r of clicks.filter((x) => usable(x) && x.under)) {
+      const el = pointer?.under?.find((u) => rowMatches(r, u) && u.rect && inRect(u.rect, pointer.x, pointer.y));
+      if (el) return { target: { module: r.module, label: r.label }, index: 0, rect: el.rect };
     }
+    const last = walk(clicks.filter((r) => usable(r) && r.last));
+    if (last) return last;
   }
 
   for (let i = 0; i < chain.length; i++) {
@@ -305,6 +346,7 @@ export function mapElementToTarget(
   chain: PickChainElement[],
   cardType: string,
   config?: Record<string, unknown> | null,
+  pointer?: PickPointer,
 ): PickTarget | null {
-  return mapElementToMatch(chain, cardType, config)?.target ?? null;
+  return mapElementToMatch(chain, cardType, config, pointer)?.target ?? null;
 }

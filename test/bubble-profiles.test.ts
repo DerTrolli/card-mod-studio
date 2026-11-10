@@ -13,7 +13,7 @@ import { generateCss } from '../src/generator/css-generator.js';
 import { mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseStyleValue } from '../src/parser/yaml-parser.js';
 import { capsFor } from '../src/utils/card-caps.js';
-import { mapElementToTarget } from '../src/utils/preview-map.js';
+import { mapElementToMatch, mapElementToTarget } from '../src/utils/preview-map.js';
 import { getCustomCardProfile, iconSizeMaxOf, profileKeyOf } from '../src/utils/custom-card-profiles.js';
 import { BUBBLE_SELECTORS } from '../src/utils/profiles/bubble.js';
 import { findAdvancedCssConflicts } from '../src/utils/style-conflicts.js';
@@ -627,8 +627,55 @@ describe('Bubble 3 profiles — controls whose target the card config removes (c
   });
 
   it('the picker skips a hidden module (no pointing at what is not on screen)', () => {
-    const chain = [{ tag: 'ha-icon', id: '', classes: ['bubble-main-icon', 'bubble-icon', 'icon'] }, { tag: 'div', id: '', classes: ['bubble-background', 'bubble-button-background'] }];
+    const chain = [{ tag: 'ha-icon', id: '', classes: ['bubble-main-icon', 'bubble-icon', 'icon'] }, { tag: 'div', id: '', classes: ['bubble-button-container', 'bubble-container'] }];
     expect(mapElementToTarget(chain, BTN, cfgOf(BTN, {}))?.module).toBe('cms-icon-color-module');
     expect(mapElementToTarget(chain, BTN, cfgOf(BTN, { show_icon: false }))?.module).not.toBe('cms-icon-color-module');
+  });
+});
+
+describe('Bubble 3 profiles — click-to-edit with geometry (hit map measured on a 338x50 slider at 40 %)', () => {
+  const R = (left: number, top: number, right: number, bottom: number) => ({ left, top, right, bottom });
+  const el = (tag: string, classes: string[], rect: ReturnType<typeof R>, textRect: ReturnType<typeof R> | null = null) => ({ tag, id: '', classes, rect, textRect });
+  // card at 0..338 x 0..50; the fill is a full-width bar shifted left (visible 0..135)
+  const card = R(0, 0, 338, 50);
+  const container = el('div', ['bubble-button-container', 'bubble-container'], card);
+  const wrapper = el('div', ['bubble-button', 'bubble-wrapper'], card);
+  const fill = el('div', ['bubble-range-fill'], R(-203, 0, 135, 50));
+  const nameText = R(50, 8, 110, 24);
+  const name = el('div', ['bubble-name'], R(50, 8, 320, 26), nameText);
+  const nameContainer = el('div', ['bubble-name-container'], R(50, 7, 320, 43));
+  const under = [container, wrapper, fill, nameContainer, name];
+  const at = (x: number, y: number, chain: ReturnType<typeof el>[]) =>
+    mapElementToMatch(chain, SLIDER, {}, { x, y, under: under.filter((u) => x >= u.rect.left && x <= u.rect.right && y >= u.rect.top && y <= u.rect.bottom) });
+
+  it('text maps to Font only over the text; the rest of its block falls through', () => {
+    expect(at(70, 15, [name, nameContainer, wrapper, container])?.target.module).toBe('cms-font-module');
+    expect(at(70, 15, [name, nameContainer, wrapper, container])?.rect).toEqual(nameText);
+    // empty block to the right of the text, over the fill -> Accent; over the track -> Background
+    expect(at(120, 15, [name, nameContainer, wrapper, container])?.target.module).toBe('cms-accent-color-module');
+    expect(at(250, 15, [name, nameContainer, wrapper, container])?.target.module).toBe('cms-background-module');
+  });
+
+  it('the filled part maps to Accent and highlights the fill element, the track to Background', () => {
+    const m = at(100, 45, [wrapper, container])!;
+    expect(m.target.module).toBe('cms-accent-color-module');
+    expect(m.rect).toEqual(fill.rect);
+    expect(at(300, 45, [wrapper, container])?.target.module).toBe('cms-background-module');
+  });
+
+  it('the icon box stays Icon Color over the fill', () => {
+    const icon = el('div', ['bubble-icon-container'], R(6, 6, 44, 44));
+    expect(at(10, 10, [icon, wrapper, container])?.target.module).toBe('cms-icon-color-module');
+  });
+
+  it('cover arrows are not Icon Color (no module styles them): Background', () => {
+    const arrow = el('ha-icon', ['bubble-cover-button-icon', 'bubble-icon-open'], R(300, 15, 320, 35));
+    const btn = el('div', ['bubble-cover-button', 'bubble-button'], R(296, 7, 332, 43));
+    const cont = el('div', ['bubble-cover-container', 'bubble-container'], card);
+    expect(mapElementToMatch([arrow, btn, cont], COVER, {}, { x: 310, y: 25 })?.target.module).toBe('cms-background-module');
+  });
+
+  it('without geometry (pure callers) the plain class match applies', () => {
+    expect(mapElementToTarget([{ tag: 'div', id: '', classes: ['bubble-name'] }, { tag: 'div', id: '', classes: ['bubble-container'] }], BTN, {})?.module).toBe('cms-font-module');
   });
 });

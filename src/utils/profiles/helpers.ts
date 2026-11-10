@@ -16,6 +16,12 @@ export const CLICK_BACKGROUND = { module: 'cms-background-module', label: 'Backg
 
 export const clickTag = (tag: string, to: Pick<ClickRule, 'module' | 'label'>): ClickRule => ({ tag, ...to });
 export const clickClass = (className: string, to: Pick<ClickRule, 'module' | 'label'>): ClickRule => ({ className, ...to });
+/** Name / state text: only over the glyphs, not the container's empty width. */
+export const clickText = (className: string, to: Pick<ClickRule, 'module' | 'label'>): ClickRule => ({ className, textOnly: true, ...to });
+/** An element under the pointer that is not an ancestor of the hit one. */
+export const clickUnder = (className: string, to: Pick<ClickRule, 'module' | 'label'>): ClickRule => ({ className, under: true, ...to });
+/** The card surface: considered after everything else of the profile. */
+export const clickLast = (className: string, to: Pick<ClickRule, 'module' | 'label'>): ClickRule => ({ className, last: true, ...to });
 
 function companionClaim(module: ClaimRule['module'], selector: string, c: Companion): ClaimRule {
   return { module, selector: c.selector ?? selector, role: 'companion', props: [c.prop.toLowerCase()], equals: c.value };

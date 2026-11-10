@@ -73,7 +73,7 @@ describe('click-to-edit — Bubble Card', () => {
   const btn = 'custom:bubble-card/button';
   const slider = 'custom:bubble-card/button/slider';
   const box = el('div', ['bubble-background', 'bubble-action', 'bubble-button-background']);
-  const wrap = [box, el('div', ['bubble-button', 'bubble-wrapper']), el('div', ['bubble-button-container']), el('ha-card')];
+  const wrap = [box, el('div', ['bubble-button', 'bubble-wrapper']), el('div', ['bubble-button-container', 'bubble-container']), el('ha-card')];
 
   it('button: name and state → Font, icon → Icon Color, pill → Background', () => {
     expect(pick([el('div', ['bubble-name', 'name']), el('div', ['bubble-name-container']), ...wrap], btn)).toBe(FONT);
@@ -83,7 +83,7 @@ describe('click-to-edit — Bubble Card', () => {
   });
 
   it('slider: the fill → Accent; on a plain button the same element is not Accent (hidden there)', () => {
-    const fill = [el('div', ['bubble-range-fill', 'range-fill']), el('div', ['bubble-range-slider']), el('div', ['bubble-button-container']), el('ha-card')];
+    const fill = [el('div', ['bubble-range-fill', 'range-fill']), el('div', ['bubble-range-slider']), el('div', ['bubble-button-container', 'bubble-container']), el('ha-card')];
     expect(pick(fill, slider)).toBe(ACCENT);
     expect(capsFor(btn).modules.accentColor).toBe(false);
     expect(pick(fill, btn)).toBe(BG);
@@ -99,7 +99,7 @@ describe('click-to-edit — Bubble Card', () => {
 
   it('cover: name → Font, icon → Icon Color, .bubble-background → Background; the cover buttons are not claimed as the icon', () => {
     const c = 'custom:bubble-card/cover';
-    const root = [el('div', ['bubble-background', 'bubble-action']), el('div', ['bubble-cover']), el('ha-card')];
+    const root = [el('div', ['bubble-background', 'bubble-action']), el('div', ['bubble-cover', 'bubble-wrapper']), el('div', ['bubble-cover-container', 'bubble-container']), el('ha-card')];
     expect(pick([el('div', ['bubble-name']), ...root], c)).toBe(FONT);
     expect(pick([el('ha-icon', ['bubble-main-icon', 'bubble-icon']), ...root], c)).toBe(ICON);
     expect(pick([el('ha-icon', ['bubble-cover-button-icon', 'bubble-icon-open']), el('div', ['bubble-cover-button']), el('div', ['bubble-buttons-container']), ...root], c)).toBe(BG);

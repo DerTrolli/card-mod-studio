@@ -25,6 +25,7 @@
 import type { ClaimRule, ConfigGate, CustomCardProfile, ProfileEmitters } from '../custom-card-profiles.js';
 import {
   claimsFromEmitters, conflictsFromEmitters, clickClass,
+  clickText, clickUnder, clickLast,
   CLICK_FONT, CLICK_ICON, CLICK_ACCENT, CLICK_BACKGROUND,
 } from './helpers.js';
 
@@ -83,13 +84,19 @@ const icon = {
   iconSize: { selector: S.icon, box: ['--mdc-icon-size'] },
 };
 
-/** Click-to-edit rows shared by the four kinds (deepest chain element wins). */
-const clicksFor = (box: string, ...more: ReturnType<typeof clickClass>[]) => [
-  ...more,
-  clickClass('bubble-name', CLICK_FONT),
-  clickClass('bubble-state', CLICK_FONT),
+/** Click-to-edit rows shared by the four kinds. Measured hit map (slider
+ *  338x50, 40 %): `.bubble-name` / `.bubble-state` are full-width blocks, so
+ *  they count only over their own text; the slider fill is a separate branch
+ *  below the text, found "under" the pointer; everything else inside the card
+ *  (empty pill, track, cover arrows — no module styles them) is the card
+ *  surface, `.bubble-container` on all four kinds. */
+const clicksFor = (...more: ReturnType<typeof clickUnder>[]) => [
+  clickText('bubble-name', CLICK_FONT),
+  clickText('bubble-state', CLICK_FONT),
   clickClass('bubble-icon', CLICK_ICON),
-  clickClass(box, CLICK_BACKGROUND),
+  clickClass('bubble-icon-container', CLICK_ICON),
+  ...more,
+  clickLast('bubble-container', CLICK_BACKGROUND),
 ];
 
 /** The border sits on `.bubble-container`: a real border on Bubble's absolutely
@@ -146,7 +153,7 @@ const button = profile('custom:bubble-card/button', {
   configGates: GATES,
   iconSize: true,
   iconSizeMax: ICON_MAX_BOX,
-  clickToEdit: clicksFor('bubble-button-background'),
+  clickToEdit: clicksFor(),
   emitters: {
     font: text([S.name, S.state]),
     ...icon,
@@ -167,7 +174,7 @@ const slider = profile('custom:bubble-card/button/slider', {
   configGates: GATES,
   iconSize: true,
   iconSizeMax: ICON_MAX_BOX,
-  clickToEdit: clicksFor('bubble-button-background', clickClass('bubble-range-fill', CLICK_ACCENT)),
+  clickToEdit: clicksFor(clickClass('bubble-range-fill', CLICK_ACCENT), clickUnder('bubble-range-fill', CLICK_ACCENT)),
   emitters: {
     font: text([S.name, S.state]),
     ...icon,
@@ -206,7 +213,7 @@ const separator = profile('custom:bubble-card/separator', {
   iconSizeMax: ICON_MAX_SEPARATOR,
   // No entity behind the card: nothing for a state condition to read.
   stateAware: false,
-  clickToEdit: clicksFor('bubble-separator'),
+  clickToEdit: clicksFor(),
   emitters: {
     font: text([S.name]),
     ...icon,
@@ -226,7 +233,7 @@ const cover = profile('custom:bubble-card/cover', {
   configGates: GATES,
   iconSize: true,
   iconSizeMax: ICON_MAX_BOX,
-  clickToEdit: clicksFor('bubble-background'),
+  clickToEdit: clicksFor(),
   emitters: {
     font: text([S.name, S.state]),
     ...icon,
