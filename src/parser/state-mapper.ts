@@ -55,6 +55,7 @@ import {
   buttonStateFontSize,
 } from '../generator/css-generator.js';
 import { capsFor } from '../utils/card-caps.js';
+import { isValidCssColor } from '../utils/css-color.js';
 import {
   getCustomCardProfile,
   emitKeyOf,
@@ -542,7 +543,7 @@ export function mapToStudioState(fullParsed: CardModStyleState, cardType?: strin
         : mapAccentColor(haCard, haGauge, claimed, cardType),
     background: hidden('background')
       ? { ...DEFAULT_BACKGROUND }
-      : mapBackground(haCard, claimed, pc?.has('background') ? pc : null),
+      : mapBackground(haCard, claimed, pc?.has('background') ? pc : null, cardType !== 'markdown'),
     animation: hidden('animation') ? { ...DEFAULT_ANIMATION } : mapAnimation(haCard, claimed),
     border: hidden('border')
       ? { ...DEFAULT_BORDER }
@@ -1553,6 +1554,10 @@ function mapBackground(
   /** A profile whose background rides on variables (chips): they replace
    *  `background` here — a plain `background` is not recognised then. */
   pc: ProfileClaims | null = null,
+  /** False on a card whose `background` the generator may write with
+   *  `!important` depending on card config the parser does not see (a text-only
+   *  markdown card): an image is not adopted there. */
+  imageAdoptable = true,
 ): BackgroundModuleState {
   const haCard = pc ? pc.target('background') : haCardTarget;
   if (!haCard) return { ...DEFAULT_BACKGROUND };
@@ -1643,6 +1648,28 @@ function mapBackground(
   }
 
   if (value && !value.includes('url(') && !value.includes('{{')) {
+    claimBg();
+    return { ...DEFAULT_BACKGROUND, enabled: true, type: 'solid', color1: value };
+  }
+
+  // An image (the solid field accepts any `background` value: url(...),
+  // lists with a colour). The image form used to stay in Advanced CSS only
+  // because `url(` is not a colour; it is adopted now when the module writes
+  // exactly this declaration back: a value the field's validator accepts (one
+  // image or colour per layer, no `;`, so `url(data:...;base64,...)` and
+  // `url(x.png) center / cover` stay), no `!important`, and no
+  // background-* longhand beside it that the shorthand would reset or that
+  // the save would reorder.
+  if (
+    value &&
+    value.includes('url(') &&
+    !value.includes('{{') &&
+    !pc &&
+    imageAdoptable &&
+    !bgProp.important &&
+    isValidCssColor(value, 'background') &&
+    !haCard.properties.some((p) => p.property.startsWith('background-'))
+  ) {
     claimBg();
     return { ...DEFAULT_BACKGROUND, enabled: true, type: 'solid', color1: value };
   }
