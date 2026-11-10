@@ -47,11 +47,9 @@ function hassAvailable(hass: HassSub | undefined): hass is HassSub {
 // Public API
 // ---------------------------------------------------------------------------
 
-/**
- * Load presets. Tries HA WebSocket storage first (cross-device); falls back
- * to localStorage. Returns [] if both fail or are empty.
- */
-export async function loadPresets(hass: HassSub | undefined): Promise<StylePreset[]> {
+/** A read that also says whether Home Assistant was asked and failed. */
+async function readPresets(hass: HassSub | undefined): Promise<{ list: StylePreset[]; readFailed: boolean }> {
+  let readFailed = false;
   if (hassAvailable(hass)) {
     try {
       const result = await hass.connection.sendMessagePromise({
@@ -59,8 +57,9 @@ export async function loadPresets(hass: HassSub | undefined): Promise<StylePrese
         key: HA_KEY,
       }) as { value: StylePreset[] | null } | null;
       const value = result?.value;
-      if (Array.isArray(value)) return migratePresets(value);
+      if (Array.isArray(value)) return { list: migratePresets(value), readFailed };
     } catch (err) {
+      readFailed = true;
       console.warn('[Card-Mod Studio] Preset load from HA failed, using localStorage:', err);
     }
   }
@@ -68,17 +67,26 @@ export async function loadPresets(hass: HassSub | undefined): Promise<StylePrese
   try {
     const raw = localStorage.getItem(LS_KEY);
     const parsed = raw ? (JSON.parse(raw) as StylePreset[]) : [];
-    return Array.isArray(parsed) ? migratePresets(parsed) : [];
+    return { list: Array.isArray(parsed) ? migratePresets(parsed) : [], readFailed };
   } catch {
-    return [];
+    return { list: [], readFailed };
   }
 }
 
 /**
- * Save presets. Always writes localStorage immediately, then asynchronously
- * syncs to HA WebSocket storage if available.
+ * Load presets. Tries HA WebSocket storage first (cross-device); falls back
+ * to localStorage. Returns [] if both fail or are empty.
  */
-export async function savePresets(presets: StylePreset[], hass: HassSub | undefined): Promise<void> {
+export async function loadPresets(hass: HassSub | undefined): Promise<StylePreset[]> {
+  return (await readPresets(hass)).list;
+}
+
+/**
+ * Save presets. Always writes localStorage immediately, then asynchronously
+ * syncs to HA WebSocket storage if available. Resolves false when HA was
+ * asked and the write failed (the list is then on this device only).
+ */
+export async function savePresets(presets: StylePreset[], hass: HassSub | undefined): Promise<boolean> {
   // localStorage — instant, no async risk
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(presets));
@@ -96,8 +104,10 @@ export async function savePresets(presets: StylePreset[], hass: HassSub | undefi
       });
     } catch (err) {
       console.warn('[Card-Mod Studio] Preset sync to HA failed (saved to localStorage only):', err);
+      return false;
     }
   }
+  return true;
 }
 
 /** One change a panel makes to the stored list. */
@@ -121,11 +131,24 @@ let writeQueue: Promise<unknown> = Promise.resolve();
  * The panel's in-memory list can be stale (another browser saved since it
  * loaded) — writing that whole list back lost the other browser's presets.
  * Resolves with the list that was written, for the panel to show.
+ *
+ * If Home Assistant could not be read, the list in hand is only this
+ * browser's older copy: the change is kept on this device and NOT written to
+ * Home Assistant (that would replace the real list with the old copy).
+ * `onSync(false)` says the change is on this device only (read or write
+ * failed); `onSync(true)` that it reached Home Assistant. Not called when
+ * there is no Home Assistant connection to sync with.
  */
-export function updatePresets(change: PresetChange, hass: HassSub | undefined): Promise<StylePreset[]> {
+export function updatePresets(
+  change: PresetChange,
+  hass: HassSub | undefined,
+  onSync?: (reachedHa: boolean) => void,
+): Promise<StylePreset[]> {
   const run = async (): Promise<StylePreset[]> => {
-    const next = applyPresetChange(await loadPresets(hass), change);
-    await savePresets(next, hass);
+    const { list, readFailed } = await readPresets(hass);
+    const next = applyPresetChange(list, change);
+    const wrote = await savePresets(next, readFailed ? undefined : hass);
+    if (hassAvailable(hass)) onSync?.(!readFailed && wrote);
     return next;
   };
   const result = writeQueue.then(run, run);

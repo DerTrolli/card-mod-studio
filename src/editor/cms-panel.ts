@@ -106,6 +106,9 @@ export class CmsPanel extends LitElement {
   @state() private _presetNameTried = false;
   /** First click on the delete (x) control arms it; the second deletes. */
   @state() private _deleteArmed = false;
+  /** The last preset change could not reach Home Assistant (read or write
+   *  failed): it is saved on this device only. Clears on the next write that does. */
+  @state() private _presetsLocalOnly = false;
   /** Disarms the delete control on a press elsewhere or after a few seconds
    *  (blur alone never fires where a click doesn't focus the button). */
   private _deleteGuard = new ArmGuard(() => {
@@ -587,7 +590,8 @@ export class CmsPanel extends LitElement {
    *  actually written. */
   private _commitPresetChange(change: PresetChange) {
     this._presets = applyPresetChange(this._presets, change);
-    void updatePresets(change, this.hass).then((written) => { this._presets = written; });
+    void updatePresets(change, this.hass, (reachedHa) => { this._presetsLocalOnly = !reachedHa; })
+      .then((written) => { this._presets = written; });
   }
 
   private _disarmDelete() {
@@ -1260,7 +1264,7 @@ export class CmsPanel extends LitElement {
     }
     const armedLabel = `Delete '${this._selectedPreset}'?`;
     return html`
-      <div class="preset-bar">
+      <div class="preset-bar ${this._presetsLocalOnly ? 'has-hint' : ''}">
         <select .value=${this._selectedPreset} @change=${this._onPresetSelect}>
           <option value="">📋 Load preset…</option>
           ${this._presets.map(
@@ -1278,6 +1282,9 @@ export class CmsPanel extends LitElement {
             >${this._deleteArmed ? 'Delete?' : '×'}</button>`
           : nothing}
         <button class="btn-preset-save" title="Save the current styling as a preset" @click=${this._startNamingPreset}>💾 Save preset</button>
+        ${this._presetsLocalOnly
+          ? html`<div class="preset-hint" role="status">Couldn't reach your Home Assistant profile — saved on this device only.</div>`
+          : nothing}
       </div>
     `;
   }
