@@ -4,6 +4,7 @@ import type { BackgroundModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_BACKGROUND } from '../parser/state-mapper.js';
 import { moduleStyles, renderWhen, renderOverrideBadge, renderOverrideHint, renderThresholdOwnedHint, onHeaderKeydown } from './module-base.js';
 import '../components/cms-color-picker.js';
+import { stateKindFor } from '../utils/card-caps.js';
 
 export class BackgroundModule extends LitElement {
   @property({ attribute: false }) state: BackgroundModuleState = {
@@ -12,6 +13,8 @@ export class BackgroundModule extends LitElement {
 
   /** False when the card has no binary entity state (e.g. sensor cards). */
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
+  /** The card's own entity id — tells an OFF-only entity (climate) from a never-on/off one. */
+  @property({ type: String }) cardEntity = '';
 
   @property({ attribute: false }) hass?: HomeAssistant;
 
@@ -151,6 +154,7 @@ export class BackgroundModule extends LitElement {
         ${renderWhen({
           value: this.state.applyWhen,
           stateAware: this.stateAware,
+          offOnly: stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
           noun: 'background',
           allowCustom: true,
           customEntity: this.state.customEntity,

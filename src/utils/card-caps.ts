@@ -353,14 +353,34 @@ const BINARY_DOMAINS = [
 
 /** Domains that never report `on`, whatever their current state (HA's own
  *  state lists): lock locked/unlocked/…, cover open/closed/opening/closing,
- *  climate off|heat|cool|auto|dry|fan_only|heat_cool (an HVAC mode — it can
- *  be `off`, never `on`), alarm_control_panel disarmed/armed_home/armed_away/…, person
+ *  climate / water_heater an HVAC / operation mode (can be `off`, never `on`),
+ *  alarm_control_panel disarmed/armed_home/armed_away/…, person
  *  home/not_home/<zone>, timer idle/active/paused, input_button a timestamp.
  *  An "ON" condition can never match there, so they are decided by the domain
  *  alone — a climate that happens to be `off` right now is not state-aware. */
 const NEVER_ON_OFF_DOMAINS = new Set([
-  'lock', 'cover', 'climate', 'alarm_control_panel', 'person', 'timer', 'input_button',
+  'lock', 'cover', 'climate', 'water_heater', 'alarm_control_panel', 'person', 'timer', 'input_button',
 ]);
+
+/** The subset of NEVER_ON_OFF_DOMAINS whose state CAN be `off` (a mode), so
+ *  "Only while entity is OFF" is real there while "ON" never matches. */
+const OFF_ONLY_DOMAINS = new Set(['climate', 'water_heater']);
+
+/** What an entity's state can match: both `on` and `off`, only `off`, or
+ *  neither. */
+export type OwnStateKind = 'on-off' | 'off-only' | 'none';
+
+/** True for an entity that can be `off` but never `on` (climate, water_heater). */
+export function isOffOnlyEntity(entityId: string | undefined): boolean {
+  return !!entityId && OFF_ONLY_DOMAINS.has(entityId.split('.')[0]);
+}
+
+/** Same three-way answer from what a module receives: the panel's boolean
+ *  `stateAware` plus the card's entity id. No entity stays 'none'. */
+export function stateKindFor(stateAware: boolean, cardEntity: string | undefined): OwnStateKind {
+  if (stateAware) return 'on-off';
+  return isOffOnlyEntity(cardEntity) ? 'off-only' : 'none';
+}
 
 /**
  * Whether a card config has an entity of its own — the one `config.entity`
@@ -409,4 +429,14 @@ export function panelStateAware(
   hass?: { states?: Record<string, { state: string }> },
 ): boolean {
   return hasOwnEntity(config) && isStateAware(profileKey, config?.entity as string | undefined, hass);
+}
+
+/** The three-way answer for a card's own entity, from the card config —
+ *  `isStateAware` stays the "ON and OFF can both match" boolean. */
+export function ownStateKind(
+  profileKey: string | undefined,
+  config: Record<string, unknown> | null | undefined,
+  hass?: { states?: Record<string, { state: string }> },
+): OwnStateKind {
+  return stateKindFor(panelStateAware(profileKey, config, hass), hasOwnEntity(config) ? (config?.entity as string) : undefined);
 }

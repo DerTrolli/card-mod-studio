@@ -3,7 +3,8 @@ import { property, state } from 'lit/decorators.js';
 import type { AccentColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ACCENT_COLOR } from '../parser/state-mapper.js';
 import { accentColorsWithoutTriplet, tripletHint } from '../utils/rgb-triplet.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint, renderThresholdOwnedHint, onHeaderKeydown } from './module-base.js';
+import { moduleStyles, renderOverrideBadge, renderOverrideHint, renderThresholdOwnedHint, renderWatchHint, onHeaderKeydown } from './module-base.js';
+import { stateKindFor } from '../utils/card-caps.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
@@ -86,7 +87,7 @@ export class AccentColorModule extends LitElement {
 
   private _renderBody() {
     const mode = this.state.mode;
-    const ownEntityUseless = !this.stateAware && !this.state.entityId;
+    const kind = stateKindFor(this.stateAware, this.cardEntity);
 
     return html`
       <div class="module-body">
@@ -140,17 +141,7 @@ export class AccentColorModule extends LitElement {
                   ></cms-entity-picker>
                 </div>
               </div>
-              <div class="when-hint ${ownEntityUseless ? 'warn' : ''}">
-                ${this.state.entityId
-                  ? this.cardEntity
-                    ? `Uses ${this.state.entityId}'s on/off state, not this card's own entity.`
-                    : `Uses ${this.state.entityId}'s on/off state.`
-                  : ownEntityUseless
-                  ? this.cardEntity
-                    ? `This card's entity (${this.cardEntity}) has no on/off state of its own — pick a toggleable entity above, or this mode won't do anything.`
-                    : "This card has no entity of its own — pick the entity to watch, or choose One fixed color. Until then no color is written."
-                  : "Leave empty to use this card's own entity."}
-              </div>
+              ${renderWatchHint({ entityId: this.state.entityId, cardEntity: this.cardEntity, kind })}
             `
           : nothing}
 

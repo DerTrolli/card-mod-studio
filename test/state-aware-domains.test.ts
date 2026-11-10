@@ -1,6 +1,7 @@
 /**
- * "ON / OFF" on entities that are never on or off (lock, cover, climate,
- * alarm panel, person, timer, input_button): the panel treats them like the
+ * "ON / OFF" on entities that are never on or off (lock, cover, alarm panel,
+ * person, timer, input_button; climate / water_heater are OFF-only — see the
+ * last describe): the panel treats them like the
  * other non-state-aware cards — warning on Icon Color / Accent, no ON / OFF
  * choice offered for conditions — while a stored ON / OFF value still shows
  * and nothing is rewritten. Real on/off domains answer exactly as before.
@@ -108,8 +109,10 @@ describe('what the panel shows for a never-on entity', () => {
     return templateText(el._renderBody());
   };
 
-  it('Icon Color and Accent in ON / OFF mode warn on a lock, a cover and a climate card', () => {
-    for (const entity of ['lock.front', 'cover.garage', 'climate.living']) {
+  // Edited: climate left this list — it can be OFF, so it gets a different
+  // hint (see "an OFF-only entity" below).
+  it('Icon Color and Accent in ON / OFF mode warn on a lock and a cover card', () => {
+    for (const entity of ['lock.front', 'cover.garage']) {
       const ic = body(Icon, { ...DEFAULT_ICON_COLOR, enabled: true, mode: 'conditional' }, entity);
       expect(ic, entity).toContain(`has no on/off state of its own`);
       const ac = body(Accent, { ...DEFAULT_ACCENT_COLOR, enabled: true, mode: 'conditional' }, entity);

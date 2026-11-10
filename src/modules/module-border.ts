@@ -11,10 +11,13 @@ import {
   onHeaderKeydown,
 } from './module-base.js';
 import '../components/cms-color-picker.js';
+import { stateKindFor } from '../utils/card-caps.js';
 
 export class BorderModule extends LitElement {
   @property({ attribute: false }) state: BorderModuleState = { ...DEFAULT_BORDER };
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
+  /** The card's own entity id — tells an OFF-only entity (climate) from a never-on/off one. */
+  @property({ type: String }) cardEntity = '';
   @property({ attribute: false }) hass?: HomeAssistant;
 
   /** True when Advanced CSS overrides this module's output — shows the
@@ -141,6 +144,7 @@ export class BorderModule extends LitElement {
               ${renderCondition({
                 condition: this.state.widthWhen,
                 stateAware: this.stateAware,
+                offOnly: stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
                 noun: 'border',
                 hass: this.hass,
                 onChange: (c) => this._emit({ widthWhen: c }),

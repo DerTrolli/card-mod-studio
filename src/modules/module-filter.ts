@@ -10,12 +10,15 @@ import {
   renderCondition,
   onHeaderKeydown,
 } from './module-base.js';
+import { stateKindFor } from '../utils/card-caps.js';
 
 export class FilterModule extends LitElement {
   @property({ attribute: false }) state: FilterModuleState = { ...DEFAULT_FILTER };
 
   /** False when the card has no binary entity state (e.g. sensor cards). */
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
+  /** The card's own entity id — tells an OFF-only entity (climate) from a never-on/off one. */
+  @property({ type: String }) cardEntity = '';
 
   @property({ attribute: false }) hass?: HomeAssistant;
 
@@ -63,7 +66,7 @@ export class FilterModule extends LitElement {
    *  factory default) could never match — an entity with no `off` state of its
    *  own (sensor, lock, cover…). Any other stored condition is kept as is. */
   private _grayscaleChanges(on: boolean): Partial<FilterModuleState> {
-    if (on && this.state.grayscaleWhen === 'off' && !this.stateAware) {
+    if (on && this.state.grayscaleWhen === 'off' && stateKindFor(this.stateAware, this.cardEntity) === 'none') {
       return { grayscale: true, grayscaleWhen: 'always' };
     }
     return { grayscale: on };
@@ -114,6 +117,7 @@ export class FilterModule extends LitElement {
           ? renderWhen({
               value: this.state.grayscaleWhen,
               stateAware: this.stateAware,
+              offOnly: stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
               noun: 'grayscale',
               allowCustom: true,
               customEntity: this.state.customEntity,
@@ -187,6 +191,7 @@ export class FilterModule extends LitElement {
           ? renderCondition({
               condition: this.state.effectsWhen,
               stateAware: this.stateAware,
+              offOnly: stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
               noun: 'effects',
               hass: this.hass,
               onChange: (c) => this._emit({ effectsWhen: c }),

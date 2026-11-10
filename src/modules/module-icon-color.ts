@@ -3,12 +3,13 @@ import { property, state } from 'lit/decorators.js';
 import type { IconColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
-import { hasOwnEntity } from '../utils/card-caps.js';
+import { hasOwnEntity, stateKindFor } from '../utils/card-caps.js';
 import {
   moduleStyles,
   renderOverrideBadge,
   renderOverrideHint,
   renderThresholdOwnedHint,
+  renderWatchHint,
   renderCondition,
   onHeaderKeydown,
 } from './module-base.js';
@@ -120,7 +121,11 @@ export class IconColorModule extends LitElement {
             @change=${(e: Event) =>
               this._emit(
                 (e.target as HTMLInputElement).checked
-                  ? enableChanges(this.state, this.allowSize, hasOwnEntity({ entity: this.cardEntity }))
+                  ? enableChanges(
+                      this.state,
+                      this.allowSize,
+                      hasOwnEntity({ entity: this.cardEntity }),
+                    )
                   : { enabled: false },
               )}
           ></ha-switch>
@@ -149,7 +154,7 @@ export class IconColorModule extends LitElement {
     // own entity (an empty "Controlled by" field) actually mean anything?
     // Not for a card whose own entity has no on/off state (e.g. a `button`)
     // unless a different, toggleable entity is picked below.
-    const ownEntityUseless = !this.stateAware && !this.state.entityId;
+    const kind = stateKindFor(this.stateAware, this.cardEntity);
 
     return html`
       <div class="module-body">
@@ -213,17 +218,7 @@ export class IconColorModule extends LitElement {
                   ></cms-entity-picker>
                 </div>
               </div>
-              <div class="when-hint ${ownEntityUseless ? 'warn' : ''}">
-                ${this.state.entityId
-                  ? this.cardEntity
-                    ? `Uses ${this.state.entityId}'s on/off state, not this card's own entity.`
-                    : `Uses ${this.state.entityId}'s on/off state.`
-                  : ownEntityUseless
-                  ? this.cardEntity
-                    ? `This card's entity (${this.cardEntity}) has no on/off state of its own — pick a toggleable entity above, or this mode won't do anything.`
-                    : "This card has no entity of its own — pick the entity to watch, or choose One fixed color. Until then no color is written."
-                  : "Leave empty to use this card's own entity."}
-              </div>
+              ${renderWatchHint({ entityId: this.state.entityId, cardEntity: this.cardEntity, kind })}
             `
           : nothing}
 

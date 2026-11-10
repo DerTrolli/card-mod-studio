@@ -2,7 +2,8 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { AnimationModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ANIMATION } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
+import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown, offeredOnOff } from './module-base.js';
+import { stateKindFor } from '../utils/card-caps.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
 
@@ -31,6 +32,8 @@ export class AnimationModule extends LitElement {
 
   /** False when the card has no binary entity state (e.g. sensor cards). */
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
+  /** The card's own entity id — tells an OFF-only entity (climate) from a never-on/off one. */
+  @property({ type: String }) cardEntity = '';
 
   @property({ attribute: false }) hass?: HomeAssistant;
 
@@ -167,16 +170,17 @@ export class AnimationModule extends LitElement {
    * cards unless one is already the stored value.
    */
   private _renderTrigger() {
-    const hasStateValue = this.state.trigger === 'on' || this.state.trigger === 'off';
-    const showOnOff = this.stateAware || hasStateValue;
+    const { showOn, showOff } = offeredOnOff(
+      this.stateAware,
+      stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
+      this.state.trigger === 'on' || this.state.trigger === 'off',
+    );
 
     const opts: Array<{ v: AnimationTrigger; label: string }> = [
       { v: 'always', label: 'Always' },
     ];
-    if (showOnOff) {
-      opts.push({ v: 'on', label: 'Only while entity is ON' });
-      opts.push({ v: 'off', label: 'Only while entity is OFF' });
-    }
+    if (showOn) opts.push({ v: 'on', label: 'Only while entity is ON' });
+    if (showOff) opts.push({ v: 'off', label: 'Only while entity is OFF' });
     opts.push({ v: 'custom', label: 'While another entity is ON…' });
     opts.push({ v: 'value', label: 'While a value matches…' });
 

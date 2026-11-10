@@ -7,6 +7,7 @@ import type { TemplateResult } from 'lit';
 import type { HomeAssistant, StyleCondition } from '../types/index.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
+import type { OwnStateKind } from '../utils/card-caps.js';
 
 /**
  * Theme-aware design tokens shared by every module (and re-declared on
@@ -393,6 +394,9 @@ export interface WhenControlOptions {
   value: WhenValue;
   /** False when the card's entity has no on/off state (e.g. a sensor). */
   stateAware: boolean;
+  /** The entity can be OFF but never ON (climate, water_heater): OFF is
+   *  offered, ON is not. Ignored when stateAware. */
+  offOnly?: boolean;
   /** Noun used in the hint, e.g. "background", "grayscale", "animation". */
   noun: string;
   /** Offer the "another entity" option. */
@@ -403,6 +407,20 @@ export interface WhenControlOptions {
   hass?: HomeAssistant;
   onChange: (v: WhenValue) => void;
   onCustomEntity?: (id: string) => void;
+}
+
+/** Which of the ON / OFF options a condition select offers. A stored on/off
+ *  value keeps both visible (never a blank select, never rewritten); an
+ *  OFF-only entity offers OFF alone. */
+export function offeredOnOff(
+  stateAware: boolean,
+  offOnly: boolean | undefined,
+  hasStoredOnOff: boolean,
+): { showOn: boolean; showOff: boolean } {
+  return {
+    showOn: stateAware || hasStoredOnOff,
+    showOff: stateAware || !!offOnly || hasStoredOnOff,
+  };
 }
 
 function whenHint(v: WhenValue, o: WhenControlOptions): string {
@@ -425,16 +443,13 @@ function whenHint(v: WhenValue, o: WhenControlOptions): string {
  * so nothing changes silently. Returns the rows + a plain-language hint.
  */
 export function renderWhen(o: WhenControlOptions): TemplateResult {
-  const hasStateValue = o.value === 'on' || o.value === 'off';
-  const showOnOff = o.stateAware || hasStateValue;
+  const { showOn, showOff } = offeredOnOff(o.stateAware, o.offOnly, o.value === 'on' || o.value === 'off');
   // If "Always" is the only meaningful choice, drop the single-option dropdown.
-  const showSelect = showOnOff || !!o.allowCustom;
+  const showSelect = showOn || showOff || !!o.allowCustom;
 
   const opts: Array<{ v: WhenValue; label: string }> = [{ v: 'always', label: 'Always' }];
-  if (showOnOff) {
-    opts.push({ v: 'on', label: 'Only while entity is ON' });
-    opts.push({ v: 'off', label: 'Only while entity is OFF' });
-  }
+  if (showOn) opts.push({ v: 'on', label: 'Only while entity is ON' });
+  if (showOff) opts.push({ v: 'off', label: 'Only while entity is OFF' });
   if (o.allowCustom) opts.push({ v: 'custom', label: 'While another entity is ON…' });
 
   return html`
@@ -479,6 +494,33 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
       : nothing}
     <div class="when-hint">${whenHint(o.value, o)}</div>
   `;
+}
+
+/**
+ * The hint under "Controlled by" in Icon Color / Accent's ON / OFF (and light)
+ * mode — one wording for both modules. Warns (class `warn`) when the card's own
+ * entity is what gets watched and it can't be ON.
+ */
+export function renderWatchHint(o: {
+  entityId?: string;
+  cardEntity: string;
+  kind: OwnStateKind;
+}): TemplateResult {
+  const { entityId, cardEntity, kind } = o;
+  const useless = kind !== 'on-off' && !entityId;
+  const text = entityId
+    ? cardEntity
+      ? `Uses ${entityId}'s on/off state, not this card's own entity.`
+      : `Uses ${entityId}'s on/off state.`
+    : !useless
+    ? "Leave empty to use this card's own entity."
+    : !cardEntity
+    ? "This card has no entity of its own — pick the entity to watch, or choose One fixed color. Until then no color is written."
+    : kind === 'off-only'
+    // Anything that isn't "on" takes the OFF branch, so the OFF colour shows in every mode.
+    ? `This card's entity (${cardEntity}) is never "on" — the ON colour never shows and the OFF colour shows in every state. Pick another entity, or use Threshold Colors for its modes.`
+    : `This card's entity (${cardEntity}) has no on/off state of its own — pick a toggleable entity above, or this mode won't do anything.`;
+  return html`<div class="when-hint ${useless ? 'warn' : ''}">${text}</div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -543,6 +585,8 @@ export interface ConditionControlOptions {
   condition: StyleCondition | undefined;
   /** False when the card's entity has no on/off state. */
   stateAware: boolean;
+  /** OFF-only entity (climate, water_heater): OFF offered, ON not. */
+  offOnly?: boolean;
   /** Noun used in labels/hints, e.g. "border", "effects", "icon size". */
   noun: string;
   hass?: HomeAssistant;
@@ -594,16 +638,13 @@ function conditionHint(c: StyleCondition | undefined, o: ConditionControlOptions
 export function renderCondition(o: ConditionControlOptions): TemplateResult {
   const c = o.condition;
   const when = c?.when ?? 'always';
-  const hasStateValue = when === 'on' || when === 'off';
-  const showOnOff = o.stateAware || hasStateValue;
+  const { showOn, showOff } = offeredOnOff(o.stateAware, o.offOnly, when === 'on' || when === 'off');
 
   const opts: Array<{ v: StyleCondition['when']; label: string }> = [
     { v: 'always', label: 'Always' },
   ];
-  if (showOnOff) {
-    opts.push({ v: 'on', label: 'Only while entity is ON' });
-    opts.push({ v: 'off', label: 'Only while entity is OFF' });
-  }
+  if (showOn) opts.push({ v: 'on', label: 'Only while entity is ON' });
+  if (showOff) opts.push({ v: 'off', label: 'Only while entity is OFF' });
   opts.push({ v: 'custom', label: 'While another entity is ON…' });
   opts.push({ v: 'value', label: 'While a value matches…' });
 
