@@ -241,3 +241,22 @@ export function updatePalette(edit: PaletteEdit, hass: HassSub | undefined): Pro
   writeQueue = result.catch(() => undefined);
   return result;
 }
+
+/**
+ * Page is going away (pagehide / tab hidden): an update still waiting on its
+ * re-read of Home Assistant would never write — a real unload cancels that
+ * read, and next load Home Assistant's older copy wins over localStorage.
+ * So send the current cache directly, no read first, fire and forget, and
+ * keep the local copy. Skipped when nothing is in flight, and after a failed
+ * read (the cache is then only this browser's older copy, see updatePalette).
+ * If the page stays alive (tab merely hidden) the queued update still runs
+ * afterwards and writes the merged palette over this one.
+ */
+export function flushPaletteOnUnload(hass: HassSub | undefined): void {
+  if (pendingUpdates === 0) return;
+  storeLocal(cache);
+  if (!hassAvailable(hass) || unsynced.length > 0) return;
+  hass.connection
+    .sendMessagePromise({ type: 'frontend/set_user_data', key: HA_KEY, value: cache })
+    .catch(() => undefined);
+}

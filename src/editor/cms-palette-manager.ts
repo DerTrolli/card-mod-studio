@@ -13,6 +13,7 @@ import type { HomeAssistant } from '../types/index.js';
 import {
   getCachedPalette,
   updatePalette,
+  flushPaletteOnUnload,
   PALETTE_CHANGED_EVENT,
   type CustomPalette,
   type CustomColor,
@@ -174,9 +175,13 @@ export class CmsPaletteManager extends LitElement {
   private _paletteChangedHandler = () => this.requestUpdate();
 
   /** A page unload or tab hide inside the debounce window would drop the edit. */
-  private _flushNow = () => this._flush();
+  private _flushNow = () => {
+    this._flush();
+    // updatePalette re-reads Home Assistant first, which an unload cancels.
+    flushPaletteOnUnload(this.hass);
+  };
   private _flushIfHidden = () => {
-    if (document.visibilityState === 'hidden') this._flush();
+    if (document.visibilityState === 'hidden') this._flushNow();
   };
 
   override connectedCallback() {
