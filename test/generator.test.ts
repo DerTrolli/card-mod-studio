@@ -2138,7 +2138,7 @@ describe('v0.9 state-driven numeric controls', () => {
       iconColor: { ...DEFAULT_ICON_COLOR, enabled: true, mode: 'plain', color: '#ff0000', sizePx: 40 },
     });
     const css = generateCss(state, 'tile');
-    expect(css).toContain('ha-tile-icon {\n  --mdc-icon-size: 40px;\n}');
+    expect(css).toContain('ha-tile-icon {\n  --tile-icon-size: 60px;\n  --mdc-icon-size: 40px;\n}');
     expect(css).not.toContain('--ha-icon-size');
     const re = expectStable(state, 'tile');
     expect(re.iconColor.sizePx).toBe(40);

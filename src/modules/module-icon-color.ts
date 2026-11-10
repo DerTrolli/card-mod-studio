@@ -63,6 +63,8 @@ export class IconColorModule extends LitElement {
   /** When true the icon-size controls are offered (ICON_SIZE_TYPES only —
    *  the size variables are dead or harmful elsewhere, see card-caps.ts). */
   @property({ type: Boolean, attribute: 'allow-size' }) allowSize = false;
+  /** The Icon size slider's top end (capsFor(card).iconSizeMax). */
+  @property({ type: Number, attribute: 'size-max' }) sizeMax = 64;
   /** False when the card's icons can't take a colour (Mushroom chips): the
    *  module is then a size-only control. */
   @property({ type: Boolean, attribute: 'allow-color' }) allowColor = true;
@@ -295,7 +297,7 @@ export class IconColorModule extends LitElement {
         <div class="control-right">
           <ha-slider
             min="0"
-            max="64"
+            max=${this.sizeMax}
             step="2"
             .value=${String(sizePx)}
             @change=${(e: Event) => {
@@ -326,7 +328,7 @@ export class IconColorModule extends LitElement {
                     <div class="control-right">
                       <ha-slider
                         min="16"
-                        max="64"
+                        max=${this.sizeMax}
                         step="2"
                         .value=${String(this.state.sizeOffPx ?? 24)}
                         @change=${(e: Event) =>

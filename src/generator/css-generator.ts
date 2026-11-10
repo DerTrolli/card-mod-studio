@@ -864,13 +864,25 @@ function iconSizeDecls(s: IconColorModuleState, cardType: string | undefined, ca
   return value ? [`--mdc-icon-size: ${value};`, `--ha-icon-size: ${value};`] : [];
 }
 
-/** Tile's icon pins its own size — the variable only works set directly on
- *  ha-tile-icon (live-verified; `--ha-icon-size` is untested there and
- *  deliberately not emitted). */
+/** HA's tile draws a 24px glyph in a 36px circle (`--tile-icon-size`, 36px
+ *  default; the glyph is `--mdc-icon-size`). The circle follows the glyph at
+ *  the same 3:2 once the glyph outgrows the native one; never below native. */
+export const TILE_GLYPH_NATIVE_PX = 24;
+export const tileCirclePx = (glyphPx: number): number => Math.max(36, Math.round((glyphPx * 3) / 2));
+
+/** Tile's icon pins its own size — both variables only work set directly on
+ *  ha-tile-icon (live-verified on HA 2026.11; `--ha-icon-size` is not read
+ *  there and deliberately not emitted). A glyph above the native one scales
+ *  its circle with it: a bare 64px glyph overflowed the 36px circle. A glyph at
+ *  or below native writes the glyph variable only, as before. */
 function tileIconSizeBlock(s: IconColorModuleState, cardType?: string): string {
   if (!s.enabled || cardType !== 'tile') return '';
   const value = iconSizeValue(s);
-  return value ? `ha-tile-icon {\n  --mdc-icon-size: ${value};\n}` : '';
+  if (!value) return '';
+  const offPx = s.sizeWhen && s.sizeWhen.when !== 'always' && s.sizeOffPx && s.sizeOffPx > 0 ? s.sizeOffPx : TILE_GLYPH_NATIVE_PX;
+  const outgrows = (s.sizePx ?? 0) > TILE_GLYPH_NATIVE_PX || (!!conditionExpr(s.sizeWhen) && offPx > TILE_GLYPH_NATIVE_PX);
+  const circle = outgrows ? iconSizeValue(s, tileCirclePx) : null;
+  return `ha-tile-icon {\n${circle ? `  --tile-icon-size: ${circle};\n` : ''}  --mdc-icon-size: ${value};\n}`;
 }
 
 /** Icon Color's colour declaration (always `!important`: Bubble and HA both

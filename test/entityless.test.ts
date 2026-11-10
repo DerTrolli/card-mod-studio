@@ -207,9 +207,9 @@ describe('generateCss — entity-less card never emits config.entity', () => {
       ...base(),
       iconColor: { ...DEFAULT_ICON_COLOR, enabled: true, mode: 'conditional', sizePx: 36 },
     };
-    expect(generateCss(sized, 'tile', { config: { type: 'tile' } })).toBe('ha-tile-icon {\n  --mdc-icon-size: 36px;\n}');
+    expect(generateCss(sized, 'tile', { config: { type: 'tile' } })).toBe('ha-tile-icon {\n  --tile-icon-size: 54px;\n  --mdc-icon-size: 36px;\n}');
     const light = { ...sized, iconColor: { ...sized.iconColor, mode: 'light' as const } };
-    expect(generateCss(light, 'tile', { config: { type: 'tile' } })).toBe('ha-tile-icon {\n  --mdc-icon-size: 36px;\n}');
+    expect(generateCss(light, 'tile', { config: { type: 'tile' } })).toBe('ha-tile-icon {\n  --tile-icon-size: 54px;\n  --mdc-icon-size: 36px;\n}');
     const fixed: StudioState = {
       ...base(),
       iconColor: { ...DEFAULT_ICON_COLOR, enabled: true, mode: 'plain', color: '#123456' },
@@ -349,7 +349,7 @@ describe('Icon Color / Accent on an entity-less card: nothing written until an e
     installEngines(['card-mod']);
     const config = cfg({ type: 'tile' });
     const saved = String(applyStudioState(sizedOnOff(buildMergedStudioState(config)), config).card_mod?.style);
-    expect(saved).toBe('ha-tile-icon {\n  --mdc-icon-size: 36px;\n}');
+    expect(saved).toBe('ha-tile-icon {\n  --tile-icon-size: 54px;\n  --mdc-icon-size: 36px;\n}');
 
     const again = buildMergedStudioState(cfg({ ...config, card_mod: { style: saved } }));
     expect(again.iconColor).toMatchObject({ enabled: true, mode: 'none', sizePx: 36 });

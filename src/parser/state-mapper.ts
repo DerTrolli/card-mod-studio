@@ -46,6 +46,7 @@ import {
   HEADING_FAMILY_SELECTOR,
   HEADING_ICON_SELECTOR,
   GLYPH_SCALE,
+  tileCirclePx,
   iconSizeValue,
   fontBlock,
 } from '../generator/css-generator.js';
@@ -1234,6 +1235,13 @@ function applyIconSize(
     const tileMdc = haTileIcon ? findProp(haTileIcon, '--mdc-icon-size') : undefined;
     if (haTileIcon && tileMdc && applySize(tileMdc.value)) {
       claimed.add(claimKey(haTileIcon.selector, '--mdc-icon-size'));
+      // The circle the generator derives from that glyph is ours too; any other
+      // `--tile-icon-size` is hand-written and stays in Advanced CSS.
+      const circle = findProp(haTileIcon, '--tile-icon-size');
+      const expected = iconSizeValue(state, tileCirclePx);
+      if (circle && expected && circle.value.replace(/\s+/g, '') === expected.replace(/\s+/g, '')) {
+        claimed.add(claimKey(haTileIcon.selector, '--tile-icon-size'));
+      }
     }
   } else if (cardType && capsFor(cardType).iconSize && haCard) {
     const mdc = findProp(haCard, '--mdc-icon-size');

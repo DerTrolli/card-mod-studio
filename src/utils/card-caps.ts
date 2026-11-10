@@ -149,6 +149,13 @@ export const ICON_SIZE_TYPES = new Set([
   'tile', 'entity', 'sensor', 'picture-glance',
 ]);
 
+/** The Icon size slider's top end. A tile's circle grows with the glyph
+ *  (1.5x) and a sections-view tile has a fixed row height of 56px: a 36px
+ *  glyph (54px circle) is the largest that still fits it (measured, HA
+ *  2026.11); past that the circle overflows into the next card. */
+export const DEFAULT_ICON_SIZE_MAX = 64;
+export const TILE_ICON_SIZE_MAX = 36;
+
 // Font module (issue #25): sets font-size/weight/color/family on ha-card,
 // which cascades via plain CSS inheritance into most cards' text (verified
 // against HA frontend source for hui-entities-card's row component,
@@ -205,6 +212,8 @@ export interface CardCaps {
   fontSize: boolean;
   /** Icon Color offers its size control. */
   iconSize: boolean;
+  /** …and how far its slider goes. */
+  iconSizeMax: number;
   /** Card is assumed to have an on/off state when no entity says otherwise. */
   stateAwareByDefault: boolean;
   /** Title lives in ha-card's header slot (Font writes header variables). */
@@ -252,6 +261,7 @@ function buildCaps(
     stylableChildren: !custom && STYLABLE_CHILDREN_CARD_TYPES.has(key),
     modules: m,
     ...flags,
+    iconSizeMax: !custom && key === 'tile' ? TILE_ICON_SIZE_MAX : DEFAULT_ICON_SIZE_MAX,
     headerTitle: custom ? !!headerTitle : HEADER_TITLE_CARD_TYPES.has(key),
     transitionImportant: custom ? !!transitionImportant : TRANSITION_IMPORTANT_TYPES.has(key),
     iconColorless: !!iconColorless,

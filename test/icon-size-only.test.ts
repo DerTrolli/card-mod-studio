@@ -29,7 +29,7 @@ const BUBBLE_BUTTON = 'custom:bubble-card/button';
 
 describe('mode none: size only, no colour block', () => {
   it.each([
-    ['tile', 'ha-tile-icon {\n  --mdc-icon-size: 40px;\n}'],
+    ['tile', 'ha-tile-icon {\n  --tile-icon-size: 60px;\n  --mdc-icon-size: 40px;\n}'],
     ['entity', 'ha-card {\n  --mdc-icon-size: 40px;\n  --ha-icon-size: 40px;\n}'],
     [MUSHROOM_LIGHT, 'ha-card {\n  --icon-size: 40px;\n}'],
     [BUBBLE_BUTTON, '.bubble-icon {\n  --mdc-icon-size: 40px;\n}'],
