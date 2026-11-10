@@ -237,6 +237,8 @@ export interface IconSizeMax {
 export interface CustomCardProfile {
   /** Profile key (see header). */
   key: string;
+  /** Readable kind for a stack child's header ("Bubble slider"). */
+  label?: string;
   /** Reuse this built-in card's emitters, claims and click-to-edit text
    *  matchers wherever the profile has none of its own (D4). */
   emitAs?: string;
@@ -314,6 +316,21 @@ export function profileKeyOf(
   const sub = typeof config?.card_type === 'string' ? config.card_type : '';
   if (!sub) return type;
   return sub === 'button' && config?.button_type === 'slider' ? `${type}/${sub}/slider` : `${type}/${sub}`;
+}
+
+/**
+ * What a stack child's header calls this card: the profile's `label`, else —
+ * for a profiled Mushroom card — "Mushroom <kind>", else the raw `type`
+ * (built-in cards and cards without a profile keep today's text).
+ */
+export function childKindLabel(
+  config: { type?: unknown; card_type?: unknown; button_type?: unknown } | null | undefined,
+): string {
+  const type = typeof config?.type === 'string' ? config.type : '';
+  const profile = REGISTRY.get(profileKeyOf(config));
+  if (profile?.label) return profile.label;
+  const m = profile && /^custom:mushroom-(.+)-card$/.exec(type);
+  return m ? `Mushroom ${m[1].replace(/-/g, ' ')}` : type;
 }
 
 /**

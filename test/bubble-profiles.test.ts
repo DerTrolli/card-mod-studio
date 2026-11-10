@@ -14,7 +14,7 @@ import { mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseStyleValue } from '../src/parser/yaml-parser.js';
 import { capsFor } from '../src/utils/card-caps.js';
 import { mapElementToMatch, mapElementToTarget } from '../src/utils/preview-map.js';
-import { getCustomCardProfile, iconSizeMaxOf, profileKeyOf } from '../src/utils/custom-card-profiles.js';
+import { childKindLabel, getCustomCardProfile, iconSizeMaxOf, profileKeyOf } from '../src/utils/custom-card-profiles.js';
 import { BUBBLE_SELECTORS } from '../src/utils/profiles/bubble.js';
 import { findAdvancedCssConflicts } from '../src/utils/style-conflicts.js';
 import { filterPresetStateForCardType } from '../src/utils/preset-caps.js';
@@ -677,5 +677,27 @@ describe('Bubble 3 profiles — click-to-edit with geometry (hit map measured on
 
   it('without geometry (pure callers) the plain class match applies', () => {
     expect(mapElementToTarget([{ tag: 'div', id: '', classes: ['bubble-name'] }, { tag: 'div', id: '', classes: ['bubble-container'] }], BTN, {})?.module).toBe('cms-font-module');
+  });
+});
+
+describe('Stack child header: a readable kind instead of the raw type', () => {
+  it('Bubble kinds', () => {
+    const b = (extra: Record<string, unknown>) => childKindLabel({ type: 'custom:bubble-card', ...extra });
+    expect(b({ card_type: 'button' })).toBe('Bubble button');
+    expect(b({ card_type: 'button', button_type: 'slider' })).toBe('Bubble slider');
+    expect(b({ card_type: 'separator' })).toBe('Bubble separator');
+    expect(b({ card_type: 'cover' })).toBe('Bubble cover');
+  });
+  it('profiled Mushroom cards read "Mushroom <kind>"', () => {
+    expect(childKindLabel({ type: 'custom:mushroom-light-card' })).toBe('Mushroom light');
+    expect(childKindLabel({ type: 'custom:mushroom-alarm-control-panel-card' })).toBe('Mushroom alarm control panel');
+    expect(childKindLabel({ type: 'custom:mushroom-chips-card' })).toBe('Mushroom chips');
+  });
+  it('everything else keeps its type (built-ins, unprofiled custom cards, a Bubble card without card_type)', () => {
+    expect(childKindLabel({ type: 'tile' })).toBe('tile');
+    expect(childKindLabel({ type: 'custom:bubble-card', card_type: 'pop-up' })).toBe('custom:bubble-card');
+    expect(childKindLabel({ type: 'custom:bubble-card' })).toBe('custom:bubble-card');
+    expect(childKindLabel({ type: 'custom:some-other-card' })).toBe('custom:some-other-card');
+    expect(childKindLabel({})).toBe('');
   });
 });

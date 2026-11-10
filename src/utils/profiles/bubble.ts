@@ -149,6 +149,7 @@ const NO_THRESHOLD = { threshold: false, accentColor: false } as const;
 // ---------------------------------------------------------------------------
 
 const button = profile('custom:bubble-card/button', {
+  label: 'Bubble button',
   modules: { ...NO_THRESHOLD },
   configGates: GATES,
   iconSize: true,
@@ -170,6 +171,7 @@ const button = profile('custom:bubble-card/button', {
 // ---------------------------------------------------------------------------
 
 const slider = profile('custom:bubble-card/button/slider', {
+  label: 'Bubble slider',
   modules: { threshold: false },
   configGates: GATES,
   iconSize: true,
@@ -208,6 +210,7 @@ const slider = profile('custom:bubble-card/button/slider', {
 // ---------------------------------------------------------------------------
 
 const separator = profile('custom:bubble-card/separator', {
+  label: 'Bubble separator',
   modules: { ...NO_THRESHOLD },
   iconSize: true,
   iconSizeMax: ICON_MAX_SEPARATOR,
@@ -229,6 +232,7 @@ const separator = profile('custom:bubble-card/separator', {
 // ---------------------------------------------------------------------------
 
 const cover = profile('custom:bubble-card/cover', {
+  label: 'Bubble cover',
   modules: { ...NO_THRESHOLD },
   configGates: GATES,
   iconSize: true,

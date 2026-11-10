@@ -55,7 +55,7 @@ import {
   capsFor,
   panelStateAware,
 } from '../utils/card-caps.js';
-import { profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
+import { childKindLabel, profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import { thresholdOwnedProperties, settleEntityless } from '../generator/css-generator.js';
@@ -246,7 +246,7 @@ export class CmsChildCardSection extends LitElement {
   override render() {
     const c = this.childConfig;
     if (!c) return nothing;
-    const label = `${this.index + 1}. ${c.type}`;
+    const label = `${this.index + 1}. ${childKindLabel(c)}`;
     const sub = (c.entity as string | undefined) ?? (c.title as string | undefined) ?? (c.name as string | undefined) ?? '';
 
     return html`
