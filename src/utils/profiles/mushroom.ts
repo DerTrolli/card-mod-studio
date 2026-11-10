@@ -143,10 +143,15 @@ function classic(type: string): CustomCardProfile {
         weight: ['--card-primary-font-weight', '--card-secondary-font-weight'],
         color: ['--card-primary-color', '--card-secondary-color'],
         family: true,
-        // fixed 20px / 16px lines (overflow: hidden) would clip a larger text
+        // Fixed 20px / 16px lines (overflow: hidden) would clip a larger text.
+        // Never below the native lines (so Text size 14, Mushroom's own primary
+        // size, leaves the card as it was). One size drives both lines, so the
+        // secondary uses ~Roboto's content height (1.17 em; 1.15 clips 1px at
+        // 48px, 1.2 grows the card by 1px at 14px — measured on both engines).
+        // The 0.11.0-beta.2 ratios stay recognised.
         scaled: [
-          { prop: '--card-primary-line-height', ratio: 20 / 14 },
-          { prop: '--card-secondary-line-height', ratio: 16 / 12 },
+          { prop: '--card-primary-line-height', ratio: 20 / 14, min: 20, legacy: [{ ratio: 20 / 14 }] },
+          { prop: '--card-secondary-line-height', ratio: 1.17, min: 16, legacy: [{ ratio: 16 / 12 }] },
         ],
       },
       // shape 36→60px with the variable (the glyph follows at 2/3)
@@ -245,8 +250,9 @@ const title = profile('custom:mushroom-title-card', {
       weight: ['--title-font-weight'],
       color: ['--title-color'],
       family: true,
-      // fixed 32px line (24px text) would overlap the subtitle when larger
-      scaled: [{ prop: '--title-line-height', ratio: 32 / 24 }],
+      // fixed 32px line (24px text) would overlap the subtitle when larger;
+      // never below it
+      scaled: [{ prop: '--title-line-height', ratio: 32 / 24, min: 32, legacy: [{ ratio: 32 / 24 }] }],
     },
   },
 });

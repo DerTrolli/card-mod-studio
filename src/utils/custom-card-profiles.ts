@@ -66,11 +66,20 @@ export interface ScaledVar {
   ratio: number;
   add?: number;
   min?: number;
+  /** Earlier formulas of this variable (never written now): the parser still
+   *  recognises them as the module's own, so the next save upgrades them. */
+  legacy?: Array<{ ratio: number; add?: number }>;
 }
 
 export function scaledFontValue(v: ScaledVar, sizePx: number): string | null {
   const px = Math.round(sizePx * v.ratio + (v.add ?? 0));
   return v.min != null && px <= v.min ? null : `${px}px`;
+}
+
+/** Every value the module has written for this variable at `sizePx`. */
+export function scaledFontClaims(v: ScaledVar, sizePx: number): string[] {
+  const now = scaledFontValue(v, sizePx);
+  return [...(now ? [now] : []), ...(v.legacy ?? []).map((l) => `${Math.round(sizePx * l.ratio + (l.add ?? 0))}px`)];
 }
 
 /** Icon size: `box` variables get the slider's value; `glyph` variables get

@@ -111,7 +111,7 @@ describe('M-classic — the 14 state cards', () => {
         '  --card-primary-font-size: 22px;',
         '  --card-secondary-font-size: 22px;',
         '  --card-primary-line-height: 31px;',
-        '  --card-secondary-line-height: 29px;',
+        '  --card-secondary-line-height: 26px;',
         '  --card-primary-font-weight: bold;',
         '  --card-secondary-font-weight: bold;',
         '  --card-primary-color: #ee1111;',
@@ -514,7 +514,6 @@ describe('M-title', () => {
       [
         'ha-card {',
         '  --title-font-size: 22px;',
-        '  --title-line-height: 29px;',
         '  --title-font-weight: bold;',
         '  --title-color: #ee1111;',
         '  font-family: monospace;',
@@ -812,13 +811,40 @@ describe('Font text size → line-height / box height', () => {
   const sized = (size: number, extra: Partial<StudioState['font']> = {}) =>
     withState({ font: { ...EMPTY.font, enabled: true, fontSize: size, ...extra } });
 
-  it('classic: 20/14 and 16/12 of the size, native 20px at 14px primary (secondary 16px at 12px)', () => {
-    const want: Record<number, [number, number]> = { 10: [14, 13], 14: [20, 19], 22: [31, 29], 30: [43, 40], 48: [69, 64] };
+  it('classic: primary 20/14 of the size, secondary 1.17 of it, never below the native 20px / 16px lines', () => {
+    const want: Record<number, [number | null, number | null]> = { 10: [null, null], 14: [null, null], 22: [31, 26], 30: [43, 35], 48: [69, 56] };
     for (const [size, [p, s]] of Object.entries(want)) {
       const css = generateCss(sized(Number(size)), key('entity'));
-      expect(css).toContain(`--card-primary-line-height: ${p}px;`);
-      expect(css).toContain(`--card-secondary-line-height: ${s}px;`);
+      if (p) expect(css).toContain(`--card-primary-line-height: ${p}px;`);
+      else expect(css).not.toContain('--card-primary-line-height');
+      if (s) expect(css).toContain(`--card-secondary-line-height: ${s}px;`);
+      else expect(css).not.toContain('--card-secondary-line-height');
     }
+  });
+
+  it('Text size 14 (Mushroom\'s own primary size) writes no line-height at all: the card keeps its height', () => {
+    const css = generateCss(sized(14), key('entity'));
+    expect(css).toContain('--card-secondary-font-size: 14px;');
+    expect(css).not.toContain('line-height');
+  });
+
+  it('styles written with the earlier ratios (20/14, 16/12; title 4/3) are still the Studio\'s and upgrade on save', () => {
+    const old = (size: number, p: number, s: number) =>
+      `ha-card {\n  --card-primary-font-size: ${size}px;\n  --card-secondary-font-size: ${size}px;\n  --card-primary-line-height: ${p}px;\n  --card-secondary-line-height: ${s}px;\n}`;
+    for (const [size, p, s, newS] of [[14, 20, 19, null], [22, 31, 29, 26], [10, 14, 13, null], [48, 69, 64, 56]] as const) {
+      const back = parse(old(size, p, s), key('light'));
+      expect(back.font, `${size}`).toMatchObject({ enabled: true, fontSize: size });
+      expect(back.advanced.rawCss, `${size}`).toBe('');
+      const next = generateCss(back, key('light'));
+      expect(next, `${size}`).not.toContain(`line-height: ${s}px`);
+      if (newS) expect(next).toContain(`--card-secondary-line-height: ${newS}px;`);
+      else expect(next).not.toContain('--card-secondary-line-height');
+      expect(roundTrip(back, key('light')).css).toBe(next);
+    }
+    const title = parse('ha-card {\n  --title-font-size: 22px;\n  --title-line-height: 29px;\n}', key('title'));
+    expect(title.font).toMatchObject({ enabled: true, fontSize: 22 });
+    expect(title.advanced.rawCss).toBe('');
+    expect(generateCss(title, key('title'))).not.toContain('line-height');
   });
 
   it('only with a size: weight / colour alone write no line-height', () => {
@@ -873,8 +899,9 @@ describe('Font text size → line-height / box height', () => {
       .toEqual(['ha-card { --card-secondary-line-height }']);
   });
 
-  it('title: --title-line-height = 4/3 of the size, the subtitle is not written', () => {
-    expect(generateCss(sized(24), key('title'))).toContain('--title-line-height: 32px;');
+  it('title: --title-line-height = 4/3 of the size above its native 32px, the subtitle is not written', () => {
+    expect(generateCss(sized(24), key('title'))).not.toContain('--title-line-height');
+    expect(generateCss(sized(30), key('title'))).toContain('--title-line-height: 40px;');
     const css = generateCss(sized(48), key('title'));
     expect(css).toContain('--title-line-height: 64px;');
     expect(css).not.toContain('--subtitle');

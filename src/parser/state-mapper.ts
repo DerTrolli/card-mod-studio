@@ -58,7 +58,7 @@ import { capsFor } from '../utils/card-caps.js';
 import {
   getCustomCardProfile,
   emitKeyOf,
-  scaledFontValue,
+  scaledFontClaims,
   type ClaimRule,
   type ClaimRole,
   type CustomCardProfile,
@@ -838,7 +838,7 @@ function mapFontProfile(pc: ProfileClaims, claimed: Set<string>): FontModuleStat
     // stays in Advanced CSS and wins, being written after the module's).
     for (const { target, prop } of pc.present('fontScaled')) {
       const v = pc.profile.emitters?.font?.scaled?.find((x) => x.prop.toLowerCase() === prop.property.toLowerCase());
-      if (v && !prop.hasCondition && prop.value.trim() === scaledFontValue(v, state.fontSize!)) {
+      if (v && !prop.hasCondition && scaledFontClaims(v, state.fontSize!).includes(prop.value.trim())) {
         claimed.add(claimKey(target.selector, prop.property));
       }
     }
