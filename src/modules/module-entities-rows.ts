@@ -4,6 +4,7 @@ import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, HomeAssistan
 import {
   moduleStyles, renderOverrideHint, onHeaderKeydown, renderResetButton, renderDefaultOption,
 } from './module-base.js';
+import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
 import { findRowExtraCssConflicts } from '../utils/style-conflicts.js';
 import { THEME_TEXT_COLOR } from '../parser/state-mapper.js';
@@ -225,7 +226,7 @@ export class EntitiesRowsModule extends LitElement {
         width: 64px;
         flex: 0 0 auto;
       }
-      .rule input[type='number'] {
+      .rule input.num {
         flex: 1 1 64px;
         width: auto;
         min-width: 56px;
@@ -631,11 +632,20 @@ export class EntitiesRowsModule extends LitElement {
               <option value="!=" ?selected=${rule.operator === '!='}>!=</option>
             </select>
             <input
-              type="number"
+              type="text"
+              class="num"
+              aria-label="${prop === 'icon' ? 'Icon' : 'Text'} rule ${i + 1} value"
+              aria-invalid="false"
+              spellcheck="false"
+              autocomplete="off"
               .value=${String(rule.value)}
-              @change=${(e: Event) => this._updateRule(rowKey, prop, i, {
-                value: parseFloat((e.target as HTMLInputElement).value) || 0,
-              })}
+              @input=${markNumberInput}
+              @change=${(e: Event) => {
+                // Empty / unparseable: keep the previous value (cue shows until blur).
+                const n = commitNumberInput(e);
+                if (n !== undefined) this._updateRule(rowKey, prop, i, { value: n });
+              }}
+              @blur=${(e: Event) => revertNumberInput(e, rule.value)}
             />
             <span class="rule-label">→</span>
             <cms-color-picker

@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { AnimationModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ANIMATION } from '../parser/state-mapper.js';
 import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown, offeredOnOff } from './module-base.js';
+import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 import { stateKindFor } from '../utils/card-caps.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
@@ -320,12 +321,20 @@ export class AnimationModule extends LitElement {
         <span class="control-label">Threshold</span>
         <div class="control-right">
           <input
-            type="number"
+            type="text"
+            class="num"
+            aria-label="Threshold value"
+            aria-invalid="false"
+            spellcheck="false"
+            autocomplete="off"
             .value=${String(this.state.valueThreshold ?? 0)}
-            @change=${(e: Event) =>
-              this._emit({
-                valueThreshold: parseFloat((e.target as HTMLInputElement).value) || 0,
-              })}
+            @input=${markNumberInput}
+            @change=${(e: Event) => {
+              // Empty / unparseable: keep the previous value (cue shows until blur).
+              const n = commitNumberInput(e);
+              if (n !== undefined) this._emit({ valueThreshold: n });
+            }}
+            @blur=${(e: Event) => revertNumberInput(e, this.state.valueThreshold ?? 0)}
           />
         </div>
       </div>
