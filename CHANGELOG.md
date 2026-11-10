@@ -5,6 +5,266 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0-beta.3] — 2026-11-10
+
+Third beta of v0.11 "Reach" (plan: `docs/V0.11_PLAN.md`), the result of a
+hands-on review of every card type with real mouse, keyboard and touch input.
+Its biggest changes: a control you switch on but never touch no longer
+overrides the card's own look, a conditional Background or Border no longer
+strips the card while its condition is off, a style with an "Only while
+entity is ON/OFF" choice no longer wipes itself on cards that have no
+entity, and the Studio shows a notice on custom cards it has no profile for.
+Animation, Threshold Colors and Icon Color reach more cards, Font reaches more
+of the text, and the panel works with keyboard and screen reader. Read
+**Changed** below before updating: a few styles saved with beta.2 or earlier
+look or save differently now.
+<!-- QA-PENDING: beta.3 verification result -->
+
+### Added
+
+- **A notice for custom cards the Studio has no profile for.** On a custom
+  card other than the supported Mushroom and Bubble Card types (and on a
+  Bubble card whose `card_type` is missing or not one of button, separator
+  or cover), the panel says that some controls may not reach the card and
+  that Advanced CSS always works. It also shows on such a card inside a
+  stack. No control is hidden.
+- **Icon Color: "Keep the card's colour".** A new colour mode that writes no
+  colour, so you can change only the icon size. It is what a newly switched-on
+  Icon Color starts in on cards that have an Icon size slider (tile, entity,
+  sensor, statistic, picture-glance, Mushroom, Bubble Card).
+- **Icon Color (colour and size) on the statistic card.** The card's one icon
+  takes a fixed colour, and a size from 12 to 64px.
+- **A maximum icon size that fits each card.** The Icon size slider stops
+  where the card still fits the icon: 36px on the tile card (the icon's
+  circle grows with it), 40px on picture-glance, 56px on Mushroom cards, and
+  50px (56px with the large layout; 40px and 33px on a separator) on Bubble
+  Card. Other cards keep 64px. A larger size already stored on a card stays
+  visible, so you can see and reset it.
+- **Animation on many more built-in cards:** alarm panel, calendar, gauge,
+  history graph, humidifier, iframe, light, logbook, map, media control,
+  picture, picture elements, picture entity, picture glance, statistic,
+  statistics graph, thermostat, to-do list and weather forecast. The presets
+  that cannot work are left out per card: Spin on the dial cards (thermostat,
+  humidifier, light) and the map, where it makes the handle or the map drift
+  away from your finger or pointer, and Gradient Shift wherever there is no
+  card background to shift (the picture cards, iframe, map, Bubble Card and
+  the Mushroom title card). Loading a preset no longer brings back a preset
+  the card cannot use. Animation stays hidden on heading, the energy cards,
+  activity, webpage and shopping list.
+- **Threshold Colors on the entities card, for the card as a whole:**
+  Background, Text Color and Border Color, driven by an entity you pick. Icon
+  Color and Accent stay off there; the per-row thresholds are unchanged.
+- **Advanced CSS warns about text that would break the card:** an unbalanced
+  `{` or `}`, an `{% if %}` (or `for`, `macro`, `set` …) block that is never
+  closed or has no start, an unterminated `{{`, `{%` or `{#`, and an
+  unterminated comment or string, each with its line number. Nothing is
+  blocked or rewritten. When a style contains a top-level `{% … %}`
+  statement, the panel now explains why every module is switched off: the
+  whole style is kept as written in Advanced CSS.
+- **Colour and number fields check what you type.** A colour field accepts one
+  valid CSS colour (the Background value field also accepts an image or a
+  list, a gradient stop a colour with positions) and tells you when what you
+  typed is not valid, instead of saving it. Numeric fields in Threshold
+  rules, fade points, value-triggered Animation and entity-row rules accept a
+  decimal comma (`2,5`), refuse `1,000` instead of reading it as 1, and no
+  longer turn an empty or invalid entry into 0: the previous value comes back
+  when you leave the field.
+- **Keyboard and screen reader.** Every switch, slider, selection list,
+  colour field and the Advanced CSS editor now has a name a screen reader
+  reads out. A module header is a button (it reads "Font", not the chevron
+  and emoji) with its enable switch next to it. A colour swatch row is one
+  Tab stop; use the arrow keys, Home and End to move along it. The live
+  preview announces itself as not interactive and can no longer be reached
+  with Tab. On touch screens, buttons, selection lists, fields and switches
+  are at least 40px tall, and a vertical swipe that starts on a slider
+  scrolls the panel instead of moving the slider.
+- **Click-to-edit covers more of the built-in cards.** Pointing at the text of
+  the date, statistic, area, media control and picture cards now names the
+  right control, a block of several text lines is hit per line, the
+  picture-glance entity buttons name Icon Color, and the statistic icon names
+  Icon Color. A part that nothing styles names the card's Background — or
+  Border, or Visual Filters, where Background is hidden. In the entities card
+  the hover label shows the row's own label ("Entity Rows — Living room
+  lamp"), and a row that has no controls says so. Click-to-edit also follows
+  what a Bubble Card shows: the slider fill names Accent, text only names
+  Font over the words, and an empty part of the pill names Background.
+- **Palette and presets keep a change made while Home Assistant is
+  unreachable** (or before the page has connected) and send it later; if this
+  browser's storage is full too, a note says the change will be lost on
+  reload. The palette manager has a hex field next to every colour (and the
+  ON/OFF defaults), and its help line says that cards keep the colour they
+  were given — changing an entry does not restyle them.
+- **Font: a hint when Threshold Colors is setting the text colour**, as other
+  modules already did.
+- **Stack children are named by what they are** ("Bubble slider", "Mushroom
+  light") instead of `custom:bubble-card`.
+- **Entities card row labels** are numbered when two rows share a name
+  ("Lamp (1)", "Lamp (2)"), and section, divider and link rows say they have
+  no styling controls.
+
+### Changed
+
+- **A control you switch on but do not touch writes nothing** (Heading Style,
+  Font, Icon Color). Switching on Heading Style used to write every setting
+  at the panel's defaults (24px, normal weight, primary colour, left
+  alignment), which changed a heading card's own look at once; Font wrote
+  16px, normal weight and the primary text colour; Icon Color wrote an
+  ON/OFF colour even when you only wanted another icon size. Now each control
+  starts as "Default" showing the card's own value, and only what you set is
+  written; every control has a way back to "not set". Styles you already saved
+  keep every value they contain — nothing changes for them. What does change:
+  a module that is switched on with nothing set is not saved, so it opens
+  switched off next time; and Mushroom and Bubble Card text that you resize
+  with only a size set no longer also forces the weight to "normal".
+- **"Only while entity is ON/OFF" no longer strips the card in the other
+  state.** A conditional Background or Border used to say `none` when the
+  condition was not met, so the card turned transparent or lost its border;
+  now it keeps the card's own look (the Border's "Width otherwise" 0 means
+  "card default"). An older style is recognised and written in the new form
+  the next time you save the card. Filters and Animation are unchanged.
+  A hand-written `else 'none'` in a Background or Border is read as the
+  Studio's own and saved in the new form; the Studio can no longer express
+  "no border while off".
+- **Cards without an entity never get an entity-based condition.** On entities,
+  glance, markdown, heading, picture, area, date and other cards that have
+  no `entity:`, an "Only while entity is ON/OFF" choice (Background, Border,
+  Animation, Filters including the Grayscale default) made the whole style
+  disappear. Those choices are no longer offered; a style that was saved
+  that way becomes "Always" the next time you save, and an ON/OFF icon or
+  accent colour with no entity picked writes no colour until you pick one.
+  Until you change something and save, an already broken card stays broken.
+  (If you remove a card's entity in Home Assistant's own editor, its stored
+  ON/OFF style stays broken in the same way until you change something in
+  the Studio.)
+- **ON/OFF choices follow what the entity can be.** They are not offered for
+  entities that are never on or off (lock, cover, alarm panel, person, timer,
+  input button) and only the OFF choice is offered for climate and water
+  heater, whose state can be `off` but never `on`; a hint says so in Icon
+  Color and Accent. Grayscale starts as "Always" where "only while OFF" can
+  never match (for example sensor, gauge, input number and the entities listed
+  above). A stored
+  ON/OFF condition still shows and is not rewritten. Humidifier, siren and
+  remote are now treated as on/off entities.
+- **Gauge: Number size is 50–130 %, and 100 % is exactly the size Home
+  Assistant draws.** It used to go up to 150 %, but past about 120 % a wide
+  value reached the arc, and 100 % was about 10 % bigger than Home
+  Assistant's own number. A beta.2 style loads at the same percentage and is
+  rewritten the next time you save, so a number you set to 100 % looks about
+  10 % smaller for wide values such as "123 °C", and anything above 130 %
+  becomes 130 %. The control also follows the Font switch now: Number size
+  (and the thermostat's Temperature size) is written only while Font is
+  on; a style that already has one opens with Font switched on, and
+  switching Number size on switches Font on. A preset with Font off keeps the
+  card's own Number size.
+- **Font reaches more of the text, so some existing Font styles look
+  different after the next save.** Font now also reaches: the state line of
+  the button card (sized at 0.7875 of the name, as Home Assistant does) and
+  its colour; the name, value and unit of the statistic card; the title
+  weight on glance, calendar, logbook, history graph, statistics graph,
+  to-do list, shopping list, markdown and alarm panel; the humidifier's mode
+  label weight; and the picture-glance title weight. Because an older Font
+  style — or a hand-written `ha-card { color: … }`, `font-weight` or
+  `font-family` that looks exactly like one — is loaded into the Font module,
+  the next save adds these extra declarations. This is a known trade-off:
+  for example the state line of a button card now takes the Font colour too,
+  and the weight on the calendar, logbook and alarm panel changes more than
+  the title (the calendar grid and events, the logbook entries, the alarm
+  panel's state label and buttons). Text size and colour reach the title of
+  markdown and alarm panel, as on the other list cards. Font's weight row is
+  hidden on the area, date and alert cards and its Text size row on the
+  alert card, where they changed nothing; a stored value stays visible so you
+  can reset it. Threshold Colors' "Text Color" on markdown and alarm panel
+  now recolours the card title as well.
+- **Tile icon size and its circle.** A tile draws the icon in a circle; a
+  size above 24px now enlarges the circle with it (three halves of the icon
+  size), so a big icon no longer overflows. A tile you saved at a size above
+  24px looks bigger after the next save.
+- **Mushroom text size keeps the native line height.** A Mushroom card with a
+  larger Text size no longer clips or overlaps its two lines, and a size at or
+  below Mushroom's own (14px) leaves the card at its normal height. An older
+  Text size style gets the new line heights when saved. Icon Color, Accent
+  and Font are hidden on Mushroom cards whose options remove their target
+  (`icon_type: none`, both text lines set to none, and so on), and an Accent
+  you stored is kept when its control is hidden, where it used to be dropped
+  on the next save.
+- **Bubble Card.** Border radius now also works with the large layouts
+  (`card_layout: large`, `large-2-rows`, and sections views). On a slider
+  button, Background now sits under the fill so the fill stays visible, and
+  the border is drawn around the whole card, where only a sliver of it
+  showed; styles written by beta.2 are recognised and re-saved in the new
+  form. Font is hidden only when neither the name nor a state line is shown
+  (a card with `show_name: false` but a visible state line keeps it), and
+  Icon Color and Icon size are hidden when `show_icon` is `false`.
+- **Animation's "Speed" slider is now called "Duration"**, with the line
+  "Seconds per cycle — lower is faster." Nothing is stored differently.
+- **Palette manager and presets.** Removing a palette colour or deleting a
+  preset asks you to press the same button a second time, and disarms itself
+  after a few seconds or on a click elsewhere. A preset is saved under an
+  explicit "Overwrite" when its name already exists, and a new preset name is
+  limited to 60 characters. The preset bar is not shown on a card that renders
+  nothing.
+- **Markdown card with `text_only` (what a sections view's "Add title"
+  creates):** Background, Border and Threshold's background and border colour
+  now show; Home Assistant's own text-only rule used to override them.
+- **UIX note.** The note about UIX macros and billets appears only when the
+  style really calls one, and says that the part that calls it stays in
+  Advanced CSS.
+- Dev: the release workflow now refuses a tag that does not match
+  `package.json`'s version and publishes `-beta` tags as pre-releases (the
+  first v0.11.0-beta.2 release was created on the wrong branch); the test rig
+  loads card-mod through `frontend: extra_module_url`; a real-input click
+  driver and a less noisy module-effect audit joined `tools/sandbox`.
+
+### Fixed
+
+- **Enter in a Studio field no longer saves and closes the card dialog on
+  Home Assistant 2025.9 – 2026.2.** Those versions treat Enter anywhere in the
+  dialog as Save, so typing a colour or a threshold number and pressing Enter
+  saved the card with the old value. Enter in a field, on a module header, a
+  switch, a slider, the colour popover or "+ Add Rule" now stays in the Studio.
+- **A value with a quote no longer breaks the whole style.** A Background such
+  as `url('/local/x.png')` with "Only while entity is ON/OFF" ended the template
+  early, so the card lost every rule. Quotes and backslashes are now escaped
+  in every template value the Studio writes (entity ids, attribute names,
+  colours) and read back unchanged; a hand-written template with other
+  escapes is left alone in Advanced CSS. A Background list accepts a colour
+  only as its last layer, and switching a Background from solid to gradient
+  no longer carries an image into a gradient colour.
+- **Entities card: rows you did not touch are written back unchanged.** Saving
+  another control used to rewrite every row — turning
+  `--paper-item-icon-color` into another variable, adding `state_color: false`
+  and reflowing your CSS.
+- **Loading a preset no longer adds settings the card cannot use** (Font rows
+  the card hides, an animation preset the card leaves out), and presets
+  saved with text instead of numbers in a threshold rule or fade point load.
+- **Hand-written icon sizes survive a save.** A `0px` icon size (a way to
+  hide the icon) on any card, and a hand-written `--tile-icon-size` next to a
+  small tile icon, are no longer taken for the Studio's own and deleted.
+- **Font:** an older Font style with only a weight, colour or family opens in
+  the Font module again on cards that gained text (button, glance, logbook,
+  calendar, markdown and others), and hand-written font declarations the
+  Studio does not write for that card are no longer removed on save. The
+  "Custom…" font family starts empty and no longer jumps to `monospace`.
+- **Palette:** an edit is no longer lost when you close the tab straight
+  after it, when Home Assistant cannot be read, or when another browser changed
+  the palette meanwhile (the palette is re-read before it is written).
+- **Presets:** a read failure no longer lets a stale list overwrite your
+  presets in Home Assistant; a preset saved while it was unreachable is added
+  to the list when it comes back; pressing Enter to confirm an IME
+  composition in the name field no longer saves the preset; a preset under a
+  long name can be overwritten.
+- **The preview card can no longer be operated with the keyboard**, which
+  toggled a real entity or opened its dialog.
+- **"Show code editor" in the card dialog now works while the Studio is open:**
+  the Studio closes when the dialog switches between the visual and the code
+  editor.
+- **The "Some existing styles weren't recognised" note** no longer appears on
+  container cards and other cards that have no modules, and a card that
+  renders nothing (Mushroom's empty card) says so.
+- **Filters:** the transition setting works on the alert card.
+- **Preview:** the entities hover label shows the row's label instead of the
+  entity id.
+
 ## [0.11.0-beta.2] — 2026-11-08
 
 Second beta of v0.11 "Reach" (plan: `docs/V0.11_PLAN.md`): **Mushroom** and
@@ -1223,6 +1483,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.11.0-beta.3]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.3
 [0.11.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.2
 [0.11.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.1
 [0.10.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.10.2
