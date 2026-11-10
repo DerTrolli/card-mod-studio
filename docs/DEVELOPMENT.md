@@ -182,7 +182,7 @@ clipping and touch targets (details in the sandbox README).
   `dist/card-mod-studio.js` and attaches it. It **fails the release when the
   tag differs from `v<package.json version>`**, and marks any tag containing
   `-` (e.g. `-beta.N`) as a GitHub **pre-release** (`prerelease:
-  ${{ contains(github.ref_name, '-') }}`). To be listed in the next version's
+  ${{ contains(github.ref_name, '-') }}`). Listed in the v0.11.0-beta.3
   CHANGELOG section.
 - Version and changelog rules live in `CLAUDE.md`: a published pre-release
   counts as released (a later fix gets the next beta number or version, never
@@ -407,6 +407,63 @@ Found while re-verifying against HA 2026.9.4 and 2026.10.0b0 with card-mod
   `test/mushroom-profiles.test.ts`, `test/bubble-profiles.test.ts` and
   `test/custom-card-profiles.test.ts`. When Mushroom or Bubble ships a new
   version, re-run `AUDIT_CUSTOM=1` on both rigs before trusting a profile.
+
+### Test rig and QA tooling (v0.11.0-beta.3)
+
+- **card-mod is loaded through `frontend: extra_module_url` on the rig**
+  (`tools/sandbox/config/configuration.yaml`, `- /local/card-mod.js`), as
+  card-mod's own README recommends; the Studio, Mushroom and Bubble stay
+  dashboard resources. As a plain dashboard resource card-mod evaluates
+  10–60 ms *after* the first card is built on a cold page load, and it only
+  patches cards created afterwards, so styled cards stayed unstyled. Measured
+  on the rig (20 cold loads each, headless Chromium on a loaded 4-core
+  machine): as a dashboard resource 0/5 and 2/5 styled (storage dashboard,
+  YAML dashboard; HA 2026.11 with the Studio loaded); with `extra_module_url`
+  18/20 (storage) and 19/20 (YAML). So the setting makes the failure rare,
+  not impossible; it is not a Studio effect (the rate is the same with and
+  without the Studio loaded) and UIX showed the same race now and then. `run.sh`
+  warns when an existing config folder lacks the setting.
+- **`gotoDashboard` in `tools/sandbox/harness/click-driver.mjs` still
+  recovers from a missed load** (sidebar and Back, then reloads) and prints a
+  `NOTE: style engine did not attach on load of …` line. Seeing that line is
+  a rig signal, not noise; a run with many of them is a rig problem. Pass
+  `expectStyled` to name the cards that must be styled.
+- **The real-input click driver** `tools/sandbox/harness/click-driver.mjs`
+  operates the product like a person: real pointer, keyboard and touch input
+  on a real dashboard (edit mode, the card's Edit, the Style button, the
+  controls, Save, Done); code is used only for fixtures (login by token,
+  seeding a storage or sections dashboard through the websocket, setting
+  entity states through REST) and for observation (computed styles, DOM,
+  saved config). `locator.fill()`, `selectOption()`, `{ force: true }`,
+  `page.evaluate` that acts, and URL shortcuts into edit mode are not allowed;
+  a control that cannot be operated that way is a finding. Cards are addressed
+  by config (index, `{ section, index }`, name, partial config, predicate),
+  never by DOM position (masonry lays out 2–3 columns). The header comment of
+  the file lists every helper (`launch` with `hasTouch` / `isMobile` for a
+  phone, `tap`, `seedDashboard`, `seedSectionsDashboard`, `haFetch` /
+  `setState`, `listSections` / `listControls` / `findControl`, `setSlider`,
+  `typeText`, `setColor`, `pickSwatch`, `pickEntity`, `toggle`,
+  `chooseOption`, `computedStyle`, …). `setColor` commits with Tab (or Enter
+  once) and never sends Escape, which would close the whole dialog. The UIX
+  rig needs `UIX_TOKENS_FILE` (the default token file belongs to an old rig).
+  Its smoke test `tools/sandbox/harness/click_driver_smoke.mjs` (29 steps,
+  `RIG=cm` or `RIG=uix`; prints PASS/FAIL per step and exits 1 on a failure)
+  exercises every helper: cm 29/29 and uix 29/29 in the last full run, with
+  one unexplained flake on "reload: style still applied" on card-mod.
+- **`module_effect_audit.mjs`: noise floor and an opaque picture fixture.**
+  Cards can change pixels on their own (a camera, a canvas chart). The audit
+  screenshots the *unstyled* card before and after every test; the
+  difference is that test's noise floor, a test whose floor is above 30 px is
+  repeated (up to 3 attempts), and an effect counts only above
+  `30 + 2 × floor`. A shown module that stays inside a noisy card's floor but
+  changed a computed style is listed as inconclusive instead of dead. A
+  2.5 px ring along the card outline is ignored, and the picture cards use an
+  opaque PNG served from the rig's `www/` (copied from `harness/fixtures`
+  when missing) instead of a transparent favicon, so their Background no
+  longer reads as an artefact. `AUDIT_TAG=name` keeps result files apart.
+- **`gradient_mode_check.mjs`** picks the select that offers `gradient` (and a
+  sensor without numeric attributes): on HA 2025.9.4 it used to take the
+  "Value read from" select first and scored 1/8; it scores 8/8.
 
 ### hui-dialog-edit-card
 

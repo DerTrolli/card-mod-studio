@@ -463,3 +463,10 @@ for the Material `ha-slider` and the vaadin entity-picker overlay; HA
 frontend errors unrelated to the Studio (`recovery_mode` of null) were
 ignored. `hacs.json` minimum set to **2025.9.0**.
 
+**Correction (2026-11-10):** the README's 2025.9 row used to list a second gap,
+"the gauge Accent colour doesn't recolour the arc on 2025.9.4". Measured again
+on HA 2025.9.4 with card-mod 3.4.5 and a v0.11 build, it does: the Studio's
+`ha-gauge { --gauge-color: … !important }` rule changes the arc stroke, the
+threshold gradient recolours it live, and the needle follows too. The only
+known gap on 2025.9 is the tile's Font text above.
+

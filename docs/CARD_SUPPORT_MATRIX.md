@@ -9,9 +9,14 @@ live-verified on HA 2026.9.4 and HA 2026.10.0b0, each with card-mod 4.2.1 and
 with UIX 8.3.1 (full live-check suite + real-dialog visual QA) — see
 [COMPATIBILITY_AUDIT.md §11](COMPATIBILITY_AUDIT.md). The one HA 2026.10 change
 that affects this table's subject matter is the heading card's new markup
-(note under finding #2). **Later changes** (v0.10.2 → v0.11.0-beta.2: Font size
-gating, the date and alert cards, Mushroom and Bubble Card) are summarised in
-[Changes since v0.10.0](#changes-since-v0100-v0102--v0110-beta2) below.
+(note under finding #2). **Later changes** (v0.10.2 → v0.11.0-beta.3: Font size
+gating, the date and alert cards, Mushroom and Bubble Card, and the beta.3
+changes to Animation, Threshold, Icon Color and Font) are summarised in
+[Changes since v0.10.0](#changes-since-v0100-v0102--v0110-beta2) and
+[Modules per card after beta.3](#modules-per-card-after-v0110-beta3) below.
+In the table directly below, the ⚠️ Animation cells, the entities card's
+Threshold cells and the statistic Icon Color cell are **out of date**: those
+modules are offered now.
 **Method:** real cards rendered in a real HA instance, each `card_mod` setting
 applied by real card-mod, verdict = did the target element's **computed style**
 actually change vs baseline. Reproduce with [`tools/sandbox`](../tools/sandbox/README.md).
@@ -112,11 +117,39 @@ unless noted.
 | **picture-glance** | no longer a header-title card: Font's header size/colour did nothing there | v0.10.2 | module-effect audit |
 | **Filters → transition** | written with `!important` on tile, sensor, entity and area (`TRANSITION_IMPORTANT_TYPES`) | v0.10.2 | HA 2026.10 cards override a plain `transition` |
 | **Accent on calendar / history-graph** | also writes `--primary-color` (calendar) / `--graph-color-1` (history-graph), which HA 2026.10 reads; the old variable stays for older HA | v0.10.2 | live check on HA 2026.10.4 |
-| **gauge → Font → Number size** | 50–150 % (reaches 150 % since beta.2); **thermostat → Temperature size** 24–96px; both written as Studio-owned shadow-piercing entries | beta.1 / beta.2 | `pierce_check.mjs` |
+| **gauge → Font → Number size** | 50–130 % since beta.3 (100 % = Home Assistant's own size; beta.1 and beta.2 went to 150 %); **thermostat → Temperature size** 24–96px; both written as Studio-owned shadow-piercing entries, only while Font is on | beta.1 / beta.2 / beta.3 | `pierce_check.mjs` |
 
 The matrix at the top of this file is a dated measurement (v0.10.0): it has no
 `date` or `alert` rows. A re-run of the full audit on the 2026.11 rig is in
 `tools/sandbox/harness/module-effect-audit-{card-mod,uix}-2026.11.0.md`.
+
+## Modules per card after v0.11.0-beta.3
+
+The release-review round re-measured individual cells with real input on HA
+2026.11 (card-mod 4.2.1 and UIX 9.0.0, per card against an unstyled twin). The
+current answer is always `capsFor` in `src/utils/card-caps.ts` and the profiles
+in `src/utils/profiles/`. <!-- QA-PENDING: beta.3 verification result -->
+
+| Card / control | Now (beta.3) | Evidence |
+|---|---|---|
+| **Animation** | Offered on every built-in card except heading (no painted box), energy-distribution, energy-usage-graph, activity, webpage and shopping-list (never measured). Newly offered: alarm-panel, calendar, gauge, history-graph, humidifier, iframe, light, logbook, map, media-control, picture, picture-elements, picture-entity, picture-glance, statistic, statistics-graph, thermostat, todo-list, weather-forecast | real pointer input while every preset ran: keypad, calendar, more-info dialogs, tooltips, logbook, to-do tick, media buttons all still work |
+| Animation presets left out per card (`noAnimationPresets`) | **Spin** on thermostat, humidifier, light (the handle drifts ~40° from the pointer) and map (it pans the map); **Gradient Shift** wherever Background is hidden (picture, picture-entity, picture-glance, picture-elements, iframe, map) and, for custom cards, on every Bubble profile (the painting element isn't the animated one) and the Mushroom title card | measured; a stored preset stays listed, and loading a preset drops one the card can't use |
+| **entities** → Threshold Colors | offered for the card frame: Background, Text Color, Border Color (source entity picked by the user); Icon Color and Accent stay off | both engines |
+| **statistic** → Icon Color | offered: colour and size 12–64px (its one icon, `ha-state-icon`); Accent still works too, Icon Color's colour wins | measured, 2026.11 |
+| Icon size slider maximum (`iconSizeMax`) | tile 36px; picture-glance 40px; Mushroom classic and template 56px; Bubble button/slider/cover 50px (56px with a large layout), separator 40px (33px); everything else 64px | measured; a larger stored size stays visible |
+| Icon Color mode **Keep the card's colour** | offered on cards with an Icon size slider (tile, entity, sensor, statistic, picture-glance, Mushroom, Bubble); the default for a newly enabled module there | design note `docs/research/2026-11-unset-controls-design.md` |
+| **ON / OFF conditions** | not offered without an entity of its own, and never for lock, cover, alarm_control_panel, person, timer, input_button; OFF-only for climate and water_heater; humidifier, siren, remote count as on/off (`NEVER_ON_OFF_DOMAINS`, `OwnStateKind`) | HA state lists |
+| **Font → weight** | hidden on area, date and alert (`NO_FONT_WEIGHT_TYPES`); on glance, todo-list, shopping-list, logbook, history-graph, statistics-graph, calendar, alarm-panel and markdown it reaches the title through `--ha-font-weight-normal`, which also changes other text of those cards | measured: logbook +73 elements, graphs +24, calendar +360, alarm-panel +20 |
+| **Font → text size** | hidden on area, humidifier, picture-entity, picture-glance, weather-forecast, date and alert (alarm-panel offers it again: its title follows the header variables) | module-effect audit |
+| **Font** on button, statistic, humidifier, picture-glance | button: the state line follows size (0.7875×) and colour; statistic: name/value/unit like sensor; humidifier: mode label weight; picture-glance: title weight | measured per row |
+| **Threshold → Text Color** on markdown and alarm-panel | also writes `--ha-card-header-color` (the title); alarm-panel's Text Color target stays hidden | `css-generator.ts` threshold `text-color` |
+| **markdown** with `text_only` | Background, Border and Threshold background / border colour written `!important` (HA's `.text-only` rule outranks a plain one) | both engines, sections and masonry |
+| **alert** → Filters transition | needs `!important` (`TRANSITION_IMPORTANT_TYPES`); Font text size hidden | measured |
+| **tile** → Icon size | a glyph above 24px also writes the circle (`--tile-icon-size`, 1.5×) | measured |
+| **media-control** → Background / Threshold background | to be confirmed by QA: with a `playing` player the artwork covered the card and changed no pixel; check with a paused or idle one | test-rig audit finding |
+| Mushroom → Icon Color / Accent / Font | hidden where the card's own options remove the target (`icon_type: none`, `hide_icon`, both text lines none, `icon_color` for Accent); a stored Accent is kept and re-written | measured on both engines |
+| Mushroom → Text size | writes matching line heights (primary 20/14×size, secondary 1.17×size, title 32/24×size, `--chip-height` above 36px); never below the native lines | measured |
+| Bubble → Background / Border | Background on `.bubble-container` for a slider (under the fill), Border and radius on the container for button, slider, cover (radius `!important` so the large layouts obey); Font hidden when neither name nor a state line shows; Icon Color hidden with `show_icon: false` | measured on Bubble 3.4.3 |
 
 ### Custom cards (v0.11.0-beta.2, beta)
 
@@ -139,7 +172,7 @@ all of them except Mushroom's empty card.
 | `custom:bubble-card/button/slider` (`button_type: slider`) | ✅ | ✅ | ✅ slider fill only | · | ✅ | ✅ | ✅ | click on the fill opens Background (known limit) |
 | `custom:bubble-card/separator` | ✅ name only | ✅ | · | · | ✅ `.bubble-separator` | ✅ | ✅ | no entity; radius written with `!important` |
 | `custom:bubble-card/cover` | ✅ | ✅ | · | · | ✅ `.bubble-background` | ✅ | ✅ | buttons only, no slider |
-| any other Bubble `card_type`, or no `card_type`; any other custom card | all modules | | | | | | | no profile: today's default (a notice is planned for v0.11.0) |
+| any other Bubble `card_type`, or no `card_type`; any other custom card | all modules | | | | | | | no profile: every module stays offered, with a notice in the panel since beta.3 |
 
 Precedence against a Bubble card's own `styles:` (probe B3, both engines): at
 equal specificity the Studio's rule wins (card-mod's `<style>` comes later);
