@@ -20,6 +20,15 @@ export function unescapeJinjaStr(v: string): string {
   return v.replace(/\\(['\\])/g, '$1');
 }
 
+/** True when `v` holds a backslash that is not one of the two escapes jinjaStr
+ *  writes (`\\` and `\'`): `\"`, `\n`, `r` … Such a template was written by
+ *  hand, so the Studio must leave it alone (re-escaping the backslash would
+ *  change what Home Assistant renders). Valid pairs are removed first, so an
+ *  escaped backslash followed by `n` is fine. */
+export function hasForeignEscape(v: string): boolean {
+  return v.replace(/\\[\\']/g, '').includes('\\');
+}
+
 /** Regex source for the BODY of a single-quoted literal that may hold escapes
  *  (zero or more characters). Put it between the two quotes of a pattern and
  *  decode the captured text with unescapeJinjaStr. */

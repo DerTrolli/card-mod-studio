@@ -63,7 +63,7 @@ import {
   type ClaimRole,
   type CustomCardProfile,
 } from '../utils/custom-card-profiles.js';
-import { JINJA_STR_BODY, JINJA_STR_BODY_1, unescapeJinjaStr } from '../utils/jinja-str.js';
+import { JINJA_STR_BODY, JINJA_STR_BODY_1, hasForeignEscape, unescapeJinjaStr } from '../utils/jinja-str.js';
 import { fromRgbTriplet, toRgbTriplet, TRIPLET_TOKEN_SRC } from '../utils/rgb-triplet.js';
 import { ownedEntryKey, parseOwnedEntry, fontHasBaseSettings } from '../utils/owned-entries.js';
 
@@ -324,7 +324,7 @@ function parseCondTernary(
   value: string,
 ): { onValue: string; offValue: string; condition: StyleCondition } | null {
   const match = value.trim().match(COND_TERNARY_PATTERN);
-  if (!match) return null;
+  if (!match || hasForeignEscape(value)) return null;
   const condition = parseConditionExpr(match[2]);
   if (!condition) return null;
   return { onValue: unescapeJinjaStr(match[1]), offValue: unescapeJinjaStr(match[3]), condition };
@@ -426,7 +426,7 @@ function mapAnimation(
     // Jinja the on/off analyzer didn't recognise — try the value-conditional
     // form (trigger === 'value'). Anything else stays unclaimed.
     const match = animProp.value.trim().match(ANIM_VALUE_TRIGGER_PATTERN);
-    if (match) {
+    if (match && !hasForeignEscape(animProp.value)) {
       const [, animValue, stateEntity, attrEntity, attrName, operator, numStr] = match;
       const parsed = parseAnimValue(animValue);
       if (parsed) {
@@ -884,7 +884,7 @@ function mapAccentProfile(pc: ProfileClaims, claimed: Set<string>): AccentColorM
   if (!anchor) return { ...DEFAULT_ACCENT_COLOR };
   // `triplet: false` (Bubble): the variable carries the colour as written.
   const direct = pc.profile.emitters?.accent?.triplet === false;
-  const asColor = (v: string): string | null => (direct ? unescapeJinjaStr(v).trim() || null : fromRgbTriplet(v));
+  const asColor = (v: string): string | null => (direct ? v.trim() || null : fromRgbTriplet(v));
   if (anchor.hasCondition) {
     if (!anchor.onValue || !anchor.offValue) return { ...DEFAULT_ACCENT_COLOR };
     const on = asColor(anchor.onValue);
@@ -1396,6 +1396,7 @@ function mapIconColorCore(
   // any custom entity has to be pulled out of the raw text directly instead
   // of via CssProperty.entityId.
   if (colorProp.hasCondition && colorProp.value.includes('rgb_color')) {
+    if (hasForeignEscape(colorProp.value)) return { ...DEFAULT_ICON_COLOR };
     claimed.add(claimKey(haStateIcon.selector, 'color'));
     const fallbackMatch = colorProp.value.match(new RegExp(String.raw`else\s+'(${JINJA_STR_BODY_1})'`));
     const colorOff = fallbackMatch ? unescapeJinjaStr(fallbackMatch[1]) : DEFAULT_ICON_COLOR.colorOff;
@@ -1413,13 +1414,12 @@ function mapIconColorCore(
   if (colorProp.hasCondition && colorProp.onValue && colorProp.offValue) {
     // Jinja2 on/off conditional — map to conditional mode
     claimed.add(claimKey(haStateIcon.selector, 'color'));
-    const colorOn = unescapeJinjaStr(colorProp.onValue);
     return {
       enabled: true,
       mode: 'conditional',
-      color: colorOn,
-      colorOn,
-      colorOff: unescapeJinjaStr(colorProp.offValue),
+      color: colorProp.onValue,
+      colorOn: colorProp.onValue,
+      colorOff: colorProp.offValue,
       ...(colorProp.entityId ? { entityId: colorProp.entityId } : {}),
     };
   }
@@ -1463,8 +1463,8 @@ function mapAccentColor(
         ...DEFAULT_ACCENT_COLOR,
         enabled: true,
         mode: 'conditional',
-        colorOn: unescapeJinjaStr(prop.onValue),
-        colorOff: unescapeJinjaStr(prop.offValue),
+        colorOn: prop.onValue,
+        colorOff: prop.offValue,
         ...(prop.entityId ? { entityId: prop.entityId } : {}),
       };
     }
@@ -1568,8 +1568,8 @@ function mapBackground(
   // (a variable's other branch is `inherit`; older saves wrote `none` — all
   // three mean "no background of ours" and are read the same).
   if (bgProp.hasCondition && bgProp.onValue !== undefined && bgProp.offValue !== undefined) {
-    const onVal = unescapeJinjaStr(bgProp.onValue.trim());
-    const offVal = unescapeJinjaStr(bgProp.offValue.trim());
+    const onVal = bgProp.onValue.trim();
+    const offVal = bgProp.offValue.trim();
     let applyWhen: 'on' | 'off' | 'custom' | null = null;
     let colorVal = '';
     if (isOwnLookBranch(offVal, bgProp.property) && onVal && !isOwnLookBranch(onVal, bgProp.property)) {
@@ -2133,6 +2133,7 @@ export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet'
   // (a `url()` after it, a second template) can't be regenerated.
   const trimmed = value.trim();
   if (!trimmed.startsWith('{{') || !trimmed.endsWith('}}') || trimmed.indexOf('{{', 2) !== -1) return null;
+  if (hasForeignEscape(trimmed)) return null;
 
   const rules: ThresholdRule[] = [];
   let entityId = '';

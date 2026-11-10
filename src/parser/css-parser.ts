@@ -30,7 +30,7 @@
  */
 
 import type { CssTarget, CssProperty } from '../types/index.js';
-import { JINJA_STR_BODY, JINJA_STR_BODY_1, unescapeJinjaStr } from '../utils/jinja-str.js';
+import { JINJA_STR_BODY, JINJA_STR_BODY_1, hasForeignEscape, unescapeJinjaStr } from '../utils/jinja-str.js';
 
 // ---------------------------------------------------------------------------
 // Jinja2 placeholder handling
@@ -109,9 +109,8 @@ function restoreJinja(value: string, map: Map<string, string>): string {
 const ENTITY_STATE_PATTERN = new RegExp(
   String.raw`^\{\{\s*'(${JINJA_STR_BODY})'\s+if\s+is_state\(\s*(?:config\.entity|'(${JINJA_STR_BODY_1})')\s*,\s*'(on|off)'\s*\)\s+else\s+'(${JINJA_STR_BODY})'\s*\}\}$`,
 );
-// (the two values may hold `\'` / `\\` escapes and are returned RAW; the module
-// that owns the value decodes them with unescapeJinjaStr. The entity id is
-// decoded here: it only ever names an entity.)
+// (values and entity id may hold `\'` / `\\` escapes; analyzeJinja returns them
+// DECODED, once, so no module decodes again.)
 
 interface JinjaAnalysis {
   hasCondition: boolean;
@@ -125,14 +124,17 @@ function analyzeJinja(value: string): JinjaAnalysis {
   const trimmed = value.trim();
 
   const match = trimmed.match(ENTITY_STATE_PATTERN);
-  if (match) {
+  // A literal with an escape the Studio never writes (`\"`, `\n`, `\u0072`) is
+  // hand-written: a condition with no usable values, so no module adopts it.
+  if (match && !hasForeignEscape(trimmed)) {
     const [, val1, entityId, state, val2] = match;
+    const entity = entityId && unescapeJinjaStr(entityId);
+    const v1 = unescapeJinjaStr(val1);
+    const v2 = unescapeJinjaStr(val2);
     // If the condition checks for 'off', val1 is the off-value
-    if (state === 'off') {
-      return { hasCondition: true, offValue: val1, onValue: val2, entityId: entityId && unescapeJinjaStr(entityId) };
-    }
+    if (state === 'off') return { hasCondition: true, offValue: v1, onValue: v2, entityId: entity };
     // If the condition checks for 'on', val1 is the on-value
-    return { hasCondition: true, onValue: val1, offValue: val2, entityId: entityId && unescapeJinjaStr(entityId) };
+    return { hasCondition: true, onValue: v1, offValue: v2, entityId: entity };
   }
 
   // Contains Jinja2 but doesn't match our known patterns — flag it but
