@@ -249,10 +249,29 @@ describe('D7 — unprofiled custom card notice', () => {
     expect(panelText({ type: 'custom:mushroom-entity-card', entity: 'light.a' })).not.toContain(NOTICE);
     expect(panelText({ type: 'custom:bubble-card', card_type: 'button' })).not.toContain(NOTICE);
   });
-  it('keeps every module visible next to the notice', () => {
-    const { p } = makePanel({ type: 'custom:button-card', entity: 'light.a' });
-    expect(moduleListText(p)).not.toContain(NOTICE);
-    expect(moduleListText(p)).toContain('cms-background-module');
+  // Through render(): deleting the call in render() must fail these.
+  const rendered = (config: unknown) => {
+    const { p } = makePanel(config);
+    return templateText((p as unknown as { render(): unknown }).render());
+  };
+  const count = (t: string) => t.split(NOTICE).length - 1;
+  it('render() shows it once for an unprofiled custom card, with every module still visible', () => {
+    const t = rendered({ type: 'custom:button-card', entity: 'light.a' });
+    expect(count(t)).toBe(1);
+    expect(t).toContain('cms-background-module');
+  });
+  it('render() leaves it out for built-in and profiled cards', () => {
+    expect(count(rendered({ type: 'tile', entity: 'light.a' }))).toBe(0);
+    expect(count(rendered({ type: 'custom:mushroom-entity-card', entity: 'light.a' }))).toBe(0);
+    expect(count(rendered({ type: 'custom:bubble-card', card_type: 'button' }))).toBe(0);
+  });
+  it('render() leaves it out while the dict-style lock banner shows (mixed-form style)', () => {
+    const t = rendered({
+      type: 'custom:button-card', entity: 'light.a',
+      card_mod: { style: 'ha-card { color: red; }' }, uix: { style: { 'x$': 'y {}' } },
+    });
+    expect(t).toContain('Mixed-form');
+    expect(count(t)).toBe(0);
   });
   it('child section shows it for an unprofiled custom child only', () => {
     expect(childText({ type: 'custom:button-card' })).toContain(NOTICE);
