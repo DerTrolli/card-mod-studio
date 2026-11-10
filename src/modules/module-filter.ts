@@ -59,6 +59,16 @@ export class FilterModule extends LitElement {
     );
   }
 
+  /** Switching Grayscale on starts as "Always" where "Only while OFF" (the
+   *  factory default) could never match — an entity with no `off` state of its
+   *  own (sensor, lock, cover…). Any other stored condition is kept as is. */
+  private _grayscaleChanges(on: boolean): Partial<FilterModuleState> {
+    if (on && this.state.grayscaleWhen === 'off' && !this.stateAware) {
+      return { grayscale: true, grayscaleWhen: 'always' };
+    }
+    return { grayscale: on };
+  }
+
   override render() {
     return html`
       <div class="module">
@@ -95,8 +105,7 @@ export class FilterModule extends LitElement {
           <div class="control-right">
             <ha-switch
               .checked=${this.state.grayscale}
-              @change=${(e: Event) =>
-                this._emit({ grayscale: (e.target as HTMLInputElement).checked })}
+              @change=${(e: Event) => this._emit(this._grayscaleChanges((e.target as HTMLInputElement).checked))}
             ></ha-switch>
           </div>
         </div>
