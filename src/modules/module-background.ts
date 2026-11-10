@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { BackgroundModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_BACKGROUND } from '../parser/state-mapper.js';
-import { moduleStyles, renderWhen,  renderOverrideHint, renderThresholdOwnedHint, renderModuleHeader, guardSliderTouch, nameSwitches,
+import { moduleStyles, renderWhen,  renderOverrideHint, renderThresholdOwnedHint, renderModuleHeader, guardSliderTouch, nameSwitches, prepareSliders,
 } from './module-base.js';
 import '../components/cms-color-picker.js';
 import { stateKindFor } from '../utils/card-caps.js';
@@ -38,6 +38,7 @@ export class BackgroundModule extends LitElement {
 
   override updated(changed: Map<PropertyKey, unknown>) {
     nameSwitches(this.renderRoot);
+    prepareSliders(this.renderRoot);
     if (changed.has('state')) {
       const prev = changed.get('state') as BackgroundModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;

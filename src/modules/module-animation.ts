@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { AnimationModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ANIMATION } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideHint, renderModuleHeader, offeredOnOff, guardSliderTouch, nameSwitches,
+import { moduleStyles, renderOverrideHint, renderModuleHeader, offeredOnOff, guardSliderTouch, nameSwitches, prepareSliders,
 } from './module-base.js';
 import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 import { stateKindFor } from '../utils/card-caps.js';
@@ -57,6 +57,7 @@ export class AnimationModule extends LitElement {
 
   override updated(changed: Map<PropertyKey, unknown>) {
     nameSwitches(this.renderRoot);
+    prepareSliders(this.renderRoot);
     if (changed.has('state')) {
       const prev = changed.get('state') as AnimationModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;

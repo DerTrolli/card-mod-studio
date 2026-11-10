@@ -4,7 +4,7 @@ import type { HeadingStyleModuleState } from '../types/index.js';
 import { DEFAULT_HEADING_STYLE } from '../parser/state-mapper.js';
 import {
   moduleStyles, renderOverrideHint, renderModuleHeader, renderResetButton, renderDefaultOption,
-  guardSliderTouch, nameSwitches,
+  guardSliderTouch, nameSwitches, prepareSliders,
 } from './module-base.js';
 import { FONT_FAMILY_PRESETS } from './module-font.js';
 import '../components/cms-color-picker.js';
@@ -51,6 +51,7 @@ export class HeadingStyleModule extends LitElement {
 
   override updated(changed: Map<PropertyKey, unknown>) {
     nameSwitches(this.renderRoot);
+    prepareSliders(this.renderRoot);
     if (changed.has('state')) {
       const prev = changed.get('state') as HeadingStyleModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;

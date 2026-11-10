@@ -3,7 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, HomeAssistant, ThresholdRule } from '../types/index.js';
 import {
   moduleStyles, renderOverrideHint, onHeaderKeydown, renderResetButton, renderDefaultOption,
-  guardSliderTouch, nameSwitches,
+  guardSliderTouch, nameSwitches, prepareSliders,
 } from './module-base.js';
 import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
@@ -335,6 +335,7 @@ export class EntitiesRowsModule extends LitElement {
 
   override updated() {
     nameSwitches(this.renderRoot);
+    prepareSliders(this.renderRoot);
   }
 
   override render() {

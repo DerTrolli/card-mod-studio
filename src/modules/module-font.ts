@@ -6,7 +6,7 @@ import { capsFor } from '../utils/card-caps.js';
 import { GAUGE_SIZE, NUMBER_SIZE_DEFAULT } from '../utils/owned-entries.js';
 import {
   moduleStyles, renderOverrideHint, renderModuleHeader, renderResetButton, renderDefaultOption,
-  guardSliderTouch, renderThresholdOwnedHint, nameSwitches,
+  guardSliderTouch, renderThresholdOwnedHint, nameSwitches, prepareSliders,
 } from './module-base.js';
 import '../components/cms-color-picker.js';
 
@@ -83,6 +83,7 @@ export class FontModule extends LitElement {
 
   override updated(changed: Map<PropertyKey, unknown>) {
     nameSwitches(this.renderRoot);
+    prepareSliders(this.renderRoot);
     if (changed.has('cardType') && changed.get('cardType') !== undefined) {
       this._customText = '';
       this._customPicked = false;

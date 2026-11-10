@@ -100,13 +100,18 @@ export const moduleStyles = [
   }
   /* HA's slider (2026.x) takes its name from a label part it would show
      above the track; the row already shows the label, so keep the part out
-     of the layout (a hidden part still names the slider) and give back the
-     track's own offset that the part's presence replaces. */
+     of the layout (a hidden part still names the slider). The label's
+     presence also gives the track a gap above it of its own, which the
+     margin below takes away again. Where the slider pads its track for
+     touch (2026.11: 14px of padding balanced by a negative margin that the
+     label's gap overrides), prepareSliders reports that padding in
+     --cms-slider-pad and the margin gives it back. Where there is no such
+     padding (2026.2) the variable is unset and the margin is 0. */
   ha-slider::part(label) {
     display: none;
   }
   ha-slider::part(slider) {
-    margin-block-start: -14px;
+    margin-block-start: calc(-1 * var(--cms-slider-pad, 0px));
     /* The slider's own touch-action is "none", so a vertical swipe that
        starts on it neither scrolls the panel nor stays a no-op (it moves the
        value): hand vertical pans back to the browser. See guardSliderTouch. */
@@ -612,6 +617,61 @@ export function nameSwitches(root: ParentNode | null | undefined): void {
   root?.querySelectorAll?.<HTMLElement>('ha-switch[aria-label]').forEach((sw) => {
     if (namedSwitches.get(sw) === (sw.getAttribute('aria-label') ?? '').trim()) return;
     nameSwitch(sw);
+  });
+}
+
+/** The custom property markSliderPadding sets on a slider (see moduleStyles). */
+const SLIDER_PAD_VAR = '--cms-slider-pad';
+
+/** Sliders markSliderPadding has already looked at. */
+const paddedSliders = new WeakSet<HTMLElement>();
+
+/**
+ * Tells the module styles how much block padding the slider puts around its
+ * track.
+ *
+ * Some Home Assistant sliders (2026.11) pad the `slider` part by N px and pull
+ * it back with a margin of -N px, and show the label above it; the module
+ * styles hide that label, so they have to restore the -N px margin that the
+ * label's gap replaced. Other versions (2026.2) have no such padding, and
+ * 2025.9 has no `slider` part at all, so nothing is restored there. This reads
+ * the padding from the rendered part rather than from a version number and
+ * publishes it as `--cms-slider-pad` on the host. Safe to call on every
+ * update: a slider is only looked at once.
+ */
+export function markSliderPadding(sl: HTMLElement): void {
+  if (paddedSliders.has(sl)) return;
+  paddedSliders.add(sl);
+  /** Reads the part's padding; false while the part is not rendered yet. */
+  const apply = (): boolean => {
+    const part = sl.shadowRoot?.querySelector('[part~="slider"]');
+    const view = sl.ownerDocument?.defaultView;
+    if (!part || !view) return false;
+    const pad = parseFloat(view.getComputedStyle(part).paddingBlockStart);
+    if (pad > 0) sl.style.setProperty(SLIDER_PAD_VAR, `${pad}px`);
+    else sl.style.removeProperty(SLIDER_PAD_VAR);
+    return true;
+  };
+  const updated = (): Promise<unknown> | undefined =>
+    (sl as { updateComplete?: Promise<unknown> }).updateComplete;
+  // A shadow root can exist before the first render has filled it, so a
+  // missing part is retried once the slider has finished rendering.
+  const retry = (): void => {
+    if (!apply()) void updated()?.then(() => { apply(); }, () => undefined);
+  };
+  if (apply()) return;
+  if (customElements.get(sl.localName) || !customElements.whenDefined) {
+    retry();
+  } else {
+    void customElements.whenDefined(sl.localName).then(retry, retry);
+  }
+}
+
+/** Gets every `ha-slider` under `root` ready for the module styles — call
+ *  after render, next to nameSwitches. */
+export function prepareSliders(root: ParentNode | null | undefined): void {
+  root?.querySelectorAll?.<HTMLElement>('ha-slider').forEach((sl) => {
+    markSliderPadding(sl);
   });
 }
 
