@@ -314,6 +314,10 @@ export interface CustomCardProfile {
   headerTitle?: boolean;
   /** Filter's transition needs `!important` here (default false). */
   transitionImportant?: boolean;
+  /** False when Animation's Gradient Shift moves nothing here although
+   *  Background is offered: the animation is written on `ha-card`, the
+   *  Background paints on an inner element (Bubble — measured). Default true. */
+  gradientShift?: boolean;
   emitters?: ProfileEmitters;
   claims?: ClaimRule[];
   conflicts?: ConflictRow[];

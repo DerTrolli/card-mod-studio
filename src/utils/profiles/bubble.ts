@@ -59,6 +59,9 @@ function profile(key: string, p: Omit<CustomCardProfile, 'key'>): CustomCardProf
   const e: ProfileEmitters = p.emitters ?? {};
   return {
     key,
+    // Background paints on an inner element, the animation runs on ha-card:
+    // Gradient Shift moves nothing (measured on button and slider).
+    gradientShift: false,
     ...p,
     claims: [...claimsFromEmitters(e), ...(p.claims ?? [])],
     conflicts: [...conflictsFromEmitters(e), ...(p.conflicts ?? [])],

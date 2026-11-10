@@ -312,9 +312,11 @@ function buildCaps(
     accentTriplet?: boolean;
     textOnlyCard?: boolean;
     iconSizeMax?: number;
+    /** Custom profile only: Gradient Shift moves nothing on this card. */
+    noGradientShift?: boolean;
   },
 ): CardCaps {
-  const { iconSizeMax, headerTitle, transitionImportant, iconColorless, accentTriplet, textOnlyCard, fontWeight, ...flags } = f;
+  const { noGradientShift, iconSizeMax, headerTitle, transitionImportant, iconColorless, accentTriplet, textOnlyCard, fontWeight, ...flags } = f;
   return {
     key,
     custom,
@@ -324,7 +326,13 @@ function buildCaps(
     isContainer: !custom && CONTAINER_CARD_TYPES.has(key),
     stylableChildren: !custom && STYLABLE_CHILDREN_CARD_TYPES.has(key),
     modules: m,
-    noAnimationPresets: custom ? [] : [...(NO_SPIN_TYPES.has(key) ? ['spin'] : []), ...(m.background ? [] : ['gradient-shift'])],
+    // Spin is gated on built-in dial cards only (nothing measured for custom
+    // cards); Gradient Shift needs a Background to move, and on a custom card
+    // also a profile that paints it where the animation runs (ha-card).
+    noAnimationPresets: [
+      ...(!custom && NO_SPIN_TYPES.has(key) ? ['spin'] : []),
+      ...(!m.background || noGradientShift ? ['gradient-shift'] : []),
+    ],
     ...flags,
     iconSizeMax: iconSizeMax ?? (custom ? DEFAULT_ICON_SIZE_MAX : ICON_SIZE_MAX_BY_TYPE[key] ?? DEFAULT_ICON_SIZE_MAX),
     fontWeight: fontWeight !== false,
@@ -378,6 +386,7 @@ export function capsFor(profileKey: string | undefined, config?: Record<string, 
       transitionImportant: profile.transitionImportant,
       iconColorless: profile.emitters?.iconSize?.colorless,
       accentTriplet: !!profile.emitters?.accent && profile.emitters.accent.triplet !== false,
+      noGradientShift: profile.gradientShift === false,
     });
   }
   const entities = key === 'entities';
