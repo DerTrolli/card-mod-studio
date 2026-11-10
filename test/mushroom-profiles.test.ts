@@ -891,3 +891,116 @@ describe('Font text size → line-height / box height', () => {
     expect(generateCss(sized(30), key('template'))).not.toContain('line-height');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Config gates for controls whose target the card's own options remove. Each
+// row was measured on both engines (card-mod 4.2.1, UIX 9.0.0; Mushroom 5.2.3,
+// HA 2026.11): a twin with the control's CSS had the same computed styles as
+// the plain card in that configuration.
+// ---------------------------------------------------------------------------
+describe('config gates — nothing left for the control to style', () => {
+  const mods = (t: string, config: Record<string, unknown>) => capsFor(key(t), { type: key(t), ...config }).modules;
+  const NO_ICON = [{ icon_type: 'none' }, { hide_icon: true }, { icon_type: '', hide_icon: true }];
+
+  it('no icon hides Icon Color (colour and size) on all 14 types — icon_type none or the legacy hide_icon', () => {
+    for (const t of MUSHROOM_CLASSIC_TYPES) {
+      expect(mods(t, {}).iconColor, t).toBe(true);
+      for (const c of NO_ICON) expect(mods(t, c).iconColor, `${t} ${JSON.stringify(c)}`).toBe(false);
+      // an explicit icon_type wins over the legacy flag; a false flag is not set
+      expect(mods(t, { icon_type: 'icon', hide_icon: true }).iconColor, t).toBe(true);
+      expect(mods(t, { hide_icon: false }).iconColor, t).toBe(true);
+      // a picture still has a size (the avatar follows --icon-size)
+      expect(mods(t, { icon_type: 'entity-picture' }).iconColor, t).toBe(true);
+    }
+    expect(thresholdPropertyAllowed('icon-color', key('entity'), { icon_type: 'none' })).toBe(false);
+    expect(thresholdPropertyAllowed('text-color', key('entity'), { icon_type: 'none' })).toBe(true);
+  });
+
+  it('no icon also hides Accent where it only reaches icon, shape and badge', () => {
+    for (const t of ['alarm-control-panel', 'climate', 'cover', 'entity', 'lock', 'media-player', 'person', 'select', 'update']) {
+      expect(mods(t, {}).accentColor, t).toBe(true);
+      for (const c of NO_ICON) expect(mods(t, c).accentColor, `${t} ${JSON.stringify(c)}`).toBe(false);
+      expect(mods(t, { icon_type: 'entity-picture' }).accentColor, t).toBe(true); // the entity may have no picture
+    }
+    expect(thresholdPropertyAllowed('accent-color', key('person'), { icon_type: 'none' })).toBe(false);
+  });
+
+  it('light / humidifier keep Accent without an icon while one of their sliders is on', () => {
+    const sliders: Record<string, string[]> = {
+      light: ['show_brightness_control', 'show_color_temp_control', 'show_color_control'],
+      humidifier: ['show_target_humidity_control'],
+    };
+    for (const [t, keys] of Object.entries(sliders)) {
+      expect(mods(t, { icon_type: 'none' }).accentColor, t).toBe(false);
+      expect(mods(t, { hide_icon: true }).accentColor, t).toBe(false);
+      for (const k of keys) expect(mods(t, { icon_type: 'none', [k]: true }).accentColor, `${t} ${k}`).toBe(true);
+      expect(mods(t, { icon_type: 'none', [keys[0]]: false }).accentColor, t).toBe(false);
+      expect(mods(t, {}).accentColor, t).toBe(true);
+    }
+  });
+
+  it('number (slider), fan and vacuum keep Accent without an icon', () => {
+    for (const t of ['number', 'fan', 'vacuum']) expect(mods(t, { icon_type: 'none' }).accentColor, t).toBe(true);
+  });
+
+  it('no text lines hides Font: both primary and secondary none, new or legacy keys', () => {
+    for (const t of MUSHROOM_CLASSIC_TYPES.filter((x) => x !== 'climate')) {
+      expect(mods(t, {}).font, t).toBe(true);
+      expect(mods(t, { primary_info: 'none', secondary_info: 'none' }).font, t).toBe(false);
+      expect(mods(t, { hide_name: true, hide_state: true }).font, t).toBe(false);
+      expect(mods(t, { primary_info: 'none', hide_state: true }).font, t).toBe(false);
+      expect(mods(t, { hide_name: true, secondary_info: 'none' }).font, t).toBe(false);
+      // one line left, or an explicit value beating the legacy flag: still styles something
+      expect(mods(t, { primary_info: 'none' }).font, t).toBe(true);
+      expect(mods(t, { secondary_info: 'none' }).font, t).toBe(true);
+      expect(mods(t, { hide_name: true }).font, t).toBe(true);
+      expect(mods(t, { primary_info: 'none', secondary_info: 'state', hide_state: true }).font, t).toBe(true);
+      expect(mods(t, { primary_info: 'name', secondary_info: 'none', hide_name: true }).font, t).toBe(true);
+    }
+    expect(thresholdPropertyAllowed('text-color', key('entity'), { primary_info: 'none', secondary_info: 'none' })).toBe(false);
+    expect(thresholdPropertyAllowed('text-color', key('entity'), { primary_info: 'none' })).toBe(true);
+  });
+
+  it('Font stays where text remains: climate (temperature control), number in buttons mode', () => {
+    const none = { primary_info: 'none', secondary_info: 'none' };
+    expect(mods('climate', none).font).toBe(true);
+    expect(mods('number', none).font).toBe(false);
+    expect(mods('number', { ...none, display_mode: 'slider' }).font).toBe(false);
+    expect(mods('number', { ...none, display_mode: 'buttons' }).font).toBe(true);
+  });
+
+  it('template, chips, title and the empty card are not touched by the classic gates', () => {
+    const cfg = { icon_type: 'none', primary_info: 'none', secondary_info: 'none', hide_icon: true };
+    for (const t of ['template', 'chips', 'title', 'empty']) {
+      expect(capsFor(key(t), cfg).modules).toEqual(capsFor(key(t)).modules);
+    }
+  });
+
+  it('a style written before a gate hid its control still parses (mapping does not look at the card config)', () => {
+    const css = generateCss(withState({ iconColor: { ...EMPTY.iconColor, enabled: true, sizePx: 48 } }), key('entity'));
+    expect(parse(css, key('entity')).iconColor).toMatchObject({ enabled: true, sizePx: 48 });
+  });
+
+  it('gate clauses: when = any clause, a clause = all tests (is / not / unset / set)', () => {
+    const K = 'custom:mushroom-gate-fixture-card';
+    registerCustomCardProfile({
+      key: K,
+      configGates: [
+        { when: [[{ key: 'a', is: ['x'] }, { key: 'b', unset: true }], [{ key: 'c', not: ['y'] }]], hide: ['font'] },
+        { key: 'd', hide: ['border'] },
+      ],
+    });
+    try {
+      const m = (c: Record<string, unknown>) => capsFor(K, c).modules;
+      expect(m({ a: 'x' }).font).toBe(false); // clause 1
+      expect(m({ a: 'x', b: 1, c: 'y' }).font).toBe(true); // b set, c is y
+      expect(m({ c: 'z' }).font).toBe(false); // clause 2
+      expect(m({ c: 'y' }).font).toBe(true);
+      expect(m({}).font).toBe(false); // `not` holds for an absent key
+      expect(m({ d: true }).border).toBe(false);
+      expect(m({ d: false }).border).toBe(true);
+    } finally {
+      unregisterCustomCardProfile(K);
+    }
+  });
+});

@@ -133,8 +133,8 @@ const ICON_MAX_SEPARATOR = { normal: 40, large: 33 };
  *  and the state off — its default on all three kinds — no text is left).
  *  Only a completely dead control is hidden: one text line still takes Font. */
 const GATES: ConfigGate[] = [
-  { key: 'show_icon', when: 'false', hide: ['iconColor'] },
-  { key: 'show_name', when: 'false', and: [{ key: 'show_state', when: 'not-true' }], hide: ['font'] },
+  { when: [[{ key: 'show_icon', is: [false] }]], hide: ['iconColor'] },
+  { when: [[{ key: 'show_name', is: [false] }, { key: 'show_state', not: [true] }]], hide: ['font'] },
 ];
 
 /** Opacity stays at Bubble's 0.5 unless forced (measured): rides with Background. */

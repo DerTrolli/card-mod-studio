@@ -220,32 +220,42 @@ export interface ClickRule {
   last?: boolean;
 }
 
-/** One test on a card config key: `set` (default) — a non-empty value other
- *  than `false`; `false` — explicitly `false`; `not-true` — anything but `true`
- *  (a key whose default is off). */
-export interface ConfigCondition {
+/** A config value a test can compare against. */
+export type ConfigValue = string | boolean;
+
+/** One test on the card's own config. `is` / `not`: the value is / is not one
+ *  of these (strict equality: `false` is the boolean, not the string);
+ *  `unset`: the key is absent / empty / false; none of them: the key is set
+ *  (a non-empty value other than `false`). */
+export interface ConfigTest {
   key: string;
-  when?: 'set' | 'false' | 'not-true';
+  is?: ConfigValue[];
+  not?: ConfigValue[];
+  unset?: boolean;
 }
 
-/** A module hidden while the card config meets the condition (e.g. a Mushroom
- *  card's `icon_color` leaves nothing for the accent variables to colour).
- *  `and`: further conditions that must all hold too. */
-export interface ConfigGate extends ConfigCondition {
+/** Modules hidden while the card config says there is nothing for them to
+ *  style (a Mushroom card's `icon_color` leaves nothing for the accent
+ *  variables to colour). `key` alone = "while `key` is set"; `when` = while
+ *  ANY of its clauses holds, a clause holding when ALL its tests do. */
+export interface ConfigGate {
+  key?: string;
+  when?: ConfigTest[][];
   hide: ProfileModule[];
-  and?: ConfigCondition[];
 }
 
-function conditionHolds(config: Record<string, unknown> | null | undefined, c: ConfigCondition): boolean {
-  const v = config?.[c.key];
-  if (c.when === 'false') return v === false;
-  if (c.when === 'not-true') return v !== true;
-  return v !== undefined && v !== null && v !== '' && v !== false;
+function testHolds(config: Record<string, unknown> | null | undefined, t: ConfigTest): boolean {
+  const v = config?.[t.key];
+  if (t.is) return t.is.includes(v as ConfigValue);
+  if (t.not) return !t.not.includes(v as ConfigValue);
+  const set = v !== undefined && v !== null && v !== '' && v !== false;
+  return set !== !!t.unset;
 }
 
-/** Does the card config trigger this gate? */
+/** Does the card config trigger this gate? The one evaluator for every profile. */
 export function configGateHits(config: Record<string, unknown> | null | undefined, gate: ConfigGate): boolean {
-  return conditionHolds(config, gate) && (gate.and ?? []).every((c) => conditionHolds(config, c));
+  const clauses: ConfigTest[][] = [...(gate.key ? [[{ key: gate.key }]] : []), ...(gate.when ?? [])];
+  return clauses.some((clause) => clause.every((t) => testHolds(config, t)));
 }
 
 /** The largest Icon size (px) that still fits the card, per layout. */

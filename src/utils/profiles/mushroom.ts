@@ -12,7 +12,7 @@
  * the registry module can import this one statically without a cycle.
  */
 
-import type { CustomCardProfile, ProfileEmitters } from '../custom-card-profiles.js';
+import type { ConfigGate, ConfigTest, CustomCardProfile, ProfileEmitters } from '../custom-card-profiles.js';
 import {
   claimsFromEmitters, conflictsFromEmitters, clickTag, clickClass,
   CLICK_FONT, CLICK_ICON, CLICK_BACKGROUND,
@@ -70,11 +70,55 @@ const CLASSIC_ACCENT_VARS: Record<string, string[]> = {
   vacuum: ['--rgb-state-vacuum'],
 };
 
-function classic(type: string): CustomCardProfile {
-  return profile(`custom:mushroom-${type}-card`, {
+// Config gates (measured per type on Mushroom 5.2.3, card-mod and UIX alike):
+// a module is hidden only where the card's own options leave it NOTHING to
+// style. Mushroom's `icon_type` / `primary_info` / `secondary_info` fall back
+// to the legacy `hide_icon` / `hide_name` / `hide_state` flags while unset.
+type Clauses = ConfigTest[][];
+const noneOf = (key: string, legacy: string): Clauses => [[{ key, is: ['none'] }], [{ key, unset: true }, { key: legacy }]];
+const allOf = (a: Clauses, b: Clauses): Clauses => a.flatMap((x) => b.map((y) => [...x, ...y]));
+const unsetAll = (...keys: string[]): Clauses => [keys.map((key) => ({ key, unset: true }))];
+
+const ICON_NONE = noneOf('icon_type', 'hide_icon');
+const TEXT_NONE = allOf(noneOf('primary_info', 'hide_name'), noneOf('secondary_info', 'hide_state'));
+
+/** Types whose Accent reaches only the icon, shape and badge (no accent-coloured
+ *  control): dead without an icon. Not light / humidifier (slider — gated
+ *  below while it has no control), number (its slider), fan / vacuum (not measurable:
+ *  every demo entity is off / docked, so their controls could not be told). */
+const ACCENT_ICON_ONLY = new Set([
+  'alarm-control-panel', 'climate', 'cover', 'entity', 'lock', 'media-player', 'person', 'select', 'update',
+]);
+/** Cards whose slider Accent colours: dead without an icon only while no slider is on. */
+const ACCENT_SLIDER_KEYS: Record<string, string[]> = {
+  light: ['show_brightness_control', 'show_color_temp_control', 'show_color_control'],
+  humidifier: ['show_target_humidity_control'],
+};
+
+function classicGates(type: string): ConfigGate[] {
+  const gates: ConfigGate[] = [
     // Accent is dead while the card config sets `icon_color` (measured: the
     // colour stays put under --rgb-state-* and under !important direct rules).
-    configGates: [{ key: 'icon_color', hide: ['accentColor'] }],
+    { key: 'icon_color', hide: ['accentColor'] },
+    // No icon at all: neither the colour nor the size has an element (all 14).
+    { when: ICON_NONE, hide: ['iconColor'] },
+  ];
+  if (ACCENT_ICON_ONLY.has(type)) gates.push({ when: ICON_NONE, hide: ['accentColor'] });
+  const sliders = ACCENT_SLIDER_KEYS[type];
+  if (sliders) gates.push({ when: allOf(ICON_NONE, unsetAll(...sliders)), hide: ['accentColor'] });
+  // No text lines: the --card-primary/secondary-* variables have no element.
+  // Not climate (its temperature control inherits the family) and not the
+  // number card in buttons mode (the value text does).
+  if (type !== 'climate') {
+    const clauses = type === 'number' ? allOf(TEXT_NONE, [[{ key: 'display_mode', not: ['buttons'] }]]) : TEXT_NONE;
+    gates.push({ when: clauses, hide: ['font'] });
+  }
+  return gates;
+}
+
+function classic(type: string): CustomCardProfile {
+  return profile(`custom:mushroom-${type}-card`, {
+    configGates: classicGates(type),
     iconSize: true,
     // Probed DOM: `span.primary` / `span.secondary` text, the shape + glyph;
     // anything else falls through to the card box (Background).
