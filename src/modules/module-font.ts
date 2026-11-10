@@ -6,6 +6,7 @@ import { capsFor } from '../utils/card-caps.js';
 import { GAUGE_SIZE, NUMBER_SIZE_DEFAULT } from '../utils/owned-entries.js';
 import {
   moduleStyles, renderOverrideHint, renderModuleHeader, renderResetButton, renderDefaultOption,
+  guardSliderTouch,
 } from './module-base.js';
 import '../components/cms-color-picker.js';
 
@@ -125,6 +126,11 @@ export class FontModule extends LitElement {
 
   private get _isCustomFamily(): boolean {
     return this._customPicked || !FONT_FAMILY_PRESETS.some((p) => p.value === this.state.fontFamily);
+  }
+
+  override connectedCallback() {
+    super.connectedCallback();
+    guardSliderTouch(this.renderRoot);
   }
 
   override render() {

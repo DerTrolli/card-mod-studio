@@ -11,6 +11,7 @@ import {
   renderWatchHint,
   renderCondition,
   renderModuleHeader,
+  guardSliderTouch,
 } from './module-base.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
@@ -103,6 +104,11 @@ export class IconColorModule extends LitElement {
     this.dispatchEvent(
       new CustomEvent<IconColorModuleState>('state-changed', { detail }),
     );
+  }
+
+  override connectedCallback() {
+    super.connectedCallback();
+    guardSliderTouch(this.renderRoot);
   }
 
   override render() {

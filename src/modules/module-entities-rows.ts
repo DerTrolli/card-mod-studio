@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, HomeAssistant, ThresholdRule } from '../types/index.js';
 import {
   moduleStyles, renderOverrideHint, onHeaderKeydown, renderResetButton, renderDefaultOption,
+  guardSliderTouch,
 } from './module-base.js';
 import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
@@ -326,6 +327,11 @@ export class EntitiesRowsModule extends LitElement {
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+
+  override connectedCallback() {
+    super.connectedCallback();
+    guardSliderTouch(this.renderRoot);
+  }
 
   override render() {
     // Rows arrive in whatever form the YAML uses — the bare-string

@@ -107,6 +107,10 @@ export const moduleStyles = [
   }
   ha-slider::part(slider) {
     margin-block-start: -14px;
+    /* The slider's own touch-action is "none", so a vertical swipe that
+       starts on it neither scrolls the panel nor stays a no-op (it moves the
+       value): hand vertical pans back to the browser. See guardSliderTouch. */
+    touch-action: pan-y;
   }
 
   /* Header whose button and switch are siblings (renderModuleHeader): the
@@ -513,6 +517,87 @@ export function renderModuleHeader(o: ModuleHeaderOptions): TemplateResult {
         : nothing}
     </div>
   `;
+}
+
+const guardedRoots = new WeakSet<object>();
+
+/**
+ * Keeps a vertical swipe that starts on a slider from changing its value.
+ *
+ * HA's slider (2026.x) sets its value on pointer-down and commits it when the
+ * gesture ends; once the browser takes a touch for scrolling (see the
+ * `touch-action: pan-y` rule above) it sends pointercancel, but the slider
+ * still fires `change` with the jumped value. So for TOUCH pointers only, the
+ * module root watches the gesture in the capture phase: while it is undecided
+ * (or turned vertical, or was cancelled) the slider's `input` / `change` never
+ * reach the module and the slider is put back to the value it had. A tap or a
+ * mostly-horizontal drag passes through unchanged; mouse, pen and keyboard are
+ * not touched. Reads only standard pointer events plus the slider's `value`.
+ */
+export function guardSliderTouch(root: EventTarget): void {
+  if (guardedRoots.has(root)) return;
+  guardedRoots.add(root);
+
+  type Slider = HTMLElement & { value: unknown };
+  interface Gesture {
+    id: number;
+    x: number;
+    y: number;
+    slider: Slider;
+    v0: unknown;
+    mode: 'pending' | 'horizontal' | 'vertical' | 'tap' | 'cancelled';
+  }
+  let g: Gesture | undefined;
+
+  const sliderOf = (e: Event): Slider | undefined =>
+    (e.composedPath?.() ?? []).find((n) => (n as Element).localName === 'ha-slider') as Slider | undefined;
+  const on = (type: string, fn: (e: PointerEvent) => void) =>
+    root.addEventListener(type, fn as unknown as EventListener, true);
+  /** Forget the gesture once the slider has finished its own end-of-gesture events. */
+  const finish = (restore: boolean) => {
+    const done = g!;
+    setTimeout(() => {
+      if (restore) done.slider.value = done.v0;
+      if (g === done) g = undefined;
+    }, 0);
+  };
+  const muted = (e: Event) => {
+    if (!g || sliderOf(e) !== g.slider) return false;
+    return g.mode === 'pending' || g.mode === 'vertical' || g.mode === 'cancelled';
+  };
+
+  on('pointerdown', (e) => {
+    const slider = e.pointerType === 'touch' ? sliderOf(e) : undefined;
+    g = slider ? { id: e.pointerId, x: e.clientX, y: e.clientY, slider, v0: slider.value, mode: 'pending' } : undefined;
+  });
+  on('pointermove', (e) => {
+    if (!g || e.pointerId !== g.id || g.mode !== 'pending') return;
+    const dx = e.clientX - g.x;
+    const dy = e.clientY - g.y;
+    if (Math.hypot(dx, dy) < 8) return;
+    g.mode = Math.abs(dy) > Math.abs(dx) ? 'vertical' : 'horizontal';
+  });
+  on('pointerup', (e) => {
+    if (!g || e.pointerId !== g.id) return;
+    if (g.mode === 'pending') g.mode = 'tap';
+    if (g.mode === 'vertical') {
+      g.mode = 'cancelled';
+      finish(true);
+    } else finish(false);
+  });
+  on('pointercancel', (e) => {
+    if (!g || e.pointerId !== g.id) return;
+    const was = g.mode;
+    if (was === 'pending' || was === 'vertical') {
+      g.mode = 'cancelled';
+      finish(true);
+    } else finish(false);
+  });
+  const swallow = (e: Event) => {
+    if (muted(e)) e.stopPropagation();
+  };
+  root.addEventListener('input', swallow, true);
+  root.addEventListener('change', swallow, true);
 }
 
 // ---------------------------------------------------------------------------

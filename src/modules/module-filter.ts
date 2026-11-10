@@ -8,6 +8,7 @@ import {
   renderOverrideHint,
   renderCondition,
   renderModuleHeader,
+  guardSliderTouch,
 } from './module-base.js';
 import { stateKindFor } from '../utils/card-caps.js';
 
@@ -69,6 +70,11 @@ export class FilterModule extends LitElement {
       return { grayscale: true, grayscaleWhen: 'always' };
     }
     return { grayscale: on };
+  }
+
+  override connectedCallback() {
+    super.connectedCallback();
+    guardSliderTouch(this.renderRoot);
   }
 
   override render() {

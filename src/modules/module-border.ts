@@ -8,6 +8,7 @@ import {
   renderThresholdOwnedHint,
   renderCondition,
   renderModuleHeader,
+  guardSliderTouch,
 } from './module-base.js';
 import '../components/cms-color-picker.js';
 import { stateKindFor } from '../utils/card-caps.js';
@@ -55,6 +56,11 @@ export class BorderModule extends LitElement {
         detail: { ...this.state, ...changes },
       }),
     );
+  }
+
+  override connectedCallback() {
+    super.connectedCallback();
+    guardSliderTouch(this.renderRoot);
   }
 
   override render() {
