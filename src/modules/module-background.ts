@@ -109,6 +109,7 @@ export class BackgroundModule extends LitElement {
           </span>
           <div class="control-right">
             <cms-color-picker
+              .validation=${this.state.type === 'gradient' ? 'stop' : 'background'}
               .value=${this.state.color1}
               @color-changed=${(e: CustomEvent) =>
                 this._emit({ color1: e.detail.value })}
@@ -122,6 +123,7 @@ export class BackgroundModule extends LitElement {
                 <span class="control-label">Color 2</span>
                 <div class="control-right">
                   <cms-color-picker
+                    .validation=${'stop'}
                     .value=${this.state.color2}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ color2: e.detail.value })}

@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing, render as litRender } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { getCachedPalette, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
-import { isValidCssColor } from '../utils/css-color.js';
+import { isValidCssColor, type ColorMode } from '../utils/css-color.js';
 import { keepEnterInStudio } from '../utils/enter-guard.js';
 
 /**
@@ -219,6 +219,8 @@ const swatchStyles = css`
     line-height: 1.4;
     color: var(--cms-ink-error, var(--error-color, #db4437));
   }
+  /* The live region stays in the DOM; empty, it cancels the flex gap above it. */
+  .invalid-hint:empty { margin-top: -8px; }
 `;
 
 /**
@@ -259,6 +261,12 @@ export class CmsColorPicker extends LitElement {
   @property() placeholder = '';
   /** Colour the swatch shows while unset (a hex or var(--x)); display-only. */
   @property({ attribute: false }) placeholderColor = '';
+
+  /** What the text field accepts. Default `color` = one CSS colour. `background`
+   *  also takes an image / gradient / `none` (the Background module's solid
+   *  field adopts any plain `background:` value); `stop` takes a gradient
+   *  stop, a colour plus up to two positions (`red 0%`). */
+  @property() validation: ColorMode = 'color';
 
   /** The text field holds something that isn't a colour yet (never emitted). */
   @state() private _invalid = false;
@@ -390,9 +398,7 @@ export class CmsColorPicker extends LitElement {
             ? html`<button type="button" class="clear" aria-label="Reset color to default" title="Reset to default" @click=${this._onClear}>Default</button>`
             : nothing}
         </div>
-        ${this._invalid
-          ? html`<div class="invalid-hint" id="cms-color-hint" role="status">Not a valid colour — try #ff8800 or var(--primary-color)</div>`
-          : nothing}
+        <div class="invalid-hint" id="cms-color-hint" role="status">${this._invalid ? this._hint() : nothing}</div>
       </div>
     `;
   }
@@ -583,9 +589,15 @@ export class CmsColorPicker extends LitElement {
     this._emit();
   }
 
+  private _hint(): string {
+    if (this.validation === 'background') return 'Not a valid colour or image — try #ff8800, var(--primary-color) or linear-gradient(…)';
+    if (this.validation === 'stop') return 'Not a valid gradient colour — try #ff8800 or red 40%';
+    return 'Not a valid colour — try #ff8800 or var(--primary-color)';
+  }
+
   /** Empty is valid only where it means "not set" (clearable). */
   private _textOk(text: string): boolean {
-    return text.trim() === '' ? this.clearable : isValidCssColor(text);
+    return text.trim() === '' ? this.clearable : isValidCssColor(text, this.validation);
   }
 
   /** Typing only shows the cue — nothing is stored or reverted mid-typing. */

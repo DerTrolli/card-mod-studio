@@ -103,13 +103,16 @@ describe('colour text field', () => {
     expect(p._invalid).toBe(false);
   });
 
-  it('shows a visible hint line (status) only while invalid', () => {
+  it('keeps the status live region in the DOM, empty, and fills it when invalid', () => {
     const { p } = make('#112233');
+    const hint = () => tplFind(p._renderPickerBody(), 'invalid-hint');
     const html = () => JSON.stringify(p._renderPickerBody());
-    expect(html()).not.toContain('invalid-hint');
-    p._invalid = true;
     expect(html()).toContain('invalid-hint');
     expect(html()).toContain('role=\\"status\\"');
+    expect(html()).not.toContain('Not a valid');
+    expect(hint().tag).toContain('role=status');
+    p._invalid = true;
+    expect(html()).toContain('Not a valid colour — try #ff8800 or var(--primary-color)');
   });
 
   it('change with an invalid value emits nothing and keeps the cue', () => {
