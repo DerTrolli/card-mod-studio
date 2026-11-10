@@ -49,13 +49,34 @@ function endOfTag(s: string, from: number, close: '}}' | '%}'): number {
 
 interface Found { issue: CssIssue; rank: number }
 
-/** The most serious problem found (template failures first), or undefined. */
+let lastText: string | undefined;
+let lastIssue: CssIssue | undefined;
+/** Scans actually run — lets a test see that an unchanged text isn't re-linted. */
+export const lintStats = { scans: 0 };
+
+/** The most serious problem found (template failures first), or undefined.
+ *  The module renders on every state change, so the last result is reused
+ *  while the text is the same. */
 export function lintAdvancedCss(text: string): CssIssue | undefined {
+  if (text === lastText) return lastIssue;
+  lintStats.scans++;
+  lastIssue = scan(text);
+  lastText = text;
+  return lastIssue;
+}
+
+function scan(text: string): CssIssue | undefined {
   const found: Found[] = [];
+  // Newline offsets once, so each lookup is a binary search, not a rescan.
+  const newlines: number[] = [];
+  for (let k = text.indexOf('\n'); k >= 0; k = text.indexOf('\n', k + 1)) newlines.push(k);
   const lineAt = (idx: number) => {
-    let n = 1;
-    for (let k = 0; k < idx; k++) if (text.charCodeAt(k) === 10) n++;
-    return n;
+    let lo = 0, hi = newlines.length; // count of newlines before idx
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (newlines[mid] < idx) lo = mid + 1; else hi = mid;
+    }
+    return lo + 1;
   };
   const add = (rank: number, line: number, message: string) => found.push({ rank, issue: { line, message: `${message} (line ${line})` } });
 
@@ -64,24 +85,29 @@ export function lintAdvancedCss(text: string): CssIssue | undefined {
   let state: 'css' | 'comment' | 'string' = 'css';
   let quote = '';
   let startLine = 0;
+  // Jinja emits `{% raw %}` content literally, so the CSS sees it; but we
+  // can't tell whether a `{` or `}` there is meant to pair up with the CSS
+  // around it, so braces inside raw count when they pair and never warn.
+  let rawEnd = -1;
 
   let i = 0;
   while (i < text.length) {
     const two = text.slice(i, i + 2);
+    const jinja = i >= rawEnd;
 
-    if (two === '{{') {
+    if (jinja && two === '{{') {
       const end = endOfTag(text, i + 2, '}}');
       if (end < 0) { add(0, lineAt(i), `Unterminated {{ — missing }}${FATAL}`); break; }
       i = end;
       continue;
     }
-    if (two === '{#') {
+    if (jinja && two === '{#') {
       const end = text.indexOf('#}', i + 2);
       if (end < 0) { add(0, lineAt(i), `Unterminated {# comment — missing #}${FATAL}`); break; }
       i = end + 2;
       continue;
     }
-    if (two === '{%') {
+    if (jinja && two === '{%') {
       const end = endOfTag(text, i + 2, '%}');
       if (end < 0) { add(0, lineAt(i), `Unterminated {% — missing %}${FATAL}`); break; }
       const line = lineAt(i);
@@ -91,7 +117,7 @@ export function lintAdvancedCss(text: string): CssIssue | undefined {
       if (name === 'raw') {
         const close = /\{%[-+]?\s*endraw\s*[-+]?%\}/.exec(text.slice(i));
         if (!close) { add(1, line, `{% raw %} without {% endraw %}${FATAL}`); break; }
-        i += close.index + close[0].length;
+        rawEnd = i + close.index;
       } else if (OPENERS.has(name) || (name === 'set' && !/(?:^|[^=!<>])=(?!=)/.test(body.replace(/(["'])(?:\\.|(?!\1).)*\1/g, '')))) {
         // `{% set x %}` without `=` is the block form; `{% set x = 1 %}` is one tag.
         tags.push({ name, line, braces: braceLines.length });
@@ -120,7 +146,7 @@ export function lintAdvancedCss(text: string): CssIssue | undefined {
     if (state === 'comment') {
       if (two === '*/') { state = 'css'; i += 2; } else i++;
     } else if (state === 'string') {
-      if (ch === '\\') i += 2;
+      if (ch === '\\') i += text[i + 1] === '\r' && text[i + 2] === '\n' ? 3 : 2; // `\`+CRLF continues the string
       else {
         if (ch === quote) state = 'css';
         else if (ch === '\n') { add(3, startLine, `Unterminated string — missing closing ${quote}`); state = 'css'; }
@@ -138,10 +164,10 @@ export function lintAdvancedCss(text: string): CssIssue | undefined {
     } else if (ch === '\\') {
       i += 2;
     } else {
-      if (ch === '{') braceLines.push(lineAt(i));
+      if (ch === '{') braceLines.push(jinja ? lineAt(i) : -lineAt(i));
       else if (ch === '}') {
         if (braceLines.length) braceLines.pop();
-        else add(4, lineAt(i), 'Unmatched } — there is no { to close');
+        else if (jinja) add(4, lineAt(i), 'Unmatched } — there is no { to close');
       }
       i++;
     }
@@ -154,7 +180,8 @@ export function lintAdvancedCss(text: string): CssIssue | undefined {
     const end = open.name === 'set' ? 'endset' : `end${open.name}`;
     add(1, open.line, `{% ${open.name} %} without {% ${end} %}${FATAL}`);
   }
-  if (braceLines.length) add(4, braceLines[braceLines.length - 1], 'Unclosed { — a rule is missing its closing brace');
+  const unclosed = braceLines.filter((n) => n > 0); // never one opened inside raw
+  if (unclosed.length) add(4, unclosed[unclosed.length - 1], 'Unclosed { — a rule is missing its closing brace');
 
   found.sort((a, b) => a.rank - b.rank || a.issue.line - b.issue.line);
   return found[0]?.issue;
