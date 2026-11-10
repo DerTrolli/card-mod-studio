@@ -35,18 +35,21 @@ effects, icon size).
 - A 20-bug audit of how hand-written CSS survives an edit, a light/dark/phone
   overhaul of the editor, and keyboard access to every collapsible section.
 
-## v0.11 "Reach" — in progress (current: v0.11.0-beta.2)
+## v0.11 ✅ "Reach" — Font size unlocks + Mushroom/Bubble
 
-- ✅ **Gauge value number and thermostat big number size** (Font → Number
-  size / Temperature size) — in the first v0.11 beta; the gauge number reaches
-  150 % since beta.2. See the
-  [Gauge](Gauge-Card) and [Thermostat](Thermostat-and-Humidifier-Cards)
-  pages.
-- ✅ **Mushroom and Bubble Card support** (beta, v0.11.0-beta.2) — controls
-  that reach all 18 Mushroom (5.2.3) card types and Bubble's button, slider
-  button, separator and cover; see the [Mushroom](Mushroom-Cards) and
-  [Bubble Card](Bubble-Card) guides and [Card Support](Card-Support). Still to
-  come in v0.11.0: a notice on unknown custom cards.
+- **Gauge value number and thermostat big number size** (Font → Number
+  size / Temperature size). See the [Gauge](Gauge-Card) and
+  [Thermostat](Thermostat-and-Humidifier-Cards) pages.
+- **Mushroom and Bubble Card support** — controls that reach all 18 Mushroom
+  (5.2.3) card types and Bubble's button, slider button, separator and cover
+  (other Bubble card types aren't profiled yet); see the
+  [Mushroom](Mushroom-Cards) and [Bubble Card](Bubble-Card) guides and
+  [Card Support](Card-Support).
+<!-- v0.11.0 release step: when plan item C4.1 (the notice on unprofiled
+custom:* cards, incl. Bubble types without a profile) has shipped, add it
+here as a bullet. Don't list it before it ships (this page goes live on
+merge to main). -->
+
 - Glance icon color stays out: even shadow-piercing styles don't reach it
   ([why](Glance-Card#why-no-icon-color)).
 
@@ -61,7 +64,7 @@ effects, icon size).
 
 ## Post-1.0 stretch
 
-- Further custom cards beyond Mushroom / Bubble
+- Further custom cards beyond Mushroom / Bubble, and more Bubble card types (pop-ups, climate, …)
 - A multi-entity AND/OR condition builder
 - A visual keyframe animation builder (beyond the built-in presets)
 - Bulk dashboard `card_mod:` → `uix:` key migration (parked deliberately:

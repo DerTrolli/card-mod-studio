@@ -170,6 +170,44 @@ clipping and touch targets (details in the sandbox README).
 
 ---
 
+## Releasing
+
+- **Release from the branch that carries the version.** Beta tags come from
+  the 0.11 branch, not `main`: in GitHub's "Draft a new release" form choose
+  that branch as the **target**. (2026-11-07: v0.11.0-beta.2 was created from
+  `main`, so its asset was v0.10.2 code; the owner deleted the release and
+  tag and re-published it on 2026-11-10 from the 0.11 branch.)
+- **Tag = `"v"` + `package.json` version** (`v0.11.0`, `v0.11.0-beta.2`).
+- `.github/workflows/release.yml` runs on the tag, builds
+  `dist/card-mod-studio.js` and attaches it. It **fails the release when the
+  tag differs from `v<package.json version>`**, and marks any tag containing
+  `-` (e.g. `-beta.N`) as a GitHub **pre-release** (`prerelease:
+  ${{ contains(github.ref_name, '-') }}`). To be listed in the next version's
+  CHANGELOG section.
+- Version and changelog rules live in `CLAUDE.md`: a published pre-release
+  counts as released (a later fix gets the next beta number or version, never
+  an edit of a published changelog entry); beta numbers are sequential.
+- Before tagging: typecheck, full unit suite, build, the live suite on both
+  rigs, and bookkeeping (`package.json`, `CHANGELOG.md`, README cache-bust URL
+  and status table, `docs/ROADMAP.md`).
+- The wiki is published from `main` by `.github/workflows/wiki.yml`, and the
+  README screenshots are hot-linked from `main` — so wiki and image changes
+  made on a release branch go live only when it is merged to `main`.
+
+## Rig recovery
+
+- After a machine recycle Docker is down: start the daemon with
+  `sudo -n dockerd` (in the background), then `docker start <containers>`
+  (the card-mod and UIX rig containers; `docker ps -a` lists them).
+- `tools/sandbox/run.sh` / `run-uix.sh` rebuild a rig from scratch with the
+  current pins (HA 2026.11.0, UIX v9.0.0, Mushroom v5.2.3, Bubble v3.4.3).
+- HA can't start on a config folder migrated by a newer HA — use a fresh
+  `CFG=` folder for older images.
+- Live suite: `harness/run_suite.sh <label> <card-mod|uix> <url> <tokens>
+  <outdir>`; custom-card audit: `AUDIT_CUSTOM=1 node harness/module_effect_audit.mjs`;
+  README screenshots: `harness/readme_shots.mjs` (`SHOT_SCALE=2`, `resetTheme`
+  first so the default theme is used).
+
 ## Project architecture
 
 ### Injection mechanism
