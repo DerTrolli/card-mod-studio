@@ -350,8 +350,21 @@ const BINARY_DOMAINS = [
 ];
 
 /**
+ * Whether a card config has an entity of its own — the one `config.entity`
+ * refers to inside a card-mod template. A missing or empty `entity` makes
+ * `is_state(config.entity, …)` fail to render, and the style engine then
+ * drops EVERY rule of the card's style, so nothing may emit it for such a card.
+ */
+export function hasOwnEntity(config?: Record<string, unknown> | null): boolean {
+  const entity = config?.entity;
+  return typeof entity === 'string' && entity.trim() !== '';
+}
+
+/**
  * Whether a card's own entity meaningfully has an on/off state to condition
- * on. Mirrors the old cms-panel._isStateAware exactly.
+ * on. Mirrors the old cms-panel._isStateAware exactly. With no entity id it
+ * only answers for the card TYPE; the panels additionally require
+ * hasOwnEntity() before offering "own entity is ON / OFF".
  */
 export function isStateAware(
   cardType: string | undefined,

@@ -166,9 +166,13 @@ export class IconColorModule extends LitElement {
               </div>
               <div class="when-hint ${ownEntityUseless ? 'warn' : ''}">
                 ${this.state.entityId
-                  ? `Uses ${this.state.entityId}'s on/off state, not this card's own entity.`
+                  ? this.cardEntity
+                    ? `Uses ${this.state.entityId}'s on/off state, not this card's own entity.`
+                    : `Uses ${this.state.entityId}'s on/off state.`
                   : ownEntityUseless
-                  ? `This card's entity (${this.cardEntity || 'none'}) has no on/off state of its own — pick a toggleable entity above, or this mode won't do anything.`
+                  ? this.cardEntity
+                    ? `This card's entity (${this.cardEntity}) has no on/off state of its own — pick a toggleable entity above, or this mode won't do anything.`
+                    : "This card has no entity of its own — pick the entity whose on/off state drives the colors above. Until then the OFF color is used."
                   : "Leave empty to use this card's own entity."}
               </div>
             `

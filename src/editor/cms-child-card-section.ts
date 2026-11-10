@@ -53,11 +53,12 @@ import { PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
 import {
   capsFor,
   isStateAware,
+  hasOwnEntity,
 } from '../utils/card-caps.js';
 import { profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
-import { thresholdOwnedProperties } from '../generator/css-generator.js';
+import { thresholdOwnedProperties, settleEntityless } from '../generator/css-generator.js';
 import { hasDictFormStyle, hasUnsupportedDictRoot } from '../utils/style-compat.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
 
@@ -267,7 +268,9 @@ export class CmsChildCardSection extends LitElement {
 
   private _renderBody() {
     const c = this.childConfig!;
-    const s = this._studioState;
+    // Settled for a child without an entity: what the controls show is what
+    // gets saved (see settleEntityless).
+    const s = this._studioState && settleEntityless(this._studioState, c as unknown as Record<string, unknown>);
     if (!s) return nothing;
 
     const caps = capsFor(profileKeyOf(c), c as unknown as Record<string, unknown>);
@@ -310,7 +313,7 @@ export class CmsChildCardSection extends LitElement {
     const cardType = profileKeyOf(c);
     const mods = caps.modules;
     const entity = (c.entity as string | undefined) ?? '';
-    const stateAware = isStateAware(cardType, entity, this.hass);
+    const stateAware = hasOwnEntity(c as unknown as Record<string, unknown>) && isStateAware(cardType, entity, this.hass);
     const showHeading = mods.headingStyle;
     const isEntities = caps.isEntities;
     const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();

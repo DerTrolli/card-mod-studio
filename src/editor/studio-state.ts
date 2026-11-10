@@ -23,7 +23,7 @@ import {
   DEFAULT_ICON_COLOR,
   DEFAULT_ACCENT_COLOR,
 } from '../parser/state-mapper.js';
-import { generateCss, buildThresholdJinja, FONT_WEIGHT_VALUE } from '../generator/css-generator.js';
+import { generateCss, buildThresholdJinja, settleEntityless, FONT_WEIGHT_VALUE } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
 import { generateOwnedEntries } from '../utils/owned-entries.js';
 import { capsFor } from '../utils/card-caps.js';
@@ -114,6 +114,17 @@ export function refreshPaletteDefaults(state: StudioState): StudioState {
  * either).
  */
 export function buildMergedStudioState(
+  config: CardModCardConfig,
+  hass?: HomeAssistant,
+): StudioState {
+  // A card with no entity of its own can't react to "its" state — a style
+  // saved earlier with `is_state(config.entity, …)` on one (or the Grayscale
+  // default) loads as "always", which is what the next save writes
+  // (settleEntityless; the panel never offers those options there).
+  return settleEntityless(mergedStudioState(config, hass), config as unknown as Record<string, unknown>);
+}
+
+function mergedStudioState(
   config: CardModCardConfig,
   hass?: HomeAssistant,
 ): StudioState {

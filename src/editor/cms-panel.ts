@@ -32,6 +32,7 @@ import {
 import {
   capsFor,
   isStateAware,
+  hasOwnEntity,
 } from '../utils/card-caps.js';
 import { profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
 import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles, refreshPaletteDefaults, applyStudioState, refreshCarrier } from './studio-state.js';
@@ -46,7 +47,7 @@ import { ConfigEchoGuard } from '../utils/config-echo.js';
 import { initPaletteCache, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
-import { thresholdOwnedProperties } from '../generator/css-generator.js';
+import { thresholdOwnedProperties, settleEntityless } from '../generator/css-generator.js';
 import { cmsTokens } from '../modules/module-base.js';
 
 import '../modules/module-filter.js';
@@ -374,7 +375,9 @@ export class CmsPanel extends LitElement {
   }
 
   private get _isStateAware(): boolean {
-    return isStateAware(this._profileKey, this.config?.entity as string | undefined, this.hass);
+    // No entity of its own → no state of its own to react to (whatever the type).
+    return hasOwnEntity(this.config as unknown as Record<string, unknown>)
+      && isStateAware(this._profileKey, this.config?.entity as string | undefined, this.hass);
   }
 
   // ---------------------------------------------------------------------------
@@ -961,7 +964,7 @@ export class CmsPanel extends LitElement {
                 ${this._isLocked ? nothing : this._renderPresetBar()}
                 <cms-palette-manager .hass=${this.hass}></cms-palette-manager>
                 ${this._renderUnprofiledNotice()}
-                ${this._renderModuleList(this._studioState)}
+                ${this._renderModuleList(settleEntityless(this._studioState, this.config as unknown as Record<string, unknown>))}
               `
             : html`<div class="no-config">No card selected.</div>`}
         </div>

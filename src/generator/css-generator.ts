@@ -20,7 +20,7 @@ import type {
   ColorStop,
   StyleCondition,
 } from '../types/index.js';
-import { capsFor, type CardCaps } from '../utils/card-caps.js';
+import { capsFor, hasOwnEntity, type CardCaps } from '../utils/card-caps.js';
 import {
   getCustomCardProfile,
   emitKeyOf,
@@ -211,6 +211,52 @@ function filterDecls(s: FilterModuleState, caps: CardCaps, rawCss = ''): string[
   }
 
   return decls;
+}
+
+/**
+ * What a style means on a card WITHOUT an entity of its own: every "own
+ * entity is ON / OFF" condition falls back to unconditional ("always").
+ * `config.entity` would be undefined there, `is_state()` on it fails
+ * to render, and the style engine then drops the card's WHOLE style — so
+ * generateCss() applies this as its last line of defence, and the panel and
+ * the loader apply it too so what the controls show is what gets saved.
+ * Conditions on another entity or on a value are untouched; a card that has
+ * an entity gets its state back unchanged (same object).
+ */
+export function settleEntityless(state: StudioState, config?: Record<string, unknown> | null): StudioState {
+  if (config == null || hasOwnEntity(config)) return state;
+  const own = (w?: string) => w === 'on' || w === 'off';
+  const cond = (c?: StyleCondition) => (c && own(c.when) ? undefined : c);
+  const { filter: f, background: b, border: bo, animation: a, iconColor: ic } = state;
+  return {
+    ...state,
+    filter: {
+      ...f,
+      grayscaleWhen: own(f.grayscaleWhen) ? 'always' : f.grayscaleWhen,
+      effectsWhen: cond(f.effectsWhen),
+    },
+    background: { ...b, applyWhen: own(b.applyWhen) ? 'always' : b.applyWhen },
+    border: { ...bo, widthWhen: cond(bo.widthWhen) },
+    animation: { ...a, trigger: own(a.trigger) ? 'always' : a.trigger },
+    iconColor: { ...ic, sizeWhen: cond(ic.sizeWhen) },
+  };
+}
+
+/**
+ * Icon Color / Accent in their on/off (or light) mode with no entity picked
+ * fall back to the card's own entity — which an entity-less card doesn't
+ * have. That entity can never be "on", so the colour shown is the OFF one:
+ * write exactly that, as a fixed colour. Not part of settleEntityless: the
+ * panel keeps the mode, so the user can still pick the entity to watch.
+ */
+function withoutUnwatchedEntity(state: StudioState, config?: Record<string, unknown> | null): StudioState {
+  if (config == null || hasOwnEntity(config)) return state;
+  const { iconColor: ic, accentColor: ac } = state;
+  return {
+    ...state,
+    iconColor: ic.mode !== 'plain' && !ic.entityId ? { ...ic, mode: 'plain', color: ic.colorOff } : ic,
+    accentColor: ac.mode === 'conditional' && !ac.entityId ? { ...ac, mode: 'plain', color: ac.colorOff } : ac,
+  };
 }
 
 /** The single accent value (static color or on/off Jinja ternary) every
@@ -1116,6 +1162,10 @@ function thresholdBlock(s: ThresholdModuleState | undefined, ctx: EmitCtx): stri
  */
 export function generateCss(state: StudioState, cardType?: string, opts?: GenerateCssOptions): string {
   const parts: string[] = [];
+
+  // No own entity → no `config.entity` anywhere in the output (see
+  // settleEntityless). Without `opts.config` the card is unknown: unchanged.
+  state = withoutUnwatchedEntity(settleEntityless(state, opts?.config), opts?.config);
 
   // What the card's profile says (C2.2): `emitAs` borrows a built-in card's
   // emitter choices, `emitters` replace a module's output with the profile's
