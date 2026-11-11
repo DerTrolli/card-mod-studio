@@ -4,9 +4,12 @@
 //      (the only new runtime dependency: the engine's Jinja pass rendering
 //      state_attr the same way it renders states()).
 //   2. The panel round-trips the attribute back into the Threshold module.
-//   3. The Palette Manager's stored custom palette (localStorage fallback
-//      path) feeds the panel: cms-palette-manager renders, and the default
-//      OFF-color override lands in a fresh card's Icon Color module state.
+//   3. The Palette Manager's stored custom palette feeds the panel:
+//      cms-palette-manager renders, and the default OFF-color override lands
+//      in a fresh card's Icon Color module state. The palette is read from
+//      Home Assistant's per-user storage first (the local copy is only the
+//      fallback when HA holds nothing), so the check seeds it there, and a
+//      different value in localStorage proves which source wins.
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -28,11 +31,10 @@ const run = async () => {
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   await page.addInitScript((t) => {
     localStorage.setItem('hassTokens', JSON.stringify(t));
-    // Palette Manager storage (localStorage fallback path): one custom color
-    // and an OFF-default override, present before the bundle loads.
+    // Palette Manager local copy: a decoy, only used when HA holds no palette.
     localStorage.setItem('cms-palette', JSON.stringify({
       colors: [{ id: 'c1', name: 'Brand teal', hex: '#00c8aa' }],
-      defaults: { offColor: '#123456' },
+      defaults: { offColor: '#654321' }, // decoy: HA user data must win over this
     }));
   }, tokens);
   await page.goto(`${HA}/lovelace/0`, { waitUntil: 'domcontentloaded' });
@@ -40,6 +42,18 @@ const run = async () => {
   await page.waitForFunction(() => !!customElements.get('cms-panel'), { timeout: 30000 });
   // card-mod/UIX cold-start: styles won't apply until the engine element is defined.
   await page.waitForFunction(() => !!(customElements.get('card-mod') || customElements.get('uix-node')), { timeout: 30000 });
+
+  // Seed the palette in Home Assistant's per-user storage (the primary source)
+  // before any panel exists: the panel loads it once, when it first sees hass.
+  const origPalette = await page.evaluate(async () => {
+    const conn = document.querySelector('home-assistant').hass.connection;
+    const prev = await conn.sendMessagePromise({ type: 'frontend/get_user_data', key: 'cms_palette' });
+    await conn.sendMessagePromise({
+      type: 'frontend/set_user_data', key: 'cms_palette',
+      value: { colors: [{ id: 'c1', name: 'Brand teal', hex: '#00c8aa' }], defaults: { offColor: '#123456' } },
+    });
+    return prev?.value ?? null;
+  });
 
   // Pick a demo entity with a numeric attribute the threshold can read.
   const probeEntity = await page.evaluate(() => {
@@ -57,7 +71,7 @@ const run = async () => {
   // --- 1. state_attr threshold renders: rule always true -> red icon ---
   const style =
     `ha-state-icon {\n  color: {{ '#ff0000' if state_attr('${probeEntity.id}', '${probeEntity.attr}') | float(0) >= ${probeEntity.val - 1} else '#00ff00' }} !important;\n}`;
-  const rendered = await page.evaluate(async ({ entity, style, styleKey }) => {
+  const probeIcon = () => page.evaluate(async ({ entity, style, styleKey }) => {
     await customElements.whenDefined('hui-card');
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:420px;height:200px;z-index:2147483647;background:#fff;';
@@ -85,6 +99,20 @@ const run = async () => {
     host.remove();
     return out;
   }, { entity: probeEntity.id, style, styleKey: STYLE_KEY });
+  // card-mod can leave the very first card of a page load unstyled (its element
+  // is defined before the page's styling pass has run); a reload fixes it. If
+  // the icon is still its own colour after the polling window, reload once and
+  // read again, and say so in the log line.
+  let rendered = await probeIcon();
+  if (!rendered?.hit) {
+    const first = rendered;
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await waitForHassReady(page);
+    await page.waitForFunction(() => !!customElements.get('cms-panel'), { timeout: 30000 });
+    await page.waitForFunction(() => !!(customElements.get('card-mod') || customElements.get('uix-node')), { timeout: 30000 });
+    rendered = await probeIcon();
+    if (rendered) rendered.reloadedAfter = first;
+  }
   record('state_attr() threshold actually recolors the icon (engine renders the Jinja)', !!rendered?.hit, JSON.stringify(rendered));
 
   // --- 2. Panel round-trips the attribute into the Threshold module ---
@@ -140,7 +168,7 @@ const run = async () => {
     return {
       managerRendered: !!manager,
       colorOff: iconColor?.colorOff,
-      hit: !!manager && iconColor?.colorOff === '#123456',
+      hit: !!manager && iconColor?.colorOff === '#123456', // HA value, not the local '#654321'
     };
   });
   record(
@@ -148,6 +176,13 @@ const run = async () => {
     !!palette?.hit,
     JSON.stringify(palette),
   );
+
+  // Put the user's palette back the way it was before the check seeded it.
+  await page.evaluate(async (prev) => {
+    await document.querySelector('home-assistant').hass.connection.sendMessagePromise({
+      type: 'frontend/set_user_data', key: 'cms_palette', value: prev,
+    });
+  }, origPalette);
 
   await page.screenshot({ path: resolve(SHOTS, 'attr-palette-01.png') });
   await browser.close();
