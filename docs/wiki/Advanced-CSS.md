@@ -62,10 +62,11 @@ would write it back without `!important`. (Earlier versions took it over and
 dropped the flag on the next save.) The rest of the rule is still read into
 the modules. To let the module drive that property, remove the `!important`.
 `! important` and `!IMPORTANT` are read as the same flag and saved as
-` !important`. The exceptions are the declarations the Studio itself writes
-with `!important` (icon colour, the tile card's filter transition and tile
-colour, Background and Border on a text-only markdown card, most Mushroom and
-Bubble Card declarations): those are read into their modules as before.
+` !important`. Declarations the Studio itself writes with `!important` are
+read into their modules as before, for example the icon colour, the tile
+card's filter transition and tile colour, the gauge colour, Background and
+Border on a text-only markdown card, and most Mushroom and Bubble Card
+declarations.
 
 A hand-written declaration that a rule of the Studio overrides with
 `!important` (for example your own `.name { font-size: 20px; }` on a sensor
