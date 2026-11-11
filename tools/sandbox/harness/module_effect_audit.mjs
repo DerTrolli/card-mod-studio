@@ -63,7 +63,8 @@
 // pixels cannot decide) instead of DEAD. A static card is still judged by pixels alone.
 // FONT WEIGHT: the test value is chosen against the card's own text weight (read from the unstyled preview, recorded as
 // `nativeWeight` per row): Normal when the text is natively 550 or heavier (Mushroom chips are 700, Bubble's separator
-// name 600 - "Bold" would change no pixel there), otherwise Bold. A card where neither end changes a pixel is still DEAD.
+// name 600 - "Bold" would change no pixel there), otherwise Bold; when that value shows nothing the other end is tried too
+// (a calendar or a markdown card mixes bold and regular text). A card where neither end changes a pixel is still DEAD.
 // AUDIT_BUNDLE=/path/card-mod-studio.js   audit that build instead of the one the rig serves (a local `vite build` output).
 // AUDIT_TAG=name   adds -name to the output file names (keeps the committed result files untouched).
 import { chromium } from 'playwright';
@@ -454,6 +455,8 @@ const run = async () => {
         return w;
       });
       const testWeight = nativeWeight >= 550 ? 'normal' : 'bold';
+      // (a card can mix weights - a calendar's bold title over regular day numbers, markdown headings over body text -
+      // so the other value is tried as well when the first shows nothing: see `alt` below)
       row.nativeWeight = nativeWeight;
       const cases = [
         ...Object.entries(MODULES).map(([mod, f]) => ({
@@ -472,36 +475,47 @@ const run = async () => {
         { mod: 'cms-font-module', label: 'font:size', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontSize: 26 } }, shown: row.shown.includes('cms-font-module') && fontSizeShown },
         // …and weight and family each on their own: a row can be dead on one card while the others work
         // (area: only the family reaches its text; alert: family only), which the combined `font` case hides.
-        { mod: 'cms-font-module', label: 'font:weight', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontWeight: testWeight } }, shown: row.shown.includes('cms-font-module') && fontWeightShown },
+        { mod: 'cms-font-module', label: 'font:weight', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontWeight: testWeight } }, alt: { font: { ...initial.font, enabled: true, fontWeight: testWeight === 'bold' ? 'normal' : 'bold' } }, shown: row.shown.includes('cms-font-module') && fontWeightShown },
         { mod: 'cms-font-module', label: 'font:family', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontFamily: 'monospace' } }, shown: row.shown.includes('cms-font-module') },
       ];
       for (const c of cases) {
         if (_onlyLabels && !_onlyLabels.includes(c.label)) continue;
-        let res = null;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          let cBase = base;
-          // the unstyled card right now: the reference for this attempt and, compared with the one taken after the
-          // reset, its noise floor
-          const u1 = await shot();
-          await setPxBase(u1);
-          if (c.pre) {
-            await page.evaluate((s) => window.__audit.apply(s), c.pre);
-            await page.waitForTimeout(2500);
-            cBase = await page.evaluate(() => window.__audit.snap());
-            await setPxBase();
+        // one slice, up to three attempts (a test during which the unstyled card moved on its own is repeated)
+        const runSlice = async (slice) => {
+          let out = null;
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            let cBase = base;
+            // the unstyled card right now: the reference for this attempt and, compared with the one taken after the
+            // reset, its noise floor
+            const u1 = await shot();
+            await setPxBase(u1);
+            if (c.pre) {
+              await page.evaluate((s) => window.__audit.apply(s), c.pre);
+              await page.waitForTimeout(2500);
+              cBase = await page.evaluate(() => window.__audit.snap());
+              await setPxBase();
+            }
+            await page.evaluate((s) => window.__audit.apply(s), slice);
+            const changed = await measure(cBase);
+            const detail = lastDetail;
+            const px = await measurePx();
+            const style = await page.evaluate((k) => { const e = window.__audit.emitted(); const s = e?.[k]?.style; return typeof s === 'string' ? s : JSON.stringify(s ?? ''); }, process.env.STYLE_KEY === 'uix' ? 'uix' : 'card_mod');
+            // reset to the untouched state, and wait for the preview to settle back
+            await page.evaluate((s) => window.__audit.apply(s), initial);
+            for (let i = 0; i < 10; i++) { await page.waitForTimeout(250); if (diff(base, await page.evaluate(() => window.__audit.snap())) === 0) break; }
+            await page.waitForTimeout(400);
+            const floor = (await pxd(u1, await shot())).n;
+            out = { changed, px, style, floor, detail, attempts: attempt };
+            if (floor <= PX_MIN) break; // the unstyled card stayed put during this test
           }
-          await page.evaluate((s) => window.__audit.apply(s), c.slice);
-          const changed = await measure(cBase);
-          const detail = lastDetail;
-          const px = await measurePx();
-          const style = await page.evaluate((k) => { const e = window.__audit.emitted(); const s = e?.[k]?.style; return typeof s === 'string' ? s : JSON.stringify(s ?? ''); }, process.env.STYLE_KEY === 'uix' ? 'uix' : 'card_mod');
-          // reset to the untouched state, and wait for the preview to settle back
-          await page.evaluate((s) => window.__audit.apply(s), initial);
-          for (let i = 0; i < 10; i++) { await page.waitForTimeout(250); if (diff(base, await page.evaluate(() => window.__audit.snap())) === 0) break; }
-          await page.waitForTimeout(400);
-          const floor = (await pxd(u1, await shot())).n;
-          res = { changed, px, style, floor, detail, attempts: attempt };
-          if (floor <= PX_MIN) break; // the unstyled card stayed put during this test
+          return out;
+        };
+        let res = await runSlice(c.slice);
+        // a control with a second test value (Font weight on a card that mixes bold and regular text) counts as
+        // working when either value shows; it is dead only when neither does
+        if (c.alt && !(res.px > PX_MIN + 2 * res.floor)) {
+          const second = await runSlice(c.alt);
+          if (second.px > PX_MIN + 2 * second.floor || second.changed > res.changed) res = second;
         }
         const visible = res.px > PX_MIN + 2 * res.floor;
         // shown, nothing clearly above a persistently noisy card's floor, but a computed style did change: pixels cannot decide
