@@ -23,6 +23,18 @@ loaded and saved untouched, comparing what the browser would apply before
 and after. The checks are in `tools/continuity/` and can be re-run before
 every release.
 
+Verified on this build in the real card editor on Home Assistant 2026.11.0
+with card-mod 4.2.1 and with UIX 9.0.0: a new check that opens cards carrying
+each of the styles below, makes an unrelated change, saves and reads the
+stored config passes 6 of 6 on both (on the beta.3 build it fails 5 of 6);
+the automated check suite passes 21 of 21 (card-mod) and 19 of 19 (UIX); the
+functional check of every control passes 489 of 489 (card-mod) and 490 of
+491 (UIX: one step read Home Assistant's preset storage before the write had
+arrived; that section passed four repeat runs and the step now waits). Not
+repeated for this build, because only the reading of styles changed: the
+module-effect audit, the visual checks and screenshots, and the runs on Home
+Assistant 2025.9.4 and 2026.2.3. Unit tests: 3,178.
+
 ### Fixed
 
 - **Font with only a family, weight or colour, next to Threshold Colors.**

@@ -56,8 +56,14 @@ last section; the checks: [`tools/continuity/`](../tools/continuity/README.md)).
   over; 30,000 random hand-written styles never fail and settle within two
   saves; no Studio memory growth with UIX 9.0.0 (card-mod 4.2.1 on HA 2026.11
   keeps every opened card editor in memory, with or without the Studio).
-- **Not yet done for beta.4:** the browser suites on the four rigs were last
-  run on the beta.3 build.
+- **Browser checks on the beta.4 build** (HA 2026.11.0 with card-mod 4.2.1
+  and with UIX 9.0.0): the new real-editor read-back check
+  (`tools/sandbox/harness/beta4_readback_check.mjs`) 6/6 on both (1/6 on the
+  beta.3 build); check suite 21/21 and 19/19; functional check of every
+  control 489/489 and 490/491 (one preset-storage step read too early; the
+  step now waits). Not repeated: module-effect audit, visual checks and
+  screenshots, the HA 2025.9.4 and 2026.2.3 rigs (only the reading of styles
+  changed).
 
 ## Pre-release (v0.11.0-beta.3)
 

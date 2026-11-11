@@ -219,7 +219,14 @@ async function presetsSection(T) {
   T.check('typing a name + Enter adds the preset to the dropdown', (await presetSel.locator(`option[value="${NAME}"]`).count()) === 1);
   T.check('no native browser dialog was used', !T.dialogs.some((d) => d.type === 'prompt'), JSON.stringify(T.dialogs.slice(-2)));
   T.check('the new preset is selected, with a delete (×) button', (await presetSel.evaluate((s) => s.value)) === NAME && (await panelLoc(T).locator('.btn-preset-delete').count()) === 1);
-  let stored = await T.ws.call({ type: 'frontend/get_user_data', key: 'cms_presets' });
+  // The write to HA is asynchronous: read until it has landed (it failed 1 run
+  // in 4 on a loaded machine when read once, straight after the Enter).
+  let stored;
+  for (let i = 0; i < 20; i++) {
+    stored = await T.ws.call({ type: 'frontend/get_user_data', key: 'cms_presets' });
+    if ((stored?.value || []).some((p) => p.name === NAME)) break;
+    await T.page.waitForTimeout(250);
+  }
   T.check('preset synced to HA per-user storage', (stored?.value || []).some((p) => p.name === NAME));
   await cancelDialog(T);
 
