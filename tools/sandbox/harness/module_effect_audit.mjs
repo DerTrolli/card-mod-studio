@@ -57,6 +57,9 @@
 // Background control that is dead in BOTH rows (as measured: red pixels on the card face in off, unavailable, idle, paused
 // and playing) is correctly hidden by the panel. The report (.md) carries the same note under the table.
 // AUDIT_CARDS=media-control,media-control (off)   runs only those two rows (any card types, comma separated).
+// FONT WEIGHT: the test value is chosen against the card's own text weight (read from the unstyled preview, recorded as
+// `nativeWeight` per row): Normal when the text is natively 550 or heavier (Mushroom chips are 700, Bubble's separator
+// name 600 - "Bold" would change no pixel there), otherwise Bold. A card where neither end changes a pixel is still DEAD.
 // AUDIT_BUNDLE=/path/card-mod-studio.js   audit that build instead of the one the rig serves (a local `vite build` output).
 // AUDIT_TAG=name   adds -name to the output file names (keeps the committed result files untouched).
 import { chromium } from 'playwright';
@@ -425,6 +428,23 @@ const run = async () => {
       const iconColorShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-icon-color-module')?.allowColor !== false);
       const iconSizeShown = await page.evaluate(() => window.__audit.panel.shadowRoot.querySelector('cms-icon-color-module')?.allowSize === true);
       const initial = await page.evaluate(() => window.__audit.state());
+      // Weight's test value must differ from what the card's text already has: Mushroom chips (700) and Bubble's
+      // separator name (600) are bold by default, so "bold" changes nothing there. Read the native weight of the
+      // unstyled card's text (style/script elements excluded) and test the opposite end of the control's options:
+      // Normal on a card whose text is native 550 or heavier, else Bold.
+      const nativeWeight = await page.evaluate(() => {
+        let w = 0;
+        const walk = (n) => {
+          if (n.nodeType === 1 && !/^(style|script)$/i.test(n.tagName)) {
+            if ([...n.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim())) w = Math.max(w, parseInt(getComputedStyle(n).fontWeight, 10) || 0);
+          }
+          [...(n.shadowRoot ? n.shadowRoot.children : []), ...(n.children || [])].forEach(walk);
+        };
+        const p = window.__audit.preview(); if (p) walk(p);
+        return w;
+      });
+      const testWeight = nativeWeight >= 550 ? 'normal' : 'bold';
+      row.nativeWeight = nativeWeight;
       const cases = [
         ...Object.entries(MODULES).map(([mod, f]) => ({
           mod, label: mod.replace(/^cms-|-module$/g, ''), slice: f(initial),
@@ -442,7 +462,7 @@ const run = async () => {
         { mod: 'cms-font-module', label: 'font:size', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontSize: 26 } }, shown: row.shown.includes('cms-font-module') && fontSizeShown },
         // …and weight and family each on their own: a row can be dead on one card while the others work
         // (area: only the family reaches its text; alert: family only), which the combined `font` case hides.
-        { mod: 'cms-font-module', label: 'font:weight', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontWeight: 'bold' } }, shown: row.shown.includes('cms-font-module') && fontWeightShown },
+        { mod: 'cms-font-module', label: 'font:weight', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontWeight: testWeight } }, shown: row.shown.includes('cms-font-module') && fontWeightShown },
         { mod: 'cms-font-module', label: 'font:family', pre: { font: { ...initial.font, enabled: true } }, slice: { font: { ...initial.font, enabled: true, fontFamily: 'monospace' } }, shown: row.shown.includes('cms-font-module') },
       ];
       for (const c of cases) {
