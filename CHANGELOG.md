@@ -12,7 +12,8 @@ back when you open a card. Two of them concern styles the Studio wrote
 itself (a module came back switched off, with its CSS under Advanced CSS);
 five concern CSS you wrote by hand, which could change when the card was
 saved. Only the first one is new in beta.3; the others are older (see each
-entry). Nothing changes for a style that already loaded correctly.
+entry). Styles the Studio wrote itself and read back correctly before are
+read exactly as before.
 
 They were found by three checks that do not go through the browser: styles
 written by each released version's own generator (v0.8.1 to v0.11.0-beta.3,
@@ -46,9 +47,12 @@ every release.
   into the modules. This applies to Background, Border & Radius, Visual
   Filters, Accent Color, Animation and Font on the built-in cards (the
   Mushroom and Bubble Card profiles already did this), and to the icon colour,
-  text colour, size and weight of an entities-card row. If you then set the
-  same property with a control, the module (or the row) shows the existing
-  warning that your own CSS overrides it.
+  text colour, size and weight of an entities-card row. A card that still
+  has such a declaration now opens with that module switched off and the
+  declaration under Advanced CSS; remove the `!important` there if you want
+  the module to take it over. If you set the same property with a control
+  instead, the module (or the row) shows the existing warning that your own
+  CSS overrides it.
 - **Heading Style no longer takes over rules on other cards.** A rule on
   `.title p`, `.container` or `.content ha-icon` was read as Heading Style on
   any card type and rewritten into the heading card's variables, where it had
