@@ -389,10 +389,11 @@ export const moduleStyles = [
   .value-label:has(+ .reset-btn) {
     white-space: nowrap;
   }
+  /* Italic alone marks "not set": dimming the 11px label as well dropped it
+     below 4.5:1 against the panel in both themes. */
   .value-label.unset {
     min-width: 80px;
     font-style: italic;
-    opacity: 0.8;
   }
   .value-label:has(+ .reset-btn) {
     min-width: 48px;
