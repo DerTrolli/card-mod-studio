@@ -20,9 +20,13 @@ for v in ${VERS//,/ }; do
     rm -rf "$dir"; mkdir -p "$dir"
     git archive "$v" src | tar -x -C "$dir"
     ln -s "$ROOT/node_modules" "$dir/node_modules"
-    cp "$HERE/gen-corpus.ts" "$HERE/gen-rows.ts" "$dir/"
+    cp "$HERE/gen-corpus.ts" "$HERE/gen-rows.ts" "$HERE/gen-configs.ts" "$dir/"
     # each release's own generator writes the styles
     (cd "$dir" && npx vite-node gen-corpus.ts | sed "s/^/$v: /" && npx vite-node gen-rows.ts | sed "s/^/$v: /")
+    # whole card configs need the save path of v0.10.2 or later
+    if grep -q "export function applyStudioState" "$dir/src/editor/studio-state.ts" 2>/dev/null; then
+      (cd "$dir" && npx vite-node gen-configs.ts | tail -1 | sed "s/^/$v: /") || rm -f "$dir/configs.json"
+    fi
   fi
 done
 
@@ -30,6 +34,10 @@ echo; echo "### cards: old styles -> working tree"
 npx vite-node "$HERE/check-corpus.ts"
 echo; echo "### entities rows"
 npx vite-node "$HERE/check-rows.ts" | tail -3
+echo; echo "### whole card configs (dictionary styles, Number size)"
+CFG_VERS=""
+for v in ${VERS//,/ }; do [ -f "$WORK/$v/configs.json" ] && CFG_VERS="${CFG_VERS:+$CFG_VERS,}$v"; done
+[ -n "$CFG_VERS" ] && VERS="$CFG_VERS" npx vite-node "$HERE/check-configs.ts"
 echo; echo "### saved presets (state objects)"
 npx vite-node "$HERE/check-presets.ts" | head -3
 echo; echo "### random setting combinations, written and read by the working tree"
