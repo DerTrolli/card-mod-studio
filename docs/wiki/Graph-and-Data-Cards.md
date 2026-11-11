@@ -25,5 +25,8 @@ and the `energy-*` cards.
   charting internals per entity — that's theme/HA territory, not reliably
   reachable via card styles. Card-box styling (background, border, font,
   title) is the supported surface.
+- With UIX, the history-graph line may keep its old colour after an Accent
+  is set until the chart next redraws; with card-mod it changes at once.
+  <!-- observed on a rig whose sensor data does not change; not yet confirmed on live data -->
 - Deep `energy-*` SVG styling is explicitly out of scope —
   [Advanced CSS](Advanced-CSS) if you must.

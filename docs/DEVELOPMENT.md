@@ -461,6 +461,16 @@ Found while re-verifying against HA 2026.9.4 and 2026.10.0b0 with card-mod
   opaque PNG served from the rig's `www/` (copied from `harness/fixtures`
   when missing) instead of a transparent favicon, so their Background no
   longer reads as an artefact. `AUDIT_TAG=name` keeps result files apart.
+- **Audit and tooling updates for beta.3.** `module_effect_audit.mjs` tests
+  Font weight with a value that differs from the card's own text weight
+  (Normal for text that is natively 550 or heavier, otherwise Bold), treats a
+  changed custom property on a noisy canvas card (history-graph) as
+  inconclusive rather than dead, has a `media-control (off)` row, and takes
+  `AUDIT_CARDS=a,b` and `AUDIT_BUNDLE=/path/card-mod-studio.js` (audit a local
+  build). `readme_shots.mjs` seeds its demo palette in the Home Assistant user
+  profile and restores it. The functional check, the suite checks and the click
+  driver were updated for the beta.3 behaviour. Slider facts per Home
+  Assistant version: `docs/COMPATIBILITY_AUDIT.md`.
 - **`gradient_mode_check.mjs`** picks the select that offers `gradient` (and a
   sensor without numeric attributes): on HA 2025.9.4 it used to take the
   "Value read from" select first and scored 1/8; it scores 8/8.

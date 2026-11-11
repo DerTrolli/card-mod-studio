@@ -463,6 +463,17 @@ for the Material `ha-slider` and the vaadin entity-picker overlay; HA
 frontend errors unrelated to the Studio (`recovery_mode` of null) were
 ignored. `hacs.json` minimum set to **2025.9.0**.
 
+**Slider facts per version (v0.11.0-beta.3).** The Studio's slider rows
+depend on how each Home Assistant version builds its slider. 2026.11: the
+slider has `label` and `slider` parts, and the slider part has its own 14 px
+padding and a negative margin that hiding the label would otherwise lose.
+2026.2.3: the same parts but no padding. 2025.9.4: the older slider, with an
+inner range input and no parts (it names that input from its `ariaLabel`
+property, and falls back to the current value, which is why the Studio sets the
+label there). The Studio therefore measures the padding at run time and
+publishes it as `--cms-slider-pad` instead of assuming it (`f595e35`,
+`ababd18`).
+
 **Correction (2026-11-10):** the README's 2025.9 row used to list a second gap,
 "the gauge Accent colour doesn't recolour the arc on 2025.9.4". Measured again
 on HA 2025.9.4 with card-mod 3.4.5 and a v0.11 build, it does: the Studio's

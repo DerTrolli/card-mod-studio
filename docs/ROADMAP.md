@@ -38,8 +38,7 @@ review of every card type with real pointer, keyboard and touch input
 (working log: [`docs/research/2026-11-v0.11.0-release-qa.md`](research/2026-11-v0.11.0-release-qa.md);
 design of the "untouched controls write nothing" work:
 [`docs/research/2026-11-unset-controls-design.md`](research/2026-11-unset-controls-design.md)).
-The final verification of this version on the Home Assistant versions in the
-compatibility table has not been run yet. <!-- QA-PENDING: beta.3 verification result -->
+Real-input verification of this version has been run on four rigs (HA 2026.11 with card-mod 4.2.1 and with UIX 9.0.0; 2026.2.3 with card-mod 4.2.1; 2025.9.4 with card-mod 3.4.5), the automated suites pass on the final build (card-mod rig 21/21, UIX rig 19/19; functional UI check 489/489 and 491/491), and the visual check across light/dark and six screen sizes found no clipping, no small touch targets and no low-contrast text. The audit numbers are still to be entered. <!-- QA-PENDING: beta.3 verification result -->
 
 - **Styles that were written differently before:** Heading Style, Font and
   Icon Color write only what you set (Icon Color gains "Keep the card's
@@ -136,7 +135,7 @@ build yet. <!-- QA-PENDING: beta.3 verification result --> As for v0.10 final:
 | Gauge Number size at 150 % may touch the arc with 3-digit values | Font → Number size | **Fixed:** range 50–130 %, 100 % = Home Assistant's size, measured clear of the arc |
 | Built-in HIDDEN-BUT-WORKS audit entries (49 card-mod / 48 UIX) are untriaged | `module_effect_audit` output | **Triaged:** Animation un-hidden on 19 types (presets left out per card), entities card-level Threshold, statistic Icon Color; heading Animation, entities Accent, heading Font and the picture/iframe/map Background stay hidden; 13 entries were audit artefacts (fixed by the opaque fixture and noise floor) |
 | Accent on shopping-list and energy-* cards not gated and unmeasured; Bubble climate card only DOM-dumped | card gating / Bubble | Open; the energy cards can't be exercised on the test rig (no `energy:` configuration) |
-| Media control: while something with artwork is playing, Background and its Threshold target changed no pixels (the artwork covers the card) | media-control | To be confirmed by QA with a paused or idle player; worded carefully in the Media wiki page |
+| Media control: Background and its Threshold target changed no pixels | media-control | **Fixed:** measured in every player state (the card's own colour block covers the face); Background, Threshold's Background target and Gradient Shift are no longer offered there |
 | Intermittent, UIX: the first style saved on a freshly seeded card was not applied until a reload (3 of ~16 runs, only under heavy machine load) | engine timing | Open, not reproduced otherwise |
 | The live preview is the last block on a phone, so the effect can't be seen while editing | panel layout | Open (idea: a sticky mini preview) |
 | A hand-written `else 'none'` in a Background/Border is read as the Studio's own and saved as the card's own look | parser | Accepted, noted in the CHANGELOG |

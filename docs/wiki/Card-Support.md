@@ -36,7 +36,7 @@ Exceptions and specials:
 | glance | Icon Color hidden: the icon lives in a nested shadow root, colored inline from state — no reachable selector (measured) |
 | gauge / thermostat / humidifier / weather / graphs | Icon Color hidden (no `ha-state-icon` to color); Accent works on the meaningful target where there is one (gauge dial, thermostat slider, history-graph lines, statistic card) and is hidden on humidifier, weather and statistics-graph (see below) |
 | statistic | Icon Color (colour and a size of 12–64px) works on its one icon, as well as Accent (v0.11.0-beta.3) |
-| Animation | Offered on every built-in card except heading, the energy cards, activity, webpage and shopping-list. Presets that cannot work are left out per card: **Spin** on thermostat, humidifier, light and map; **Gradient Shift** wherever Background is hidden (picture, picture-entity, picture-glance, picture-elements, iframe, map) and on Bubble Card and the Mushroom title card (v0.11.0-beta.3) |
+| Animation | Offered on every built-in card except heading, the energy cards, activity, webpage and shopping-list. Presets that cannot work are left out per card: **Spin** on thermostat, humidifier, light and map; **Gradient Shift** wherever Background is hidden (picture, picture-entity, picture-glance, picture-elements, iframe, map, media-control) and on Bubble Card and the Mushroom title card (v0.11.0-beta.3) |
 | Icon size limit | The Icon size slider stops where the card still fits the icon: tile 36px, picture-glance 40px, Mushroom 56px, Bubble Card 50px (56px in the large layout; separator 40/33px), everything else 64px |
 | Accent Color | Hidden wherever nothing on the card reads the accent colour: button, light, glance, markdown, humidifier, alarm-panel, area, picture cards, map, iframe, todo-list, logbook, statistics-graph, weather-forecast, date and alert (the last two new in HA 2026.11) |
 | Font text color | Hidden where the card colours its own text (media-control, area, picture-entity, picture-glance, picture-elements, date, alert) — size/weight/family still offered. On chart cards it colours the title (graph labels are drawn by the chart). On alarm-panel the title takes it, but Threshold's Text Color target is hidden there |
@@ -51,6 +51,7 @@ Exceptions and specials:
 | Bubble Card (3.x, measured on 3.4.3, beta — [guide](Bubble-Card)) | button (incl. slider button), separator, cover: Font → name/state, icon colour and size, Background and Border on the card's visible box. Threshold is hidden, and so is Accent except on slider buttons, where Accent colours the slider fill. Icon Color/Icon size are hidden with `show_icon: false`, Font when neither name nor state line is shown. The card's own `styles:` is preserved untouched. Other Bubble card types keep all modules for now |
 | light | Icon Color gains "Match the light's color" mode |
 | alarm-panel / media-control | Icon Color available (verified working) |
+| media-control | **Background is hidden** (and Threshold's Background target and Gradient Shift): the card paints its own colour block over its whole face in every player state; Border & Radius work. A stored Background is kept |
 | iframe / webpage / map | Only border/radius/filter apply (cross-origin / map-library content) |
 
 ## Known limitations (v0.11)

@@ -37,8 +37,9 @@ the value number's size can be changed too.
 
 - **Number size** (Font module, v0.11) scales the box HA fits the value
   into — 50–130 % of HA's own size. 100 % is exactly what Home Assistant
-  draws, and wide values such as "123 °C" stop growing a little earlier
-  (about 112 %) so the number never touches the arc. It has its own switch in
+  draws, and a wide value (many characters, such as "123 °C") stops
+  growing at about 112 % because the width limit is reached first, so 130 %
+  only shows fully on short values; the number never touches the arc. It has its own switch in
   the Font module and is written, as a shadow-piercing (`$`) dictionary
   entry the Studio keeps editable, only while the Font module is on:
   switching Number size on switches Font on, and a card that already has the

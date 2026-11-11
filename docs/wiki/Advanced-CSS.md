@@ -54,6 +54,13 @@ says so in a note. `{{ … }}` values and statements inside a rule don't
 trigger it. A style that calls a UIX macro or billet keeps the part that
 calls it here as well, and the panel notes that too.
 
+A hand-written declaration that a rule of the Studio overrides with
+`!important` (for example your own `.name { font-size: 20px; }` on a sensor
+card while the Font module sets a size) is kept: it stays here and is written
+back on every save. If you write the same property twice for the same
+selector yourself, once with `!important` and once without, only the
+`!important` one is kept.
+
 A template value that itself contains `}}` inside quotes (for example
 `{{ 'a}}b' if … }}`) is read correctly when the card is reopened.
 

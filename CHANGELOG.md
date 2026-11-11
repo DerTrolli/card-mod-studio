@@ -47,7 +47,7 @@ look or save differently now.
   that cannot work are left out per card: Spin on the dial cards (thermostat,
   humidifier, light) and the map, where it makes the handle or the map drift
   away from your finger or pointer, and Gradient Shift wherever there is no
-  card background to shift (the picture cards, iframe, map, Bubble Card and
+  card background to shift (the picture cards, iframe, map, media control, Bubble Card and
   the Mushroom title card). Loading a preset no longer brings back a preset
   the card cannot use. Animation stays hidden on heading, the energy cards,
   activity, webpage and shopping list.
@@ -77,7 +77,18 @@ look or save differently now.
   preview announces itself as not interactive and can no longer be reached
   with Tab. On touch screens, buttons, selection lists, fields and switches
   are at least 40px tall, and a vertical swipe that starts on a slider
-  scrolls the panel instead of moving the slider.
+  scrolls the panel instead of moving the slider. On Home Assistant 2025.9
+  each slider is announced by its label rather than by its value. The compact
+  colour popover takes keyboard focus when it opens (on the selected swatch,
+  else the first), Tab and Shift+Tab move through its own controls, and
+  tabbing out of either end closes it and returns focus to the swatch that
+  opened it (a typed hex value is committed first); Escape, picking a swatch
+  or committing a value also return focus there, while clicking elsewhere
+  closes it without moving focus. Screen readers get it as a dialog named
+  "<label>: Color picker". After Escape, Cancel or a save in the preset name
+  field, focus returns to "Save preset", and the Save / Overwrite buttons are
+  announced without their emoji. On touch screens "+ Add Rule" and
+  "+ Add Point" are 40px high.
 - **Click-to-edit covers more of the built-in cards.** Pointing at the text of
   the date, statistic, area, media control and picture cards now names the
   right control, a block of several text lines is hit per line, the
@@ -210,6 +221,15 @@ look or save differently now.
   explicit "Overwrite" when its name already exists, and a new preset name is
   limited to 60 characters. The preset bar is not shown on a card that renders
   nothing.
+- **Media control: Background is no longer offered.** The card paints its
+  own colour block (the theme's primary colour, or the artwork; greyed while
+  off) over its whole face in every player state (playing with and without
+  artwork, paused, idle, off, unavailable), so a card background only ever
+  showed as a hairline rim. Threshold Colors' "Background" target and the
+  Animation preset "Gradient Shift" are not offered there either, and
+  clicking a blank part of the card in the preview now leads to Border. A
+  Background already stored in a card's style is kept and written back
+  unchanged. Border and Radius work in every state.
 - **Markdown card with `text_only` (what a sections view's "Add title"
   creates):** Background, Border and Threshold's background and border colour
   now show; Home Assistant's own text-only rule used to override them.
@@ -217,7 +237,10 @@ look or save differently now.
   style really calls one, and says that the part that calls it stays in
   Advanced CSS.
 - Dev: the click driver's section listing no longer counts a module header
-  twice; the release workflow now refuses a tag that does not match
+  twice; the module-effect audit tests Font weight with a value that differs from the
+  card's own, counts a changed custom property on a noisy canvas card as
+  inconclusive, and gained a `media-control (off)` row and `AUDIT_CARDS` /
+  `AUDIT_BUNDLE` options; the README screenshots were regenerated; the release workflow now refuses a tag that does not match
   `package.json`'s version and publishes `-beta` tags as pre-releases (the
   first v0.11.0-beta.2 release was created on the wrong branch); the test rig
   loads card-mod through `frontend: extra_module_url`; a real-input click
@@ -252,6 +275,18 @@ look or save differently now.
   (`url(x.png) center / cover no-repeat`), a `background-size` beside them,
   `!important`, a data URI, or a markdown card stay under Advanced CSS,
   unchanged.
+- **A hand-written declaration that a Studio rule overrides with
+  `!important` is kept.** For example your own `.name { font-size: 20px; }` on
+  a sensor card while the Font module sets a size: it stays under Advanced CSS
+  and is written back on every save. Before, it survived the first save and was
+  dropped on the next.
+- **Cards Home Assistant can only show in its code editor** (their config has
+  an error: an unknown custom card type, an entities or glance card without
+  entities, a stack without cards): the Style button now opens the Studio
+  there too; before, the panel closed itself again a moment later. Switching to
+  "Show code editor" yourself still closes the Studio.
+- **The italic "Default (14px)" label** next to an unset slider is no longer
+  dimmed (it was slightly under the contrast guideline).
 - **Font no longer takes over a plain hand-written rule.** A rule without
   `!important`, such as `.name { font-size: 20px; }` on a sensor card, is no
   longer adopted by the Font module and rewritten with `!important`.
@@ -271,8 +306,11 @@ look or save differently now.
   — the blank beside them names the card's Background.
 - **The preset name field** no longer closes the dialog on Escape while an
   input method is composing, and no longer saves a half-typed name on Enter.
-- **Palette:** a colour added while both the browser's storage and Home
-  Assistant are unavailable stays visible until it can be saved.
+- **Palette and presets:** when both the browser's storage and Home
+  Assistant are unavailable, the lists keep showing what the page already knew
+  plus the change (the palette manager used to show only the colour just
+  changed). Nothing was lost in Home Assistant; it was a display problem. A
+  colour added in that state stays visible until it can be saved.
 - **Threshold hints** ("Threshold Colors is setting the …") no longer show
   on custom cards where Threshold Colors is not offered.
 - **Old presets:** text values in threshold rules load only when they are

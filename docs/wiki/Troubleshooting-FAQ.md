@@ -43,6 +43,12 @@ or on a Studio control now stays in the Studio (the typed value is kept).
 Update and hard-refresh the browser. Newer Home Assistant versions never did
 this.
 
+## The browser console shows "themesReady: Timeout waiting for themes to become ready"
+
+card-mod 4.2.1 on Home Assistant 2026.11 logs this about 30 seconds after a
+page load in light mode. It comes from card-mod, not from Card-Mod Studio, and
+card styles still apply.
+
 ## I can't find HACS on HA 2026.11
 
 HA 2026.11 folds HACS into core as the **Marketplace**, so there is no

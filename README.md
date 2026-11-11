@@ -128,7 +128,7 @@ Add a looping CSS animation to the card. Available presets:
 | Glow | Pulsing glow around the card |
 | Heartbeat | Double-beat scale, like a heartbeat |
 
-Animation is offered on nearly every built-in card. A preset that cannot work on a card is left out of its list: Spin on the thermostat, humidifier, light and map (it makes the handle or the map drift away from the pointer), Gradient Shift where there is no card background to shift (picture cards, iframe, map, Bubble Card, the Mushroom title card). The **Duration** slider is seconds per cycle — lower is faster.
+Animation is offered on nearly every built-in card. A preset that cannot work on a card is left out of its list: Spin on the thermostat, humidifier, light and map (it makes the handle or the map drift away from the pointer), Gradient Shift where there is no card background to shift (picture cards, iframe, map, media control, Bubble Card, the Mushroom title card). The **Duration** slider is seconds per cycle — lower is faster.
 
 Each animation can run **always**, only while the entity is **on**/**off**, while **another entity** is on — or only **while a value matches** (entity or numeric attribute + operator + threshold): *pulse while the freezer is above -10°, glow while `battery_level` < 15*.
 

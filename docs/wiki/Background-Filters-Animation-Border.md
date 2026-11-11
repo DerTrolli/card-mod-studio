@@ -3,6 +3,8 @@ shared **"Apply when"** control where noted.
 
 ## Background
 
+Background isn't offered on the picture cards, iframe, webpage, map, heading and media control: they either show an image or paint their own face over the card (media control since v0.11.0-beta.3, in every player state).
+
 <img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/04%20Background%20Color.png" alt="Background" width="618">
 
 - **Solid color** or **gradient** (two colors + angle slider). The solid
@@ -57,7 +59,7 @@ A looping animation on the card:
 |---|---|
 | Pulse | Gentle rhythmic scale |
 | Breathe | Soft opacity fade |
-| Gradient-shift | Slowly shifts a gradient background (needs the Background module in gradient mode; left out where the card has no background to shift — picture cards, iframe, map, Bubble Card, the Mushroom title card) |
+| Gradient-shift | Slowly shifts a gradient background (needs the Background module in gradient mode; left out where the card has no background to shift — picture cards, iframe, map, media control, Bubble Card, the Mushroom title card) |
 | Blink | Abrupt alert flash |
 | Bounce | Periodic vertical bounce |
 | Shake | Quick horizontal shake |

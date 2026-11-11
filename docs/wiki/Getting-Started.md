@@ -39,16 +39,32 @@ styles that element (on an entities card, "Entity Rows — " plus the row's
 label), and clicking jumps straight to it. A part that nothing styles names the
 card's **Background** (or **Border**, or **Visual Filters**, on cards where
 Background is hidden). Click-to-edit works on the card itself and on its
-parts, but not on the children of a stack in the preview. <!-- to be confirmed by QA -->
+parts, but not on the children of a stack in the preview.
 
 Click-to-edit follows the card's settings like the panel does: a part whose
 control the panel hides for that card (for example the icon of a Mushroom
-template card with no icon) doesn't name it, and a locked entities card (its
-style is in dict form) only offers its rows.
+template card with no icon) doesn't name it, and a locked entities card (one with *mixed-form* styling: a plain
+`card_mod` style together with a `uix` dictionary, shown with the 🔒
+"Mixed-form styling — preserved as-is" notice) only offers its rows. A
+pure dictionary-form style stays editable.
 
-**Show code editor.** The Studio covers both of HA's editors; pressing HA's
-"Show code editor" (or "Show visual editor") closes the Studio so you can see
-the YAML — click **Style** to come back.
+**Show code editor.** The Studio covers both of HA's editors; when you
+switch between the visual and the code editor yourself ("Show code editor" or
+"Show visual editor"), the Studio closes so you can see the YAML — click
+**Style** to come back. A card whose config has an error (an unknown custom
+card type, an entities or glance card without entities, a stack without cards)
+is shown by Home Assistant in the code editor only; the Style button opens the
+Studio there too.
+
+**The colour popover** (the small swatch pickers in Threshold rules and
+similar): opening it, with the mouse or Enter or Space on its swatch, moves
+focus into it, to the selected swatch or the first. Tab and Shift+Tab move
+through its own controls; tabbing out of either end closes it and returns focus
+to the swatch that opened it (a typed hex value is committed first). Escape,
+picking a swatch or committing a value also return focus there; clicking
+elsewhere closes it without moving focus. Screen readers get it as a dialog
+named "<label>: Color picker". After Escape, Cancel or a save in the preset name
+field, focus returns to "Save preset".
 
 **Custom cards.** On a `custom:` card the Studio has no profile for (anything
 other than Mushroom and Bubble Card's button, separator and cover), a notice

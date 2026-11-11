@@ -26,6 +26,14 @@ saved exactly as they were.
 Full details, YAML shape, and the bare-string-row behavior:
 **[Entities Card — Per-Row Styling](Entities-Card-Per-Row-Styling)**.
 
+## When the card is locked
+
+Only a *mixed* style locks an entities card to "Entity Rows only": a plain
+`card_mod` style together with a `uix` dictionary, shown with the 🔒
+"Mixed-form styling — preserved as-is" notice. A pure dictionary-form style
+stays editable, with its pierced entries listed read-only under
+[Advanced CSS](Advanced-CSS#dictionary-form-styles-shadow-piercing).
+
 ## Inside stacks
 
 An entities card nested in a stack gets the same row section in its child

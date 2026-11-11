@@ -55,8 +55,10 @@ preset with Font off keeps the card's own Number size.
 
 - **Gauge → Number size**, 50–130 %: scales the box HA fits the value into
   (HA fits the number into that box, so a plain font size wouldn't show).
-  **100 % is exactly the size Home Assistant draws**; a wide value such as
-  "123 °C" stops growing a little before 130 % so it never touches the arc.
+  **100 % is exactly the size Home Assistant draws**; for a wide value
+  (many characters, such as "123 °C") the number stops growing at about 112 %
+  because the width limit is reached first, so 130 % only shows fully on short
+  values; it never touches the arc.
   Before v0.11.0-beta.3 the range went to 150 % and 100 % was about 10 %
   larger than Home Assistant's own number: a style saved then loads at the
   same percentage, is rewritten on the next save (a number set to 100 % looks
