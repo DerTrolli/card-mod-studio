@@ -2,9 +2,9 @@
 // preview picker, dict-form / mixed-form cards, uix-only compat banners.
 import {
   sleep, openEditor, clickEditOn, openStudio, mod, isOpen, expand, enable, setSwitch, choose, setSlider,
-  typeInto, pickSwatch, pickCompact, expectCfg, expectPage, pollPage, getCfg, styleStr, styleOf, rowOf, btn,
+  typeInto, pickSwatch, pickCompact, pickEntity, expectCfg, expectPage, pollPage, getCfg, styleStr, styleOf, rowOf, btn,
   resolveRgb, sameRgb, entityState, panelLoc, dialogButton, readDashboardCards, viewDashboard,
-  waitDialogClosed,
+  waitDialogClosed, expectDashboardCard,
 } from './lib.mjs';
 import { P_CARD, P_ROWS, P_PANEL, P_GAUGE } from './probes.mjs';
 import { cancelDialog } from './s-core.mjs';
@@ -24,11 +24,31 @@ async function entitiesSection(T) {
   await openEditor(T, 'fui-entities', [{ type: 'entities', title: 'Rows', entities: rows }]);
   await openStudio(T);
   const pv = await T.page.evaluate(P_PANEL);
-  T.check('entities: no card-level Accent / Icon / Threshold modules; rows module present', !pv.modules.includes('cms-accent-color-module') && !pv.modules.includes('cms-icon-color-module') && !pv.modules.includes('cms-threshold-module') && pv.modules.includes('cms-entities-rows-module'), JSON.stringify(pv.modules));
+  // The card-level Threshold Colors module is offered here (Background, Text Color, Border Color);
+  // Accent and Icon Color stay off (the rows have their own icon colour).
+  T.check('entities: card-level Threshold offered; no card-level Accent / Icon modules; rows module present', !pv.modules.includes('cms-accent-color-module') && !pv.modules.includes('cms-icon-color-module') && pv.modules.includes('cms-threshold-module') && pv.modules.includes('cms-entities-rows-module'), JSON.stringify(pv.modules));
+  const thr = mod(T, 'cms-threshold-module');
+  await enable(thr);
+  const thrProps = (await thr.locator('label.property-check').allTextContents()).map((t) => t.trim());
+  T.check('entities: card-level Threshold applies to Background / Text Color / Border Color only (no Icon Color, no Accent)', JSON.stringify(thrProps) === JSON.stringify(['Background', 'Text Color', 'Border Color']), JSON.stringify(thrProps));
+  await pickEntity(T, thr.locator('cms-entity-picker').first(), 'sensor.outside_humidity');
+  await btn(thr, '+ Add Rule').click();
+  const thrRule = thr.locator('.rule').first();
+  await choose(thrRule.locator('select'), '>');
+  await typeInto(thrRule.locator('input.num'), '1');
+  await pickCompact(T, thrRule.locator('cms-color-picker'), 'Red');
+  const hum0 = Number((await entityState(T, 'sensor.outside_humidity')).state);
+  await expectCfg(T, 'entities: a card-level Threshold rule writes an ha-card colour block driven by the picked entity', has(T, 'ha-card {', `'var(--red-color)' if states('sensor.outside_humidity') | float(0) > 1`), { show: (c) => S(T, c) });
+  const redThr = await resolveRgb(T, 'var(--red-color)');
+  await expectPage(T, `entities preview: the card background follows the Threshold rule (${hum0} > 1 → red)`, P_CARD, 0, (v) => (hum0 > 1 ? sameRgb(v?.bg, redThr) : true));
+  await enable(thr, false);
+  await expectCfg(T, 'entities: switching the card-level Threshold off removes its style again', (c) => !styleOf(T, c));
   const rm = mod(T, 'cms-entities-rows-module');
   const sec = (i) => rm.locator('.entity-section').nth(i);
   const names = (await rm.locator('.entity-name').allTextContents()).map((t) => t.trim());
-  T.check('one section per row; the duplicate is numbered "(2)"', names.length === 4 && names[2] === `${names[1]} (2)` && names[1] !== names[0], JSON.stringify(names));
+  // Rows that share a label are numbered on every one of them ("AC (1)", "AC (2)"); a unique label stays bare.
+  const dup = (names[1] || '').replace(/ \(1\)$/, '');
+  T.check('one section per row; the two rows on one entity are numbered "(1)" and "(2)", unique rows stay bare', names.length === 4 && names[1] === `${dup} (1)` && names[2] === `${dup} (2)` && !!dup && dup !== 'switch.ac' && !/\(\d+\)$/.test(names[0]) && !/\(\d+\)$/.test(names[3]) && names[0] !== dup && names[3] !== dup, JSON.stringify(names));
   T.note(`row labels: ${JSON.stringify(names)}`);
 
   // row 0 — a bare-string row
@@ -46,7 +66,7 @@ async function entitiesSection(T) {
   await expectCfg(T, 'row 0 icon threshold: + Add Rule (< 0)', (c) => rowStyle(T, c.entities[0]).includes(`--state-icon-color: {{ '#2196F3' if states('sensor.outside_temperature') | float(0) < 0 else '#888888' }};`), { show: (c) => JSON.stringify(c?.entities?.[0]) });
   const rule = sec(0).locator('.rule').first();
   await choose(rule.locator('select'), '>');
-  await typeInto(rule.locator('input[type="number"]'), '10');
+  await typeInto(rule.locator('input.num'), '10');
   await pickCompact(T, rule.locator('cms-color-picker'), 'Green');
   await expectCfg(T, 'row rule > 10 green', (c) => rowStyle(T, c.entities[0]).includes(`'var(--green-color)' if states('sensor.outside_temperature') | float(0) > 10`), { show: (c) => JSON.stringify(c?.entities?.[0]) });
   const temp = Number((await entityState(T, 'sensor.outside_temperature')).state);
@@ -70,7 +90,7 @@ async function entitiesSection(T) {
   await sec(0).locator('.add-rule-btn').last().click();
   const trule = sec(0).locator('.rule').last();
   await choose(trule.locator('select'), '<');
-  await typeInto(trule.locator('input[type="number"]'), '100');
+  await typeInto(trule.locator('input.num'), '100');
   await pickCompact(T, trule.locator('cms-color-picker'), 'Orange');
   await expectCfg(T, 'row 0 text threshold < 100 orange', (c) => rowStyle(T, c.entities[0]).includes(`color: {{ 'var(--orange-color)' if states('sensor.outside_temperature') | float(0) < 100 else '#888888' }};`), { show: (c) => JSON.stringify(c?.entities?.[0]) });
   const orange = await resolveRgb(T, 'var(--orange-color)');
@@ -78,8 +98,13 @@ async function entitiesSection(T) {
 
   // per-row font
   await setSwitch(rowOf(T, sec(0), 'Font (this row)').locator('ha-switch'), true);
-  await expectCfg(T, 'row font on → 16px normal', (c) => rowStyle(T, c.entities[0]).includes('font-size: 16px;') && rowStyle(T, c.entities[0]).includes('font-weight: normal;'), { show: (c) => JSON.stringify(c?.entities?.[0]) });
-  await setSlider(T, rowOf(T, sec(0), 'Text size').locator('ha-slider'), 20);
+  // Switching a row's Font on writes no font declaration: the row starts as "Default (14px)" (its own size).
+  await sleep(300);
+  await expectCfg(T, 'row font switched on, nothing set → no font-size / font-weight written', (c) => !/font-size|font-weight/.test(rowStyle(T, c.entities[0])), { show: (c) => JSON.stringify(c?.entities?.[0]) });
+  const rowSize = rowOf(T, sec(0), 'Text size');
+  T.check('row Text size starts as "Default (14px)", Weight as "Default"', ((await rowSize.locator('.value-label').textContent()) || '').trim() === 'Default (14px)' && (await rowOf(T, sec(0), 'Weight').locator('select').evaluate((x) => x.value)) === '');
+  await setSlider(T, rowSize.locator('ha-slider'), 20);
+  await expectCfg(T, 'row Text size 20 → font-size only (no weight)', (c) => rowStyle(T, c.entities[0]).includes('font-size: 20px;') && !rowStyle(T, c.entities[0]).includes('font-weight'), { show: (c) => JSON.stringify(c?.entities?.[0]) });
   await choose(rowOf(T, sec(0), 'Weight').locator('select'), 'bold');
   await expectCfg(T, 'row font 20px bold', (c) => rowStyle(T, c.entities[0]).includes('font-size: 20px;') && rowStyle(T, c.entities[0]).includes('font-weight: bold;'), { show: (c) => JSON.stringify(c?.entities?.[0]) });
   await expectPage(T, 'preview: row 0 text 20px / 700; row 1 untouched size', P_ROWS, 0, (v) => v?.[0]?.fontSize === '20px' && v[0].fontWeight === '700' && v[1]?.fontSize !== '20px');
@@ -218,12 +243,28 @@ async function presetsSection(T) {
   await expectPage(T, 'preview: preset look (red bg, pulse, pink icon, 20px radius)', P_CARD, 0, (v) => sameRgb(v?.bg, red) && v.anim === 'cms-pulse' && sameRgb(v.iconColor, pink) && v.radius === '20px');
   T.check('modules reflect the loaded preset (Background switch on)', await mod(T, 'cms-background-module').locator('.module-header ha-switch').evaluate((e) => e.checked));
 
-  // delete
-  await panelLoc(T).locator('.btn-preset-delete').click();
-  await sleep(500);
-  T.check('× deletes the preset from the dropdown', (await panelLoc(T).locator(`.preset-bar select option[value="${NAME}"]`).count()) === 0);
+  // delete: two steps — the first click arms the button, the second one deletes
+  const del = panelLoc(T).locator('.btn-preset-delete');
+  const optCount = () => panelLoc(T).locator(`.preset-bar select option[value="${NAME}"]`).count();
+  await del.click();
+  T.check('first × click only arms it: the button now reads "Delete?", names the preset, and nothing is deleted yet', ((await del.textContent()) || '').trim() === 'Delete?' && ((await del.getAttribute('aria-label')) || '') === `Delete '${NAME}'?` && (await optCount()) === 1);
   stored = await T.ws.call({ type: 'frontend/get_user_data', key: 'cms_presets' });
-  T.check('…and from HA per-user storage', !(stored?.value || []).some((p) => p.name === NAME));
+  T.check('…the preset is still in HA per-user storage while armed', (stored?.value || []).some((p) => p.name === NAME));
+  await del.press('Escape');
+  T.check('Escape disarms the button (back to ×) without deleting and without closing HA\'s dialog', ((await del.textContent()) || '').trim() === '×' && (await optCount()) === 1 && !!(await T.page.evaluate(() => window.__fui.dialog())));
+  await del.click();
+  T.check('armed again after a disarm', ((await del.textContent()) || '').trim() === 'Delete?');
+  await del.click();
+  let left = 1;
+  for (let k = 0; k < 25 && left; k++) { left = await optCount(); if (left) await sleep(200); }
+  T.check('second click on "Delete?" deletes the preset from the dropdown', left === 0);
+  let inStore = true;
+  for (let i = 0; i < 25 && inStore; i++) {
+    stored = await T.ws.call({ type: 'frontend/get_user_data', key: 'cms_presets' });
+    inStore = (stored?.value || []).some((p) => p.name === NAME);
+    if (inStore) await sleep(200);
+  }
+  T.check('…and from HA per-user storage', !inStore);
   T.check('deleting a preset leaves the card styling alone', S(T, await getCfg(T)).includes('background: var(--red-color);'));
   await cancelDialog(T);
 }
@@ -243,12 +284,23 @@ async function paletteSection(T) {
     await pm.locator('.module-header').click();
     await btn(pm, '+ Add Color').click();
     const row = pm.locator('.color-row').first();
-    T.check('+ Add Color adds a row named "My color 1" (#03a9f4)', (await row.locator('input[type="text"]').inputValue()) === 'My color 1' && (await row.locator('input[type="color"]').inputValue()) === '#03a9f4');
-    await typeInto(row.locator('input[type="text"]'), 'FUI Magenta');
-    await row.locator('input[type="color"]').fill('#ab12cd');
+    // Each colour row has a name field, a hex field and a native swatch.
+    T.check('+ Add Color adds a row named "My color 1" (#03a9f4) with a hex field', (await row.locator('input.name-input').inputValue()) === 'My color 1' && (await row.locator('input.hex-input').inputValue()) === '#03a9f4' && (await row.locator('input[type="color"]').inputValue()) === '#03a9f4');
+    await typeInto(row.locator('input.name-input'), 'FUI Magenta');
+    // an invalid hex is flagged and never stored; the field goes back to the stored value on blur
+    await row.locator('input.hex-input').click();
+    await row.locator('input.hex-input').press('Control+a');
+    await row.locator('input.hex-input').pressSequentially('zzz', { delay: 5 });
+    T.check('typing an invalid hex marks the field invalid', (await row.locator('input.hex-input').getAttribute('aria-invalid')) === 'true');
+    await row.locator('input.hex-input').press('Tab');
     await sleep(400);
+    T.check('…and on leaving the field the stored hex comes back (nothing invalid was saved)', (await row.locator('input.hex-input').inputValue()) === '#03a9f4' && (await row.locator('input.hex-input').getAttribute('aria-invalid')) === 'false');
+    // a typed hex is stored, and the native swatch follows it
+    await typeInto(row.locator('input.hex-input'), '#ab12cd');
+    await sleep(400);
+    T.check('typing a valid hex in the hex field moves the swatch to it', (await row.locator('input[type="color"]').inputValue()) === '#ab12cd');
     let stored = await T.ws.call({ type: 'frontend/get_user_data', key: 'cms_palette' });
-    T.check('renamed + recoloured custom colour saved to HA user data', (stored?.value?.colors || []).some((c) => c.name === 'FUI Magenta' && c.hex === '#ab12cd'), JSON.stringify(stored?.value));
+    T.check('renamed + recoloured (by typing the hex) custom colour saved to HA user data', (stored?.value?.colors || []).some((c) => c.name === 'FUI Magenta' && c.hex === '#ab12cd'), JSON.stringify(stored?.value));
 
     const bg = mod(T, 'cms-background-module');
     await enable(bg);
@@ -268,9 +320,12 @@ async function paletteSection(T) {
     await expectCfg(T, '…and in a compact (popover) picker: threshold rule gets #ab12cd', has(T, "'#ab12cd' if states("));
     await enable(thr, false);
 
+    // removing a colour takes two clicks: the first arms the button ("Remove?"), the second removes
+    await row.locator('.del-btn').click();
+    T.check('first × click only arms the button ("Remove?") — the colour is still there', ((await row.locator('.del-btn').textContent()) || '').trim() === 'Remove?' && (await bgPicker.locator('button.preset[aria-label="FUI Magenta"]').count()) === 1);
     await row.locator('.del-btn').click();
     await sleep(400);
-    T.check('deleting the custom colour removes its swatch from the pickers', (await bgPicker.locator('button.preset[aria-label="FUI Magenta"]').count()) === 0);
+    T.check('second click removes the custom colour and its swatch from the pickers', (await bgPicker.locator('button.preset[aria-label="FUI Magenta"]').count()) === 0);
     T.check('…without touching styling that already uses it', S(T, await getCfg(T)).includes('background: #ab12cd;'));
     stored = await T.ws.call({ type: 'frontend/get_user_data', key: 'cms_palette' });
     T.check('…and from HA user data', (stored?.value?.colors || []).length === 0, JSON.stringify(stored?.value));
@@ -280,14 +335,19 @@ async function paletteSection(T) {
     const offRow = pm.locator('.color-row').filter({ hasText: 'OFF default' });
     T.check('ON/OFF default rows show the built-in values', ((await onRow.textContent()) || '').includes('built-in #2196F3') && ((await offRow.textContent()) || '').includes('built-in #6b6b6b'));
     await onRow.locator('input[type="color"]').fill('#112233');
-    await offRow.locator('input[type="color"]').fill('#445566');
+    await typeInto(offRow.locator('input.hex-input'), '#445566');
     await sleep(500);
     T.check('overrides show a Reset button each', (await onRow.locator('.reset-btn').count()) === 1 && (await offRow.locator('.reset-btn').count()) === 1);
     stored = await T.ws.call({ type: 'frontend/get_user_data', key: 'cms_palette' });
     T.check('overrides saved to HA user data', stored?.value?.defaults?.onColor === '#112233' && stored?.value?.defaults?.offColor === '#445566', JSON.stringify(stored?.value));
     // same session: freshly enable Icon Color / Accent Color
-    await enable(mod(T, 'cms-icon-color-module'));
-    const sess = await expectCfg(T, 'same session: a freshly enabled Icon Color starts from the new ON/OFF defaults', has(T, `{{ '#112233' if is_state(config.entity, 'on') else '#445566' }}`), { timeout: 3000 });
+    // Icon Color now starts as "Keep the card's colour" (writes nothing); its ON/OFF mode is what takes the palette defaults.
+    const iconMod = mod(T, 'cms-icon-color-module');
+    await enable(iconMod);
+    await sleep(300);
+    T.check('same session: a freshly enabled Icon Color writes no icon colour by itself', !S(T, await getCfg(T)).includes('ha-state-icon'));
+    await choose(rowOf(T, iconMod, 'Color mode').locator('select'), 'conditional');
+    const sess = await expectCfg(T, 'same session: Icon Color in ON/OFF mode starts from the new ON/OFF defaults', has(T, `{{ '#112233' if is_state(config.entity, 'on') else '#445566' }}`), { timeout: 3000 });
     await enable(mod(T, 'cms-accent-color-module'));
     await expectCfg(T, 'same session: a freshly enabled Accent Color starts from the new ON default', has(T, '--accent-color: #112233;'), { timeout: 3000 });
     if (!sess.ok) T.note(`palette defaults in-session: icon emitted ${S(T, sess.cfg).match(/ha-state-icon[^}]+/)?.[0]}`);
@@ -295,8 +355,10 @@ async function paletteSection(T) {
     // after reopening the dialog
     await clickEditOn(T, 0);
     await openStudio(T);
-    await enable(mod(T, 'cms-icon-color-module'));
-    await expectCfg(T, 'after reopening: a freshly enabled Icon Color starts from the ON/OFF defaults', has(T, `{{ '#112233' if is_state(config.entity, 'on') else '#445566' }}`));
+    const iconMod2 = mod(T, 'cms-icon-color-module');
+    await enable(iconMod2);
+    await choose(rowOf(T, iconMod2, 'Color mode').locator('select'), 'conditional');
+    await expectCfg(T, 'after reopening: Icon Color in ON/OFF mode starts from the ON/OFF defaults', has(T, `{{ '#112233' if is_state(config.entity, 'on') else '#445566' }}`));
     await enable(mod(T, 'cms-accent-color-module'));
     await expectCfg(T, 'after reopening: Accent Color starts from the ON default', has(T, '--accent-color: #112233;'));
     const pm2 = mod(T, 'cms-palette-manager');
@@ -399,11 +461,16 @@ async function pickerSection(T) {
   const rowRect = (i, sel) => rectOf(T, `const c = Q.prev(); const rows = Q.all(c).filter((n) => /-entity-row$/.test(n.tagName.toLowerCase()) && n.tagName !== 'HUI-GENERIC-ENTITY-ROW'); const r = rows[arg.i]; return arg.sel ? Q.q1(r, arg.sel) : r;`, { i, sel });
   pt = await rowRect(2, 'state-badge');
   label = await hoverAt(T, pt);
-  T.check('hover the 3rd row\'s icon → "Entity Rows — switch.ac"', label === 'Entity Rows — switch.ac', label);
+  // The hover label carries the same row label as the Studio's own section header.
+  const rowNames = (await mod(T, 'cms-entities-rows-module').locator('.entity-name').allTextContents()).map((t) => t.trim());
+  T.check('hover the 3rd row\'s icon → "Entity Rows — <that row\'s label>" ("… (2)")', label === `Entity Rows — ${rowNames[2]}` && /\(2\)$/.test(rowNames[2] || ''), `${label} | ${JSON.stringify(rowNames)}`);
   await T.page.mouse.click(pt.x, pt.y);
   await sleep(900);
   const heads = await mod(T, 'cms-entities-rows-module').locator('.entity-header').evaluateAll((hs) => hs.map((h) => h.getAttribute('aria-expanded')));
   T.check('click → exactly that (duplicate) row section opens', JSON.stringify(heads) === JSON.stringify(['false', 'false', 'true']), JSON.stringify(heads));
+  pt = await rowRect(1, 'state-badge');
+  label = await hoverAt(T, pt);
+  T.check('hover the 2nd row\'s icon → "Entity Rows — <that row\'s label>" ("… (1)")', label === `Entity Rows — ${rowNames[1]}` && /\(1\)$/.test(rowNames[1] || ''), `${label} | ${JSON.stringify(rowNames)}`);
   pt = await rowRect(0, '.info');
   label = await hoverAt(T, pt);
   T.note(`hovering row 0's NAME text labels "${label}"`);
@@ -455,12 +522,12 @@ async function dictSection(T) {
   const saved = (await readDashboardCards(T, 'fui-dict'))[0];
   T.check('Save persists the dict exactly (pierced bytes kept)', same(saved, r.cfg) && saved?.[T.KEY]?.style?.['ha-gauge$'] === PIERCE, JSON.stringify(saved?.[T.KEY]));
   await viewDashboard(T, 'fui-dict');
-  await expectPage(T, 'dashboard: saved dict card renders (8px, red, value text 700)', () => {
+  await expectDashboardCard(T, 'dashboard: saved dict card renders (8px, red, value text 700)', 'fui-dict', () => {
     const Q = window.__fui;
     const g = Q.q(document.body, 'hui-gauge-card')[0];
     const hc = g && Q.q1(g, 'ha-card'); const vt = g && Q.q1(g, '.value-text');
     return hc ? { radius: getComputedStyle(hc).borderTopLeftRadius, bg: getComputedStyle(hc).backgroundColor, vtWeight: vt ? getComputedStyle(vt).fontWeight : null } : null;
-  }, null, (v) => v?.radius === '8px' && sameRgb(v.bg, red) && v.vtWeight === '700', { timeout: 20000 });
+  }, (v) => v?.radius === '8px' && sameRgb(v.bg, red) && v.vtWeight === '700');
 }
 
 // ---------------------------------------------------------------------------
@@ -485,9 +552,14 @@ async function mixedSection(T) {
 
 async function uixOnlySection(T) {
   const STYLE = 'ha-card {\n  background: rgb(34, 68, 102);\n}';
+  const MACROS = { fui_macro: { params: [], template: 'red' } };
+  const CALLS = 'ha-card {\n  background: {{ fui_macro() }};\n}';
   const cards = [
     { type: 'tile', entity: 'light.ceiling_lights', uix: { style: STYLE }, card_mod: { class: 'fui-class' } },
-    { type: 'tile', entity: 'light.ceiling_lights', uix: { style: 'ha-card {\n  background: red;\n}', macros: { fui_macro: { params: [], template: 'red' } } } },
+    // a style that CALLS a macro (by its bare name inside a template tag)
+    { type: 'tile', entity: 'light.ceiling_lights', uix: { style: CALLS, macros: MACROS } },
+    // macros defined next to plain CSS that never calls them
+    { type: 'tile', entity: 'light.ceiling_lights', uix: { style: 'ha-card {\n  background: red;\n}', macros: MACROS } },
   ];
   await openEditor(T, 'fui-uixonly', cards, 0);
   await openStudio(T);
@@ -509,7 +581,21 @@ async function uixOnlySection(T) {
     await clickEditOn(T, 1);
     await openStudio(T);
     pv = await T.page.evaluate(P_PANEL);
-    T.check('UIX rig: macros card warns that editing replaces macro styling', (pv.info || []).some((t) => t.includes('macros/billets')) && !pv.hasCopyBtn, JSON.stringify(pv));
+    // The note appears only for a style that really calls a macro, and says the call is kept in Advanced CSS.
+    T.check('UIX rig: a style that calls a macro shows the note — macros are kept, the part that calls them stays in Advanced CSS', (pv.info || []).some((t) => t.includes('uix: style uses macros/billets') && t.includes('kept as they are') && t.includes('stays in Advanced CSS')) && !pv.warning && !pv.hasCopyBtn, JSON.stringify(pv));
+    const adv = mod(T, 'cms-advanced-module');
+    await expand(adv);
+    const code = await adv.locator('ha-code-editor').first().evaluate((e) => e.value);
+    T.check('UIX rig: the macro call is kept verbatim in Advanced CSS', code.includes('{{ fui_macro() }}'), code);
+    const bd = mod(T, 'cms-border-module');
+    await enable(bd);
+    await setSlider(T, rowOf(T, bd, 'Border radius').locator('ha-slider'), 20);
+    await expectCfg(T, 'UIX rig: a Studio edit keeps the macro call in uix.style and leaves uix.macros untouched', (c) => (c.uix?.style || '').includes('{{ fui_macro() }}') && (c.uix?.style || '').includes('border-radius: 20px;') && same(c.uix?.macros, MACROS), { show: (c) => JSON.stringify(c.uix) });
+    await cancelDialog(T);
+    await clickEditOn(T, 2);
+    await openStudio(T);
+    pv = await T.page.evaluate(P_PANEL);
+    T.check('UIX rig: macros that are only defined, never called, show no macro note', !(pv.info || []).some((t) => t.includes('macros/billets')) && !pv.warning && !pv.hasCopyBtn, JSON.stringify(pv));
   }
   await cancelDialog(T);
 }

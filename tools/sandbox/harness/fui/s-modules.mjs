@@ -23,11 +23,16 @@ async function fontTile(T) {
   await openStudio(T);
   const m = mod(T, 'cms-font-module');
   await enable(m);
-  await expectCfg(T, 'tile: enabling Font emits the ha-card block + --ha-tile-info-* companions', has(T, 'font-size: 16px', '--ha-tile-info-primary-font-size: 16px'));
+  // A control that is switched on but not touched writes nothing: every row starts as "Default".
+  await expectCfg(T, 'tile: enabling Font alone writes nothing (the card keeps its own look)', noStyle(T));
+  await expectPage(T, 'tile preview: switching Font on changes nothing (name still at the theme size)', P_CARD, 0, (v) => v && v.pSize === '14px' && v.pWeight === '500');
   T.check('module expands itself when switched on', await isOpen(m));
+  const sizeRow = rowOf(T, m, 'Text size');
+  T.check('Text size starts as "Default (…)" with no reset button', /^Default/.test(((await sizeRow.locator('.value-label').textContent()) || '').trim()) && (await sizeRow.locator('button.reset-btn').count()) === 0);
+  T.check('Weight starts as "Default", Font family as "Theme default", Text color unset', (await rowOf(T, m, 'Weight').locator('select').evaluate((s) => s.value)) === '' && (await rowOf(T, m, 'Font family').locator('select').evaluate((s) => s.value)) === '' && (await rowOf(T, m, 'Text color').locator('button.clear').count()) === 0);
 
   await setSlider(T, rowOf(T, m, 'Text size').locator('ha-slider'), 24);
-  await expectCfg(T, 'tile: Text size slider → 24px emitted (base + companion)', has(T, 'font-size: 24px', '--ha-tile-info-primary-font-size: 24px', '--ha-tile-info-secondary-font-size: 24px'));
+  await expectCfg(T, 'tile: Text size slider → 24px emitted (base + companions), nothing else', (c) => has(T, 'font-size: 24px', '--ha-tile-info-primary-font-size: 24px', '--ha-tile-info-secondary-font-size: 24px')(c) && lacks(T, 'font-weight', 'font-family', 'color')(c));
   T.check('Text size value label reads 24px', (await rowOf(T, m, 'Text size').locator('.value-label').textContent()).trim() === '24px');
   await expectPage(T, 'tile preview: name text renders at 24px', P_CARD, 0, (v) => v?.pSize === '24px');
 
@@ -37,6 +42,9 @@ async function fontTile(T) {
     await expectCfg(T, `Weight "${w}" → font-weight: ${css}`, has(T, `font-weight: ${css};`, `--ha-tile-info-primary-font-weight: ${css};`));
     await expectPage(T, `tile preview: weight ${w} renders ${cw}`, P_CARD, 0, (v) => v?.pWeight === cw);
   }
+
+  await choose(weight, '');
+  await expectCfg(T, 'Weight back to "Default" → no font-weight declaration (the size stays)', (c) => lacks(T, 'font-weight')(c) && has(T, 'font-size: 24px')(c));
 
   const fam = rowOf(T, m, 'Font family').locator('select');
   for (const f of ['serif', 'monospace', 'sans-serif']) {
@@ -71,6 +79,13 @@ async function fontTile(T) {
   await pickText(picker, '#123456');
   await expectCfg(T, 'Text color typed #123456 → color: #123456', has(T, 'color: #123456;'));
   await expectPage(T, 'tile preview: name renders #123456', P_CARD, 0, (v) => sameRgb(v?.pColor, 'rgb(18, 52, 86)'));
+  await picker.locator('button.clear').click();
+  await expectCfg(T, 'Text color "Default" button → no colour declaration (the size stays)', (c) => lacks(T, 'color')(c) && has(T, 'font-size: 24px')(c));
+  await sizeRow.locator('button.reset-btn').click();
+  await expectCfg(T, 'Text size reset (↺) → back to nothing written', noStyle(T));
+  T.check('…and the size label reads "Default" again', /^Default/.test(((await sizeRow.locator('.value-label').textContent()) || '').trim()));
+  await setSlider(T, sizeRow.locator('ha-slider'), 24);
+  await expectCfg(T, 'size set again', has(T, 'font-size: 24px'));
 
   await enable(m, false);
   await expectCfg(T, 'switching Font off removes the whole style', noStyle(T));
@@ -82,6 +97,7 @@ async function fontOn(T, label, card, probes) {
   await openStudio(T);
   const m = mod(T, 'cms-font-module');
   await enable(m);
+  await expectCfg(T, `${label}: enabling Font alone writes nothing`, noStyle(T));
   await setSlider(T, rowOf(T, m, 'Text size').locator('ha-slider'), 22);
   await choose(rowOf(T, m, 'Weight').locator('select'), 'bold');
   await pickSwatch(rowOf(T, m, 'Text color').locator('cms-color-picker'), 'Purple');
@@ -162,8 +178,9 @@ async function filterSection(T) {
   await setSlider(T, rowOf(T, m, 'Opacity').locator('ha-slider'), 50);
   await expectCfg(T, 'Opacity 50 → opacity(50%) added', has(T, 'filter: brightness(150%) blur(4px) opacity(50%);'));
   await expectPage(T, 'preview: brightness+blur+opacity all applied', P_CARD, 0, (v) => v?.filter === 'brightness(1.5) blur(4px) opacity(0.5)');
-  await setSlider(T, rowOf(T, m, 'Transition speed').locator('ha-slider'), 600);
-  await expectCfg(T, 'Transition speed 600 → transition: filter 600ms ease !important (tile)', has(T, 'transition: filter 600ms ease !important;'));
+  T.check('the transition slider is named "Transition duration" with the hint "Milliseconds — lower is faster."', ((await m.locator('.when-hint').allTextContents()).join(' ')).includes('Milliseconds — lower is faster.'));
+  await setSlider(T, rowOf(T, m, 'Transition duration').locator('ha-slider'), 600);
+  await expectCfg(T, 'Transition duration 600 → transition: filter 600ms ease !important (tile)', has(T, 'transition: filter 600ms ease !important;'));
   await expectPage(T, 'preview: transition-duration 0.6s on filter', P_CARD, 0, (v) => v?.transDur === '0.6s' && v.transProp === 'filter');
 
   // ---- "Reacts to" (effects condition) ----
@@ -208,7 +225,7 @@ async function filterSection(T) {
   const m2 = mod(T, 'cms-filter-module');
   await enable(m2);
   await setSlider(T, rowOf(T, m2, 'Brightness').locator('ha-slider'), 50);
-  await setSlider(T, rowOf(T, m2, 'Transition speed').locator('ha-slider'), 1000);
+  await setSlider(T, rowOf(T, m2, 'Transition duration').locator('ha-slider'), 1000);
   await expectCfg(T, 'sensor card: brightness 50 + transition 1000ms', has(T, 'filter: brightness(50%);', 'transition: filter 1000ms ease !important;'));
   await expectPage(T, 'sensor card preview: filter + 1s filter transition applied', P_CARD, 0, (v) => v?.filter === 'brightness(0.5)' && v.transDur === '1s' && v.transProp === 'filter');
   const opts2 = await rowOf(T, m2, 'Reacts to').locator('select option').evaluateAll((os) => os.map((o) => o.value));
@@ -288,13 +305,20 @@ async function iconSection(T) {
   await openEditor(T, 'fui-icon', [TILE_LIGHT]);
   await openStudio(T);
   let m = mod(T, 'cms-icon-color-module');
+  const baseIcon = (await T.page.evaluate(P_CARD, 0))?.iconColor;
+  const baseCircle = (await T.page.evaluate(P_EL, { within: 'hui-tile-card', sel: 'ha-tile-icon', props: ['width'] }))?.width;
   await enable(m);
   const lightOn = await isOn(T, 'light.ceiling_lights');
-  await expectCfg(T, 'tile: enabling → default ON/OFF ternary on own entity', has(T, `ha-state-icon {\n  color: {{ '#2196F3' if is_state(config.entity, 'on') else '#6b6b6b' }} !important;\n}`));
-  await expectPage(T, `tile preview: icon ${lightOn ? '#2196F3' : '#6b6b6b'}`, P_CARD, 0, (v) => sameRgb(v?.iconColor, lightOn ? 'rgb(33, 150, 243)' : 'rgb(107, 107, 107)'));
+  // Switched on and untouched, Icon Color writes nothing: it starts as "Keep the card's colour".
+  await expectCfg(T, 'tile: enabling Icon Color alone writes nothing', noStyle(T));
+  await expectPage(T, 'tile preview: the icon keeps the card\'s own colour after switching on', P_CARD, 0, (v) => !!baseIcon && sameRgb(v?.iconColor, baseIcon));
   const modeSel = rowOf(T, m, 'Color mode').locator('select');
   const modes = await modeSel.locator('option').evaluateAll((os) => os.map((o) => o.value));
-  T.check('tile: modes are fixed / ON-OFF (no light mode)', JSON.stringify(modes) === JSON.stringify(['plain', 'conditional']), JSON.stringify(modes));
+  T.check('tile: modes are keep-the-card\'s-colour / fixed / ON-OFF (no light mode)', JSON.stringify(modes) === JSON.stringify(['none', 'plain', 'conditional']), JSON.stringify(modes));
+  T.check('tile: a newly switched-on Icon Color is in "Keep the card\'s colour" mode', (await modeSel.evaluate((s) => s.value)) === 'none');
+  await choose(modeSel, 'conditional');
+  await expectCfg(T, 'tile: ON/OFF mode → default ternary on own entity', has(T, `ha-state-icon {\n  color: {{ '#2196F3' if is_state(config.entity, 'on') else '#6b6b6b' }} !important;\n}`));
+  await expectPage(T, `tile preview: icon ${lightOn ? '#2196F3' : '#6b6b6b'}`, P_CARD, 0, (v) => sameRgb(v?.iconColor, lightOn ? 'rgb(33, 150, 243)' : 'rgb(107, 107, 107)'));
   await choose(modeSel, 'plain');
   await expectCfg(T, 'One fixed color → plain !important rule', has(T, 'ha-state-icon {\n  color: #2196F3 !important;\n}'));
   await pickSwatch(rowOf(T, m, 'Color').locator('cms-color-picker'), 'Pink');
@@ -319,18 +343,29 @@ async function iconSection(T) {
   const size = rowOf(T, m, 'Icon size');
   T.check('tile: Icon size control offered', (await size.count()) === 1);
   T.check('Icon size starts at "theme"', (await size.locator('.value-label').textContent()).trim() === 'theme');
-  await setSlider(T, size.locator('ha-slider'), 40);
-  await expectCfg(T, 'Icon size 40 → ha-tile-icon { --mdc-icon-size: 40px }', has(T, 'ha-tile-icon {\n  --mdc-icon-size: 40px;\n}'));
-  await expectPage(T, 'tile preview: icon renders 40px', P_CARD, 0, (v) => v?.svgW === 40);
+  // The tile's circle grows with the icon, so the slider stops at 36px (the largest that still fits).
+  T.check('tile: the Icon size slider stops at 36px', (await size.locator('ha-slider #slider').getAttribute('aria-valuemax')) === '36' || (await size.locator('ha-slider input[type="range"]').getAttribute('max')) === '36');
+  await setSlider(T, size.locator('ha-slider'), 36);
+  // …and the circle around the icon grows with it: three halves of the icon size.
+  await expectCfg(T, 'Icon size 36 → ha-tile-icon { --tile-icon-size: 54px; --mdc-icon-size: 36px }', has(T, 'ha-tile-icon {\n  --tile-icon-size: 54px;\n  --mdc-icon-size: 36px;\n}'));
+  await expectPage(T, 'tile preview: icon renders 36px', P_CARD, 0, (v) => v?.svgW === 36);
+  // (the circle's box also has its own padding: measured against the unstyled card, it grows by 54 - 36 = 18px)
+  await expectPage(T, 'tile preview: the icon circle (ha-tile-icon) grew from 36px to 54px (+18px)', P_EL, { within: 'hui-tile-card', sel: 'ha-tile-icon', props: ['width'] }, (v) => !!baseCircle && v?.width === baseCircle + 18);
   const sizeReacts = m.locator('.control-row').filter({ hasText: 'Reacts to' }).locator('select');
   await choose(sizeReacts, 'off');
-  await expectCfg(T, 'size Reacts to OFF → ternary with 24px fallback', has(T, `--mdc-icon-size: {{ '40px' if is_state(config.entity, 'off') else '24px' }};`));
-  await expectPage(T, `tile preview: size follows the light (${lightOn ? '24' : '40'}px)`, P_CARD, 0, (v) => v?.svgW === (lightOn ? 24 : 40));
+  await expectCfg(T, 'size Reacts to OFF → ternary with 24px fallback', has(T, `--mdc-icon-size: {{ '36px' if is_state(config.entity, 'off') else '24px' }};`));
+  await expectPage(T, `tile preview: size follows the light (${lightOn ? '24' : '36'}px)`, P_CARD, 0, (v) => v?.svgW === (lightOn ? 24 : 36));
   await setSlider(T, rowOf(T, m, 'Size otherwise').locator('ha-slider'), 32);
   await expectCfg(T, 'Size otherwise 32', has(T, `else '32px' }}`));
-  await expectPage(T, `tile preview: ${lightOn ? 'otherwise-size 32px' : 'still 40px'}`, P_CARD, 0, (v) => v?.svgW === (lightOn ? 32 : 40));
+  await expectPage(T, `tile preview: ${lightOn ? 'otherwise-size 32px' : 'still 36px'}`, P_CARD, 0, (v) => v?.svgW === (lightOn ? 32 : 36));
   await setSlider(T, size.locator('ha-slider'), 0);
   await expectCfg(T, 'Icon size back to 0 → size block removed', lacks(T, 'ha-tile-icon', '--mdc-icon-size'));
+  // "Keep the card's colour": only the size is written, no colour at all
+  await choose(modeSel, 'none');
+  await expectCfg(T, 'mode "Keep the card\'s colour" with no size → nothing written', noStyle(T));
+  await setSlider(T, size.locator('ha-slider'), 30);
+  await expectCfg(T, 'mode "Keep the card\'s colour" + size 30 → only the size is written (no colour rule)', (c) => has(T, 'ha-tile-icon {\n  --tile-icon-size: 45px;\n  --mdc-icon-size: 30px;\n}')(c) && lacks(T, 'ha-state-icon', 'color')(c));
+  await expectPage(T, 'tile preview: icon renders 30px and keeps the card\'s own colour', P_CARD, 0, (v) => v?.svgW === 30 && !!baseIcon && sameRgb(v.iconColor, baseIcon));
 
   // entity card
   await openEditor(T, 'fui-icon-entity', [{ type: 'entity', entity: 'sensor.outside_temperature' }]);
@@ -440,7 +475,7 @@ async function thresholdSection(T) {
   await expectPage(T, `preview: ${hum} < 0 false → default #888888`, P_CARD, 0, (v) => sameRgb(v?.iconColor, 'rgb(136, 136, 136)'));
   const rule0 = m.locator('.rule').nth(0);
   await choose(rule0.locator('select'), '>');
-  await typeInto(rule0.locator('input[type="number"]'), '50');
+  await typeInto(rule0.locator('input.num'), '50');
   await expectCfg(T, 'operator > and value 50 typed', has(T, `'#2196F3' if states('${ENT}') | float(0) > 50 else '#888888'`));
   await expectPage(T, `preview: ${hum} > 50 → #2196F3`, P_CARD, 0, (v) => sameRgb(v?.iconColor, hum > 50 ? 'rgb(33, 150, 243)' : 'rgb(136, 136, 136)'));
   await pickCompact(T, rule0.locator('cms-color-picker'), 'Red');
@@ -450,7 +485,7 @@ async function thresholdSection(T) {
   await addRule.click();
   const rule1 = m.locator('.rule').nth(1);
   await choose(rule1.locator('select'), '>');
-  await typeInto(rule1.locator('input[type="number"]'), '80');
+  await typeInto(rule1.locator('input.num'), '80');
   await pickCompact(T, rule1.locator('cms-color-picker'), 'Green');
   await expectCfg(T, 'second rule > 80 green, sorted first (highest > first)', has(T, `{{ 'var(--green-color)' if states('${ENT}') | float(0) > 80 else ('var(--red-color)' if states('${ENT}') | float(0) > 50 else '#888888') }}`));
   const legend = (await m.locator('.legend .legend-cond').allTextContents()).map((t) => t.trim().replace(/\s+/g, ' '));
@@ -469,7 +504,7 @@ async function thresholdSection(T) {
   await pickCompact(T, defPicker, 'Blue');
   await expectCfg(T, 'Default color via compact popover → var(--blue-color)', has(T, `else 'var(--blue-color)')`));
   T.check('Default color label shows the value', (await rowOf(T, m, 'Default color').locator('.color-label').textContent()).trim() === 'var(--blue-color)');
-  await rule0.locator('button[aria-label="Remove rule"]').click();
+  await rule0.locator('button[aria-label^="Remove rule"]').click();
   await expectCfg(T, 'removing the > 50 rule leaves only > 80', (c) => S(T, c).includes('> 80') && !S(T, c).includes('> 50'));
   const blue = await resolveRgb(T, 'var(--blue-color)');
   const green = await resolveRgb(T, 'var(--green-color)');
@@ -521,18 +556,18 @@ async function thresholdSection(T) {
   await btn(m, '+ Add Point').click();
   await expectCfg(T, '+ Add Point → third stop at max+10 in the ON default', (c) => /'0:#9e9e9e,100:#f44336,110:#2196f3'/i.test(S(T, c)));
   const stop = (i) => m.locator('.stop').nth(i);
-  await typeInto(stop(2).locator('input[type="number"]'), '200');
+  await typeInto(stop(2).locator('input.num'), '200');
   await expectCfg(T, 'point value edited 110 → 200', (c) => /,200:#2196f3'/i.test(S(T, c)));
   await pickCompact(T, stop(1).locator('cms-color-picker'), 'Green');
   await expectCfg(T, 'point colour via swatch is stored as concrete hex', (c) => /100:#4caf50/i.test(S(T, c)));
-  await stop(0).locator('button[aria-label="Move point down"]').click();
+  await stop(0).locator('button[aria-label^="Move fade point"][aria-label$=" down"]').click();
   await expectCfg(T, '▼ on the first point swaps its colour with the next', (c) => /'0:#4caf50,100:#9e9e9e,200:#2196f3'/i.test(S(T, c)));
-  await stop(1).locator('button[aria-label="Move point up"]').click();
+  await stop(1).locator('button[aria-label^="Move fade point"][aria-label$=" up"]').click();
   await expectCfg(T, '▲ swaps it back', (c) => /'0:#9e9e9e,100:#4caf50,200:#2196f3'/i.test(S(T, c)));
-  T.check('first point ▲ and last point ▼ are disabled', await stop(0).locator('button[aria-label="Move point up"]').isDisabled() && await stop(2).locator('button[aria-label="Move point down"]').isDisabled());
-  await stop(2).locator('button[aria-label="Remove point"]').click();
+  T.check('first point ▲ and last point ▼ are disabled', await stop(0).locator('button[aria-label^="Move fade point"][aria-label$=" up"]').isDisabled() && await stop(2).locator('button[aria-label^="Move fade point"][aria-label$=" down"]').isDisabled());
+  await stop(2).locator('button[aria-label^="Remove fade point"]').click();
   await expectCfg(T, 'removing a point (3 → 2)', (c) => /'0:#9e9e9e,100:#4caf50'/i.test(S(T, c)));
-  T.check('with 2 points left both remove buttons are disabled', await stop(0).locator('button[aria-label="Remove point"]').isDisabled() && await stop(1).locator('button[aria-label="Remove point"]').isDisabled());
+  T.check('with 2 points left both remove buttons are disabled', await stop(0).locator('button[aria-label^="Remove fade point"]').isDisabled() && await stop(1).locator('button[aria-label^="Remove fade point"]').isDisabled());
   stops = decodeMarker(S(T, await getCfg(T)));
   await expectPage(T, `preview: edited fade colour at ${hum}`, P_CARD, 0, (v) => sameRgb(v?.iconColor, fadeExpected(stops, hum)));
   await choose(rowOf(T, m, 'Value mode').locator('select'), 'switch');
@@ -549,7 +584,7 @@ async function thresholdSection(T) {
   await btn(g, '+ Add Rule').click();
   const gr = g.locator('.rule').first();
   await choose(gr.locator('select'), '>');
-  await typeInto(gr.locator('input[type="number"]'), '10');
+  await typeInto(gr.locator('input.num'), '10');
   await pickCompact(T, gr.locator('cms-color-picker'), 'Red');
   await expectCfg(T, 'gauge: rule drives the ha-gauge !important block', has(T, `ha-gauge {\n  --gauge-color: {{ 'var(--red-color)' if states('${ENT}') | float(0) > 10 else '#888888' }} !important;`));
   await expectPage(T, `gauge preview: dial follows the rule (${hum} > 10 → red)`, P_GAUGE, null, (v) => sameRgb(v?.stroke, hum > 10 ? red : 'rgb(136, 136, 136)'));
@@ -563,6 +598,7 @@ async function backgroundSection(T) {
   await openEditor(T, 'fui-background', [TILE_LIGHT]);
   await openStudio(T);
   const m = mod(T, 'cms-background-module');
+  const own = await T.page.evaluate(P_CARD, 0); // the card's own look, before any styling
   await enable(m);
   await expectCfg(T, 'enable → solid #03a9f4', has(T, 'background: #03a9f4;'));
   await expectPage(T, 'preview: background #03a9f4', P_CARD, 0, (v) => sameRgb(v?.bg, 'rgb(3, 169, 244)'));
@@ -585,16 +621,18 @@ async function backgroundSection(T) {
   const lightOn = await isOn(T, 'light.ceiling_lights');
   const when = rowOf(T, m, 'Apply when').locator('select');
   await choose(when, 'on');
-  await expectCfg(T, 'Apply when ON', has(T, `background: {{ 'linear-gradient(90deg, rgb(10, 20, 30), var(--yellow-color))' if is_state(config.entity, 'on') else 'none' }};`));
-  await expectPage(T, `preview: ON → ${lightOn ? 'gradient' : 'none'}`, P_CARD, 0, (v) => (lightOn ? (v?.bgImg || '').startsWith('linear-gradient') : v?.bgImg === 'none'));
+  // The other branch is empty: the card keeps its OWN background (never `none`, which would strip it).
+  await expectCfg(T, 'Apply when ON → gradient while ON, the card\'s own background otherwise (empty branch, no `none`)', (c) => has(T, `background: {{ 'linear-gradient(90deg, rgb(10, 20, 30), var(--yellow-color))' if is_state(config.entity, 'on') else '' }};`)(c) && lacks(T, `else 'none'`)(c));
+  const ownBg = (v) => v?.bgImg === own.bgImg && sameRgb(v?.bg, own.bg);
+  await expectPage(T, `preview: ON → ${lightOn ? 'gradient' : 'the card\'s own background (not stripped)'}`, P_CARD, 0, (v) => (lightOn ? (v?.bgImg || '').startsWith('linear-gradient') : ownBg(v)));
   await choose(when, 'off');
-  await expectPage(T, `preview: OFF → ${lightOn ? 'none' : 'gradient'}`, P_CARD, 0, (v) => (!lightOn ? (v?.bgImg || '').startsWith('linear-gradient') : v?.bgImg === 'none'));
+  await expectPage(T, `preview: OFF → ${lightOn ? 'the card\'s own background (not stripped)' : 'gradient'}`, P_CARD, 0, (v) => (!lightOn ? (v?.bgImg || '').startsWith('linear-gradient') : ownBg(v)));
   await choose(type, 'solid');
   await choose(when, 'custom');
   await pickEntity(T, rowOf(T, m, 'Entity').locator('cms-entity-picker'), 'switch.decorative_lights');
-  await expectCfg(T, 'Apply when another entity (switch.decorative_lights)', has(T, `background: {{ 'rgb(10, 20, 30)' if is_state('switch.decorative_lights', 'on') else 'none' }};`));
+  await expectCfg(T, 'Apply when another entity (switch.decorative_lights) → own background in the other branch', (c) => has(T, `background: {{ 'rgb(10, 20, 30)' if is_state('switch.decorative_lights', 'on') else '' }};`)(c) && lacks(T, `else 'none'`)(c));
   const decoOn = await isOn(T, 'switch.decorative_lights');
-  await expectPage(T, 'preview: follows switch.decorative_lights', P_CARD, 0, (v) => (decoOn ? sameRgb(v?.bg, 'rgb(10, 20, 30)') : v?.bg === 'rgba(0, 0, 0, 0)'));
+  await expectPage(T, `preview: follows switch.decorative_lights (${decoOn ? 'on → rgb(10, 20, 30)' : 'off → the card\'s own background'})`, P_CARD, 0, (v) => (decoOn ? sameRgb(v?.bg, 'rgb(10, 20, 30)') : ownBg(v)));
   await choose(when, 'always');
   await expectCfg(T, 'Apply when Always', has(T, 'background: rgb(10, 20, 30);'));
 }
@@ -623,7 +661,8 @@ async function animationSection(T) {
     }
   }
   await choose(preset, 'breathe');
-  await setSlider(T, rowOf(T, m, 'Speed').locator('ha-slider'), 4);
+  T.check('the speed slider is named "Duration" with the hint "Seconds per cycle — lower is faster."', ((await m.locator('.when-hint').allTextContents()).join(' ')).includes('Seconds per cycle — lower is faster.') && (await rowOf(T, m, 'Speed').count()) === 0);
+  await setSlider(T, rowOf(T, m, 'Duration').locator('ha-slider'), 4);
   await expectCfg(T, 'Speed 4s', has(T, 'animation: cms-breathe 4s ease-in-out infinite;'));
   await expectPage(T, 'preview: animation-duration 4s', P_CARD, 0, (v) => v?.animDur === '4s');
   const lightOn = await isOn(T, 'light.ceiling_lights');
@@ -663,6 +702,7 @@ async function borderSection(T) {
   await openEditor(T, 'fui-border', [TILE_LIGHT]);
   await openStudio(T);
   const m = mod(T, 'cms-border-module');
+  const own = await T.page.evaluate(P_CARD, 0); // the card's own border, before any styling
   await enable(m);
   await expectCfg(T, 'enable → border-radius: 12px (width 0 → no border)', (c) => S(T, c).includes('border-radius: 12px;') && !/\bborder:/.test(S(T, c)));
   await expectPage(T, 'preview: radius 12px', P_CARD, 0, (v) => v?.radius === '12px');
@@ -679,13 +719,19 @@ async function borderSection(T) {
   const lightOn = await isOn(T, 'light.ceiling_lights');
   const reacts = rowOf(T, m, 'Reacts to').locator('select');
   await choose(reacts, 'off');
-  await expectCfg(T, 'Reacts to OFF → width ternary (else none)', has(T, `border: {{ '3px solid var(--red-color)' if is_state(config.entity, 'off') else 'none' }};`));
-  await expectPage(T, `preview: OFF condition → ${lightOn ? '0px' : '3px'}`, P_CARD, 0, (v) => v?.bw === (lightOn ? '0px' : '3px'));
+  // The other branch is empty: the card keeps its OWN border (never `none`, which would remove it).
+  await expectCfg(T, 'Reacts to OFF → border while OFF, the card\'s own border otherwise (empty branch, no `none`)', (c) => has(T, `border: {{ '3px solid var(--red-color)' if is_state(config.entity, 'off') else '' }};`)(c) && lacks(T, `else 'none'`)(c));
+  const ownBorder = (v) => v?.bw === own.bw && v.bs === own.bs && v.bc === own.bc;
+  await expectPage(T, `preview: OFF condition → ${lightOn ? `the card's own border (${own.bw}, unchanged)` : '3px'}`, P_CARD, 0, (v) => (lightOn ? ownBorder(v) : v?.bw === '3px'));
   const other = rowOf(T, m, 'Width otherwise');
-  T.check('conditional width shows "Width otherwise" ("no border")', (await other.locator('.value-label').textContent()).trim() === 'no border');
+  T.check('conditional width shows "Width otherwise" as "card default" (0 = keep the card\'s own border)', (await other.locator('.value-label').textContent()).trim() === 'card default');
   await setSlider(T, other.locator('ha-slider'), 1);
   await expectCfg(T, 'Width otherwise 1', has(T, `else '1px solid var(--red-color)' }};`));
   await expectPage(T, `preview: ${lightOn ? 'otherwise 1px' : '3px'}`, P_CARD, 0, (v) => v?.bw === (lightOn ? '1px' : '3px'));
+  await setSlider(T, other.locator('ha-slider'), 0);
+  await expectCfg(T, 'Width otherwise back to 0 ("card default") → the empty branch again', has(T, `if is_state(config.entity, 'off') else '' }};`));
+  await setSlider(T, other.locator('ha-slider'), 1);
+  await expectCfg(T, 'Width otherwise 1 again', has(T, `else '1px solid var(--red-color)' }};`));
   await choose(reacts, 'on');
   await expectPage(T, `preview: ON condition → ${lightOn ? '3px' : '1px'}`, P_CARD, 0, (v) => v?.bw === (lightOn ? '3px' : '1px'));
   await choose(reacts, 'custom');
@@ -723,7 +769,18 @@ async function headingSection(T) {
   const base = await T.page.evaluate(P_HEADING);
   const m = mod(T, 'cms-heading-style-module');
   await enable(m);
-  await expectCfg(T, 'enable → HA heading variables on .container', has(T, '.container {', '--ha-heading-card-title-font-size: 24px;', '--ha-heading-card-subtitle-font-size: 24px;', '.content ha-icon {'));
+  // Switching Heading Style on writes nothing: every control starts as "Default" and the card keeps its own look.
+  await expectCfg(T, 'enabling Heading Style alone writes nothing', noStyle(T));
+  const same = (v) => v && base && ['size', 'weight', 'family', 'iconW', 'justify'].every((k) => v[k] === base[k]) && sameRgb(v.color, base.color) && sameRgb(v.iconColor, base.iconColor);
+  await expectPage(T, 'heading preview: switching Heading Style on changes nothing (size, weight, colours, icon, alignment all as before)', P_HEADING, null, same);
+  T.check('Text size reads "Default" with no reset button, Weight / Alignment select "Default"', /^Default/.test(((await rowOf(T, m, 'Text size').locator('.value-label').textContent()) || '').trim()) && (await rowOf(T, m, 'Text size').locator('button.reset-btn').count()) === 0 && (await rowOf(T, m, 'Weight').locator('select').evaluate((x) => x.value)) === '' && (await rowOf(T, m, 'Alignment').locator('select').evaluate((x) => x.value)) === '');
+  // Setting one value writes exactly that variable and nothing else.
+  await setSlider(T, rowOf(T, m, 'Text size').locator('ha-slider'), 30);
+  await expectCfg(T, 'Text size 30 alone → exactly the title and subtitle size variables on .container, nothing else', (c) => S(T, c).trim() === '.container {\n  --ha-heading-card-title-font-size: 30px;\n  --ha-heading-card-subtitle-font-size: 30px;\n}', { show: (c) => S(T, c) });
+  T.note(`heading: Text size 30 alone writes ${JSON.stringify(S(T, await getCfg(T)))}`);
+  await rowOf(T, m, 'Text size').locator('button.reset-btn').click();
+  await expectCfg(T, 'Text size reset (↺) → nothing written again', noStyle(T));
+  await expectPage(T, 'heading preview: back to the card\'s own size', P_HEADING, null, same);
   await setSlider(T, rowOf(T, m, 'Text size').locator('ha-slider'), 30);
   await pickSwatch(rowOf(T, m, 'Text color').locator('cms-color-picker'), 'Red');
   await choose(rowOf(T, m, 'Weight').locator('select'), 'bold');
