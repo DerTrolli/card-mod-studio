@@ -54,6 +54,19 @@ says so in a note. `{{ … }}` values and statements inside a rule don't
 trigger it. A style that calls a UIX macro or billet keeps the part that
 calls it here as well, and the panel notes that too.
 
+**Your own `!important` stays yours** (v0.11.0-beta.4). A declaration you
+wrote with `!important` that a module could read, for example
+`ha-card { background: none !important; }`, is not taken over by the module:
+it stays here and is written back exactly as written, because the module
+would write it back without `!important`. (Earlier versions took it over and
+dropped the flag on the next save.) The rest of the rule is still read into
+the modules. To let the module drive that property, remove the `!important`.
+`! important` and `!IMPORTANT` are read as the same flag and saved as
+` !important`. The exceptions are the declarations the Studio itself writes
+with `!important` (icon colour, the tile card's filter transition and tile
+colour, Background and Border on a text-only markdown card, most Mushroom and
+Bubble Card declarations): those are read into their modules as before.
+
 A hand-written declaration that a rule of the Studio overrides with
 `!important` (for example your own `.name { font-size: 20px; }` on a sensor
 card while the Font module sets a size) is kept: it stays here and is written
@@ -143,7 +156,11 @@ with the Studio's own syntax. Adoption is strictly conservative — only on
 card types where the two forms are verifiably equivalent, and only for
 values the control can express exactly; anything else stays verbatim here.
 Examples: only `solid` borders are adopted (a hand-written `dashed` or
-`dotted` border stays as written); only a plain `transition: filter <duration>`
+`dotted` border stays as written), and only with a width above zero
+(`border: 0px solid …` and `border-radius: 0px` stay as written, since Border
+& Radius has no setting for a zero; v0.11.0-beta.4); rules on the heading
+card's selectors (`.title p`, `.container`, `.content ha-icon`) are read as
+Heading Style on the heading card only; only a plain `transition: filter <duration>`
 is adopted (lists, custom easing and delays are kept); a threshold color
 expression is adopted only if the Studio would write it back identically —
 extra conditions (`and is_state(…)`), several entities, arithmetic or a rule

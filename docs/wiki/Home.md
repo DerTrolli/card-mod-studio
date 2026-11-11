@@ -3,7 +3,7 @@ Welcome to the **Card-Mod Studio** wiki — the detailed manual. The
 project is and how to install it; these pages cover how everything works,
 module by module, plus recipes, troubleshooting, and exact per-card support.
 
-**Current version:** v0.11.0-beta.3 (pre-release; the stable release is v0.10.2). These pages describe v0.11 and are published to the wiki when 0.11 is released.
+**Current version:** v0.11.0-beta.4 (pre-release; the stable release is v0.10.2). These pages describe v0.11 and are published to the wiki when 0.11 is released.
 
 ## What is Card-Mod Studio?
 

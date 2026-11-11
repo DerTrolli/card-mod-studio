@@ -5,6 +5,93 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0-beta.4] — 2026-11-11
+
+Fourth beta of v0.11 "Reach": seven fixes to how the Studio reads a style
+back when you open a card. Two of them concern styles the Studio wrote
+itself (a module came back switched off, with its CSS under Advanced CSS);
+five concern CSS you wrote by hand, which could change when the card was
+saved. Only the first one is new in beta.3; the others are older (see each
+entry). Nothing changes for a style that already loaded correctly.
+
+They were found by three checks that do not go through the browser: styles
+written by each released version's own generator (v0.8.1 to v0.11.0-beta.3,
+217,000 of them) loaded and saved by this build; 92,000 random setting
+combinations written and read back; and 30,000 random hand-written styles
+loaded and saved untouched, comparing what the browser would apply before
+and after. The checks are in `tools/continuity/` and can be re-run before
+every release.
+
+### Fixed
+
+- **Font with only a family, weight or colour, next to Threshold Colors.**
+  With Threshold Colors on the card's background, text or border, a Font that
+  had no size set came back switched off after saving and reopening, its
+  declarations listed under Advanced CSS. The card looked the same, but the
+  Font controls were empty. New in beta.3, where an untouched Font size is no
+  longer written. Opening such a card with this version reads the Font back.
+- **Threshold Colors with rules pointing both ways** (for example
+  "<= 10" together with ">= 1", where the second rule sorts in front of the
+  first) came back switched off after saving and reopening, the expression
+  kept under Advanced CSS, so the rules could no longer be edited. Since
+  v0.10.0; v0.8 and v0.9 instead reordered such rules on the next save, which
+  changed which rule matched first. The rules are now read back and written
+  in the same order. The same applies to an entities-card row's icon and text
+  thresholds.
+- **Your own `!important` is no longer removed.** A hand-written declaration
+  such as `ha-card { background: none !important; }` was taken over by the
+  matching module and written back without `!important` on the next save.
+  It now stays under Advanced CSS exactly as written whenever the module
+  would write it back without the flag; the rest of the rule is still read
+  into the modules. This applies to Background, Border & Radius, Visual
+  Filters, Accent Color, Animation and Font on the built-in cards (the
+  Mushroom and Bubble Card profiles already did this), and to the icon colour,
+  text colour, size and weight of an entities-card row. If you then set the
+  same property with a control, the module (or the row) shows the existing
+  warning that your own CSS overrides it.
+- **Heading Style no longer takes over rules on other cards.** A rule on
+  `.title p`, `.container` or `.content ha-icon` was read as Heading Style on
+  any card type and rewritten into the heading card's variables, where it had
+  no effect: the styling was lost on the next save. Such rules are now read on
+  the heading card only.
+- **`! important` and `!IMPORTANT` are recognised.** CSS allows both. When
+  the same property appeared twice for a selector, once with such a flag and
+  once without, the Studio kept the plain one, which the browser ignores, and
+  dropped the one it applies. Both spellings are saved as ` !important`.
+- **`border-radius: 0px` and `border: 0px solid …` are kept.** Border &
+  Radius read them but never writes a zero, so square corners or a removed
+  outline disappeared on the next save; a border next to a zero radius got
+  the 12px default radius. They now stay under Advanced CSS.
+- **`background-size: 200% auto` is kept** next to an animation other than
+  Gradient Shift. It was removed as if it were Gradient Shift's own
+  declaration.
+
+### Changed
+
+- A markdown card writes its Background and Border with `!important` only
+  while `text_only` is set. On a markdown card without `text_only`, such a
+  declaration is therefore treated as your own and stays under Advanced CSS
+  (it is written back unchanged and looks the same).
+
+### Verified, nothing to fix
+
+- Styles written by v0.8.1, v0.9.1, v0.10.0, v0.10.1, v0.10.2 and the three
+  earlier betas load without an error; every difference after saving is one
+  of the upgrades listed in the earlier changelog sections. Entities-card row
+  styles of all those versions are written back byte-identically.
+- No random hand-written style made the Studio fail or lose a referenced
+  `@keyframes`; every style is stable after at most two saves.
+- About 100 fast module switches, several hundred slider steps and fast
+  typing in Advanced CSS in one session log no error and leave a valid style.
+- Memory: with UIX 9.0.0, opening and closing the card editor 25 times leaves
+  no growing number of Studio panels behind. With card-mod 4.2.1 on Home
+  Assistant 2026.11, every opened card editor stays in memory together with
+  its preview (about 0.5 MB each time) until the page is reloaded; this also
+  happens with the Studio blocked from loading, so it is not caused by the
+  Studio.
+- Reading and writing takes 16 ms for a style of 100 rules and 0.4 s for
+  1,000 rules; it grows quadratically, 5,000 rules take about 10 s.
+
 ## [0.11.0-beta.3] — 2026-11-11
 
 Third beta of v0.11 "Reach" (plan: `docs/V0.11_PLAN.md`), the result of a
@@ -1579,6 +1666,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.11.0-beta.4]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.4
 [0.11.0-beta.3]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.3
 [0.11.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.2
 [0.11.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.1

@@ -61,7 +61,7 @@ to opt in. Betas are testing builds — the changelog marks them clearly.
    [latest release](https://github.com/DerTrolli/card-mod-studio/releases/latest)
 2. Copy it to `config/www/card-mod-studio.js`
 3. **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.11.0-beta.3`
+   - URL: `/local/card-mod-studio.js?v=0.11.0-beta.4`
    - Type: *JavaScript Module*
 4. Hard-refresh the browser (Ctrl+Shift+R)
 

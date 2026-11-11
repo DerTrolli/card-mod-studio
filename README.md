@@ -268,7 +268,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.11.0-beta.3`
+   - URL: `/local/card-mod-studio.js?v=0.11.0-beta.4`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -465,6 +465,7 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 24 | Font → Number size for the gauge value (50–130 % since beta.3; beta.1 and beta.2 went up to 150 %) and the thermostat big number (Studio-owned shadow-piercing entries); HA 2026.10 fixes for filter transitions and calendar/history-graph accent | 🧪 v0.11.0-beta.1, beta.2 |
 | 25 | Mushroom (5.2.3) and Bubble Card (3.x: button, slider button, separator, cover) support via per-card profiles, click-to-edit for their parts, entities-card row labels follow HA 2026.11 naming, Alert card gating | 🧪 v0.11.0-beta.2 |
 | 26 | Release-review round: controls you switch on but don't touch write nothing (Heading Style, Font, Icon Color incl. a "Keep the card's colour" mode); a conditional Background/Border keeps the card's own look while off; no entity-based conditions on entity-less cards or for entities that are never on/off; gauge Number size 50–130 % with 100 % = Home Assistant's size; Animation on nearly every built-in card (presets left out where they can't work), card-level Threshold Colors on the entities card, Icon Color on the statistic card, a per-card maximum icon size; Font reaches more text; a notice on custom cards without a profile; Advanced CSS, colour and number input checks; keyboard, screen-reader and touch work; click-to-edit for more card parts; palette and presets keep changes made while Home Assistant is unreachable; Enter no longer saves the dialog on HA 2025.9–2026.2 | 🧪 v0.11.0-beta.3 (verified on four rigs, see Compatibility) |
+| 27 | Read-back fixes found by replaying 217,000 styles of every release since v0.8.1 and by fuzzing: a Font without a size next to Threshold Colors and Threshold rules pointing both ways are read back into their modules; hand-written `!important`, `border-radius: 0px`, `border: 0px solid …` and heading-card selectors on other cards are no longer rewritten on save (cards and entities rows); repeatable checks in `tools/continuity/` | 🧪 v0.11.0-beta.4 |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

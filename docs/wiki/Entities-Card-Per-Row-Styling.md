@@ -43,6 +43,12 @@ Saving never rewrites a row you didn't touch: its CSS, its key order and
 options such as `state_color` stay exactly as they were. (Before
 v0.11.0-beta.3 an unrelated save could rewrite every row.)
 
+A row declaration you wrote with `!important` (`color`, `--state-icon-color`,
+`font-size`, `font-weight`) is not read into the row's controls and is written
+back unchanged when you edit the row (v0.11.0-beta.4; earlier the flag was
+dropped). If you then set the same thing with a row control, the row shows a
+warning that your own CSS overrides it.
+
 ## The generated YAML
 
 Row styles are written into each row's own `card_mod:`/`uix:` block:

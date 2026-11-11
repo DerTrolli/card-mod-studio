@@ -408,6 +408,33 @@ Found while re-verifying against HA 2026.9.4 and 2026.10.0b0 with card-mod
   `test/custom-card-profiles.test.ts`. When Mushroom or Bubble ships a new
   version, re-run `AUDIT_CUSTOM=1` on both rigs before trusting a profile.
 
+### Continuity and fuzz checks (v0.11.0-beta.4)
+
+`tools/continuity/run.sh` replays styles written by every released version's
+own generator through the working tree, round-trips random setting
+combinations and loads random hand-written styles (about two minutes, no
+browser). Run it before a release and whenever the parser, the generator or a
+module's read-back changes; what each step should show is in
+[`tools/continuity/README.md`](../tools/continuity/README.md). Lessons from
+its first run:
+
+- **Check the Studio's own output with random combinations, not only one
+  module at a time.** Both read-back defects it found needed two things
+  together: a Font without a size *and* Threshold Colors on `ha-card`
+  (Threshold is read after Font, so its declarations looked hand-written to
+  Font's "nothing else beside me" check); Threshold rules of both directions
+  *and* an order in which the sort moves a rule of the other direction to the
+  front (`sortThresholdRules` goes by the first rule, so sorting its own
+  output again gave a different order).
+- **Compare what the browser applies, not the text.** The hand-written fuzz
+  compares the cascade winner per selector and property; that is what showed
+  a dropped `!important` and a kept plain twin of a `! important` declaration.
+- **A reader that takes a declaration over must be able to write it back the
+  same.** `mapToStudioState` now regenerates what the modules would write and
+  leaves any `!important` declaration that would come back without the flag
+  to Advanced CSS (`weakenedImportant`); it takes the card's config, because
+  the flag can depend on it (text-only markdown).
+
 ### Test rig and QA tooling (v0.11.0-beta.3)
 
 - **card-mod is loaded through `frontend: extra_module_url` on the rig**
