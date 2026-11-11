@@ -57,6 +57,10 @@
 // Background control that is dead in BOTH rows (as measured: red pixels on the card face in off, unavailable, idle, paused
 // and playing) is correctly hidden by the panel. The report (.md) carries the same note under the table.
 // AUDIT_CARDS=media-control,media-control (off)   runs only those two rows (any card types, comma separated).
+// CANVAS CHARTS: the history graph draws its line on a canvas from `--graph-color-1`, so when only the colour changes no
+// element's plain computed style differs. The snapshot therefore also records the custom properties set on every ha-card
+// (key `…#vars`); on a persistently noisy card such a change makes the control INCONCLUSIVE (the variable reached the card,
+// pixels cannot decide) instead of DEAD. A static card is still judged by pixels alone.
 // FONT WEIGHT: the test value is chosen against the card's own text weight (read from the unstyled preview, recorded as
 // `nativeWeight` per row): Normal when the text is natively 550 or heavier (Mushroom chips are 700, Bubble's separator
 // name 600 - "Bold" would change no pixel there), otherwise Bold. A card where neither end changes a pixel is still DEAD.
@@ -256,7 +260,12 @@ const run = async () => {
       snap() {
         const c = this.preview(); if (!c) return null;
         const m = {};
-        for (const [el, path] of deep(c)) { const cs = getComputedStyle(el); m[path] = PROPS.map((p) => cs.getPropertyValue(p)).join('|'); }
+        for (const [el, path] of deep(c)) {
+          const cs = getComputedStyle(el); m[path] = PROPS.map((p) => cs.getPropertyValue(p)).join('|');
+          // the card's own custom properties (--graph-color-1 …): a canvas chart draws from them, so no element's
+          // plain computed style changes when they do; they show that the variable reached the card
+          if (el.tagName === 'HA-CARD') { const v = []; for (let i = 0; i < cs.length; i++) if (cs[i].startsWith('--')) v.push(cs[i] + ':' + cs.getPropertyValue(cs[i])); m[path + '#vars'] = v.sort().join(';'); }
+        }
         return m;
       },
       async apply(slice) {
@@ -345,6 +354,7 @@ const run = async () => {
       if (d > 0) {
         for (const k of Object.keys(now)) {
           if (!(k in base) || base[k] === now[k] || noisy.has(k)) continue;
+          if (k.endsWith('#vars')) { lastDetail.push(`${k.split('/').slice(-2).join('/')} {custom properties changed}`); if (lastDetail.length >= 4) break; continue; }
           const a = base[k].split('|'); const b = now[k].split('|');
           const props = PROPS.filter((_, j) => a[j] !== b[j]).map((pp) => `${pp}: ${a[PROPS.indexOf(pp)]} → ${b[PROPS.indexOf(pp)]}`);
           lastDetail.push(`${k.split('/').slice(-3).join('/')} {${props.join('; ')}}`);
