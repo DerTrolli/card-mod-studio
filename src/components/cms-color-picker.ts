@@ -576,7 +576,7 @@ export class CmsColorPicker extends LitElement {
         <div
           class="popover"
           role="dialog"
-          aria-label=${this._name('colour')}
+          aria-label=${this._name('Color picker')}
           style="top: ${this._popoverPos.top}px; left: ${this._popoverPos.left}px;"
           @click=${(e: Event) => e.stopPropagation()}
         >
