@@ -83,7 +83,7 @@ Point at the preview and the highlight names the control that styles that part; 
 
 ## Limits
 
-- **Tested versions:** Mushroom 5.2.3 on HA 2026.11.0 with card-mod 4.2.1 and UIX 9.0.0 (v0.11.0-beta.2). <!-- QA-PENDING: beta.3 verification result -->
+- **Tested versions:** Mushroom 5.2.3 on HA 2026.11.0 with card-mod 4.2.1 and UIX 9.0.0 (v0.11.0-beta.2). v0.11.0-beta.3 was re-verified on HA 2026.11.0 with both engines (all 18 types, 0 controls without effect) and with real input on HA 2026.2.3 and 2025.9.4.
 - **Chips:** no text colour and no icon colour (see above).
 - **Title card:** the subtitle's size, weight and colour can't be styled from the Studio — use [Advanced CSS](Advanced-CSS).
 - **Animation:** Gradient Shift isn't offered on the title card (it has no background to shift).

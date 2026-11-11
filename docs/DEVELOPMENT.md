@@ -463,7 +463,7 @@ Found while re-verifying against HA 2026.9.4 and 2026.10.0b0 with card-mod
   longer reads as an artefact. `AUDIT_TAG=name` keeps result files apart.
 - **Audit and tooling updates for beta.3.** `module_effect_audit.mjs` tests
   Font weight with a value that differs from the card's own text weight
-  (Normal for text that is natively 550 or heavier, otherwise Bold), treats a
+  (Normal for text that is natively 550 or heavier, otherwise Bold; it tries the other weight when the first shows nothing, as on cards that mix bold and regular text such as calendar and markdown), treats a
   changed custom property on a noisy canvas card (history-graph) as
   inconclusive rather than dead, has a `media-control (off)` row, and takes
   `AUDIT_CARDS=a,b` and `AUDIT_BUNDLE=/path/card-mod-studio.js` (audit a local

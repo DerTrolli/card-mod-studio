@@ -18,8 +18,7 @@ hidden (`tools/sandbox/harness/module_effect_audit.mjs`). For v0.11.0-beta.2 the
 UIX 9.0.0) over the built-in cards, all 18 Mushroom card types and the four
 Bubble kinds: no control is shown that changes nothing. Where a later beta
 offers a module on more cards (Animation, card-level Threshold on entities,
-Icon Color on statistic) or hides one, the table above is current.
-<!-- QA-PENDING: beta.3 verification result --> Details:
+Icon Color on statistic) or hides one, the table above is current. For v0.11.0-beta.3 the audit was re-run on HA 2026.11.0: with card-mod, built-in cards 0 controls without effect (1 inconclusive: Threshold "Text Color" on the gauge, whose needle animation hides small pixel changes) and all 18 Mushroom types and 4 Bubble kinds 0; with UIX, Mushroom and Bubble Card 0 and the built-in cards 1 (Threshold "Accent Color" on the history graph, see [Graphs & Data](Graph-and-Data-Cards)). Details:
 [CARD_SUPPORT_MATRIX.md](https://github.com/DerTrolli/card-mod-studio/blob/main/docs/CARD_SUPPORT_MATRIX.md).
 
 ## The reliable foundation

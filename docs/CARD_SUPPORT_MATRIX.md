@@ -128,7 +128,7 @@ The matrix at the top of this file is a dated measurement (v0.10.0): it has no
 The release-review round re-measured individual cells with real input on HA
 2026.11 (card-mod 4.2.1 and UIX 9.0.0, per card against an unstyled twin). The
 current answer is always `capsFor` in `src/utils/card-caps.ts` and the profiles
-in `src/utils/profiles/`. <!-- QA-PENDING: beta.3 verification result -->
+in `src/utils/profiles/`. Module-effect audit on the final build (HA 2026.11.0): card-mod — built-in cards 0 controls without effect and 1 inconclusive (Threshold "Text Color" on the gauge), Mushroom (18 types) and Bubble (4 kinds) 0; UIX — Mushroom and Bubble 0, built-in cards 1 (Threshold "Accent Color" on history-graph: the line colour is applied late, not dead) and the same inconclusive gauge result.
 
 | Card / control | Now (beta.3) | Evidence |
 |---|---|---|

@@ -25,8 +25,20 @@ and the `energy-*` cards.
   charting internals per entity — that's theme/HA territory, not reliably
   reachable via card styles. Card-box styling (background, border, font,
   title) is the supported surface.
-- With UIX, the history-graph line may keep its old colour after an Accent
-  is set until the chart next redraws; with card-mod it changes at once.
-  <!-- observed on a rig whose sensor data does not change; not yet confirmed on live data -->
+- **History-graph line colour can arrive late.** The graph reads the line's
+  colour (the Accent, written as `--graph-color-1`) only at the moment the
+  chart draws. A colour that arrives after the chart's first draw shows at the
+  next redraw, which happens when the sensor's state next changes (within a
+  fraction of a second of that change), so the line may keep its old colour
+  until the sensor's next reading. The colour is stored and applied correctly;
+  only the chart's own drawing is late. Measured on Home Assistant 2026.11:
+  with card-mod a plain Accent showed on 9 of 9 page loads and immediately in
+  the editor, while a Threshold "Accent Color" (a template Home Assistant
+  renders a moment later) showed on 4 of 9 loads and otherwise from the
+  sensor's next change; with UIX a plain Accent showed on 3 of 14 loads and a
+  Threshold accent on 0 of 14, and in all 8 measured cases the line took the
+  colour at the sensor's next change. card-mod with a plain Accent is the
+  dependable case. This is how the card has behaved since Accent was added to
+  it in v0.11.0-beta.1.
 - Deep `energy-*` SVG styling is explicitly out of scope —
   [Advanced CSS](Advanced-CSS) if you must.

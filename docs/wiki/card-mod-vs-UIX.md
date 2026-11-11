@@ -30,7 +30,7 @@ Note UIX 8.x itself requires HA ≥ 2026.8.0, UIX 8.4.0 requires
 HA ≥ 2026.10.0, and UIX 9.0.0 requires HA ≥ 2026.11.0; its styling contract (what the Studio reads/writes)
 is unchanged from 7.x. The Studio doesn't edit UIX Forge config
 (`forge:`/`foundry:` keys) but preserves it untouched through every edit.
-<!-- QA-PENDING: beta.3 verification result -->
+v0.11.0-beta.3 was verified with real input on HA 2026.11.0 with card-mod 4.2.1 and with UIX 9.0.0, on HA 2026.2.3 with card-mod 4.2.1 and on HA 2025.9.4 with card-mod 3.4.5.
 
 **Which engine should I use?** Both work equally well with the Studio.
 card-mod 4.2.1 is still the newest card-mod release, but it is effectively

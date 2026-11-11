@@ -72,7 +72,7 @@ Point at the preview and the highlight names the control that styles that part; 
 
 ## Limits
 
-- **Tested versions:** Bubble Card 3.4.3 (3.x) on HA 2026.11.0 with card-mod 4.2.1 and UIX 9.0.0 (v0.11.0-beta.2). <!-- QA-PENDING: beta.3 verification result -->
+- **Tested versions:** Bubble Card 3.4.3 (3.x) on HA 2026.11.0 with card-mod 4.2.1 and UIX 9.0.0 (v0.11.0-beta.2). v0.11.0-beta.3 was re-verified on HA 2026.11.0 with both engines (the 4 kinds, 0 controls without effect) and with real input on HA 2026.2.3 and 2025.9.4 (Bubble Card 3.4.2 there).
 - **Other Bubble card types** (any `card_type` besides button, separator and cover) keep showing every module for now, so some controls there may do nothing.
 - **Later Bubble majors:** the controls were measured on Bubble 3.x only; a new major can change Bubble's internals and needs a fresh audit.
 

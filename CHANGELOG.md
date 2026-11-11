@@ -5,7 +5,7 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.11.0-beta.3] — 2026-11-10
+## [0.11.0-beta.3] — 2026-11-11
 
 Third beta of v0.11 "Reach" (plan: `docs/V0.11_PLAN.md`), the result of a
 hands-on review of every card type with real mouse, keyboard and touch input.
@@ -18,7 +18,16 @@ Animation, Threshold Colors and Icon Color reach more cards, Font reaches more
 of the text, and the panel works with keyboard and screen reader. Read
 **Changed** below before updating: a few styles saved with beta.2 or earlier
 look or save differently now.
-<!-- QA-PENDING: beta.3 verification result -->
+
+Verified with real mouse, keyboard and touch input through the real card
+editor on four rigs: Home Assistant 2026.11.0 with card-mod 4.2.1 and with
+UIX 9.0.0 (Mushroom 5.2.3 and Bubble Card 3.4.3 on both), Home Assistant
+2026.2.3 with card-mod 4.2.1, and Home Assistant 2025.9.4 with card-mod 3.4.5.
+The automated check suite passes (card-mod rig 21 of 21, UIX rig 19 of 19),
+as does the functional check of every control (489 of 489 and 491 of 491);
+the module-effect audit finds 0 controls without effect on the card-mod rig
+(1 inconclusive) and, on the UIX rig, 0 on the Mushroom and Bubble cards and
+1 on the built-in cards (see the history-graph note below).
 
 ### Added
 
@@ -245,6 +254,15 @@ look or save differently now.
   first v0.11.0-beta.2 release was created on the wrong branch); the test rig
   loads card-mod through `frontend: extra_module_url`; a real-input click
   driver and a less noisy module-effect audit joined `tools/sandbox`.
+
+### Known limit
+
+- **History-graph line colour can arrive late.** The history graph reads the
+  line colour (the Accent) only at the moment the chart draws. A colour that
+  arrives after the chart's first draw is used at the next redraw, which
+  happens when the sensor's state next changes. The colour is stored and
+  applied correctly; only the chart's own drawing is late. This is how the
+  card has behaved since Accent was added to it in v0.11.0-beta.1.
 
 ### Fixed
 

@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-11-10 · **Current stable:** v0.10.2 (2026-11-07) — a maintenance release for HA 2026.11 (Marketplace install docs, four HA 2026.10+ styling fixes) on top of v0.10.1 (a fix for translucent themes) and v0.10.0 "Piercing + polish": dict-form styles editable, Heading Style rebuilt for HA 2026.10, a hand-written-CSS audit, and a light/dark/phone overhaul of the editor UI. · **Pre-release:** v0.11.0-beta.3 (stable stays v0.10.2) — prepared 2026-11-10 from the release-review round, release QA still in progress; the last *published* pre-release is v0.11.0-beta.2 (Mushroom and Bubble Card support (beta), gauge Number size up to 150 %, HA 2026.11 entity-row labels, wiki pages and screenshots; includes all of v0.10.2 and beta.1). beta.3 adds the unprofiled-custom-card notice, "write only what was set" for Heading Style / Font / Icon Color, the conditional-Background/Border fix, Animation on more cards, accessibility work and input validation — see "Pre-release (v0.11.0-beta.3)" below. *Re-published 2026-11-10:* beta.2 was first published on 2026-11-07 from `main` by mistake (its tag sat on the v0.10.2 merge, so the asset was v0.10.2 code; 5 downloads); that release and tag were deleted and re-created as a pre-release from the 0.11 branch (tag on `2941774`, asset `card-mod-studio.js`, 426,357 bytes). Open GitHub issues: none. Next: **v0.11.0** — see "Next: v0.11.0" below; plan: [`docs/V0.11_PLAN.md`](V0.11_PLAN.md). Previous cycle plan (historical): [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
+**Last updated:** 2026-11-11 · **Current stable:** v0.10.2 (2026-11-07) — a maintenance release for HA 2026.11 (Marketplace install docs, four HA 2026.10+ styling fixes) on top of v0.10.1 (a fix for translucent themes) and v0.10.0 "Piercing + polish": dict-form styles editable, Heading Style rebuilt for HA 2026.10, a hand-written-CSS audit, and a light/dark/phone overhaul of the editor UI. · **Pre-release:** v0.11.0-beta.3 (stable stays v0.10.2) — prepared 2026-11-10 from the release-review round, release QA still in progress; the last *published* pre-release is v0.11.0-beta.2 (Mushroom and Bubble Card support (beta), gauge Number size up to 150 %, HA 2026.11 entity-row labels, wiki pages and screenshots; includes all of v0.10.2 and beta.1). beta.3 adds the unprofiled-custom-card notice, "write only what was set" for Heading Style / Font / Icon Color, the conditional-Background/Border fix, Animation on more cards, accessibility work and input validation — see "Pre-release (v0.11.0-beta.3)" below. *Re-published 2026-11-10:* beta.2 was first published on 2026-11-07 from `main` by mistake (its tag sat on the v0.10.2 merge, so the asset was v0.10.2 code; 5 downloads); that release and tag were deleted and re-created as a pre-release from the 0.11 branch (tag on `2941774`, asset `card-mod-studio.js`, 426,357 bytes). Open GitHub issues: none. Next: **v0.11.0** — see "Next: v0.11.0" below; plan: [`docs/V0.11_PLAN.md`](V0.11_PLAN.md). Previous cycle plan (historical): [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -38,7 +38,7 @@ review of every card type with real pointer, keyboard and touch input
 (working log: [`docs/research/2026-11-v0.11.0-release-qa.md`](research/2026-11-v0.11.0-release-qa.md);
 design of the "untouched controls write nothing" work:
 [`docs/research/2026-11-unset-controls-design.md`](research/2026-11-unset-controls-design.md)).
-Real-input verification of this version has been run on four rigs (HA 2026.11 with card-mod 4.2.1 and with UIX 9.0.0; 2026.2.3 with card-mod 4.2.1; 2025.9.4 with card-mod 3.4.5), the automated suites pass on the final build (card-mod rig 21/21, UIX rig 19/19; functional UI check 489/489 and 491/491), and the visual check across light/dark and six screen sizes found no clipping, no small touch targets and no low-contrast text. The audit numbers are still to be entered. <!-- QA-PENDING: beta.3 verification result -->
+Release QA for this version is complete and it is ready to be published as a pre-release (not yet published; the owner publishes it): real-input verification on four rigs (HA 2026.11 with card-mod 4.2.1 and with UIX 9.0.0; 2026.2.3 with card-mod 4.2.1; 2025.9.4 with card-mod 3.4.5), the automated suites on the final build (card-mod rig 21/21, UIX rig 19/19; functional UI check 489/489 and 491/491; click-to-edit 24/24 on both), the module-effect audit (card-mod: built-in 0 without effect, 1 inconclusive; Mushroom 18 types and Bubble 4 kinds 0; UIX: Mushroom and Bubble 0, built-in 1 — history-graph Threshold accent timing) and a visual check of 120 runs (light/dark x six screen sizes x ten card scenarios) with no clipping, no touch target under 24 px on phones and no low-contrast text.
 
 - **Styles that were written differently before:** Heading Style, Font and
   Icon Color write only what you set (Icon Color gains "Keep the card's
@@ -111,10 +111,8 @@ slider button / separator / cover and a Bubble card with no `card_type`; all
 modules stay visible. Unit and render tests are in. A live look at 390px on
 both engines is part of the verification wave below.
 
-**2. WS5 — release QA (in progress).** The real-input review pass found and
-fixed the issues in the beta.3 CHANGELOG; the final verification wave (live
-suite, audits, old-HA rigs, notice at 390px) has not been run on the beta.3
-build yet. <!-- QA-PENDING: beta.3 verification result --> As for v0.10 final:
+**2. WS5 — release QA: complete for beta.3** (numbers in the beta.3 section
+above). What it covered:
 - Full live suite (`run_suite.sh`), functional UI check and module-effect
   audits (built-in and `AUDIT_CUSTOM=1`) on **HA 2026.11.x x card-mod 4.2.1 x
   UIX 9.0.0** and on **HA 2026.10.4 x UIX 8.4.0**.
@@ -139,6 +137,17 @@ build yet. <!-- QA-PENDING: beta.3 verification result --> As for v0.10 final:
 | Intermittent, UIX: the first style saved on a freshly seeded card was not applied until a reload (3 of ~16 runs, only under heavy machine load) | engine timing | Open, not reproduced otherwise |
 | The live preview is the last block on a phone, so the effect can't be seen while editing | panel layout | Open (idea: a sticky mini preview) |
 | A hand-written `else 'none'` in a Background/Border is read as the Studio's own and saved as the card's own look | parser | Accepted, noted in the CHANGELOG |
+
+**3b. Left for the final v0.11.0** (from the beta.3 verification):
+- Nine controls that are hidden today would work — candidates for a later
+  release: alarm-panel Font colour and Threshold text colour; entities card
+  Accent and Threshold accent; heading card Font (size/weight), Font family
+  and Animation; picture-elements Font colour and Threshold text colour.
+- History-graph line colour arrives late (it is read only when the chart
+  draws; see the Graph wiki page); statistics-graph was not measured for the
+  same timing.
+- The limits already listed in the wiki pages and the follow-ups above that
+  are still open.
 
 **4. Release steps.** Version `0.11.0` in `package.json`, a `CHANGELOG.md`
 section (including the `release.yml` guard below), README cache-bust URL and
