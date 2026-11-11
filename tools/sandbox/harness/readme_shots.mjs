@@ -19,6 +19,9 @@
 // Bubble Card 3.x installed on the rig. The default theme is restored first
 // (resetTheme), so the set is always light.
 //
+// The demo palette (shots 02-09 show it) is written to the user's Home Assistant
+// profile for the run and the previous value is restored at the end.
+//
 // Then review every PNG and copy over the repo's images/ files.
 import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
@@ -357,25 +360,48 @@ const shot = async (page, rect, file) => {
   console.log('📸', file);
 };
 
+const DEMO_PALETTE = {
+  colors: [
+    { id: 'c1', name: 'Brand blue', hex: '#03a9f4' },
+    { id: 'c2', name: 'Warm amber', hex: '#ffb300' },
+  ],
+  defaults: {},
+};
+let restore = async () => {};
+
 const run = async () => {
   const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
   const page = await browser.newPage({ viewport: { width: 1920, height: 1400 }, deviceScaleFactor: SCALE });
-  await page.addInitScript((t) => {
+  await page.addInitScript(([t, demoPalette]) => {
     localStorage.setItem('hassTokens', JSON.stringify(t));
-    localStorage.setItem('cms-palette', JSON.stringify({
-      colors: [
-        { id: 'c1', name: 'Brand blue', hex: '#03a9f4' },
-        { id: 'c2', name: 'Warm amber', hex: '#ffb300' },
-      ],
-      defaults: {},
-    }));
-  }, tokens);
+    localStorage.setItem('cms-palette', JSON.stringify(demoPalette));
+  }, [tokens, DEMO_PALETTE]);
 
   await page.goto(`${HA}/lovelace/0`, { waitUntil: 'domcontentloaded' });
   await waitForHassReady(page);
   // A theme choice persists in the user profile — shoot the default light theme.
   const resetFrom = await resetTheme(page);
   if (resetFrom) console.log('theme reset from', JSON.stringify(resetFrom));
+  // The Studio reads the palette from the user's Home Assistant profile first
+  // (localStorage is only the fallback), and the rig's profile holds an empty
+  // one — so the two demo colours must be written there for the colour pickers
+  // to show them. The previous value is put back at the end (see restore).
+  const prevPalette = await page.evaluate(async (demo) => {
+    const hass = document.querySelector('home-assistant').hass;
+    const prev = await hass.connection.sendMessagePromise({ type: 'frontend/get_user_data', key: 'cms_palette' });
+    await hass.connection.sendMessagePromise({ type: 'frontend/set_user_data', key: 'cms_palette', value: demo });
+    return prev?.value ?? null;
+  }, DEMO_PALETTE);
+  const restorePalette = async () => {
+    try {
+      await page.evaluate(async (prev) => {
+        const hass = document.querySelector('home-assistant').hass;
+        await hass.connection.sendMessagePromise({ type: 'frontend/set_user_data', key: 'cms_palette', value: prev ?? { colors: [], defaults: {} } });
+      }, prevPalette);
+      console.log('palette restored');
+    } catch (e) { console.error('PALETTE RESTORE FAILED', e); }
+  };
+  restore = restorePalette;
   await page.evaluate(async ({ urlPath, cards }) => {
     const hass = document.querySelector('home-assistant').hass;
     try {
@@ -479,7 +505,7 @@ const run = async () => {
     await setNextModulesVisibility('hidden');
     const content = await panelElementRect(page, 'cms-background-module');
     const ann = await annotate(page, [
-      { find: { module: 'cms-background-module', sel: 'select', text: 'Only while entity is ON' }, label: 'Only while the entity is ON / OFF', side: 'insideRight' },
+      { find: { module: 'cms-background-module', sel: 'select', text: 'Only while entity is ON' }, label: 'Only while the entity is ON / OFF', side: 'insideRight', shiftX: -40 },
     ]);
     await shot(page, union(content, ann ? pad(ann, 12) : null), '04 Background Color.png');
     await clearAnnotations(page);
@@ -557,7 +583,7 @@ const run = async () => {
   {
     const content = await panelElementRect(page, 'cms-palette-manager', 'cms-font-module');
     const ann = await annotate(page, [
-      { find: { module: 'cms-palette-manager', sel: '.color-row' }, label: 'Your named colors — in every color picker', side: 'insideRight', shiftX: -70 },
+      { find: { module: 'cms-palette-manager', sel: '.color-row' }, label: 'Your named colors — in every color picker', side: 'insideRight', shiftX: -35 },
     ]);
     await shot(page, union(content, ann ? pad(ann, 12) : null), '09 Font and Palette.png');
     await clearAnnotations(page);
@@ -631,7 +657,7 @@ const run = async () => {
   }, { allByTagSrc });
   {
     const ann = await annotate(page, [
-      { find: { panel: 'cms-child-card-section' }, label: 'One styling section per card in the stack', side: 'bottom', shiftX: 200 },
+      { find: { panel: 'cms-child-card-section' }, label: 'One styling section per card in the stack', side: 'insideRight' },
     ]);
     await shot(page, union(await dialogRect(page), ann ? pad(ann, 10) : null), '08 Stack Children.png');
     await clearAnnotations(page);
@@ -688,7 +714,8 @@ const run = async () => {
   await openEditDialog(page, 'hui-gauge-card', 'sensor.power_consumption');
   await clickStyleTab(page);
   await patchPanel({
-    font: { numberSizeEnabled: true, numberSize: 130 },
+    // Number size only takes effect while the Font module itself is on.
+    font: { enabled: true, numberSizeEnabled: true, numberSize: 120 },
   }, ['cms-font-module']);
   {
     // The row label hangs below the row — hide the modules after Font so the
@@ -703,14 +730,15 @@ const run = async () => {
     }, { allByTagSrc });
     const ann = await annotate(page, [
       { find: { panel: '.preview-card-wrapper hui-card' }, label: 'The value number grows', side: 'bottom' },
-      { find: { module: 'cms-font-module', sel: '.control-row', text: 'Number size' }, label: 'Number size — 50 to 150 % of HA\'s own size', side: 'bottom', shiftX: 200 },
+      { find: { module: 'cms-font-module', sel: '.control-row', text: 'Number size' }, label: 'Number size — 50 to 130 % of HA\'s own size', side: 'bottom', shiftX: 200 },
     ]);
     await shot(page, union(await dialogRect(page), ann ? pad(ann, 10) : null), '12 Gauge Number Size.png');
     await clearAnnotations(page);
   }
 
+  await restore();
   await browser.close();
   console.log('done →', OUT);
 };
 
-run().catch((e) => { console.error('ERR', e); process.exit(1); });
+run().catch(async (e) => { console.error('ERR', e); await restore(); process.exit(1); });
