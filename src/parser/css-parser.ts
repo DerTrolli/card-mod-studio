@@ -349,8 +349,12 @@ function parseDeclarations(
     // Strip !important from the stored value but keep the flag — recognisers
     // match on the bare value; mapAdvanced re-appends the suffix for
     // unclaimed declarations so preserved CSS keeps its specificity.
-    const important = /\s*!important\s*$/.test(rawValue);
-    rawValue = rawValue.replace(/\s*!important\s*$/, '').trim();
+    // CSS allows white space between `!` and `important` and ignores case
+    // (`! important`, `!IMPORTANT`): all of them carry the flag. Missing one
+    // made a later plain twin win the de-duplication below, i.e. the Studio
+    // kept the declaration the browser ignores and dropped the one it applies.
+    const important = /\s*!\s*important\s*$/i.test(rawValue);
+    rawValue = rawValue.replace(/\s*!\s*important\s*$/i, '').trim();
 
     if (!propertyName) continue;
 

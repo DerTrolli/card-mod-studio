@@ -53,6 +53,7 @@ import {
   fontBlock,
   headerWeightViaToken,
   buttonStateFontSize,
+  generateCss,
 } from '../generator/css-generator.js';
 import { capsFor } from '../utils/card-caps.js';
 import { isValidCssColor } from '../utils/css-color.js';
@@ -410,8 +411,12 @@ function mapAnimation(
   // gradient-shift needs `background-size: 200% auto;` alongside the
   // animation (see animationDecls) — claim it with the animation, or it
   // leaks into Advanced CSS and outlives switching to a different preset.
-  const claimCompanions = () => {
+  // Only Gradient Shift writes it: next to any other preset a
+  // `background-size: 200% auto` is the user's own and is not regenerated, so
+  // claiming it there dropped it on the next save.
+  const claimCompanions = (preset: AnimationModuleState['preset']) => {
     claimed.add(claimKey(haCard.selector, 'animation'));
+    if (preset !== 'gradient-shift') return;
     const bgSize = findProp(haCard, 'background-size');
     if (bgSize && bgSize.value.trim() === '200% auto') {
       claimed.add(claimKey(haCard.selector, 'background-size'));
@@ -422,7 +427,7 @@ function mapAnimation(
   if (!animProp.hasCondition) {
     const parsed = parseAnimValue(animProp.value);
     if (parsed) {
-      claimCompanions();
+      claimCompanions(parsed.preset);
       return { enabled: true, ...parsed, trigger: 'always' };
     }
   } else if (animProp.onValue || animProp.offValue) {
@@ -440,7 +445,7 @@ function mapAnimation(
       // save (audit W1). Leave it unclaimed → Advanced CSS, verbatim.
       if (animProp.entityId && !onParsed) return { ...DEFAULT_ANIMATION };
 
-      claimCompanions();
+      claimCompanions(parsed.preset);
 
       const base = { enabled: true, ...parsed };
 
@@ -461,7 +466,7 @@ function mapAnimation(
       const [, animValue, stateEntity, attrEntity, attrName, operator, numStr] = match;
       const parsed = parseAnimValue(animValue);
       if (parsed) {
-        claimCompanions();
+        claimCompanions(parsed.preset);
         return {
           enabled: true,
           ...parsed,
@@ -483,13 +488,94 @@ function mapAnimation(
 // ---------------------------------------------------------------------------
 
 /** `cardType` is the card's profile key (profileKeyOf(config)); equal to
- *  `config.type` for every built-in card. */
-export function mapToStudioState(fullParsed: CardModStyleState, cardType?: string): StudioState {
-  // Custom profiles only: a hand-written `!important` declaration that the
+ *  `config.type` for every built-in card. `config` is the card's own config
+ *  where the caller has it: what a module writes back can depend on it (a
+ *  text-only markdown card writes its background `!important`), and the
+ *  reader leaves a hand-written `!important` alone exactly when the module
+ *  would write it back without the flag. */
+export function mapToStudioState(
+  fullParsed: CardModStyleState,
+  cardType?: string,
+  config?: Record<string, unknown>,
+): StudioState {
+  // Custom profiles: a hand-written `!important` declaration that the
   // generator would write back WITHOUT `!important` is not ours to claim — the
   // module would regenerate it weaker. It stays in Advanced CSS (which is built
-  // from `fullParsed`); every recogniser below sees the filtered view.
-  const parsed = withoutUnclaimableImportant(fullParsed, cardType);
+  // from `fullParsed`); every recogniser sees the filtered view.
+  let view = withoutUnclaimableImportant(fullParsed, cardType);
+  let state = mapView(fullParsed, view, cardType);
+  // Every card: the same rule, checked against what the generator really
+  // writes for this card type. `ha-card { background: red !important }` used
+  // to load into Background and save as `background: red` — the flag people
+  // add precisely because the rule loses without it was gone after one save.
+  // A declaration that would come back weaker is hidden from the recognisers
+  // and the style is read again, so it stays hand-written, byte for byte.
+  for (let pass = 0; pass < 3; pass++) {
+    const weaker = weakenedImportant(fullParsed, state, cardType, config);
+    if (!weaker.size) break;
+    view = {
+      ...view,
+      targets: view.targets.map((t) => {
+        const properties = t.properties.filter((p) => !weaker.has(claimKey(t.selector, p.property)));
+        return properties.length === t.properties.length ? t : { ...t, properties };
+      }),
+    };
+    state = mapView(fullParsed, view, cardType);
+  }
+  return state;
+}
+
+/**
+ * The `!important` declarations of `full` that `state` would write back, on
+ * the same selector and property, WITHOUT the flag (as claim keys). A
+ * declaration the generator moves elsewhere or drops (an older Studio shape
+ * being upgraded) is not listed: only an in-place weakening is.
+ */
+function weakenedImportant(
+  full: CardModStyleState,
+  state: StudioState,
+  cardType?: string,
+  config?: Record<string, unknown>,
+): Set<string> {
+  const out = new Set<string>();
+  // Without a card type the generator's per-card `!important` (tile
+  // transition, button font size, …) is unknown: nothing to compare with.
+  if (cardType === undefined) return out;
+  if (!full.targets.some((t) => t.properties.some((p) => p.important))) return out;
+  // The flag can depend on the card's config: a text-only markdown card
+  // writes its background and border `!important`. With the config at hand
+  // the comparison is exact; without it a declaration counts as weakened only
+  // if no variant writes it back with the flag.
+  const variants: (Record<string, unknown> | undefined)[] = config ? [config] : [undefined];
+  if (!config && cardType === 'markdown') variants.push({ type: 'markdown', text_only: true });
+  // What the MODULES write: the hand-written remainder is left out, so a
+  // plain twin the remainder keeps (see `overridden`) is not mistaken for the
+  // module's own weaker copy.
+  const modulesOnly: StudioState = { ...state, advanced: { rawCss: '' } };
+  let regenerated: CssTarget[][];
+  try {
+    regenerated = variants.map((cfg) =>
+      parseCss(generateCss(modulesOnly, cardType, cfg ? { config: cfg, gaugeNeedle: cfg.needle === true } : undefined)),
+    );
+  } catch {
+    return out;
+  }
+  for (const t of full.targets) {
+    for (const p of t.properties) {
+      if (!p.important) continue;
+      const back = regenerated
+        .map((targets) => findTargetNormalized(targets, t.selector))
+        .map((again) => (again ? findProp(again, p.property) : null))
+        .filter((x): x is CssProperty => !!x);
+      if (back.length && back.every((b) => !b.important)) out.add(claimKey(t.selector, p.property));
+    }
+  }
+  return out;
+}
+
+/** One reading of a style: `parsed` is what the recognisers may claim from,
+ *  `fullParsed` what the hand-written remainder is built from. */
+function mapView(fullParsed: CardModStyleState, parsed: CardModStyleState, cardType?: string): StudioState {
   const haCard = findTarget(parsed.targets, 'ha-card');
   const haStateIcon = findTarget(parsed.targets, 'ha-state-icon');
   const haIcon = findTarget(parsed.targets, 'ha-icon');
@@ -557,9 +643,14 @@ export function mapToStudioState(fullParsed: CardModStyleState, cardType?: strin
         : pc?.has('borderRadius') || pc?.has('borderWidth')
           ? mapBorderProfile(pc, claimed)
           : mapBorder(haCard, claimed),
-    headingStyle: hidden('headingStyle')
-      ? { ...DEFAULT_HEADING_STYLE }
-      : mapHeadingStyle(titleP, headingIcon, container, headingFamily, claimed),
+    // Heading Style exists on the heading card only. Its selectors are common
+    // ones (`.container`, `.title p`, `.content ha-icon`): on any other card a
+    // rule on them is the user's own, and adopting it rewrote it into heading
+    // variables that do nothing there. (No card type given: as before.)
+    headingStyle:
+      hidden('headingStyle') || (cardType !== undefined && cardType !== 'heading')
+        ? { ...DEFAULT_HEADING_STYLE }
+        : mapHeadingStyle(titleP, headingIcon, container, headingFamily, claimed),
     font: {
       ...(hidden('font')
         ? { ...DEFAULT_FONT }
@@ -575,6 +666,17 @@ export function mapToStudioState(fullParsed: CardModStyleState, cardType?: strin
     // rebuilt byte-identically around the regenerated `.` entry.
     ...(numberSize.dictSource ? { dictSource: numberSize.dictSource } : {}),
   };
+  // A Font without a size (only weight, colour or family set) is taken over
+  // only when nothing hand-written sits beside it on `ha-card`. Threshold
+  // Colors is read after Font, so what it writes there (`background`, `color`,
+  // `border`, `--cms-gradient-stops`) still looked hand-written: the Studio's
+  // own "Font family + Threshold background" came back with Font switched off
+  // and its declarations under Advanced CSS. Read Font once more now that
+  // Threshold has claimed its part (a failed first read claimed nothing).
+  if (!state.font.enabled && state.threshold.enabled && !hidden('font') && !pc?.has('fontSize')) {
+    const again = mapFont(parsed.targets, haCard, claimed, cardType);
+    if (again.enabled) state.font = { ...again, ...numberSize.font };
+  }
   // Companion declarations ride only with their recognised module.
   if (pc && state.background.enabled) pc.claimCompanions('background', claimed);
   if (pc && state.accentColor.enabled) pc.claimCompanions('accentColor', claimed);
@@ -950,7 +1052,8 @@ function mapBorderProfile(pc: ProfileClaims, claimed: Set<string>): BorderModule
 
   const radius = plain('borderRadius');
   const radiusMatch = radius?.value.trim().match(/^(\d+(?:\.\d+)?)px$/);
-  if (radius && radiusMatch) {
+  const radiusAdopted = !!radius && !!radiusMatch && parseFloat(radiusMatch[1]) > 0;
+  if (radius && radiusAdopted) {
     state.enabled = true;
     state.radiusPx = parseFloat(radiusMatch[1]);
     pc.claimEqual('borderRadius', radius.value, claimed);
@@ -997,7 +1100,7 @@ function mapBorderProfile(pc: ProfileClaims, claimed: Set<string>): BorderModule
     }
   }
   // A width/colour with no radius must not gain the module's default radius.
-  if (state.enabled && !radius) state.radiusPx = 0;
+  if (state.enabled && !radiusAdopted) state.radiusPx = 0;
   return state;
 }
 
@@ -1702,12 +1805,19 @@ function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModule
   const borderProp = findProp(haCard, 'border');
 
   const state: BorderModuleState = { ...DEFAULT_BORDER };
+  // Whether the radius was taken over: a radius left to the user (absent, a
+  // condition, another unit, 0px) must not be joined by the module's default.
+  let radiusAdopted = false;
 
   if (radiusProp && !radiusProp.hasCondition) {
     const match = radiusProp.value.match(/^(\d+(?:\.\d+)?)px$/);
-    if (match) {
+    // The module writes a radius only above 0 (0 is its "not set"), so a
+    // hand-written `border-radius: 0px` (square corners) is not ours: claiming
+    // it dropped it on the next save and the theme's rounding came back.
+    if (match && parseFloat(match[1]) > 0) {
       state.enabled = true;
       state.radiusPx = parseFloat(match[1]);
+      radiusAdopted = true;
       claimed.add(claimKey(haCard.selector, 'border-radius'));
     }
   }
@@ -1719,7 +1829,9 @@ function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModule
     const match = borderProp.value.match(
       /^(\d+)px\s+(solid)\s+(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)$/i,
     );
-    if (match) {
+    // Same for a zero width: `border: 0px solid …` removes the card's own
+    // outline and the module never writes it back.
+    if (match && parseInt(match[1], 10) > 0) {
       state.enabled = true;
       state.borderWidth = parseInt(match[1], 10);
       state.borderColor = match[3];
@@ -1727,7 +1839,7 @@ function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModule
       // A hand-authored `border:` with no `border-radius:` must not gain
       // the module's default 12px radius on the next save — only emit a
       // radius the CSS actually had.
-      if (!radiusProp) state.radiusPx = 0;
+      if (!radiusAdopted) state.radiusPx = 0;
     }
   } else if (borderProp) {
     // State-driven width: {{ 'Npx solid C' if COND else ''|'Mpx solid C' }}
@@ -1748,7 +1860,7 @@ function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModule
         state.widthWhen = ternary.condition;
         if (off !== 'none') state.widthOffPx = parseInt(off[1], 10);
         claimed.add(claimKey(haCard.selector, 'border'));
-        if (!radiusProp) state.radiusPx = 0;
+        if (!radiusAdopted) state.radiusPx = 0;
       }
     }
   }
@@ -2274,11 +2386,36 @@ export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet'
   // chain) and the exact expression, modulo whitespace and redundant
   // parentheses. Extra logic (`and is_state(…)`, arithmetic) used to be
   // silently dropped on regenerate (audit v0.10 #2).
-  if (sortThresholdRules(rules).some((r, i) => r !== rules[i])) return null;
+  const ordered = unsortedThresholdRules(rules);
+  if (!ordered) return null;
   const mapColor = format === 'rgb-triplet' ? (c: string) => toRgbTriplet(c) ?? c : undefined;
-  if (!sameThresholdExpression(trimmed, buildThresholdJinja(rules, defaultColor, entityId, attribute, mapColor))) return null;
+  if (!sameThresholdExpression(trimmed, buildThresholdJinja(ordered, defaultColor, entityId, attribute, mapColor))) return null;
 
-  return { entityId, attribute, rules, defaultColor };
+  return { entityId, attribute, rules: ordered, defaultColor };
+}
+
+/**
+ * A rule list the generator writes in exactly the `written` order, or null.
+ *
+ * The generator sorts by the direction of the FIRST rule it is given. With
+ * rules pointing both ways (`<= 10` and `>= 1`) the written order can start
+ * with a rule of the other direction, so sorting the written order again gives
+ * a different one: the Studio's own expression then looked hand-written and
+ * Threshold Colors came back switched off. Such a list is still the Studio's
+ * if moving one rule to the front sorts back to the written order; that list
+ * is returned (the module shows and writes the same order from it).
+ */
+function unsortedThresholdRules(written: ThresholdRule[]): ThresholdRule[] | null {
+  const writesBack = (list: ThresholdRule[]) => sortThresholdRules(list).every((r, i) => r === written[i]);
+  if (writesBack(written)) return written;
+  // The module's lists are short (Fade writes 32 rules, all one way); a long
+  // hand-written chain is not searched.
+  if (written.length > 64) return null;
+  for (let i = 1; i < written.length; i++) {
+    const candidate = [written[i], ...written.slice(0, i), ...written.slice(i + 1)];
+    if (writesBack(candidate)) return candidate;
+  }
+  return null;
 }
 
 /** Whitespace-insensitive comparison that also accepts the flat (unparenthesised)
@@ -2316,6 +2453,10 @@ export function parseEntityRowCss(css: string, rowEntity?: string): EntitiesRowS
   const properties = target?.properties ?? [];
   const consumed = new Set<string>();
   const valueOf = (...names: string[]): string => {
+    // The row generator never writes `!important`: a declaration that carries
+    // it (and an alias next to it) stays in the passthrough as written, where
+    // the row's override warning names it once a control sets the same thing.
+    if (properties.some((p) => p.important && names.includes(p.property))) return '';
     for (const name of names) {
       const found = properties.find((p) => p.property === name);
       if (found) {

@@ -130,10 +130,11 @@ function mergedStudioState(
 ): StudioState {
   const outputKey = pickOutputKey(hass);
   const profileKey = profileKeyOf(config);
+  const cardConfig = config as unknown as Record<string, unknown>;
   const primaryStyle = outputKey === 'uix' ? config.uix?.style : config.card_mod?.style;
   const secondaryStyle = outputKey === 'uix' ? config.card_mod?.style : config.uix?.style;
 
-  const primaryState = mapToStudioState(parseStyleValue(primaryStyle), profileKey);
+  const primaryState = mapToStudioState(parseStyleValue(primaryStyle), profileKey, cardConfig);
 
   if (isDictForm(secondaryStyle) && hasStyleContent(secondaryStyle)) {
     // v0.10: a dict-form SECONDARY that is the card's ONLY style is simply
@@ -142,7 +143,7 @@ function mergedStudioState(
     // a uix: dict using UIX-only features, which stays under uix: (audit
     // v0.10 #6 — it used to be frozen behind a false "Mixed-form" banner).
     if (!hasStyleContent(primaryStyle)) {
-      const effective = mapToStudioState(parseStyleValue(secondaryStyle), profileKey);
+      const effective = mapToStudioState(parseStyleValue(secondaryStyle), profileKey, cardConfig);
       const pin = outputKey === 'card_mod' && usesUixOnlyFeatures(config);
       return applyPaletteDefaults(
         pin && effective.dictSource ? { ...effective, dictSource: { ...effective.dictSource, pinKey: 'uix' } } : effective,
@@ -164,7 +165,7 @@ function mergedStudioState(
   const secondaryUsable = outputKey === 'uix' || !usesUixOnlyFeatures(config);
   if (!hasStyleContent(secondaryStyle) || !secondaryUsable) return applyPaletteDefaults(primaryState);
 
-  const secondaryState = mapToStudioState(parseStyleValue(secondaryStyle), profileKey);
+  const secondaryState = mapToStudioState(parseStyleValue(secondaryStyle), profileKey, cardConfig);
   return applyPaletteDefaults(mergeStudioStates(primaryState, secondaryState));
 }
 

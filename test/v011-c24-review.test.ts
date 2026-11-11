@@ -208,10 +208,15 @@ describe('T2b — a custom profile does not claim `!important` it would write ba
     expect(plain.font).toMatchObject({ enabled: true, fontSize: 20 });
     expect(plain.advanced.rawCss).toBe('');
   });
-  it('built-in cards are unchanged: `!important` is still claimed (and comes back plain)', () => {
-    const back = parse('ha-card { background: #112244 !important; }', 'tile');
-    expect(back.background.enabled).toBe(true);
-    expect(back.advanced.rawCss).toBe('');
+  // Edited: this pinned the opposite ("built-in cards are unchanged: still
+  // claimed, and comes back plain") — the flag was lost on the next save. A
+  // built-in card now follows the same rule as a custom profile.
+  it('built-in cards too: a hand-written `!important` the module would write back plain stays hand-written', () => {
+    const css = 'ha-card {\n  background: #112244 !important;\n}';
+    const back = parse(css, 'tile');
+    expect(back.background.enabled).toBe(false);
+    expect(back.advanced.rawCss).toBe(css);
+    expect(generateCss(back, 'tile')).toBe(css);
   });
 });
 

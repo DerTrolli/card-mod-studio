@@ -40,7 +40,17 @@ describe('audit #2 — threshold recogniser claims only exactly-regenerable Jinj
     kept("{{ 'red' if states('sensor.t') | float(0) > 20 + states('input_number.offset') | float(0) else 'blue' }}"));
 
   it('a hand-written rule ORDER the generator would re-sort is not reordered (first-match semantics)', () =>
-    kept("{{ 'red' if states('sensor.t') | float(0) > 10 else ('blue' if states('sensor.t') | float(0) < 20 else 'green') }}"));
+    kept("{{ 'red' if states('sensor.t') | float(0) > 5 else ('blue' if states('sensor.t') | float(0) > 10 else 'green') }}"));
+
+  it('rules pointing both ways, in the order the Studio writes them, are claimed and written back unchanged', () => {
+    // What the module writes for "< 20 blue" then "> 10 red" (sorted by the
+    // first rule's direction): claimed since v0.11.0-beta.4, never reordered.
+    const rule = "ha-card {\n  background: {{ 'red' if states('sensor.t') | float(0) > 10 else ('blue' if states('sensor.t') | float(0) < 20 else 'green') }};\n}";
+    const s = stateOf(rule);
+    expect(s.threshold).toMatchObject({ enabled: true, entityId: 'sensor.t', defaultColor: 'green' });
+    expect(s.threshold.rules.map((r) => `${r.operator}${r.value}`)).toEqual(['<20', '>10']);
+    expect(saveStringStyle(rule)).toContain(rule);
+  });
 
   it('extra text around the expression is not dropped', () =>
     kept("{{ 'red' if states('sensor.t') | float(0) > 20 else 'blue' }} url(/local/x.png)"));
