@@ -19,24 +19,43 @@ Read "Changed" in the [0.11.0-beta.3] section below before you update.
 **Updating from a beta:** "Fixed since beta.3" and "Changed since beta.3"
 are what is new.
 
-Verified in the real card editor on Home Assistant 2026.11.0 with card-mod
-4.2.1 and with UIX 9.0.0 (Mushroom 5.2.3 and Bubble Card 3.4.3 on both). A
-new check opens cards that carry each of the styles under "Fixed since
-beta.3", makes an unrelated change, saves and reads the stored config: 6 of 6
-on both engines with the release build (on beta.3, 5 of its 6 steps fail).
-On the same code, built one day earlier under its working version number,
-the automated check suite passed 21 of 21 (card-mod) and 19 of 19 (UIX), and
-the functional check of every control 489 of 489 (card-mod) and 490 of 491
-(UIX: one step read Home Assistant's preset storage before the write had
-arrived; that section passed four repeat runs and the step now waits). The
-fixes come from three checks that do not need a browser and can be re-run
-before every release (`tools/continuity/`): 217,000 styles written by each
-release's own generator from v0.8.1 to beta.3, loaded and saved by this
-build; 92,000 random setting combinations written and read back; and 30,000
-random hand-written styles loaded and saved untouched, comparing what the
-browser would apply before and after. Unit tests: 3,178. beta.3's own
-verification (four rigs, module-effect audit, visual check) is described in
-its section; the user interface has not changed since.
+Verified with the release build in the real card editor on four rigs: Home
+Assistant 2026.11.0 with card-mod 4.2.1 and with UIX 9.0.0 (Mushroom 5.2.3
+and Bubble Card 3.4.3 on both), Home Assistant 2026.2.3 with card-mod 4.2.1,
+and Home Assistant 2025.9.4 with card-mod 3.4.5.
+
+- A new read-back check opens cards that carry each of the styles under
+  "Fixed since beta.3", makes an unrelated change, saves and reads the stored
+  config: 6 of 6 on all four rigs (on beta.3, 5 of its 6 steps fail).
+- Home Assistant 2026.11.0: the automated check suite passes 21 of 21
+  (card-mod) and 19 of 19 (UIX); the functional check of every control 489 of
+  489 and 491 of 491. The module-effect audit finds no control without effect
+  on the Mushroom and Bubble cards on either engine. On the built-in cards it
+  finds one on each engine, Threshold Colors' "Accent Color" on the history
+  graph: that is the late line colour listed under "Known limits" (on
+  card-mod it showed an effect in 1 of 8 repeat runs with this build and in 1
+  of 2 with beta.3). One more is inconclusive, as in beta.3 (Threshold text
+  colour on the gauge).
+- Home Assistant 2026.2.3: the functional check passes 470 of 489, and the
+  19 misses are the same with the beta.3 build. 18 are one page error per
+  section that this Home Assistant version raises from its page transitions
+  ("Transition was skipped"; the Studio does not use them). The other is the
+  dialog's Save button being enabled on a card with mixed-form styling
+  although nothing changed; the stored config is unchanged.
+- Home Assistant 2025.9.4: 458 of 466. Five misses are the known gap there
+  (Font does not reach a tile's name and state text) and one is the Save
+  button above. Two are the check's own: a slider step it cannot drive on
+  that version, and one typed space lost in Home Assistant's code editor,
+  which passed when repeated.
+- The fixes come from three checks that need no browser and can be re-run
+  before every release (`tools/continuity/`): 217,000 styles written by each
+  release's own generator from v0.8.1 to beta.3, loaded and saved by this
+  build; 92,000 random setting combinations written and read back; and 30,000
+  random hand-written styles loaded and saved untouched, comparing what the
+  browser would apply before and after. Unit tests: 3,178.
+- Not repeated: the visual check in light and dark at six screen sizes and
+  the screenshots. The user interface has not changed since beta.3, where
+  both were done.
 
 ### New since v0.10.2
 

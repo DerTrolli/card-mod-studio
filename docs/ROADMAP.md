@@ -64,13 +64,20 @@ last sections; the checks: [`tools/continuity/`](../tools/continuity/README.md).
   over; 30,000 random hand-written styles never fail and settle within two
   saves; no Studio memory growth with UIX 9.0.0 (card-mod 4.2.1 on HA 2026.11
   keeps every opened card editor in memory, with or without the Studio).
-- **Browser checks** (HA 2026.11.0 with card-mod 4.2.1 and with UIX 9.0.0):
-  the new real-editor read-back check
-  (`tools/sandbox/harness/readback_check.mjs`) 6/6 on both with the release
-  build (1/6 on the beta.3 build); on the same code under its working
-  version number: check suite 21/21 and 19/19, functional check of every
-  control 489/489 and 490/491 (one preset-storage step read too early; the
-  step now waits).
+- **Release QA on the 0.11.0 build** (four rigs: HA 2026.11.0 with card-mod
+  4.2.1 and with UIX 9.0.0, HA 2026.2.3 with card-mod 4.2.1, HA 2025.9.4 with
+  card-mod 3.4.5): the new real-editor read-back check
+  (`tools/sandbox/harness/readback_check.mjs`) 6/6 on all four (1/6 on the
+  beta.3 build). HA 2026.11: check suite 21/21 and 19/19, functional check
+  489/489 and 491/491, module-effect audit 0 without effect on Mushroom and
+  Bubble on both engines and 1 on the built-in cards on each (history-graph
+  Threshold accent, the late line colour; run-dependent on card-mod), 1
+  inconclusive as in beta.3. HA 2026.2.3: functional check 470/489, the same
+  19 misses as with the beta.3 build (18 page errors from that HA version's
+  page transitions, 1 Save button enabled on a mixed-form card). HA 2025.9.4:
+  458/466 (5 = the known tile Font gap, 1 = the same Save button, 2 = the
+  check's own). Visual check and screenshots not repeated (no UI change since
+  beta.3). Detail: the release QA log, last section.
 
 ### beta.3 (2026-11-11): the release-review round
 

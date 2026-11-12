@@ -4,7 +4,7 @@
   - **Fully tested** on 2026.9.4 and 2026.10.0b0, with card-mod 4.2.1 and
     with UIX 8.3.1 (every control, every card type, light/dark, phone to
     desktop).
-  - **Tested** on 2026.11.0 (v0.10.2, and v0.11.0-beta.2 including Mushroom 5.2.3 and Bubble Card 3.4.3) with card-mod 4.2.1 and with UIX 9.0.0; v0.11.0-beta.3 was verified there with real input on both engines, and also on 2026.2.3 (card-mod 4.2.1) and 2025.9.4 (card-mod 3.4.5).
+  - **Tested** on 2026.11.0 (v0.10.2, and v0.11.0-beta.2 including Mushroom 5.2.3 and Bubble Card 3.4.3) with card-mod 4.2.1 and with UIX 9.0.0; v0.11.0 was verified there with real input on both engines, and also on 2026.2.3 (card-mod 4.2.1) and 2025.9.4 (card-mod 3.4.5).
   - **Partially tested** (quick checks) on 2026.6.4 and 2026.2.3 with
     card-mod 4.2.1 — all controls pass — and on 2025.9.4 with card-mod
     3.4.5, where everything works except that Font doesn't change a *tile*
