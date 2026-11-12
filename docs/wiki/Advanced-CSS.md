@@ -54,7 +54,7 @@ says so in a note. `{{ … }}` values and statements inside a rule don't
 trigger it. A style that calls a UIX macro or billet keeps the part that
 calls it here as well, and the panel notes that too.
 
-**Your own `!important` stays yours** (v0.11.0-beta.4). A declaration you
+**Your own `!important` stays yours** (v0.11.0). A declaration you
 wrote with `!important` that a module could read, for example
 `ha-card { background: none !important; }`, is not taken over by the module:
 it stays here and is written back exactly as written, because the module
@@ -159,7 +159,7 @@ values the control can express exactly; anything else stays verbatim here.
 Examples: only `solid` borders are adopted (a hand-written `dashed` or
 `dotted` border stays as written), and only with a width above zero
 (`border: 0px solid …` and `border-radius: 0px` stay as written, since Border
-& Radius has no setting for a zero; v0.11.0-beta.4); rules on the heading
+& Radius has no setting for a zero; v0.11.0); rules on the heading
 card's selectors (`.title p`, `.container`, `.content ha-icon`) are read as
 Heading Style on the heading card only; only a plain `transition: filter <duration>`
 is adopted (lists, custom easing and delays are kept); a threshold color

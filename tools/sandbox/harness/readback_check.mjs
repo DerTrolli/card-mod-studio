@@ -1,6 +1,7 @@
-// v0.11.0-beta.4 read-back fixes, through the real card editor with real input.
-//   RIG=cm  node beta4_readback_check.mjs
-//   RIG=uix UIX_TOKENS_FILE=/path/tokens.json node beta4_readback_check.mjs
+// Read-back fixes of v0.11.0, through the real card editor with real input.
+//   RIG=cm  node readback_check.mjs
+//   RIG=uix UIX_TOKENS_FILE=/path/tokens.json node readback_check.mjs
+//   RIG=cm TOKENS_FILE=/path/tokens-of-another-rig.json node readback_check.mjs
 // Each card carries a style that used to change (or come back with a module
 // off) when the card was opened and saved. The check opens the card editor,
 // looks at the module switches, switches Animation on as an unrelated edit,
@@ -9,7 +10,7 @@
 import * as D from './click-driver.mjs';
 
 const RIG = process.env.RIG === 'uix' ? 'uix' : 'cm';
-const URLPATH = 'qa-beta4-readback';
+const URLPATH = 'qa-readback';
 const T = 'sensor.outside_temperature';
 const expr = (rules, dflt) => {
   let s = '{{ ';
@@ -27,7 +28,7 @@ const STYLES = {
   row: ':host {\n  color: red !important;\n}',
 };
 
-const h = await D.launch({ rig: RIG });
+const h = await D.launch({ rig: RIG, ...(process.env.TOKENS_FILE ? { tokensFile: process.env.TOKENS_FILE } : {}) });
 const { page } = h;
 const KEY = h.styleKey;
 const styled = (css) => ({ [KEY]: { style: css } });

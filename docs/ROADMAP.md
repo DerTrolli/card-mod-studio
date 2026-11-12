@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-11-11 · **Current stable:** v0.10.2 (2026-11-07) — a maintenance release for HA 2026.11 (Marketplace install docs, four HA 2026.10+ styling fixes) on top of v0.10.1 (a fix for translucent themes) and v0.10.0 "Piercing + polish": dict-form styles editable, Heading Style rebuilt for HA 2026.10, a hand-written-CSS audit, and a light/dark/phone overhaul of the editor UI. · **Pre-release:** v0.11.0-beta.4 (stable stays v0.10.2) — prepared 2026-11-11, not yet published; the last *published* pre-release is v0.11.0-beta.3 (published 2026-11-11: the release-review round — the unprofiled-custom-card notice, "write only what was set" for Heading Style / Font / Icon Color, the conditional-Background/Border fix, Animation on more cards, accessibility work and input validation; it includes beta.1 and beta.2). beta.4 fixes seven read-back defects found by replaying the styles of every release since v0.8.1 and by fuzzing — see "Pre-release (v0.11.0-beta.4)" below. *Re-published 2026-11-10:* beta.2 was first published on 2026-11-07 from `main` by mistake (its tag sat on the v0.10.2 merge, so the asset was v0.10.2 code; 5 downloads); that release and tag were deleted and re-created as a pre-release from the 0.11 branch (tag on `2941774`, asset `card-mod-studio.js`, 426,357 bytes). Open GitHub issues: none. Next: **v0.11.0** — see "Next: v0.11.0" below; plan: [`docs/V0.11_PLAN.md`](V0.11_PLAN.md). Previous cycle plan (historical): [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
+**Last updated:** 2026-11-12 · **Current stable:** v0.11.0 (2026-11-12) — "Reach": Mushroom and Bubble Card support (beta), Font → Number size on the gauge and the thermostat, controls that write only what you set, a conditional Background/Border that keeps the card's own look while off, Animation on nearly every built-in card, a notice on custom cards without a profile, keyboard / screen-reader / touch work, input checks, and seven read-back fixes found by replaying the styles of every release since v0.8.1 — on top of v0.10.2 (the HA 2026.11 maintenance release). Three pre-releases led up to it (beta.1 2026-10-27, beta.2 2026-11-10, beta.3 2026-11-11). Open GitHub issues: none. Next: **v1.0** — see "Path to v1.0" and "Open after v0.11.0" below. Plans of finished cycles (historical): [`docs/V0.11_PLAN.md`](V0.11_PLAN.md), [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -26,21 +26,29 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | v0.8 ✅ | Structure + color system | **Shipped** — stack child styling (per-child styling sections for vertical-stack/horizontal-stack/grid, written into each child's own config) + a Font module (size/weight/family/color, closing [#25](https://github.com/dertrolli/card-mod-studio/issues/25)) in beta.1; beta.2 added the per-card font companions the beta test demanded (light/button/sensor/gauge/thermostat/entities title/heading weight+family/per-row fonts), the form-editor `uix:` rejection shim, the Color Palette Manager (custom colors in every picker + ON/OFF default overrides, cross-device storage), and attribute-based thresholds (item #16 below — done). |
 | v0.9 ✅ | Discoverability + state-aware depth | **Shipped** — click-to-edit preview picker (hover names the owning control, click jumps to it; per-card coverage across all 17 supported types); 4 new animation presets; value-conditional animations; the shared "Reacts to" condition on border width / filter effects (+ new opacity) / icon size (+ new control, probed-safe cards only); duplicate-row + rgb()-threshold + filter-flattening fixes; UIX Forge key preservation. Dict-form/`$`-pierce (item #1) deliberately moved out to v0.10. |
 | v0.10 ✅ | Piercing + polish | **Shipped (2026-10-04)** — see below. Dict-form/`$`-pierce styles are editable (the `.` entry runs through every module; every other entry is preserved byte-identically and shown read-only in Advanced CSS; cards, stack children and entities rows — items #1/#23); Heading Style rebuilt on HA's own `--ha-heading-card-*` variables so it works on HA 2026.10 (+ Subtitle headings); a 20-bug audit of how hand-written CSS survives an edit; light/dark/phone overhaul and keyboard access for the editor UI; re-verified on HA 2026.9.4 and 2026.10.0b0 with card-mod 4.2.1 and UIX 8.3.1. Plan (historical, incl. live feasibility probes): [`docs/V0.10_PLAN.md`](V0.10_PLAN.md). The planned Font size unlocks moved to v0.11. Glance icon color was probed and is NOT achievable (inline per-state style) — stays a documented limitation. |
-| v0.11 | Reach — Font size unlocks + Mushroom/Bubble | **Pre-release (beta.3 prepared, beta.2 published); final open** — beta.3 (2026-11-10, release-review round): the unprofiled-custom-card notice (C4.1, done), controls you switch on but don't touch write nothing, a conditional Background/Border keeps the card's look while off, no entity-based conditions on entity-less cards, gauge Number size 50–130 % (100 % = Home Assistant's size), Animation / card-level Threshold (entities) / Icon Color (statistic) on more cards, Font reaching more text, keyboard / screen-reader / touch work, Advanced CSS and input validation, click-to-edit coverage, palette and preset resilience. beta.1 (2026-11-02): Number size for the gauge value and the thermostat big number, plus HA 2026.10 fixes. beta.2 (2026-11-10, re-published from the 0.11 branch): everything from v0.10.2, Mushroom (all 18 types) and Bubble Card (button, slider button, separator, cover) support with click-to-edit, gauge Number size really reaching 150 %, entity-row labels via HA 2026.11 naming, Date/Alert/Webpage gating, and the dedicated Mushroom/Bubble wiki pages and screenshots (wiki goes live on merge to `main`). Module-effect audit 0 dead on HA 2026.11.0 with card-mod 4.2.1 and UIX 9.0.0. **Left for v0.11.0:** release QA (WS5, in progress) and the open follow-ups — see "Next: v0.11.0". Plan: [`docs/V0.11_PLAN.md`](V0.11_PLAN.md), evidence in [`docs/research/2026-10-v0.11.md`](research/2026-10-v0.11.md). |
+| v0.11 ✅ | Reach — Font size unlocks + Mushroom/Bubble | **Shipped (2026-11-12)** — see below. Font → Number size on the gauge value and the thermostat big number; Mushroom (5.2.3, all 18 types) and Bubble Card (3.x: button, slider button, separator, cover) through per-card profiles, in beta, with click-to-edit for their parts; a notice on custom cards without a profile; controls you switch on but don't touch write nothing; a conditional Background/Border keeps the card's look while off; Animation on 19 more built-in cards, card-level Threshold Colors on the entities card, Icon Color on the statistic card; keyboard, screen-reader and touch work; HA 2026.10/2026.11 fixes; read-back fixes from a replay of every release's styles. Plan: [`docs/V0.11_PLAN.md`](V0.11_PLAN.md), evidence in [`docs/research/2026-10-v0.11.md`](research/2026-10-v0.11.md) and [`docs/research/2026-11-v0.11.0-release-qa.md`](research/2026-11-v0.11.0-release-qa.md). |
 | v1.0 | Structural completeness | The remaining container gaps (item #7 — `conditional` cards, containers nested in containers, per-row styling of nested entities cards) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
 | Post-1.0 | Stretch | Further custom cards beyond Mushroom/Bubble (now v0.11), Bubble pop-ups, UIX Forge/sparks support (item #28 — new in the 2026-08 engine audit), a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
 
-## Pre-release (v0.11.0-beta.4)
+## Recently shipped (v0.11.0)
 
-Fourth beta of v0.11 "Reach" (see [`CHANGELOG.md`](../CHANGELOG.md)); stable
-stays v0.10.2. Prepared 2026-11-11, not yet published. It contains only
-read-back fixes, found by a code-level verification after beta.3 was
-published (working log: [`docs/research/2026-11-v0.11.0-release-qa.md`](research/2026-11-v0.11.0-release-qa.md),
-last section; the checks: [`tools/continuity/`](../tools/continuity/README.md)).
+v0.11 "Reach", released 2026-11-12 (see [`CHANGELOG.md`](../CHANGELOG.md)).
+Three pre-releases led up to it: beta.1 (2026-10-27), beta.2 (2026-11-10;
+first published 2026-11-07 from `main` by mistake, so its asset was v0.10.2
+code — that release and tag were deleted and re-created from the 0.11
+branch, see [`DEVELOPMENT.md`](DEVELOPMENT.md) "Releasing") and beta.3
+(2026-11-11). After beta.3 a code-level verification found seven read-back
+defects; their fixes went straight into the final (a beta.4 was prepared for
+them but never published).
+
+### In the final only: read-back fixes
+
+Working log: [`docs/research/2026-11-v0.11.0-release-qa.md`](research/2026-11-v0.11.0-release-qa.md),
+last sections; the checks: [`tools/continuity/`](../tools/continuity/README.md).
 
 - **Studio-written styles that came back wrong:** a Font with only a family,
   weight or colour next to Threshold Colors on the card's background, text or
-  border (new in beta.3); Threshold Colors with rules pointing both ways
+  border (it came with beta.3); Threshold Colors with rules pointing both ways
   (since v0.10.0). Both came back switched off with their CSS under Advanced
   CSS; the card itself looked the same.
 - **Hand-written CSS that a save changed** (all older than v0.11): a
@@ -56,19 +64,17 @@ last section; the checks: [`tools/continuity/`](../tools/continuity/README.md)).
   over; 30,000 random hand-written styles never fail and settle within two
   saves; no Studio memory growth with UIX 9.0.0 (card-mod 4.2.1 on HA 2026.11
   keeps every opened card editor in memory, with or without the Studio).
-- **Browser checks on the beta.4 build** (HA 2026.11.0 with card-mod 4.2.1
-  and with UIX 9.0.0): the new real-editor read-back check
-  (`tools/sandbox/harness/beta4_readback_check.mjs`) 6/6 on both (1/6 on the
-  beta.3 build); check suite 21/21 and 19/19; functional check of every
+- **Browser checks** (HA 2026.11.0 with card-mod 4.2.1 and with UIX 9.0.0):
+  the new real-editor read-back check
+  (`tools/sandbox/harness/readback_check.mjs`) 6/6 on both with the release
+  build (1/6 on the beta.3 build); on the same code under its working
+  version number: check suite 21/21 and 19/19, functional check of every
   control 489/489 and 490/491 (one preset-storage step read too early; the
-  step now waits). Not repeated: module-effect audit, visual checks and
-  screenshots, the HA 2025.9.4 and 2026.2.3 rigs (only the reading of styles
-  changed).
+  step now waits).
 
-## Pre-release (v0.11.0-beta.3)
+### beta.3 (2026-11-11): the release-review round
 
-Third beta of v0.11 "Reach" (see [`CHANGELOG.md`](../CHANGELOG.md)); stable
-stays v0.10.2. It collects the fixes and small features from a hands-on
+Third beta (see [`CHANGELOG.md`](../CHANGELOG.md)). It collects the fixes and small features from a hands-on
 review of every card type with real pointer, keyboard and touch input
 (working log: [`docs/research/2026-11-v0.11.0-release-qa.md`](research/2026-11-v0.11.0-release-qa.md);
 design of the "untouched controls write nothing" work:
@@ -98,31 +104,29 @@ Published as a pre-release on 2026-11-11. Release QA: real-input verification on
   card-mod through `extra_module_url`, a real-input click driver, a noise
   floor and an opaque picture fixture in the module-effect audit.
 
-## Earlier pre-release (v0.11.0-beta.2)
+### beta.2 (2026-11-10): Mushroom and Bubble Card
 
-Second beta of v0.11 "Reach" (see [`CHANGELOG.md`](../CHANGELOG.md)); stable
-stays v0.10.2. Includes all of v0.10.2. Verified on HA 2026.11.0 with
+Second beta (see [`CHANGELOG.md`](../CHANGELOG.md)). Includes all of v0.10.2. Verified on HA 2026.11.0 with
 card-mod 4.2.1 and UIX 9.0.0 (Mushroom 5.2.3, Bubble Card 3.4.3). Published
 as a pre-release from the 0.11 branch on 2026-11-10 (first published
-2026-11-07 from `main` by mistake and replaced — see the header and
+2026-11-07 from `main` by mistake and replaced — see above and
 [`DEVELOPMENT.md`](DEVELOPMENT.md) "Releasing").
 
 - **Mushroom (5.2.3) and Bubble Card (3.x, measured on 3.4.3) support:**
   the 14 Mushroom state cards, template, chips and title cards; Bubble
   button (incl. slider), separator and cover. Click-to-edit in the preview
   for their parts. Known limits: other Bubble card types and unknown custom
-  cards still show every module (a notice is planned for v0.11.0).
-  Dedicated Mushroom and Bubble Card wiki pages and screenshots are done;
-  they go live when the 0.11 branch merges into `main` (until then the
-  published wiki still shows v0.10.2).
+  cards still showed every module (the notice came with beta.3).
+  Dedicated Mushroom and Bubble Card wiki pages and screenshots went live
+  with the merge of the 0.11 branch into `main`.
 - **Gauge Number size now really reaches 150 %** (beta.1 stopped at about
   118–125 %).
 - **Entities-card row labels** follow HA 2026.11's naming; **Alert card**
   hides controls without effect.
 
-### Earlier beta (v0.11.0-beta.1)
+### beta.1 (2026-10-27): Number size
 
-First beta of v0.11 "Reach" (see [`CHANGELOG.md`](../CHANGELOG.md)). Tested
+First beta (see [`CHANGELOG.md`](../CHANGELOG.md)). Tested
 live on HA 2026.10.4 with card-mod 4.2.1 and UIX 8.4.0.
 
 - **Font → Number size** on the gauge value (50–150 %) and the thermostat
@@ -133,30 +137,13 @@ live on HA 2026.10.4 with card-mod 4.2.1 and UIX 8.4.0.
 - **Controls that do nothing are hidden:** Font's text-size slider on cards
   that size their own text.
 
-## Next: v0.11.0
+## Open after v0.11.0
 
-What is left before v0.11.0 final (the owner decides when; no dates). The
-chunk-level status with commit hashes is in
-[`docs/V0.11_PLAN.md`](V0.11_PLAN.md) "Status (2026-11-10)".
+What v0.11.0 leaves open (no dates; the owner decides what goes into which
+release). The chunk-level record of the cycle, with commit hashes, is in
+[`docs/V0.11_PLAN.md`](V0.11_PLAN.md).
 
-**1. C4.1 — notice for unprofiled `custom:*` cards (plan D7). Done** (in
-beta.3): a one-line notice in the panel and in stack children, covering any
-`custom:*` card without a profile, Bubble Card types other than button /
-slider button / separator / cover and a Bubble card with no `card_type`; all
-modules stay visible. Unit and render tests are in. A live look at 390px on
-both engines is part of the verification wave below.
-
-**2. WS5 — release QA: complete for beta.3** (numbers in the beta.3 section
-above). What it covered:
-- Full live suite (`run_suite.sh`), functional UI check and module-effect
-  audits (built-in and `AUDIT_CUSTOM=1`) on **HA 2026.11.x x card-mod 4.2.1 x
-  UIX 9.0.0** and on **HA 2026.10.4 x UIX 8.4.0**.
-- Theme x viewport visual QA (`release_qa.mjs`; default theme first —
-  `resetTheme`).
-- Quick checks on HA 2025.9 (card-mod 3.4.5), 2026.2 and 2026.6.
-- `pierce_check` on all of them.
-
-**3. Follow-ups found during beta.2** (status after the beta.3 round):
+**Follow-ups from the betas** (status at the release):
 
 | Follow-up | Where | Status |
 |---|---|---|
@@ -173,7 +160,7 @@ above). What it covered:
 | The live preview is the last block on a phone, so the effect can't be seen while editing | panel layout | Open (idea: a sticky mini preview) |
 | A hand-written `else 'none'` in a Background/Border is read as the Studio's own and saved as the card's own look | parser | Accepted, noted in the CHANGELOG |
 
-**3b. Left for the final v0.11.0** (from the beta.3 verification):
+**Candidates for a later release:**
 - Nine controls that are hidden today would work — candidates for a later
   release: alarm-panel Font colour and Threshold text colour; entities card
   Accent and Threshold accent; heading card Font (size/weight), Font family
@@ -183,19 +170,15 @@ above). What it covered:
   same timing.
 - The limits already listed in the wiki pages and the follow-ups above that
   are still open.
+- Border & Radius has no setting for square corners (the radius slider's 0
+  means "not set"); a hand-written `border-radius: 0px` is kept as written.
+- Reading and writing a style grows quadratically with its size (0.4 s for
+  1,000 rules, about 10 s for 5,000).
+- A button that lets a module take over a hand-written rule it is held back
+  from today (a declaration with `!important`, or the line an override
+  warning names). Discussed 2026-11-12, deliberately not part of v0.11.0.
 
-**4. Release steps.** Version `0.11.0` in `package.json`, a `CHANGELOG.md`
-section (including the `release.yml` guard below), README cache-bust URL and
-status table, this roadmap, and the wiki's What's Planned page; then merge the 0.11
-branch into `main` via PR. The version for the next pre-release is
-`0.11.0-beta.4` (project release rules: stay on the beta suffix until told the version is
-final).
-Only then does the GitHub wiki (published from `main` by
-`.github/workflows/wiki.yml`) and the new screenshots (hot-linked from
-`main`) go live — until the merge the live wiki shows v0.10.2. Release from
-the branch that carries the version; see `DEVELOPMENT.md` "Releasing".
-
-**CI guard** (in the beta.3 CHANGELOG section): `.github/workflows/release.yml`
+**Release workflow guard** (since beta.3): `.github/workflows/release.yml`
 fails a release when the tag differs from `"v" + package.json version`, and
 marks tags containing a `-` (such as `-beta.N`) as GitHub pre-releases. Added
 after the 2026-11-07 mis-published beta.2.

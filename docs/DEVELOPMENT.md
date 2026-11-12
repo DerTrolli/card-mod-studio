@@ -408,7 +408,7 @@ Found while re-verifying against HA 2026.9.4 and 2026.10.0b0 with card-mod
   `test/custom-card-profiles.test.ts`. When Mushroom or Bubble ships a new
   version, re-run `AUDIT_CUSTOM=1` on both rigs before trusting a profile.
 
-### Continuity and fuzz checks (v0.11.0-beta.4)
+### Continuity and fuzz checks (v0.11.0)
 
 `tools/continuity/run.sh` replays styles written by every released version's
 own generator through the working tree, round-trips random setting

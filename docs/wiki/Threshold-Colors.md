@@ -45,7 +45,7 @@ Example — a temperature icon: blue `< 18`, red `>= 25`, default green.
 The sort follows the direction of your first rule: with `<` or `<=` first the
 lowest value is checked first, with `>` or `>=` first the highest. Rules
 pointing both ways (say `<= 10` and `>= 1`) are kept in that order and come
-back as rules when the card is reopened (before v0.11.0-beta.4, v0.10 and
+back as rules when the card is reopened (before v0.11.0, v0.10 and
 later showed Threshold Colors switched off with the expression under
 Advanced CSS; v0.8 and v0.9 reordered the rules on the next save).
 

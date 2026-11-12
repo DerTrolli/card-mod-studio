@@ -54,7 +54,7 @@ effects, icon size).
   Icon Color (statistic) on more cards; Advanced CSS and input checks;
   keyboard, screen-reader and touch work. See the
   [changelog](https://github.com/DerTrolli/card-mod-studio/blob/main/CHANGELOG.md).
-- **Read-back fixes** (v0.11.0-beta.4): a Font without a size next to
+- **Read-back fixes** (v0.11.0): a Font without a size next to
   Threshold Colors, and Threshold rules pointing both ways, come back in
   their modules after reopening; your own `!important`, `border-radius: 0px`
   and `border: 0px solid …` are no longer changed by a save.

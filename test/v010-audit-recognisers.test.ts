@@ -44,7 +44,7 @@ describe('audit #2 — threshold recogniser claims only exactly-regenerable Jinj
 
   it('rules pointing both ways, in the order the Studio writes them, are claimed and written back unchanged', () => {
     // What the module writes for "< 20 blue" then "> 10 red" (sorted by the
-    // first rule's direction): claimed since v0.11.0-beta.4, never reordered.
+    // first rule's direction): claimed since v0.11.0, never reordered.
     const rule = "ha-card {\n  background: {{ 'red' if states('sensor.t') | float(0) > 10 else ('blue' if states('sensor.t') | float(0) < 20 else 'green') }};\n}";
     const s = stateOf(rule);
     expect(s.threshold).toMatchObject({ enabled: true, entityId: 'sensor.t', defaultColor: 'green' });

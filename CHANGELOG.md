@@ -5,44 +5,81 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.11.0-beta.4] — 2026-11-11
+## [0.11.0] — 2026-11-12
 
-Fourth beta of v0.11 "Reach": seven fixes to how the Studio reads a style
-back when you open a card. Two of them concern styles the Studio wrote
-itself (a module came back switched off, with its CSS under Advanced CSS);
-five concern CSS you wrote by hand, which could change when the card was
-saved. Only the first one is new in beta.3; the others are older (see each
-entry). Styles the Studio wrote itself and read back correctly before are
-read exactly as before.
+The "Reach" release: the v0.11 cycle consolidated (three betas, in use since
+2026-10-27) plus seven fixes to how the Studio reads a style back when you
+open a card. The Studio now reaches Mushroom and Bubble Card, the big numbers
+on the gauge and the thermostat and more parts of the built-in cards; a
+control you switch on but never touch no longer overrides the card's own
+look; and the panel works with keyboard, screen reader and touch.
 
-They were found by three checks that do not go through the browser: styles
-written by each released version's own generator (v0.8.1 to v0.11.0-beta.3,
-217,000 of them) loaded and saved by this build; 92,000 random setting
-combinations written and read back; and 30,000 random hand-written styles
-loaded and saved untouched, comparing what the browser would apply before
-and after. The checks are in `tools/continuity/` and can be re-run before
-every release.
+**Updating from v0.10.2:** a few styles look or save differently afterwards.
+Read "Changed" in the [0.11.0-beta.3] section below before you update.
+**Updating from a beta:** "Fixed since beta.3" and "Changed since beta.3"
+are what is new.
 
-Verified on this build in the real card editor on Home Assistant 2026.11.0
-with card-mod 4.2.1 and with UIX 9.0.0: a new check that opens cards carrying
-each of the styles below, makes an unrelated change, saves and reads the
-stored config passes 6 of 6 on both (on the beta.3 build it fails 5 of 6);
-the automated check suite passes 21 of 21 (card-mod) and 19 of 19 (UIX); the
-functional check of every control passes 489 of 489 (card-mod) and 490 of
-491 (UIX: one step read Home Assistant's preset storage before the write had
-arrived; that section passed four repeat runs and the step now waits). Not
-repeated for this build, because only the reading of styles changed: the
-module-effect audit, the visual checks and screenshots, and the runs on Home
-Assistant 2025.9.4 and 2026.2.3. Unit tests: 3,178.
+Verified in the real card editor on Home Assistant 2026.11.0 with card-mod
+4.2.1 and with UIX 9.0.0 (Mushroom 5.2.3 and Bubble Card 3.4.3 on both). A
+new check opens cards that carry each of the styles under "Fixed since
+beta.3", makes an unrelated change, saves and reads the stored config: 6 of 6
+on both engines with the release build (on beta.3, 5 of its 6 steps fail).
+On the same code, built one day earlier under its working version number,
+the automated check suite passed 21 of 21 (card-mod) and 19 of 19 (UIX), and
+the functional check of every control 489 of 489 (card-mod) and 490 of 491
+(UIX: one step read Home Assistant's preset storage before the write had
+arrived; that section passed four repeat runs and the step now waits). The
+fixes come from three checks that do not need a browser and can be re-run
+before every release (`tools/continuity/`): 217,000 styles written by each
+release's own generator from v0.8.1 to beta.3, loaded and saved by this
+build; 92,000 random setting combinations written and read back; and 30,000
+random hand-written styles loaded and saved untouched, comparing what the
+browser would apply before and after. Unit tests: 3,178. beta.3's own
+verification (four rigs, module-effect audit, visual check) is described in
+its section; the user interface has not changed since.
 
-### Fixed
+### New since v0.10.2
+
+The full descriptions are in the three beta sections below.
+
+- **Mushroom (5.2.3) and Bubble Card (3.x) support, as a beta.** All 18
+  Mushroom card types, and Bubble Card's button, slider button, separator
+  and cover, get the modules that reach them, and click-to-edit in the
+  preview. Other custom cards show a notice that some controls may not reach
+  the card; Advanced CSS always works.
+- **Font → Number size** for the gauge's value (50–130 %, 100 % is Home
+  Assistant's own size) and the thermostat's temperature (24–96px).
+- **A control you switch on but do not touch writes nothing** (Heading
+  Style, Font, Icon Color, with a new "Keep the card's colour" mode for
+  changing only the icon size).
+- **Conditions:** a conditional Background or Border keeps the card's own
+  look while its condition is off; cards without an entity get no
+  entity-based condition; ON/OFF is offered only for entities that can be on
+  or off.
+- **More cards reached:** Animation on 19 more built-in cards (presets that
+  cannot work are left out per card), Threshold Colors for the entities card
+  as a whole, Icon Color on the statistic card, a maximum icon size that fits
+  each card, and Font on more of each card's text.
+- **Input checks:** Advanced CSS warns about text that would break the card;
+  colour and number fields check what you type.
+- **Keyboard, screen reader and touch** work throughout the panel, and
+  click-to-edit covers more parts of the built-in cards.
+- **Home Assistant 2026.10 and 2026.11:** Visual Filters' transition and the
+  Accent Color of calendar and history-graph cards work again; entities-card
+  row labels follow the 2026.11 naming. On Home Assistant 2025.9 to 2026.2,
+  Enter in a Studio field no longer saves and closes the card dialog.
+- **Palette and presets** keep a change made while Home Assistant is
+  unreachable.
+
+### Fixed since beta.3
 
 - **Font with only a family, weight or colour, next to Threshold Colors.**
   With Threshold Colors on the card's background, text or border, a Font that
   had no size set came back switched off after saving and reopening, its
   declarations listed under Advanced CSS. The card looked the same, but the
-  Font controls were empty. New in beta.3, where an untouched Font size is no
-  longer written. Opening such a card with this version reads the Font back.
+  Font controls were empty. This came with beta.3, where an untouched Font size
+  is no longer written; v0.10.2 is not affected. Opening such a card with this
+  version reads the Font back.
 - **Threshold Colors with rules pointing both ways** (for example
   "<= 10" together with ">= 1", where the second rule sorts in front of the
   first) came back switched off after saving and reopening, the expression
@@ -82,7 +119,7 @@ Assistant 2025.9.4 and 2026.2.3. Unit tests: 3,178.
   Gradient Shift. It was removed as if it were Gradient Shift's own
   declaration.
 
-### Changed
+### Changed since beta.3
 
 - A markdown card writes its Background and Border with `!important` only
   while `text_only` is set. On a markdown card without `text_only`, such a
@@ -107,6 +144,18 @@ Assistant 2025.9.4 and 2026.2.3. Unit tests: 3,178.
   Studio.
 - Reading and writing takes 16 ms for a style of 100 rules and 0.4 s for
   1,000 rules; it grows quadratically, 5,000 rules take about 10 s.
+
+### Known limits
+
+- Mushroom and Bubble Card support is a beta. Bubble Card types other than
+  button, slider button, separator and cover are not covered yet (they show
+  the notice for custom cards without a profile).
+- The history-graph line colour can arrive late, because the chart reads its
+  colour only when it draws (see the [0.11.0-beta.3] section).
+- The Border radius slider has no setting for square corners (0 means "not
+  set"); a hand-written `border-radius: 0px` is kept instead.
+- The energy cards cannot be exercised on the test rig, so their modules are
+  unmeasured.
 
 ## [0.11.0-beta.3] — 2026-11-11
 
@@ -1682,7 +1731,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
-[0.11.0-beta.4]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.4
+[0.11.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0
 [0.11.0-beta.3]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.3
 [0.11.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.2
 [0.11.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.1
