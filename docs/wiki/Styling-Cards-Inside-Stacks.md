@@ -3,7 +3,7 @@ no card box of their own, so styling "the stack" mostly means styling the
 cards inside it. Opening a container in the Studio shows **one styling
 section per child card**.
 
-![Stack children](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/08%20Stack%20Children.png)
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/08%20Stack%20Children.png" alt="Stack children" width="1024">
 
 ## How it works
 
@@ -31,6 +31,10 @@ cards:
   child.
 - A dot marks children that carry styling; reopening the editor restores
   every child's settings.
+- Each child header names its kind: the card type, or for Bubble and Mushroom
+  cards a readable name such as "Bubble slider" or "Mushroom light".
+- A custom child card the Studio has no profile for gets the same notice as a
+  standalone one.
 
 Because the output is per-child standard YAML, a card moved out of the stack
 keeps its styling, and cards styled standalone keep theirs when moved in.

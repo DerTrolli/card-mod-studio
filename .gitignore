@@ -3,3 +3,7 @@ dist/
 *.js.map
 .DS_Store
 .claude/settings.local.json
+# agent worktrees (local only)
+.claude/worktrees/
+# continuity check work folder (old release trees, corpora, results)
+tools/continuity/.work/

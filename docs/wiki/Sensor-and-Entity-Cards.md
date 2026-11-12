@@ -4,7 +4,7 @@
 
 | Module | Available | Notes |
 |---|---|---|
-| Font | ✅ | Name, unit, **and the big value** — the value scales at 1.75× your chosen size (its native ratio) |
+| Font | ✅ | Name, unit, **and the big value** — the value scales at 1.75× your chosen size (its native ratio). Icon Color's **Icon size** goes up to 64px (the card grows with it) |
 | Visual Filters | ✅ | |
 | Accent Color | ✅ | On `sensor`, this colors the **mini graph line** |
 | Icon Color | ✅ | |

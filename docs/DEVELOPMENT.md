@@ -10,8 +10,8 @@ This document explains how to set up a local development environment and test Ca
 |---|---|---|
 | Node.js | 18 | 20 LTS recommended |
 | npm | 9 | Comes with Node |
-| Home Assistant | 2024.4.0 | Any install method works |
-| card-mod **or** UIX | card-mod 4.x / [UIX](https://uix.lf.technology/) 7.x or 8.x (latest tested: 8.3.1; the 2026.11 sandbox pins UIX 9.0.0) | One of the two must be installed in HA — see [README's UIX section](../README.md#uix-support) |
+| Home Assistant | 2025.9.0 | The plugin's minimum (`hacs.json`); any install method works. The sandbox rigs pin 2026.11.0 |
+| card-mod **or** UIX | card-mod 4.x / [UIX](https://uix.lf.technology/) 7.x to 9.x (the 2026.11 sandbox pins UIX 9.0.0; 8.3.1 and 8.4.0 were the last on older HA) | One of the two must be installed in HA — see [README's UIX section](../README.md#uix-support) |
 
 ---
 
@@ -170,6 +170,44 @@ clipping and touch targets (details in the sandbox README).
 
 ---
 
+## Releasing
+
+- **Release from the branch that carries the version.** Beta tags come from
+  the 0.11 branch, not `main`: in GitHub's "Draft a new release" form choose
+  that branch as the **target**. (2026-11-07: v0.11.0-beta.2 was created from
+  `main`, so its asset was v0.10.2 code; the owner deleted the release and
+  tag and re-published it on 2026-11-10 from the 0.11 branch.)
+- **Tag = `"v"` + `package.json` version** (`v0.11.0`, `v0.11.0-beta.2`).
+- `.github/workflows/release.yml` runs on the tag, builds
+  `dist/card-mod-studio.js` and attaches it. It **fails the release when the
+  tag differs from `v<package.json version>`**, and marks any tag containing
+  `-` (e.g. `-beta.N`) as a GitHub **pre-release** (`prerelease:
+  ${{ contains(github.ref_name, '-') }}`). Listed in the v0.11.0-beta.3
+  CHANGELOG section.
+- Version and changelog rules live in `CLAUDE.md`: a published pre-release
+  counts as released (a later fix gets the next beta number or version, never
+  an edit of a published changelog entry); beta numbers are sequential.
+- Before tagging: typecheck, full unit suite, build, the live suite on both
+  rigs, and bookkeeping (`package.json`, `CHANGELOG.md`, README cache-bust URL
+  and status table, `docs/ROADMAP.md`).
+- The wiki is published from `main` by `.github/workflows/wiki.yml`, and the
+  README screenshots are hot-linked from `main` — so wiki and image changes
+  made on a release branch go live only when it is merged to `main`.
+
+## Rig recovery
+
+- After a machine recycle Docker is down: start the daemon with
+  `sudo -n dockerd` (in the background), then `docker start <containers>`
+  (the card-mod and UIX rig containers; `docker ps -a` lists them).
+- `tools/sandbox/run.sh` / `run-uix.sh` rebuild a rig from scratch with the
+  current pins (HA 2026.11.0, UIX v9.0.0, Mushroom v5.2.3, Bubble v3.4.3).
+- HA can't start on a config folder migrated by a newer HA — use a fresh
+  `CFG=` folder for older images.
+- Live suite: `harness/run_suite.sh <label> <card-mod|uix> <url> <tokens>
+  <outdir>`; custom-card audit: `AUDIT_CUSTOM=1 node harness/module_effect_audit.mjs`;
+  README screenshots: `harness/readme_shots.mjs` (`SHOT_SCALE=2`, `resetTheme`
+  first so the default theme is used).
+
 ## Project architecture
 
 ### Injection mechanism
@@ -203,6 +241,11 @@ because on themes with translucent card/dialog backgrounds they showed
 through the panel (issue #36). The sandbox configs ship a **Glass QA** theme
 for exactly this case (`settheme` event with `{ theme: 'Glass QA', dark }`);
 `functional_ui_check`'s stylebutton section asserts the hide/restore.
+**HA saves that choice to the test user's profile**, so every later run on
+that rig (fresh browser contexts included) keeps the glass theme and a
+forced dark/light mode — reset it afterwards with
+`settheme { theme: 'default', dark: undefined }` (found 2026-10-27, when a
+whole visual pass had silently run on the glass theme).
 
 The card config is read from the dialog's `_cardConfig` property and the
 `hass` object from the dialog; changes are emitted back via a `config-changed`
@@ -316,7 +359,10 @@ Found while re-verifying against HA 2026.9.4 and 2026.10.0b0 with card-mod
   properties of undefined (reading 'localize')" and renders nothing. Harness
   scripts call `window.__cmsMount(host)` (defined by `installMountHelper` in
   `harness/harness-utils.mjs`, which `waitForHassReady` runs for you) instead
-  of `document.body.appendChild(host)`. Gauge, alarm-panel and media-control
+  of `document.body.appendChild(host)`, and look the host up again with
+  `window.__cmsFind('#host-id cms-panel')` — a shadow-aware lookup, because
+  `document.getElementById` can't see into `<home-assistant>`'s shadow root.
+  Gauge, alarm-panel and media-control
   also lazy-load their element definitions, so `waitForHassReady` pre-loads
   them via `window.__cmsReady([...])`; call that yourself before polling for
   any other lazily-defined card.
@@ -326,12 +372,135 @@ Found while re-verifying against HA 2026.9.4 and 2026.10.0b0 with card-mod
 - **The rigs are pinned.** `run.sh` and `run-uix.sh` default `HA_IMAGE` to
   `ghcr.io/home-assistant/home-assistant:2026.11.0`, and `run-uix.sh` defaults
   `UIX_TAG` to `v9.0.0` (UIX 9 requires HA 2026.11; 8.x is for older HA).
+  Both rigs also download Mushroom (`MUSHROOM_TAG`, default `v5.2.3`) and
+  Bubble Card (`BUBBLE_TAG`, default `v3.4.3` — the release fixed for HA
+  2026.11); `CUSTOM_CARDS=0` skips that.
   Override per run, e.g. `HA_IMAGE=ghcr.io/home-assistant/home-assistant:beta
   CFG=/tmp/ha-beta bash run.sh` or `UIX_TAG=v8.3.1 HA_IMAGE=...:2026.10.0
   CFG=/tmp/ha-old bash run-uix.sh`.
 - `harness/run_suite.sh <label> <card-mod|uix> <url> <tokens> <outdir>` runs
-  the whole live suite against one rig; `harness-utils.mjs`'s `resetTheme`
-  resets a theme left behind by an earlier probe.
+  the whole live suite against one rig (a failing check is retried once; set
+  `SUITE_ONLY="check_a check_b"` to run a subset). The list per engine includes
+  `pierce_check` (Font → Number size on the gauge and thermostat, through the
+  real editor). `harness-utils.mjs`'s `resetTheme` resets a theme left behind
+  by an earlier probe.
+- **Custom-card audit.** `module_effect_audit.mjs` audits the built-in cards by
+  default; `AUDIT_CUSTOM=1` audits the custom-card profiles instead — all 18
+  registered Mushroom types and the 4 Bubble kinds (button, button + slider,
+  separator, cover), with entities taken from `hass.states` — and writes
+  `module-effect-audit-custom-<engine>-<ha version>.json/.md`;
+  `AUDIT_CUSTOM=all` runs both in one go (same file names as the built-in
+  audit). Mushroom and Bubble must be installed on the rig (they are, unless
+  `CUSTOM_CARDS=0`). `AUDIT_CARDS=a,b` limits the sweep to those cards and
+  `AUDIT_EXTRA_CARDS='{"custom:…":{…}}'` adds cards. The audit run on the 2026.11
+  rigs (both engines) found 0 controls without effect.
+- **Icon Color is audited as two controls**: its *colour* (only where the panel
+  offers colour, `allowColor`) and its *size* (`icon:size`, only where
+  `allowSize`, tested on top of an already-applied colour). A size-only card
+  (Mushroom chips) therefore gets only the size test, the way Font's colour and
+  size are audited separately (`font:color`, `font:size`).
+- **Custom-card profiles are data.** Mushroom and Bubble knowledge lives in
+  `src/utils/profiles/mushroom.ts` and `bubble.ts` and is read through
+  `capsFor` in `src/utils/card-caps.ts` — never gate on a card type anywhere
+  else. The probe evidence for every selector and variable is in
+  `docs/research/2026-10-v0.11.md` §3.3.1; unit tests are
+  `test/mushroom-profiles.test.ts`, `test/bubble-profiles.test.ts` and
+  `test/custom-card-profiles.test.ts`. When Mushroom or Bubble ships a new
+  version, re-run `AUDIT_CUSTOM=1` on both rigs before trusting a profile.
+
+### Continuity and fuzz checks (v0.11.0)
+
+`tools/continuity/run.sh` replays styles written by every released version's
+own generator through the working tree, round-trips random setting
+combinations and loads random hand-written styles (about two minutes, no
+browser). Run it before a release and whenever the parser, the generator or a
+module's read-back changes; what each step should show is in
+[`tools/continuity/README.md`](../tools/continuity/README.md). Lessons from
+its first run:
+
+- **Check the Studio's own output with random combinations, not only one
+  module at a time.** Both read-back defects it found needed two things
+  together: a Font without a size *and* Threshold Colors on `ha-card`
+  (Threshold is read after Font, so its declarations looked hand-written to
+  Font's "nothing else beside me" check); Threshold rules of both directions
+  *and* an order in which the sort moves a rule of the other direction to the
+  front (`sortThresholdRules` goes by the first rule, so sorting its own
+  output again gave a different order).
+- **Compare what the browser applies, not the text.** The hand-written fuzz
+  compares the cascade winner per selector and property; that is what showed
+  a dropped `!important` and a kept plain twin of a `! important` declaration.
+- **A reader that takes a declaration over must be able to write it back the
+  same.** `mapToStudioState` now regenerates what the modules would write and
+  leaves any `!important` declaration that would come back without the flag
+  to Advanced CSS (`weakenedImportant`); it takes the card's config, because
+  the flag can depend on it (text-only markdown).
+
+### Test rig and QA tooling (v0.11.0-beta.3)
+
+- **card-mod is loaded through `frontend: extra_module_url` on the rig**
+  (`tools/sandbox/config/configuration.yaml`, `- /local/card-mod.js`), as
+  card-mod's own README recommends; the Studio, Mushroom and Bubble stay
+  dashboard resources. As a plain dashboard resource card-mod evaluates
+  10–60 ms *after* the first card is built on a cold page load, and it only
+  patches cards created afterwards, so styled cards stayed unstyled. Measured
+  on the rig (20 cold loads each, headless Chromium on a loaded 4-core
+  machine): as a dashboard resource 0/5 and 2/5 styled (storage dashboard,
+  YAML dashboard; HA 2026.11 with the Studio loaded); with `extra_module_url`
+  18/20 (storage) and 19/20 (YAML). So the setting makes the failure rare,
+  not impossible; it is not a Studio effect (the rate is the same with and
+  without the Studio loaded) and UIX showed the same race now and then. `run.sh`
+  warns when an existing config folder lacks the setting.
+- **`gotoDashboard` in `tools/sandbox/harness/click-driver.mjs` still
+  recovers from a missed load** (sidebar and Back, then reloads) and prints a
+  `NOTE: style engine did not attach on load of …` line. Seeing that line is
+  a rig signal, not noise; a run with many of them is a rig problem. Pass
+  `expectStyled` to name the cards that must be styled.
+- **The real-input click driver** `tools/sandbox/harness/click-driver.mjs`
+  operates the product like a person: real pointer, keyboard and touch input
+  on a real dashboard (edit mode, the card's Edit, the Style button, the
+  controls, Save, Done); code is used only for fixtures (login by token,
+  seeding a storage or sections dashboard through the websocket, setting
+  entity states through REST) and for observation (computed styles, DOM,
+  saved config). `locator.fill()`, `selectOption()`, `{ force: true }`,
+  `page.evaluate` that acts, and URL shortcuts into edit mode are not allowed;
+  a control that cannot be operated that way is a finding. Cards are addressed
+  by config (index, `{ section, index }`, name, partial config, predicate),
+  never by DOM position (masonry lays out 2–3 columns). The header comment of
+  the file lists every helper (`launch` with `hasTouch` / `isMobile` for a
+  phone, `tap`, `seedDashboard`, `seedSectionsDashboard`, `haFetch` /
+  `setState`, `listSections` / `listControls` / `findControl`, `setSlider`,
+  `typeText`, `setColor`, `pickSwatch`, `pickEntity`, `toggle`,
+  `chooseOption`, `computedStyle`, …). `listSections` no longer counts the toggle button inside a module header as a second section. `setColor` commits with Tab (or Enter
+  once) and never sends Escape, which would close the whole dialog. The UIX
+  rig needs `UIX_TOKENS_FILE` (the default token file belongs to an old rig).
+  Its smoke test `tools/sandbox/harness/click_driver_smoke.mjs` (29 steps,
+  `RIG=cm` or `RIG=uix`; prints PASS/FAIL per step and exits 1 on a failure)
+  exercises every helper: cm 29/29 and uix 29/29 in the last full run, with
+  one unexplained flake on "reload: style still applied" on card-mod.
+- **`module_effect_audit.mjs`: noise floor and an opaque picture fixture.**
+  Cards can change pixels on their own (a camera, a canvas chart). The audit
+  screenshots the *unstyled* card before and after every test; the
+  difference is that test's noise floor, a test whose floor is above 30 px is
+  repeated (up to 3 attempts), and an effect counts only above
+  `30 + 2 × floor`. A shown module that stays inside a noisy card's floor but
+  changed a computed style is listed as inconclusive instead of dead. A
+  2.5 px ring along the card outline is ignored, and the picture cards use an
+  opaque PNG served from the rig's `www/` (copied from `harness/fixtures`
+  when missing) instead of a transparent favicon, so their Background no
+  longer reads as an artefact. `AUDIT_TAG=name` keeps result files apart.
+- **Audit and tooling updates for beta.3.** `module_effect_audit.mjs` tests
+  Font weight with a value that differs from the card's own text weight
+  (Normal for text that is natively 550 or heavier, otherwise Bold; it tries the other weight when the first shows nothing, as on cards that mix bold and regular text such as calendar and markdown), treats a
+  changed custom property on a noisy canvas card (history-graph) as
+  inconclusive rather than dead, has a `media-control (off)` row, and takes
+  `AUDIT_CARDS=a,b` and `AUDIT_BUNDLE=/path/card-mod-studio.js` (audit a local
+  build). `readme_shots.mjs` seeds its demo palette in the Home Assistant user
+  profile and restores it. The functional check, the suite checks and the click
+  driver were updated for the beta.3 behaviour. Slider facts per Home
+  Assistant version: `docs/COMPATIBILITY_AUDIT.md`.
+- **`gradient_mode_check.mjs`** picks the select that offers `gradient` (and a
+  sensor without numeric attributes): on HA 2025.9.4 it used to take the
+  "Value read from" select first and scored 1/8; it scores 8/8.
 
 ### hui-dialog-edit-card
 

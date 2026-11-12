@@ -15,4 +15,5 @@ card-mod/UIX themselves) fundamentally can't restyle.
 | Visual Filters | ✅ — grayscale/brightness/blur over the whole card |
 | Threshold Colors | ✅ (border color) |
 | Advanced CSS | ✅ |
-| Font / Background / Icon / Accent / Animation | — hidden (nothing to reach) |
+| Animation | ✅ iframe and map (v0.11.0-beta.3), without Gradient Shift and, on the map, without Spin (it pans the map away from the pointer). Hidden on webpage |
+| Font / Background / Icon / Accent | — hidden (nothing to reach). With a card title, Background fills the title strip and Font reaches the title |

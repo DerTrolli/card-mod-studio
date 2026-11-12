@@ -8,7 +8,7 @@
  * serialised — so we work with plain JS objects, not YAML strings.
  */
 
-import type { CardModCardConfig, UixConfig, DictSource } from '../types/index.js';
+import type { CardModCardConfig, UixConfig, DictSource, PiercedEntry } from '../types/index.js';
 import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
 import { usesUixOnlyFeaturesInBlock, hasDictFormStyle } from '../utils/style-compat.js';
 
@@ -66,12 +66,33 @@ function applyDictStyle(
   existingConfig: CardModCardConfig,
   outputKey: StyleOutputKey,
   dictSource: DictSource,
+  owned: PiercedEntry[] = [],
 ): CardModCardConfig {
   const trimmed = css.trim();
-  const list: Array<[string, unknown]> = dictSource.entries.map((e) => [e.key, e.value]);
-  if (trimmed) {
-    const at = dictSource.rootIndex === null ? 0 : Math.min(dictSource.rootIndex, list.length);
-    list.splice(at, 0, ['.', trimmed]);
+  // Walk the original order: `.` goes back before the entry it preceded,
+  // a Studio-owned entry takes its regenerated value (or is dropped when
+  // no longer written), the user's entries stay verbatim, and owned entries
+  // that weren't there yet go last (v0.11, docs/V0.11_PLAN.md C1.0).
+  const fresh = new Map(owned.map((e) => [e.key, e.value]));
+  const list: Array<[string, unknown]> = [];
+  const pushRoot = () => { if (trimmed) list.push(['.', trimmed]); };
+  dictSource.entries.forEach((e, i) => {
+    if (i === dictSource.rootIndex) pushRoot();
+    if (!e.owned) list.push([e.key, e.value]);
+    else if (fresh.has(e.key)) {
+      list.push([e.key, fresh.get(e.key)]);
+      fresh.delete(e.key);
+    }
+  });
+  if (dictSource.rootIndex === null) {
+    if (trimmed) list.unshift(['.', trimmed]);
+  } else if (dictSource.rootIndex >= dictSource.entries.length) pushRoot();
+  for (const [k, v] of fresh) list.push([k, v]);
+
+  // A dict that only existed for the Studio's own entries goes back to a
+  // plain string once none is written (never one pinned under uix:).
+  if (dictSource.studioCreated && !dictSource.pinKey && list.every(([k]) => k === '.')) {
+    return applyStringStyle(trimmed, existingConfig, outputKey);
   }
   // A uix: dict using UIX-only features stays under uix: (audit v0.10 #6).
   const key = dictSource.pinKey ?? outputKey;
@@ -162,6 +183,7 @@ export function applyCardModStyle(
   existingConfig: CardModCardConfig,
   outputKey: StyleOutputKey = 'card_mod',
   dictSource?: DictSource,
+  owned: PiercedEntry[] = [],
 ): CardModCardConfig {
   // v0.10: with a dict carrier, the ACTIVE key's dictionary style is
   // rebuilt byte-identically around the regenerated `.` entry (pierced
@@ -170,11 +192,25 @@ export function applyCardModStyle(
   // callers and the mixed-form case (active string + dict secondary),
   // which has no faithful single-key rewrite.
   if (dictSource) {
-    return applyDictStyle(css, existingConfig, outputKey, dictSource);
+    return applyDictStyle(css, existingConfig, outputKey, dictSource, owned);
   }
   if (hasDictFormStyle(existingConfig)) {
     return { ...existingConfig };
   }
+  // v0.11: the Studio's own pierced entries (Font → Number size) turn a
+  // string style into a dictionary.
+  if (owned.length) {
+    return applyDictStyle(css, existingConfig, outputKey, { entries: [], rootIndex: 0, studioCreated: true }, owned);
+  }
+  return applyStringStyle(css, existingConfig, outputKey);
+}
+
+/** The plain-string write: the style as one CSS string under the active key. */
+function applyStringStyle(
+  css: string,
+  existingConfig: CardModCardConfig,
+  outputKey: StyleOutputKey,
+): CardModCardConfig {
 
   const trimmed = css.trim();
 

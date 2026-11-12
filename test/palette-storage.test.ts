@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { CustomPalette } from '../src/utils/palette-storage.js';
+import type { CustomPalette, PaletteEdit } from '../src/utils/palette-storage.js';
 
 type PaletteModule = typeof import('../src/utils/palette-storage.js');
 
@@ -154,5 +154,60 @@ describe('palette-storage cache init race', () => {
 
     await mod.savePalette(NEW_PALETTE, hass);
     expect(mod.getCachedPalette().colors[0]?.id).toBe('new-color');
+  });
+});
+
+describe('updatePalette: one change on the stored palette', () => {
+  let mod: PaletteModule;
+  let stored: unknown;
+  let writes: unknown[];
+  let events: number;
+  const g = globalThis as Record<string, unknown>;
+  const saved: Record<string, unknown> = {};
+  const hass = () => ({
+    connection: {
+      sendMessagePromise: async (m: { type: string; value?: unknown }) => {
+        if (m.type === 'frontend/get_user_data') return { value: stored };
+        stored = m.value;
+        writes.push(m.value);
+        return null;
+      },
+    },
+  });
+  // Edits are data now (so they can be kept across a reload); `add` is idempotent by id.
+  const add = (id: string): PaletteEdit => ({ kind: 'add', color: { id, name: id, hex: '#000000' } });
+
+  beforeEach(async () => {
+    vi.resetModules();
+    saved.localStorage = g.localStorage;
+    saved.window = g.window;
+    g.localStorage = new FakeLocalStorage();
+    events = 0;
+    g.window = { dispatchEvent: () => { events++; return true; } };
+    writes = [];
+    stored = STORED_PALETTE;
+    mod = await import('../src/utils/palette-storage.js');
+  });
+  afterEach(() => { g.localStorage = saved.localStorage; g.window = saved.window; });
+
+  it('writes the stored palette plus the change, not the stale cache, and refreshes the cache', async () => {
+    // the cache is still empty (never primed); another browser stored STORED_PALETTE
+    await mod.updatePalette(add('mine'), hass());
+    expect(writes).toEqual([{ colors: [STORED_PALETTE.colors[0], { id: 'mine', name: 'mine', hex: '#000000' }], defaults: {} }]);
+    expect(mod.getCachedPalette().colors.map((c) => c.id)).toEqual(['stored', 'mine']);
+    expect(JSON.parse((g.localStorage as FakeLocalStorage).getItem('cms-palette')!)).toEqual(writes[0]);
+    expect(events).toBeGreaterThanOrEqual(2); // shown at once, then again once written
+  });
+
+  it('shows and keeps the change locally at once (before any read resolves)', () => {
+    void mod.updatePalette(add('mine'), hass());
+    expect(mod.getCachedPalette().colors.map((c) => c.id)).toEqual(['mine']);
+    expect((g.localStorage as FakeLocalStorage).getItem('cms-palette')).toContain('"mine"');
+  });
+
+  it('quick changes run one after another and none is lost', async () => {
+    await Promise.all([mod.updatePalette(add('a'), hass()), mod.updatePalette(add('b'), hass())]);
+    expect((stored as CustomPalette).colors.map((c) => c.id)).toEqual(['stored', 'a', 'b']);
+    expect(mod.getCachedPalette().colors.map((c) => c.id)).toEqual(['stored', 'a', 'b']);
   });
 });

@@ -180,13 +180,24 @@ const run = async () => {
     await panel0.updateComplete;
     await mod.updateComplete;
     // Enabling auto-opens the section (see module's updated() hook) — no
-    // need to also click .module-header, which would just toggle it shut.
+    // need to also click the header button, which would just toggle it shut.
     const select = mod.shadowRoot.querySelector('select');
     const hasConditionalOption = select ? [...select.options].some((o) => o.value === 'conditional') : false;
     select.value = 'conditional';
     select.dispatchEvent(new Event('change', { bubbles: true }));
+    // The new mode goes up to the panel and comes back down as the module's
+    // state, so the module has not re-rendered yet when its own update
+    // resolves: wait for the panel too, then for the picker to appear.
+    await panel0.updateComplete;
     await mod.updateComplete;
-    const picker = mod.shadowRoot.querySelector('cms-entity-picker');
+    let picker = null;
+    for (let i = 0; i < 20 && !picker; i++) {
+      picker = mod.shadowRoot.querySelector('cms-entity-picker');
+      if (!picker) await new Promise((r) => setTimeout(r, 100));
+    }
+    if (!picker) {
+      return { hasConditionalOption, modeAfterSelect: mod.state.mode, pickerExists: false, usesRealPicker: false, rowFitsOnScreen: false };
+    }
     await picker.updateComplete;
     const realPicker = picker.shadowRoot.querySelector('ha-entity-picker');
     const pickerRow = picker.closest('.control-row');
@@ -273,9 +284,16 @@ const run = async () => {
     };
     const mod = all(document.body, 'cms-threshold-module')[0];
     await mod.updateComplete;
-    mod.shadowRoot.querySelector('.module-header').click();
+    // The header is now a button (.module-toggle) beside the enable switch;
+    // clicking it only opens the section, which is all this needs.
+    mod.shadowRoot.querySelector('.module-toggle').click();
     await mod.updateComplete;
-    const picker = mod.shadowRoot.querySelector('cms-entity-picker');
+    let picker = null;
+    for (let i = 0; i < 20 && !picker; i++) {
+      picker = mod.shadowRoot.querySelector('cms-entity-picker');
+      if (!picker) await new Promise((r) => setTimeout(r, 100));
+    }
+    if (!picker) return { pickerExists: false, usesRealPicker: false, fitsOnScreen: false };
     await picker.updateComplete;
     const rect = picker.getBoundingClientRect();
     return {

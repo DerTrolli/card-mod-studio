@@ -17,6 +17,7 @@
 
 import { parseCss, parseAllRules } from '../parser/css-parser.js';
 import type { StudioState, EntitiesRowStyle } from '../types/index.js';
+import { getCustomCardProfile } from './custom-card-profiles.js';
 
 export type ConflictableModule =
   | 'iconColor'
@@ -33,10 +34,31 @@ export type ModuleConflicts = Partial<Record<ConflictableModule, string[]>>;
 
 interface Rule {
   module: ConflictableModule;
+  /** Threshold rows only: active while Threshold drives this property. */
+  property?: string;
   /** Substring the target selector must contain ('' = any selector). */
   selector: string;
   /** Property names (lowercase) that collide with the module's output. */
   props: string[];
+  /** Match `selector` by selector tokens, not as a substring (profile rows). */
+  tokens?: boolean;
+}
+
+/** Simple-selector tokens of a selector: `.a.b > ha-card$ .c` →
+ *  ['.a', '.b', '>', 'ha-card', '$', '.c']. */
+function selectorTokens(sel: string): string[] {
+  return sel.toLowerCase().match(/[.#]?[-\w]+|::?[-\w]+|[$>+~]/g) ?? [];
+}
+
+/** Do `rule`'s tokens appear, in order and adjacent, in the user's selector? */
+function hasTokenRun(userSel: string, ruleSel: string): boolean {
+  const u = selectorTokens(userSel);
+  const r = selectorTokens(ruleSel);
+  if (!r.length) return true;
+  for (let i = 0; i + r.length <= u.length; i++) {
+    if (r.every((t, j) => u[i + j] === t)) return true;
+  }
+  return false;
 }
 
 /** What each module writes, by selector-class + property. A custom
@@ -93,6 +115,28 @@ const THRESHOLD_PROPS: Record<string, Rule[]> = {
   'border-color': [{ module: 'threshold', selector: 'ha-card', props: ['border', 'border-color'] }],
 };
 
+/** Is the field a declaration derives from actually set? Font / Heading Style
+ *  write nothing for an unset field, so a hand-written rule for that
+ *  property overrides nothing. Properties not listed here always count. */
+function isWritten(state: StudioState, module: ConflictableModule, prop: string, selector: string): boolean {
+  if (module === 'font') {
+    const f = state.font;
+    if (/font-size$|^--ha-font-size-l$/.test(prop)) return f.fontSize != null;
+    if (/font-weight$|^--ha-font-weight-medium$/.test(prop)) return !!f.fontWeight;
+    if (/font-family$/.test(prop)) return !!f.fontFamily?.trim();
+    if (prop === 'color' || /-color$|^--primary-text-color$/.test(prop)) return !!f.color;
+  }
+  if (module === 'headingStyle') {
+    const h = state.headingStyle;
+    if (/font-size$/.test(prop)) return h.fontSize != null;
+    if (/font-weight$/.test(prop)) return !!h.fontWeight;
+    if (/font-family$/.test(prop)) return !!h.fontFamily?.trim();
+    if (/icon-size$/.test(prop)) return h.iconSize != null;
+    if (prop === 'color' || /-color$/.test(prop)) return selector.includes('icon') ? !!h.iconColor : !!h.textColor;
+  }
+  return true;
+}
+
 function isEnabled(state: StudioState, module: ConflictableModule): boolean {
   switch (module) {
     case 'iconColor': return state.iconColor.enabled;
@@ -112,7 +156,13 @@ function isEnabled(state: StudioState, module: ConflictableModule): boolean {
  * human-readable descriptions of the offending declarations
  * (e.g. "ha-card { background }") for the warning hint.
  */
-export function findAdvancedCssConflicts(rawCss: string, state: StudioState): ModuleConflicts {
+export function findAdvancedCssConflicts(
+  rawCss: string,
+  state: StudioState,
+  /** The card's profile key — a custom profile's `conflicts` rows are added
+   *  to the built-in ones (D2). Omitted/unprofiled: built-in rules only. */
+  profileKey?: string,
+): ModuleConflicts {
   const trimmed = rawCss.trim();
   if (!trimmed) return {};
 
@@ -125,7 +175,14 @@ export function findAdvancedCssConflicts(rawCss: string, state: StudioState): Mo
     return {};
   }
 
-  const activeRules: Rule[] = RULES.filter((r) => isEnabled(state, r.module));
+  const extra: Rule[] = (profileKey ? getCustomCardProfile(profileKey)?.conflicts ?? [] : [])
+    .map((c) => ({ module: c.module, selector: c.selector, props: c.props, property: c.property, tokens: c.tokens }));
+  const activeRules: Rule[] = [...RULES, ...extra].filter(
+    (r) =>
+      isEnabled(state, r.module) &&
+      // a profile's threshold row names the property it belongs to
+      (!r.property || (state.threshold.enabled && state.threshold.properties.includes(r.property as never))),
+  );
   if (state.threshold.enabled) {
     for (const p of state.threshold.properties) {
       activeRules.push(...(THRESHOLD_PROPS[p] ?? []));
@@ -139,8 +196,9 @@ export function findAdvancedCssConflicts(rawCss: string, state: StudioState): Mo
     for (const prop of target.properties) {
       const name = prop.property.toLowerCase();
       for (const rule of activeRules) {
-        if (rule.selector && !sel.includes(rule.selector)) continue;
+        if (rule.selector && !(rule.tokens ? hasTokenRun(sel, rule.selector) : sel.includes(rule.selector))) continue;
         if (!rule.props.includes(name)) continue;
+        if (!isWritten(state, rule.module, name, sel)) continue;
         (out[rule.module] ??= []).push(`${target.selector} { ${prop.property} }`);
       }
     }
@@ -160,7 +218,7 @@ export function findRowExtraCssConflicts(style: EntitiesRowStyle): string[] {
 
   const iconOn = !!(style.iconColor || style.iconMode === 'threshold');
   const textOn = !!(style.textColor || style.textMode === 'threshold');
-  const fontOn = !!(style.fontSizePx || style.fontWeight);
+  const fontOn = style.fontSizePx != null || !!style.fontWeight;
   if (!iconOn && !textOn && !fontOn) return [];
 
   let targets;

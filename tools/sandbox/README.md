@@ -50,7 +50,7 @@ tools/sandbox/run.sh
 ```
 
 That builds the plugin, fetches card-mod, starts HA, completes onboarding, and
-runs the matrix. Results land in `tools/sandbox/harness/matrix.md` + `matrix.json`.
+runs the matrix. Results land in `tools/sandbox/harness/matrix.md` + `matrix.json`. (`matrix.mjs` is the original June 2026 icon-colour matrix; the per-card gating is now decided by `module_effect_audit.mjs`, below.)
 
 To re-run just the measurement after HA is already up:
 
@@ -85,9 +85,66 @@ node functional_ui_check.mjs  # functional UI check (all controls via real click
 node ux_audit_shots.mjs  # screenshot-only: renders the consistency-pass UI states (heading module, entity rows + palette manager, threshold) into shots/ for visual review — no assertions
 node readme_shots.mjs  # screenshot-only: regenerates every README image (images/*.png) through the REAL edit dialog into shots/readme/ — review, then copy over the repo's images/
 node scan.mjs            # which card types mount cleanly standalone
+node pierce_check.mjs    # v0.11: Font → Number size (gauge value, thermostat temperature) through the REAL editor — exact pierced entry written, number really resizes and stays inside the card, switching off returns a plain string, reopen reads it back
+node module_effect_audit.mjs   # every module on every built-in card type, pixel-compared (the source of the per-card gating — see below)
+AUDIT_CUSTOM=1 node module_effect_audit.mjs   # the same audit for the custom-card profiles: all 18 Mushroom types + 4 Bubble kinds
+bash run_suite.sh <label> <card-mod|uix> <ha_url> <tokens_file> <outdir>   # the whole live suite on one rig (below)
 ```
 
-Environment overrides: `HA_URL`, `CHROME_BIN`, `HA_IMAGE` (default `ghcr.io/home-assistant/home-assistant:2026.11.0`), `CARD_MOD_TAG` — and,
+### Running the whole suite — `harness/run_suite.sh`
+
+```bash
+cd tools/sandbox/harness
+bash run_suite.sh cm  card-mod http://localhost:8123 tokens.json     /tmp/out
+bash run_suite.sh uix uix      http://localhost:8124 tokens-uix.json /tmp/out
+```
+
+It runs one fixed list of checks per engine (card-mod: `compat_check` …
+`heading_check`, `pierce_check`; UIX: `uix_matrix` … `heading_check`,
+`pierce_check`), each log to `<outdir>/<label>-<check>.log`, retries a
+failing check once, and prints one line per check plus
+`<label> SUMMARY pass=P fail=F`. `SUITE_ONLY="font_module_check pierce_check"`
+runs just those. The module-effect audits are **not** part of the suite — run
+them separately:
+
+- `module_effect_audit.mjs` — the built-in cards (HA_URL / TOKENS_FILE /
+  STYLE_KEY like every check) → `module-effect-audit-<engine>-<ha version>.json/.md`.
+  Icon Color is audited as two controls, its colour (only where the panel
+  offers colour) and its size (`icon:size`, only where the size slider is
+  offered, on top of a colour already applied); a size-only card (Mushroom
+  chips) gets only the size test.
+- `AUDIT_CUSTOM=1` — the custom-card profiles instead of the built-ins: the 18
+  Mushroom types (14 state cards, template, chips, title, empty) and the 4
+  Bubble kinds (button, button + slider, separator, cover), entities read from
+  `hass.states` → `module-effect-audit-custom-<engine>-<ha version>.json/.md`.
+  `AUDIT_CUSTOM=all` does both in one run (output named like the built-in
+  audit). `AUDIT_CARDS=a,b` restricts the sweep; `AUDIT_EXTRA_CARDS` adds
+  cards as JSON. On the 2026.11 rigs the audit found 0 dead controls on both
+  engines.
+
+### Pinned versions
+
+The rigs are pinned to what v0.11.0-beta.2 was verified on: **HA 2026.11.0**
+(`HA_IMAGE`, both rigs), **card-mod v4.2.1** (`CARD_MOD_TAG`, `run.sh`),
+**UIX v9.0.0** (`UIX_TAG`, `run-uix.sh` — 9.0 needs HA 2026.11; use v8.3.1 or
+v8.4.0 for older HA), **Mushroom v5.2.3** (`MUSHROOM_TAG`) and **Bubble Card
+v3.4.3** (`BUBBLE_TAG`). Both rigs download the two custom cards into their
+`www/`; `CUSTOM_CARDS=0` skips that. To test an older HA, give `CFG=` a **fresh**
+folder — HA won't start on a config folder a newer HA already migrated, and
+`config/` and `config-uix/` are migrated by whichever HA ran last.
+
+### Mounting test cards on HA 2026.11 and newer
+
+Since 2026.11 several cards read `hass`, i18n and formatters through Lit
+context, so a card mounted under `document.body` renders nothing. Harness
+scripts mount hosts with `window.__cmsMount(host)` (defined by
+`installMountHelper` in `harness-utils.mjs`; `waitForHassReady` installs it)
+and find them again with `window.__cmsFind('#host-id cms-panel')`, a
+shadow-aware lookup — `document.getElementById` can't see inside
+`<home-assistant>`. Lazily-defined cards (gauge, alarm-panel, media-control)
+need `await window.__cmsReady([...])` first. See `docs/DEVELOPMENT.md`.
+
+Environment overrides: `HA_URL`, `CHROME_BIN`, `HA_IMAGE` (default `ghcr.io/home-assistant/home-assistant:2026.11.0`), `CARD_MOD_TAG` (default `v4.2.1`), `MUSHROOM_TAG` (`v5.2.3`), `BUBBLE_TAG` (`v3.4.3`), `CUSTOM_CARDS=0` (skip Mushroom and Bubble) — and,
 to run a second instance beside the default one (e.g. `HA_IMAGE=ghcr.io/home-assistant/home-assistant:beta`),
 `CFG` (config dir), `CONTAINER`, `HOST_PORT` and `TOKENS` (tokens file); point the
 harness at it with `HA_URL` / `TOKENS_FILE`.
@@ -112,7 +169,9 @@ run.sh
 ```
 
 - **`config/configuration.yaml`** — minimal HA: the `demo` integration (≈117 test
-  entities), YAML-mode dashboard, card-mod + the plugin as resources.
+  entities), YAML-mode dashboard, card-mod loaded via `frontend: extra_module_url`
+  (its recommended install; as a dashboard resource it races), the plugin,
+  Mushroom and Bubble as dashboard resources.
 - **`harness/onboard.py`** — drives HA's onboarding HTTP API to create a user and
   emit `tokens.json` (no manual login, no `.storage` seeding).
 - **`harness/matrix.mjs`** — renders each card type, applies the CSS the tool
@@ -252,7 +311,13 @@ run.sh
   it; long sessions may need a re-check.
 - **The matrix measures the icon** for `icon_color`/`accent_color`. `—` means the
   card has no icon; for `accent_color` on gauge/thermostat that does **not** mean
-  accent has no effect on the arc/ring (not yet measured).
+  accent has no effect on the arc/ring — those are measured by
+  `gauge_color_check.mjs` and the module-effect audit, which is the reference
+  for "does this control do anything" (built-in, and `AUDIT_CUSTOM=1` for
+  Mushroom/Bubble).
+- **Cards mount inside `<home-assistant>`'s shadow root** (HA 2026.11+: core
+  cards read hass through Lit context) — use `window.__cmsMount` /
+  `window.__cmsFind` from `harness-utils.mjs`, never `document.body`.
 
 ---
 

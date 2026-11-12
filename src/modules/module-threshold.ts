@@ -3,10 +3,13 @@ import { repeat } from 'lit/directives/repeat.js';
 import { property, state } from 'lit/decorators.js';
 import type { ThresholdModuleState, ThresholdProperty, ThresholdRule, ColorStop, HomeAssistant } from '../types/index.js';
 import { DEFAULT_THRESHOLD } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
+import { moduleStyles, renderOverrideHint, renderModuleHeader, guardSliderTouch, nameSwitches, prepareSliders,
+} from './module-base.js';
 import { sortThresholdRules } from '../generator/css-generator.js';
+import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 import { previewHexFor } from '../components/cms-color-picker.js';
 import { thresholdPropertyAllowed } from '../utils/card-caps.js';
+import { thresholdColorsWithoutTriplet, tripletHint } from '../utils/rgb-triplet.js';
 import { getCachedPalette } from '../utils/palette-storage.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
@@ -31,6 +34,11 @@ export class ThresholdModule extends LitElement {
   /** The card's type — hides properties whose selectors don't exist there
    *  (e.g. Icon Color on a gauge) and labels Accent Color as the gauge dial. */
   @property({ type: String }) cardType = '';
+  /** The card's own config — some properties are dead while it sets e.g.
+   *  `icon_color` (a custom profile's configGates). */
+  @property({ attribute: false }) cardConfig?: object;
+  /** The card writes Accent as `R, G, B` (Mushroom) — unconvertible colours get a hint. */
+  @property({ type: Boolean, attribute: 'triplet-accent' }) tripletAccent = false;
 
   @property({ attribute: false }) hass?: HomeAssistant;
 
@@ -61,8 +69,8 @@ export class ThresholdModule extends LitElement {
         width: 64px;
         flex: 0 0 auto;
       }
-      .rule input[type='number'],
-      .stop input[type='number'] {
+      .rule input.num,
+      .stop input.num {
         flex: 1 1 64px;
         width: auto;
         min-width: 56px;
@@ -121,6 +129,9 @@ export class ThresholdModule extends LitElement {
         min-height: 28px;
         font-size: 12px;
         cursor: pointer;
+      }
+      .property-check {
+        position: relative;
       }
       .property-check input {
         width: 16px;
@@ -211,15 +222,35 @@ export class ThresholdModule extends LitElement {
         margin-bottom: 12px;
       }
       @media (pointer: coarse) {
+        /* The two move buttons stack at 22px each; side by side they can each
+           be 40 x 40 without making the row any taller (the row wraps). */
+        .stop-move {
+          flex-direction: row;
+          gap: 4px;
+        }
         .move-btn {
-          min-width: 34px;
-          min-height: 22px;
+          min-width: 40px;
+          min-height: 40px;
           font-size: 11px;
         }
         .rule > button,
         .stop > button {
-          min-width: 36px;
-          min-height: 36px;
+          min-width: 40px;
+          min-height: 40px;
+        }
+        /* "+ Add Rule" / "+ Add Point": 30px high on a mouse. */
+        .add-btn {
+          min-height: 40px;
+        }
+        /* The checkbox is 16px; its label is the tap target — reach 40px high
+           without taller rows. */
+        .property-checks {
+          row-gap: 12px;
+        }
+        .property-check::before {
+          content: '';
+          position: absolute;
+          inset: -6px -4px;
         }
       }
     `,
@@ -230,6 +261,8 @@ export class ThresholdModule extends LitElement {
   }
 
   override updated(changed: Map<PropertyKey, unknown>) {
+    nameSwitches(this.renderRoot);
+    prepareSliders(this.renderRoot);
     if (changed.has('state')) {
       const prev = changed.get('state') as ThresholdModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;
@@ -238,6 +271,10 @@ export class ThresholdModule extends LitElement {
 
   private _toggleOpen() {
     this._open = !this._open;
+  }
+
+  private get _cfg(): Record<string, unknown> | undefined {
+    return this.cardConfig as Record<string, unknown> | undefined;
   }
 
   private _emit(changes: Partial<ThresholdModuleState>) {
@@ -255,11 +292,11 @@ export class ThresholdModule extends LitElement {
       newState.rules.length === 0 &&
       newState.properties.length === 1 &&
       newState.properties[0] === 'icon-color' &&
-      !thresholdPropertyAllowed('icon-color', this.cardType)
+      !thresholdPropertyAllowed('icon-color', this.cardType, this._cfg)
     ) {
       const first = this.cardType === 'gauge'
         ? 'accent-color'
-        : DEFAULT_PROPERTY_ORDER.find((p) => thresholdPropertyAllowed(p, this.cardType));
+        : DEFAULT_PROPERTY_ORDER.find((p) => thresholdPropertyAllowed(p, this.cardType, this._cfg));
       if (first) newState.properties = [first];
     }
     this.dispatchEvent(
@@ -269,27 +306,25 @@ export class ThresholdModule extends LitElement {
     );
   }
 
+  override connectedCallback() {
+    super.connectedCallback();
+    guardSliderTouch(this.renderRoot);
+  }
+
   override render() {
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this._open ? 'true' : 'false'}
-          @click=${this._toggleOpen}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">🎯 Threshold Colors</span>
-          ${renderOverrideBadge(this.overridden)}
-          <ha-switch
-            .checked=${this.state.enabled}
-            @click=${(e: Event) => e.stopPropagation()}
-            @change=${(e: Event) =>
-              this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
-        </div>
+        ${renderModuleHeader({
+          icon: '🎯',
+          title: 'Threshold Colors',
+          open: this._open,
+          onToggle: () => this._toggleOpen(),
+          overridden: this.overridden,
+          enable: {
+            checked: this.state.enabled,
+            onChange: (enabled) => this._emit({ enabled }),
+          },
+        })}
         ${this._open ? this._renderBody() : nothing}
       </div>
     `;
@@ -309,7 +344,7 @@ export class ThresholdModule extends LitElement {
     return PROPERTY_OPTIONS.filter(
       (opt) =>
         !this.cardType ||
-        thresholdPropertyAllowed(opt.value, this.cardType) ||
+        thresholdPropertyAllowed(opt.value, this.cardType, this._cfg) ||
         this.state.properties.includes(opt.value),
     ).map((opt) =>
       opt.value === 'accent-color' && this.cardType === 'gauge'
@@ -320,8 +355,11 @@ export class ThresholdModule extends LitElement {
 
   private _renderBody() {
     return html`
-      <div class="module-body">
+      <div class="module-body" id="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${this.tripletAccent && thresholdColorsWithoutTriplet(this.state).length
+          ? html`<div class="when-hint warn">${tripletHint(thresholdColorsWithoutTriplet(this.state))}</div>`
+          : nothing}
         <div class="control-row">
           <span class="control-label">Entity</span>
           <div class="control-right">
@@ -330,6 +368,7 @@ export class ThresholdModule extends LitElement {
               .value=${this.state.entityId}
               .placeholder=${this.cardEntity || 'sensor.temperature'}
               label=""
+              accessible-name="Entity to read the value from"
               @value-changed=${(e: CustomEvent<{ value: string }>) =>
                 this._emit({ entityId: e.detail.value.trim(), attribute: '' })}
             ></cms-entity-picker>
@@ -366,6 +405,8 @@ export class ThresholdModule extends LitElement {
                 <span class="control-label">Border width</span>
                 <div class="control-right">
                   <ha-slider
+                    label="Border width"
+                    aria-label="Border width"
                     min="1"
                     max="16"
                     step="1"
@@ -382,9 +423,10 @@ export class ThresholdModule extends LitElement {
           : nothing}
 
         <div class="control-row" style="margin-top: 12px;">
-          <span class="control-label">Value mode</span>
+          <span class="control-label" id="lbl-value-mode">Value mode</span>
           <div class="control-right">
             <select
+              aria-labelledby="lbl-value-mode"
               .value=${this.state.valueMode}
               @change=${(e: Event) =>
                 this._emit({
@@ -427,9 +469,10 @@ export class ThresholdModule extends LitElement {
     if (options.length === 0 && !this.state.attribute) return nothing;
     return html`
       <div class="control-row" style="margin-top: 8px;">
-        <span class="control-label">Value read from</span>
+        <span class="control-label" id="lbl-value-read-from">Value read from</span>
         <div class="control-right">
           <select
+            aria-labelledby="lbl-value-read-from"
             .value=${this.state.attribute ?? ''}
             @change=${(e: Event) => this._emit({ attribute: (e.target as HTMLSelectElement).value })}
           >
@@ -454,9 +497,10 @@ export class ThresholdModule extends LitElement {
       </div>
 
       <div class="control-row" style="margin-top: 12px;">
-        <span class="control-label">Default color</span>
+        <span class="control-label" id="lbl-default-color">Default color</span>
         <div class="control-right">
           <cms-color-picker
+            label="Default color"
             compact
             .value=${this.state.defaultColor}
             @color-changed=${(e: CustomEvent) => this._emit({ defaultColor: e.detail.value })}
@@ -551,6 +595,7 @@ export class ThresholdModule extends LitElement {
       <div class="rule">
         <span class="rule-label">If value</span>
         <select
+          aria-label="Rule ${index + 1} operator"
           .value=${rule.operator}
           @change=${(e: Event) =>
             this._onOperatorChange(index, (e.target as HTMLSelectElement).value)}
@@ -563,18 +608,25 @@ export class ThresholdModule extends LitElement {
           <option value="!=" ?selected=${rule.operator === '!='}>!=</option>
         </select>
         <input
-          type="number"
+          type="text"
+          class="num"
+          aria-label="Rule ${index + 1} value"
+          aria-invalid="false"
+          spellcheck="false"
+          autocomplete="off"
           .value=${String(rule.value)}
-          @change=${(e: Event) =>
-            this._onValueChange(index, (e.target as HTMLInputElement).value)}
+          @input=${markNumberInput}
+          @change=${(e: Event) => this._onValueChange(index, e)}
+          @blur=${(e: Event) => revertNumberInput(e, rule.value)}
         />
         <span class="rule-label">→</span>
         <cms-color-picker
+          label="Rule ${index + 1} color"
           compact
           .value=${rule.color}
           @color-changed=${(e: CustomEvent) => this._onRuleColorChange(index, e.detail.value)}
         ></cms-color-picker>
-        <button aria-label="Remove rule" title="Remove rule" @click=${() => this._removeRule(index)}>×</button>
+        <button aria-label="Remove rule ${index + 1}" title="Remove rule" @click=${() => this._removeRule(index)}>×</button>
       </div>
     `;
   }
@@ -589,25 +641,32 @@ export class ThresholdModule extends LitElement {
             @click=${() => this._swapStop(sortedIndex, -1)}
             ?disabled=${sortedIndex === 0}
             title="Swap with the point above"
-            aria-label="Move point up"
+            aria-label="Move fade point ${index + 1} up"
           >▲</button>
           <button
             class="move-btn"
             @click=${() => this._swapStop(sortedIndex, 1)}
             ?disabled=${sortedIndex === sortedCount - 1}
             title="Swap with the point below"
-            aria-label="Move point down"
+            aria-label="Move fade point ${index + 1} down"
           >▼</button>
         </div>
         <span class="rule-label">At value</span>
         <input
-          type="number"
+          type="text"
+          class="num"
+          aria-label="Fade point ${index + 1} value"
+          aria-invalid="false"
+          spellcheck="false"
+          autocomplete="off"
           .value=${String(stop.value)}
-          @change=${(e: Event) =>
-            this._onStopValueChange(index, (e.target as HTMLInputElement).value)}
+          @input=${markNumberInput}
+          @change=${(e: Event) => this._onStopValueChange(index, e)}
+          @blur=${(e: Event) => revertNumberInput(e, stop.value)}
         />
         <span class="rule-label">→</span>
         <cms-color-picker
+          label="Fade point ${index + 1} color"
           compact
           .value=${stop.color}
           @color-changed=${(e: CustomEvent) => this._onStopColorChange(index, e.detail.value)}
@@ -616,7 +675,7 @@ export class ThresholdModule extends LitElement {
           @click=${() => this._removeStop(index)}
           ?disabled=${this.state.colorStops.length <= 2}
           title=${this.state.colorStops.length <= 2 ? 'At least 2 points are required' : 'Remove point'}
-          aria-label="Remove point"
+          aria-label="Remove fade point ${index + 1}"
         >×</button>
       </div>
     `;
@@ -649,9 +708,14 @@ export class ThresholdModule extends LitElement {
     this._emit({ rules });
   }
 
-  private _onValueChange(index: number, value: string) {
+  /** An empty / unparseable field stores nothing (it keeps the previous value
+   *  and its invalid cue); a rule always exists with a number — "Add rule"
+   *  creates it as 0, so there is no empty NEW rule. */
+  private _onValueChange(index: number, e: Event) {
+    const value = commitNumberInput(e);
+    if (value === undefined) return;
     const rules = [...this.state.rules];
-    rules[index] = { ...rules[index], value: parseFloat(value) || 0 };
+    rules[index] = { ...rules[index], value };
     this._emit({ rules });
   }
 
@@ -681,9 +745,11 @@ export class ThresholdModule extends LitElement {
     this._emit({ colorStops });
   }
 
-  private _onStopValueChange(index: number, value: string) {
+  private _onStopValueChange(index: number, e: Event) {
+    const value = commitNumberInput(e);
+    if (value === undefined) return;
     const colorStops = [...this.state.colorStops];
-    colorStops[index] = { ...colorStops[index], value: parseFloat(value) || 0 };
+    colorStops[index] = { ...colorStops[index], value };
     this._emit({ colorStops });
   }
 

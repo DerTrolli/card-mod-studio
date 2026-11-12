@@ -43,9 +43,23 @@ const run = async () => {
   await waitForHassReady(page);
   await page.waitForFunction(() => !!customElements.get('cms-panel'), { timeout: 30000 });
 
+  // The check only needs a plain numeric state. An entity with a numeric ATTRIBUTE makes the Threshold module
+  // show a "Value read from" select before "Value mode" (HA 2025.9.4's demo sensor.outside_temperature has one),
+  // so use a numeric sensor without any numeric attribute (resolved from this rig's own states).
+  const ENTITY = process.env.GRADIENT_ENTITY || await page.evaluate(() => {
+    const states = document.querySelector('home-assistant').hass.states;
+    const numeric = (v) => typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v)));
+    const plain = Object.values(states)
+      .filter((s) => s.entity_id.startsWith('sensor.') && numeric(s.state) && !Object.values(s.attributes).some(numeric))
+      .map((s) => s.entity_id);
+    return plain.includes('sensor.outside_humidity') ? 'sensor.outside_humidity' : plain[0] ?? null;
+  });
+  if (!ENTITY) throw new Error('no numeric sensor without numeric attributes on this rig');
+  console.log('entity under test:', ENTITY);
+
   await mountPanel({
     type: 'sensor',
-    entity: 'sensor.outside_temperature',
+    entity: ENTITY,
     card_mod: { style: '' },
   })(page);
   await page.waitForTimeout(600);
@@ -63,8 +77,10 @@ const run = async () => {
     await panel.updateComplete;
     await mod.updateComplete;
 
-    const modeSelect = mod.shadowRoot.querySelector('.control-row select') ||
-      [...mod.shadowRoot.querySelectorAll('select')].find((s) => [...s.options].some((o) => o.value === 'gradient'));
+    // "Value mode" is the select that offers the gradient (Fade) value - not the first select in the module, which
+    // is "Value read from" when the entity has numeric attributes.
+    const modeSelect = [...mod.shadowRoot.querySelectorAll('select')].find((s) => [...s.options].some((o) => o.value === 'gradient'));
+    if (!modeSelect) throw new Error('no select with a gradient option in the Threshold module');
     modeSelect.value = 'gradient';
     modeSelect.dispatchEvent(new Event('change', { bubbles: true }));
     await mod.updateComplete;
@@ -149,7 +165,7 @@ const run = async () => {
   const style = setup.emittedStyle;
   await mountPanel({
     type: 'sensor',
-    entity: 'sensor.outside_temperature',
+    entity: ENTITY,
     card_mod: { style },
   })(page);
   await page.waitForTimeout(600);

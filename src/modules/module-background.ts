@@ -2,8 +2,11 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { BackgroundModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_BACKGROUND } from '../parser/state-mapper.js';
-import { moduleStyles, renderWhen, renderOverrideBadge, renderOverrideHint, renderThresholdOwnedHint, onHeaderKeydown } from './module-base.js';
+import { moduleStyles, renderWhen,  renderOverrideHint, renderThresholdOwnedHint, renderModuleHeader, guardSliderTouch, nameSwitches, prepareSliders,
+} from './module-base.js';
 import '../components/cms-color-picker.js';
+import { stateKindFor } from '../utils/card-caps.js';
+import { isValidCssColor } from '../utils/css-color.js';
 
 export class BackgroundModule extends LitElement {
   @property({ attribute: false }) state: BackgroundModuleState = {
@@ -12,6 +15,8 @@ export class BackgroundModule extends LitElement {
 
   /** False when the card has no binary entity state (e.g. sensor cards). */
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
+  /** The card's own entity id — tells an OFF-only entity (climate) from a never-on/off one. */
+  @property({ type: String }) cardEntity = '';
 
   @property({ attribute: false }) hass?: HomeAssistant;
 
@@ -32,6 +37,8 @@ export class BackgroundModule extends LitElement {
   }
 
   override updated(changed: Map<PropertyKey, unknown>) {
+    nameSwitches(this.renderRoot);
+    prepareSliders(this.renderRoot);
     if (changed.has('state')) {
       const prev = changed.get('state') as BackgroundModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;
@@ -51,27 +58,38 @@ export class BackgroundModule extends LitElement {
     );
   }
 
+  /** Solid takes images, a gradient stop does not (and the other way round
+   *  for `red 0%`): a value the TARGET field would refuse is not carried over
+   *  — it would write invalid CSS under a hint-less field. */
+  private _changeType(type: 'solid' | 'gradient') {
+    const mode = type === 'gradient' ? 'stop' : 'background';
+    const keep = (v: string, fallback: string) => (isValidCssColor(v, mode) ? v : fallback);
+    this._emit({
+      type,
+      color1: keep(this.state.color1, DEFAULT_BACKGROUND.color1),
+      ...(type === 'gradient' ? { color2: keep(this.state.color2, DEFAULT_BACKGROUND.color2) } : {}),
+    });
+  }
+
+  override connectedCallback() {
+    super.connectedCallback();
+    guardSliderTouch(this.renderRoot);
+  }
+
   override render() {
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this._open ? 'true' : 'false'}
-          @click=${this._toggleOpen}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">🖼️ Background</span>
-          ${renderOverrideBadge(this.overridden)}
-          <ha-switch
-            .checked=${this.state.enabled}
-            @click=${(e: Event) => e.stopPropagation()}
-            @change=${(e: Event) =>
-              this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
-        </div>
+        ${renderModuleHeader({
+          icon: '🖼️',
+          title: 'Background',
+          open: this._open,
+          onToggle: () => this._toggleOpen(),
+          overridden: this.overridden,
+          enable: {
+            checked: this.state.enabled,
+            onChange: (enabled) => this._emit({ enabled }),
+          },
+        })}
         ${this._open ? this._renderBody() : nothing}
       </div>
     `;
@@ -79,18 +97,17 @@ export class BackgroundModule extends LitElement {
 
   private _renderBody() {
     return html`
-      <div class="module-body">
+      <div class="module-body" id="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         ${renderThresholdOwnedHint(this.thresholdOwned, 'background', 'Background')}
         <div class="control-row">
-          <span class="control-label">Type</span>
+          <span class="control-label" id="lbl-type">Type</span>
           <div class="control-right">
             <select
+              aria-labelledby="lbl-type"
               .value=${this.state.type}
               @change=${(e: Event) =>
-                this._emit({
-                  type: (e.target as HTMLSelectElement).value as 'solid' | 'gradient',
-                })}
+                this._changeType((e.target as HTMLSelectElement).value as 'solid' | 'gradient')}
             >
               <option value="solid" ?selected=${this.state.type === 'solid'}>Solid color</option>
               <option value="gradient" ?selected=${this.state.type === 'gradient'}>
@@ -106,6 +123,8 @@ export class BackgroundModule extends LitElement {
           </span>
           <div class="control-right">
             <cms-color-picker
+              label=${this.state.type === 'gradient' ? 'Gradient color 1' : 'Background color'}
+              .validation=${this.state.type === 'gradient' ? 'stop' : 'background'}
               .value=${this.state.color1}
               @color-changed=${(e: CustomEvent) =>
                 this._emit({ color1: e.detail.value })}
@@ -119,6 +138,8 @@ export class BackgroundModule extends LitElement {
                 <span class="control-label">Color 2</span>
                 <div class="control-right">
                   <cms-color-picker
+                    label="Gradient color 2"
+                    .validation=${'stop'}
                     .value=${this.state.color2}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ color2: e.detail.value })}
@@ -130,6 +151,8 @@ export class BackgroundModule extends LitElement {
                 <span class="control-label">Angle</span>
                 <div class="control-right">
                   <ha-slider
+                    label="Angle"
+                    aria-label="Angle"
                     min="0"
                     max="360"
                     step="5"
@@ -151,6 +174,7 @@ export class BackgroundModule extends LitElement {
         ${renderWhen({
           value: this.state.applyWhen,
           stateAware: this.stateAware,
+          offOnly: stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
           noun: 'background',
           allowCustom: true,
           customEntity: this.state.customEntity,

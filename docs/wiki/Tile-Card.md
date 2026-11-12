@@ -7,7 +7,7 @@
 | Font | ✅ | Name + state text, via the tile's own `--ha-tile-info-*` variables (handled automatically) |
 | Visual Filters | ✅ | |
 | Accent Color | ✅ | Sets `--tile-color` — the icon + state tint. **Tile features follow too** (bar gauge, toggle rows derive their color from it) |
-| Icon Color | ✅ | Overrides just the icon, independent of the tile color |
+| Icon Color | ✅ | Overrides just the icon, independent of the tile color. The **Icon size** slider goes up to 36px (at 36 the icon's round background grows from 48 to 54 px inside the 56 px sections-view card): a size above 24px also enlarges the icon's circle (three halves of the icon size), so the icon never overflows it — and a tile styled with a bigger size before v0.11.0-beta.3 looks bigger after the next save. "Keep the card's colour" changes only the size |
 | Threshold Colors | ✅ | All properties; *Accent Color* is usually the one you want here |
 | Background | ✅ | |
 | Animation | ✅ | |

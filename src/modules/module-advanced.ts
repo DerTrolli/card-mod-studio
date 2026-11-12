@@ -1,7 +1,9 @@
 import { LitElement, html, css } from 'lit';
 import { property } from 'lit/decorators.js';
 import type { AdvancedModuleState, PiercedEntry } from '../types/index.js';
-import { moduleStyles, onHeaderKeydown } from './module-base.js';
+import { moduleStyles, renderModuleHeader, nameCodeEditor, nameSwitches,
+} from './module-base.js';
+import { lintAdvancedCss } from '../utils/css-lint.js';
 
 export class AdvancedModule extends LitElement {
   @property({ attribute: false }) state: AdvancedModuleState = { rawCss: '' };
@@ -35,6 +37,16 @@ export class AdvancedModule extends LitElement {
         color: var(--secondary-text-color, #727272);
         margin: 6px 0 0;
       }
+      .lint-warning {
+        font-size: 11px;
+        line-height: 1.5;
+        margin: 6px 0 0;
+        padding: 4px 8px;
+        color: var(--primary-text-color, #212121);
+        background: var(--cms-tint-warning);
+        border: 1px solid var(--warning-color, #ffa600);
+        border-radius: 6px;
+      }
       .pierced {
         margin-top: 10px;
         border-top: 1px dashed var(--divider-color, rgba(0, 0, 0, 0.12));
@@ -59,6 +71,12 @@ export class AdvancedModule extends LitElement {
     if (changed.has('autoOpen') && this.autoOpen) this.open = true;
   }
 
+  override updated() {
+    nameSwitches(this.renderRoot);
+    const ed = this.renderRoot.querySelector('ha-code-editor');
+    if (ed) nameCodeEditor(ed, 'Advanced CSS');
+  }
+
   private _onValueChanged(e: CustomEvent<{ value: string }>) {
     this.dispatchEvent(
       new CustomEvent<AdvancedModuleState>('state-changed', {
@@ -70,27 +88,25 @@ export class AdvancedModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this.open ? 'true' : 'false'}
-          @click=${() => {
+        ${renderModuleHeader({
+          icon: '📝',
+          title: 'Advanced CSS',
+          open: this.open,
+          onToggle: () => {
             this.open = !this.open;
-          }}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron">${this.open ? '▼' : '▶'}</span>
-          <span class="module-title">📝 Advanced CSS</span>
-        </div>
+          },
+        })}
         ${this.open
           ? html`
-              <div class="editor-wrap">
+              <div class="editor-wrap" id="module-body">
                 <ha-code-editor
+                  label="Advanced CSS"
+                  aria-label="Advanced CSS"
                   mode="jinja2"
                   .value=${this.state.rawCss}
                   @value-changed=${this._onValueChanged}
                 ></ha-code-editor>
+                ${this._renderLint()}
                 <p class="hint">
                   Raw CSS appended after visual module output. Supports Jinja2
                   templates just like card-mod.
@@ -112,6 +128,14 @@ export class AdvancedModule extends LitElement {
           : ''}
       </div>
     `;
+  }
+
+  /** One non-blocking line under the editor; the text is never changed or blocked. */
+  private _renderLint() {
+    const issue = lintAdvancedCss(this.state.rawCss ?? '');
+    return issue
+      ? html`<p class="lint-warning" role="status">⚠️ ${issue.message}</p>`
+      : '';
   }
 
   /** YAML-ish read-only rendering of the preserved dict entries. */

@@ -21,6 +21,8 @@
  * - mixed-form child styles (string + dict together) are preserved
  *   untouched, same as everywhere (pure dict-form IS editable — v0.10).
  */
+import { hasTopLevelJinjaStatement, templateStatementNote, anyModuleOn } from '../utils/css-lint.js';
+import { userEntries, numberSizeKind } from '../utils/owned-entries.js';
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type {
@@ -43,28 +45,20 @@ import type {
 import {
   buildMergedStudioState,
   applyStudioState,
+  refreshCarrier,
   initEntityRowStyles,
   applyEntityRowStyles,
   refreshPaletteDefaults,
 } from './studio-state.js';
 import { PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
 import {
-  CONTAINER_CARD_TYPES,
-  NO_ANIMATION_TYPES,
-  NO_BACKGROUND_TYPES,
-  NO_BORDER_TYPES,
-  NO_ICON_COLOR_TYPES,
-  NO_FONT_TYPES,
-  NO_THRESHOLD_TYPES,
-  NO_TEXT_COLOR_TYPES,
-  NO_FONT_SIZE_TYPES,
-  ICON_SIZE_TYPES,
-  isStateAware,
-  showsAccentColor,
+  capsFor,
+  panelStateAware,
 } from '../utils/card-caps.js';
+import { childKindLabel, profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
-import { thresholdOwnedProperties } from '../generator/css-generator.js';
+import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
 import { hasDictFormStyle, hasUnsupportedDictRoot } from '../utils/style-compat.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
 
@@ -90,6 +84,8 @@ export class CmsChildCardSection extends LitElement {
   @state() private _open = false;
   /** See CmsPanel._loadedRawCss. */
   @state() private _loadedRawCss = false;
+  /** See CmsPanel._loadedWholeStyleKept. */
+  @state() private _loadedWholeStyleKept = false;
 
   /** Mirror of cms-panel's own-echo dedup guard: when the panel reflects
    *  our own emitted child config back down, don't rebuild state mid-edit.
@@ -158,6 +154,16 @@ export class CmsChildCardSection extends LitElement {
         padding: 10px 6px 0;
         border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       }
+      .child-hint {
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--primary-text-color, #212121);
+        background: var(--cms-tint-primary);
+        border: 1px solid var(--cms-line-primary);
+        border-radius: 8px;
+        padding: 6px 10px;
+        margin-bottom: 8px;
+      }
       .child-note {
         font-size: 12px;
         line-height: 1.5;
@@ -182,8 +188,13 @@ export class CmsChildCardSection extends LitElement {
     if (this._studioState) this._studioState = refreshPaletteDefaults(this._studioState);
   };
 
+  /** The child config just emitted, until it comes back as childConfig —
+   *  see cms-panel's _written. */
+  private _written?: CardModCardConfig;
+
   override willUpdate(changed: Map<PropertyKey, unknown>) {
     if (changed.has('childConfig')) {
+      this._written = undefined;
       if (!this.childConfig) {
         this._studioState = null;
         this._entityRowStyles = {};
@@ -193,6 +204,7 @@ export class CmsChildCardSection extends LitElement {
       if (this._echoGuard.shouldRebuild(JSON.stringify(this.childConfig))) {
         this._studioState = buildMergedStudioState(this.childConfig, this.hass);
         this._loadedRawCss = !!this._studioState.advanced.rawCss.trim();
+        this._loadedWholeStyleKept = hasTopLevelJinjaStatement(this._studioState.advanced.rawCss);
         this._entityRowStyles = initEntityRowStyles(this.childConfig, this.hass);
       }
     }
@@ -212,9 +224,11 @@ export class CmsChildCardSection extends LitElement {
   private _emitChildConfig() {
     if (!this.childConfig || !this._studioState) return;
     let newChild = applyStudioState(this._studioState, this.childConfig, this.hass);
-    if (this.childConfig.type === 'entities') {
+    if (capsFor(profileKeyOf(this.childConfig)).isEntities) {
       newChild = applyEntityRowStyles(newChild, this._entityRowStyles, this.hass);
     }
+    this._written = newChild;
+    this._studioState = refreshCarrier(this._studioState, newChild, this.hass);
     this._echoGuard.noteEmitted(JSON.stringify(newChild));
     this.dispatchEvent(
       new CustomEvent<{ index: number; config: CardModCardConfig }>('child-config-changed', {
@@ -232,7 +246,7 @@ export class CmsChildCardSection extends LitElement {
   override render() {
     const c = this.childConfig;
     if (!c) return nothing;
-    const label = `${this.index + 1}. ${c.type}`;
+    const label = `${this.index + 1}. ${childKindLabel(c)}`;
     const sub = (c.entity as string | undefined) ?? (c.title as string | undefined) ?? (c.name as string | undefined) ?? '';
 
     return html`
@@ -245,7 +259,7 @@ export class CmsChildCardSection extends LitElement {
           @click=${() => (this._open = !this._open)}
           @keydown=${onHeaderKeydown}
         >
-          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
+          <span class="module-chevron" aria-hidden="true">${this._open ? '▼' : '▶'}</span>
           <span class="child-title">${label}</span>
           <span class="child-sub">${sub}</span>
           ${this._isStyled ? html`<span class="styled-dot" title="This card has styling"></span>` : nothing}
@@ -257,10 +271,13 @@ export class CmsChildCardSection extends LitElement {
 
   private _renderBody() {
     const c = this.childConfig!;
-    const s = this._studioState;
+    // Settled for a child without an entity: what the controls show is what
+    // gets saved (see settleEntityless).
+    const s = this._studioState && settleEntityless(this._studioState, c as unknown as Record<string, unknown>);
     if (!s) return nothing;
 
-    if (CONTAINER_CARD_TYPES.has(c.type)) {
+    const caps = capsFor(profileKeyOf(c), c as unknown as Record<string, unknown>);
+    if (caps.isContainer) {
       return html`<div class="child-note">
         This child is itself a "${c.type}" container — open it as its own card
         (or edit its YAML) to style the cards inside it. Nested container
@@ -274,7 +291,7 @@ export class CmsChildCardSection extends LitElement {
     // Only the MIXED form (active string style + dict on the secondary key)
     // still freezes: there's no faithful single-key rewrite for it, so the
     // save path preserves both keys untouched (same gate as cms-panel).
-    if (hasDictFormStyle(c) && !s.dictSource) {
+    if (hasDictFormStyle(this._written ?? c) && !s.dictSource) {
       // Per-row styling stays editable, exactly like the top-level panel's
       // mixed-form gate (audit v0.10 #17).
       return html`<div class="child-note">
@@ -286,7 +303,7 @@ export class CmsChildCardSection extends LitElement {
               ($ shadow-piercing) style and a different style on the other
               engine key. The Studio can't edit that combination, so it is
               preserved exactly as written.`}
-      </div>${c.type === 'entities'
+      </div>${caps.isEntities
         ? html`<div class="child-body"><cms-entities-rows-module
             .hass=${this.hass}
             .rows=${(c as unknown as { entities?: EntitiesCardRow[] }).entities ?? []}
@@ -296,19 +313,28 @@ export class CmsChildCardSection extends LitElement {
         : nothing}`;
     }
 
-    const cardType = c.type ?? '';
+    const cardType = profileKeyOf(c);
+    const mods = caps.modules;
     const entity = (c.entity as string | undefined) ?? '';
-    const stateAware = isStateAware(cardType, entity, this.hass);
-    const showHeading = cardType === 'heading';
-    const isEntities = cardType === 'entities';
+    const stateAware = panelStateAware(cardType, c as unknown as Record<string, unknown>, this.hass);
+    const showHeading = mods.headingStyle;
+    const isEntities = caps.isEntities;
     const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
-    const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s);
-    const thresholdOwned = thresholdOwnedProperties(s.threshold);
+    const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s, cardType);
+    const thresholdOwned = cardThresholdOwned(s.threshold, caps);
 
     return html`
       <div class="child-body">
+        ${hasUnrecognisedCss && this._loadedWholeStyleKept
+          ? html`<div class="child-hint">ℹ️ ${templateStatementNote(anyModuleOn(s))}</div>`
+          : nothing}
+        ${isUnprofiledCustomCard(c)
+          ? html`<div class="child-hint">ℹ️ ${UNPROFILED_CARD_NOTICE}</div>`
+          : nothing}
+
         ${showHeading
           ? html`<cms-heading-style-module
+              .headingStyle=${(c as unknown as Record<string, unknown>).heading_style as string | undefined}
               .overridden=${!!conflicts.headingStyle}
               .overriddenDetail=${(conflicts.headingStyle ?? []).join(", ")}
               .state=${s.headingStyle}
@@ -317,10 +343,13 @@ export class CmsChildCardSection extends LitElement {
             ></cms-heading-style-module>`
           : nothing}
 
-        ${!NO_FONT_TYPES.has(cardType)
+        ${mods.font
           ? html`<cms-font-module
-              .allowColor=${!NO_TEXT_COLOR_TYPES.has(cardType)}
-              .allowSize=${!NO_FONT_SIZE_TYPES.has(cardType)}
+              .allowColor=${caps.fontColor}
+              .thresholdOwned=${thresholdOwned.has('text-color')}
+              .allowSize=${caps.fontSize}
+              .numberSize=${numberSizeKind(cardType)}
+              .cardType=${cardType}
               .overridden=${!!conflicts.font}
               .overriddenDetail=${(conflicts.font ?? []).join(", ")}
               .state=${s.font}
@@ -328,16 +357,19 @@ export class CmsChildCardSection extends LitElement {
             ></cms-font-module>`
           : nothing}
 
-        <cms-filter-module
-          .overridden=${!!conflicts.filter}
-          .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
-          .state=${s.filter}
-          .stateAware=${stateAware}
-          .hass=${this.hass}
-          @state-changed=${(e: CustomEvent<FilterModuleState>) => this._emitChanged({ filter: e.detail })}
-        ></cms-filter-module>
+        ${mods.filter
+          ? html`<cms-filter-module
+              .cardEntity=${entity}
+              .overridden=${!!conflicts.filter}
+              .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
+              .state=${s.filter}
+              .stateAware=${stateAware}
+              .hass=${this.hass}
+              @state-changed=${(e: CustomEvent<FilterModuleState>) => this._emitChanged({ filter: e.detail })}
+            ></cms-filter-module>`
+          : nothing}
 
-        ${showsAccentColor(cardType)
+        ${mods.accentColor
           ? html`<cms-accent-color-module
               .overridden=${!!conflicts.accentColor}
               .overriddenDetail=${(conflicts.accentColor ?? []).join(", ")}
@@ -346,21 +378,24 @@ export class CmsChildCardSection extends LitElement {
               .stateAware=${stateAware}
               .cardEntity=${entity}
               .cardType=${cardType}
+              .tripletAccent=${caps.accentTriplet}
               .hass=${this.hass}
               @state-changed=${(e: CustomEvent<AccentColorModuleState>) =>
                 this._emitChanged({ accentColor: e.detail })}
             ></cms-accent-color-module>`
           : nothing}
 
-        ${!isEntities && !NO_ICON_COLOR_TYPES.has(cardType)
+        ${mods.iconColor
           ? html`<cms-icon-color-module
               .overridden=${!!conflicts.iconColor}
               .overriddenDetail=${(conflicts.iconColor ?? []).join(", ")}
               .thresholdOwned=${thresholdOwned.has('icon-color')}
               .state=${s.iconColor}
               .stateAware=${stateAware}
-              .isLightCard=${cardType === 'light'}
-              .allowSize=${ICON_SIZE_TYPES.has(cardType)}
+              .isLightCard=${caps.isLight}
+              .allowSize=${caps.iconSize}
+              .sizeMax=${caps.iconSizeMax}
+              .allowColor=${!caps.iconColorless}
               .cardEntity=${entity}
               .hass=${this.hass}
               @state-changed=${(e: CustomEvent<IconColorModuleState>) =>
@@ -368,21 +403,24 @@ export class CmsChildCardSection extends LitElement {
             ></cms-icon-color-module>`
           : nothing}
 
-        ${!isEntities && !NO_THRESHOLD_TYPES.has(cardType)
+        ${mods.threshold
           ? html`<cms-threshold-module
               .overridden=${!!conflicts.threshold}
               .overriddenDetail=${(conflicts.threshold ?? []).join(", ")}
               .state=${s.threshold}
               .cardEntity=${entity}
               .cardType=${cardType}
+              .cardConfig=${c}
+              .tripletAccent=${caps.accentTriplet}
               .hass=${this.hass}
               @state-changed=${(e: CustomEvent<ThresholdModuleState>) =>
                 this._emitChanged({ threshold: e.detail })}
             ></cms-threshold-module>`
           : nothing}
 
-        ${!NO_BACKGROUND_TYPES.has(cardType)
+        ${mods.background
           ? html`<cms-background-module
+              .cardEntity=${entity}
               .overridden=${!!conflicts.background}
               .overriddenDetail=${(conflicts.background ?? []).join(", ")}
               .thresholdOwned=${thresholdOwned.has('background')}
@@ -394,11 +432,13 @@ export class CmsChildCardSection extends LitElement {
             ></cms-background-module>`
           : nothing}
 
-        ${!NO_ANIMATION_TYPES.has(cardType)
+        ${mods.animation
           ? html`<cms-animation-module
+              .cardEntity=${entity}
               .overridden=${!!conflicts.animation}
               .overriddenDetail=${(conflicts.animation ?? []).join(", ")}
               .state=${s.animation}
+              .hiddenPresets=${caps.noAnimationPresets}
               .stateAware=${stateAware}
               .hass=${this.hass}
               @state-changed=${(e: CustomEvent<AnimationModuleState>) =>
@@ -406,8 +446,9 @@ export class CmsChildCardSection extends LitElement {
             ></cms-animation-module>`
           : nothing}
 
-        ${!NO_BORDER_TYPES.has(cardType)
+        ${mods.border
           ? html`<cms-border-module
+              .cardEntity=${entity}
               .overridden=${!!conflicts.border}
               .overriddenDetail=${(conflicts.border ?? []).join(", ")}
               .thresholdOwned=${thresholdOwned.has('border-color')}
@@ -420,8 +461,8 @@ export class CmsChildCardSection extends LitElement {
 
         <cms-advanced-module
           .state=${s.advanced}
-          .pierced=${s.dictSource?.entries ?? []}
-          .autoOpen=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
+          .pierced=${userEntries(s.dictSource)}
+          .autoOpen=${hasUnrecognisedCss || userEntries(s.dictSource).length > 0}
           @state-changed=${(e: CustomEvent<AdvancedModuleState>) => this._emitChanged({ advanced: e.detail })}
         ></cms-advanced-module>
 

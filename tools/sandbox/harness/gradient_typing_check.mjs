@@ -96,7 +96,7 @@ const run = async () => {
   const inputHandle = await page.evaluateHandle(() => {
     const mod = window.__cmsFind('#gradient-typing-check-host cms-panel')
       .shadowRoot.querySelector('cms-threshold-module');
-    const inputs = [...mod.shadowRoot.querySelectorAll('.stop input[type="number"]')];
+    const inputs = [...mod.shadowRoot.querySelectorAll('.stop input.num')];
     return inputs.find((el) => el.value === '140');
   });
   const box = await inputHandle.asElement().boundingBox();

@@ -35,8 +35,62 @@ When the Studio opens a card:
   are editable and preserved — see
   [below](#dictionary-form-styles-shadow-piercing).
 
+On **custom cards** (Mushroom, Bubble Card — see their
+[Mushroom](Mushroom-Cards) and [Bubble Card](Bubble-Card) guides) your
+hand-written rules, including ones with `!important`, stay here and are
+written back unchanged; on a Bubble card the card's own `styles:` option is
+never touched either.
+
 If a card opens with the note *"Some existing styles weren't recognised —
-preserved in Advanced CSS"*, that's this mechanism, working.
+preserved in Advanced CSS"*, that's this mechanism, working. (Containers and
+other cards that have no modules don't show it: their CSS lives here by
+design.)
+
+**Template statements switch the modules off.** If your style contains a
+top-level `{% … %}` statement (outside a rule's braces), the Studio keeps
+the whole style as written in Advanced CSS and leaves every module switched
+off — the card looks the same, but the controls can't take it over. The panel
+says so in a note. `{{ … }}` values and statements inside a rule don't
+trigger it. A style that calls a UIX macro or billet keeps the part that
+calls it here as well, and the panel notes that too.
+
+**Your own `!important` stays yours** (v0.11.0). A declaration you
+wrote with `!important` that a module could read, for example
+`ha-card { background: none !important; }`, is not taken over by the module:
+it stays here and is written back exactly as written, because the module
+would write it back without `!important`. (Earlier versions took it over and
+dropped the flag on the next save.) The rest of the rule is still read into
+the modules. To let the module drive that property, remove the `!important`.
+`! important` and `!IMPORTANT` are read as the same flag and saved as
+` !important`. Declarations the Studio itself writes with `!important` are
+read into their modules as before, for example the icon colour, the tile
+card's filter transition and tile colour, the gauge colour, Background and
+Border on a text-only markdown card, and most Mushroom and Bubble Card
+declarations.
+
+A hand-written declaration that a rule of the Studio overrides with
+`!important` (for example your own `.name { font-size: 20px; }` on a sensor
+card while the Font module sets a size) is kept: it stays here and is written
+back on every save. If you write the same property twice for the same
+selector yourself, once with `!important` and once without, only the
+`!important` one is kept.
+
+A template value that itself contains `}}` inside quotes (for example
+`{{ 'a}}b' if … }}`) is read correctly when the card is reopened.
+
+## Warnings under the editor
+
+A one-line, non-blocking warning appears under the editor when the text will
+break the card (v0.11.0-beta.3), with the line number: an unbalanced `{` or
+`}`, a Jinja block (`if`, `for`, `macro`, `call`, `filter`, `block`, `with`,
+`set`) that is never closed or has no start, an unterminated `{{`, `{%` or
+`{#`, or an unterminated comment or string. This matters because card-mod
+renders the templates before it reads the CSS: a template that fails to
+render drops the **whole** style of the card, while an unclosed `{` only
+spoils the rules after it. The text is never blocked or rewritten.
+
+The editor itself is Home Assistant's code editor; it can auto-indent or add a
+stray `%}` while you type a block — check the result.
 
 ## Dictionary-form styles (shadow-piercing)
 
@@ -103,7 +157,11 @@ with the Studio's own syntax. Adoption is strictly conservative — only on
 card types where the two forms are verifiably equivalent, and only for
 values the control can express exactly; anything else stays verbatim here.
 Examples: only `solid` borders are adopted (a hand-written `dashed` or
-`dotted` border stays as written); only a plain `transition: filter <duration>`
+`dotted` border stays as written), and only with a width above zero
+(`border: 0px solid …` and `border-radius: 0px` stay as written, since Border
+& Radius has no setting for a zero; v0.11.0); rules on the heading
+card's selectors (`.title p`, `.container`, `.content ha-icon`) are read as
+Heading Style on the heading card only; only a plain `transition: filter <duration>`
 is adopted (lists, custom easing and delays are kept); a threshold color
 expression is adopted only if the Studio would write it back identically —
 extra conditions (`and is_state(…)`), several entities, arithmetic or a rule

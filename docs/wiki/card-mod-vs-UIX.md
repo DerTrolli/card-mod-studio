@@ -11,16 +11,26 @@ every combination. This page explains exactly what it writes and when.
   extras (macros, billets, and the UIX Forge template surface — molds,
   server-stored "foundries", and add-on "sparks").
 
-**Tested versions** (2026-11, Card-Mod Studio v0.10.2): card-mod **4.2.1**
-and UIX **8.3.1**, each fully verified live (v0.10.0) on HA 2026.9.4 and HA
-2026.10.0b0; v0.10.2 was also tested on HA 2026.11.0 with card-mod 4.2.1
-and UIX **9.0.0**. card-mod was also quick-checked on older HA: 4.2.1 on
+**Loading order.** On a cold page load an engine can finish loading after the
+first cards were drawn, leaving those cards unstyled until you navigate away
+and back. In testing this was common with card-mod as a dashboard resource
+and happened now and then with UIX too. For card-mod, its own installation
+advice (`frontend: extra_module_url`) avoids it almost always — see
+[Installation](Installation#loading-card-mod-reliably-recommended).
+
+**Tested versions** (2026-11, Card-Mod Studio v0.11.0-beta.2): card-mod
+**4.2.1** and UIX **8.3.1**, each fully verified live (v0.10.0) on HA 2026.9.4
+and HA 2026.10.0b0; v0.10.2 and v0.11.0-beta.2 were also tested on HA 2026.11.0
+with card-mod 4.2.1 and UIX **9.0.0** (v0.11.0-beta.1 with UIX 8.4.0 on HA
+2026.10.4). Mushroom 5.2.3 and Bubble Card 3.4.3 were measured on both
+engines with identical results. card-mod was also quick-checked on older HA: 4.2.1 on
 2026.6.4 and 2026.2.3, and 3.4.5 (the newest card-mod 3.x; 4.2.1 needs
 HA ≥ 2026.2) on 2025.9.4 — see [Installation](Installation#requirements).
 Note UIX 8.x itself requires HA ≥ 2026.8.0, UIX 8.4.0 requires
 HA ≥ 2026.10.0, and UIX 9.0.0 requires HA ≥ 2026.11.0; its styling contract (what the Studio reads/writes)
 is unchanged from 7.x. The Studio doesn't edit UIX Forge config
 (`forge:`/`foundry:` keys) but preserves it untouched through every edit.
+v0.11.0 was verified with real input on HA 2026.11.0 with card-mod 4.2.1 and with UIX 9.0.0, on HA 2026.2.3 with card-mod 4.2.1 and on HA 2025.9.4 with card-mod 3.4.5.
 
 **Which engine should I use?** Both work equally well with the Studio.
 card-mod 4.2.1 is still the newest card-mod release, but it is effectively
@@ -77,7 +87,7 @@ under `uix:` rather than moving to `card_mod:`.
 ## Compatibility notes
 
 - Generated CSS is identical for both engines and is verified against **real
-  running instances** of each (card-mod 4.2.x and UIX 8.x in the project's
+  running instances** of each (card-mod 4.2.x and UIX 8.x/9.x in the project's
   Docker test rig) before every release.
 - Since v0.8.0 the Studio also works around an engine-level gap in both:
   HA's newer schema-validated card editors rejected any card carrying a

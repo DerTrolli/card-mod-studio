@@ -30,6 +30,7 @@
  */
 
 import type { CssTarget, CssProperty } from '../types/index.js';
+import { JINJA_STR_BODY, JINJA_STR_BODY_1, endOfTag, hasForeignEscape, unescapeJinjaStr } from '../utils/jinja-str.js';
 
 // ---------------------------------------------------------------------------
 // Jinja2 placeholder handling
@@ -47,24 +48,43 @@ const STATEMENT_RE = /__CMS_S\d+__/;
 const COMMENT_RE = /__CMS_C\d+__/;
 
 /** Replaces every {{ … }}, {% … %} and {# … #} span with a stable placeholder token. */
-function extractJinja(
+export function extractJinja(
   css: string,
 ): { cleaned: string; map: Map<string, string> } {
   const map = new Map<string, string>();
   let index = 0;
+  let cleaned = '';
+  let last = 0;
+  const open = /\{[{%#]/g;
 
-  // Non-greedy match between the delimiters — handles single-line and
-  // multi-line templates ([\s\S] matches newlines).
-  const cleaned = css.replace(/\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}|\{#[\s\S]*?#\}/g, (match) => {
-    const prefix =
-      match[1] === '{' ? PLACEHOLDER_PREFIX : match[1] === '%' ? STATEMENT_PREFIX : COMMENT_PREFIX;
+  // A tag ends at the first closing delimiter that is not inside a quoted
+  // literal (`{{ 'a}}b' if … }}` is one template). Multi-line templates work
+  // as before. With no quote-aware end (an unbalanced quote) the first
+  // delimiter ends it, as it always did; with no delimiter at all the text is
+  // not a template and stays as it is.
+  for (let m = open.exec(css); m; m = open.exec(css)) {
+    const kind = m[0][1];
+    const close = kind === '{' ? '}}' : kind === '%' ? '%}' : '#}';
+    let end = -1;
+    if (kind !== '#') end = endOfTag(css, m.index + 2, close as '}}' | '%}', false);
+    if (end < 0) {
+      const at = css.indexOf(close, m.index + 2);
+      if (at < 0) {
+        open.lastIndex = m.index + 1;
+        continue;
+      }
+      end = at + 2;
+    }
+    const prefix = kind === '{' ? PLACEHOLDER_PREFIX : kind === '%' ? STATEMENT_PREFIX : COMMENT_PREFIX;
     const key = `${prefix}${index}${PLACEHOLDER_SUFFIX}`;
-    map.set(key, match);
+    map.set(key, css.slice(m.index, end));
     index++;
-    return key;
-  });
+    cleaned += css.slice(last, m.index) + key;
+    last = end;
+    open.lastIndex = end;
+  }
 
-  return { cleaned, map };
+  return { cleaned: cleaned + css.slice(last), map };
 }
 
 /**
@@ -105,8 +125,11 @@ function restoreJinja(value: string, map: Map<string, string>): string {
  * in css-generator.ts). Groups: [1]=first value, [2]=custom entity_id (only
  * set for the quoted-literal form), [3]=state ('on'|'off'), [4]=else value.
  */
-const ENTITY_STATE_PATTERN =
-  /^\{\{\s*'([^']*)'\s+if\s+is_state\(\s*(?:config\.entity|'([^']+)')\s*,\s*'(on|off)'\s*\)\s+else\s+'([^']*)'\s*\}\}$/;
+const ENTITY_STATE_PATTERN = new RegExp(
+  String.raw`^\{\{\s*'(${JINJA_STR_BODY})'\s+if\s+is_state\(\s*(?:config\.entity|'(${JINJA_STR_BODY_1})')\s*,\s*'(on|off)'\s*\)\s+else\s+'(${JINJA_STR_BODY})'\s*\}\}$`,
+);
+// (values and entity id may hold `\'` / `\\` escapes; analyzeJinja returns them
+// DECODED, once, so no module decodes again.)
 
 interface JinjaAnalysis {
   hasCondition: boolean;
@@ -120,14 +143,17 @@ function analyzeJinja(value: string): JinjaAnalysis {
   const trimmed = value.trim();
 
   const match = trimmed.match(ENTITY_STATE_PATTERN);
-  if (match) {
+  // A literal with an escape the Studio never writes (`\"`, `\n`, `\u0072`) is
+  // hand-written: a condition with no usable values, so no module adopts it.
+  if (match && !hasForeignEscape(trimmed)) {
     const [, val1, entityId, state, val2] = match;
+    const entity = entityId && unescapeJinjaStr(entityId);
+    const v1 = unescapeJinjaStr(val1);
+    const v2 = unescapeJinjaStr(val2);
     // If the condition checks for 'off', val1 is the off-value
-    if (state === 'off') {
-      return { hasCondition: true, offValue: val1, onValue: val2, entityId };
-    }
+    if (state === 'off') return { hasCondition: true, offValue: v1, onValue: v2, entityId: entity };
     // If the condition checks for 'on', val1 is the on-value
-    return { hasCondition: true, onValue: val1, offValue: val2, entityId };
+    return { hasCondition: true, onValue: v1, offValue: v2, entityId: entity };
   }
 
   // Contains Jinja2 but doesn't match our known patterns — flag it but
@@ -294,8 +320,11 @@ function splitDeclarations(block: string): string[] {
 function parseDeclarations(
   declarationBlock: string,
   jinjaMap: Map<string, string>,
-): CssProperty[] {
+): { properties: CssProperty[]; overridden: CssProperty[] } {
   const properties: CssProperty[] = [];
+  // Later plain declarations an earlier `!important` one wins over: not part of
+  // the effective cascade, but hand-written text that must not be lost.
+  const overridden: CssProperty[] = [];
   const indexByProperty = new Map<string, number>();
 
   // Split on ";" — but NOT inside (…) or quotes: url(data:image/png;base64,…)
@@ -320,8 +349,12 @@ function parseDeclarations(
     // Strip !important from the stored value but keep the flag — recognisers
     // match on the bare value; mapAdvanced re-appends the suffix for
     // unclaimed declarations so preserved CSS keeps its specificity.
-    const important = /\s*!important\s*$/.test(rawValue);
-    rawValue = rawValue.replace(/\s*!important\s*$/, '').trim();
+    // CSS allows white space between `!` and `important` and ignores case
+    // (`! important`, `!IMPORTANT`): all of them carry the flag. Missing one
+    // made a later plain twin win the de-duplication below, i.e. the Studio
+    // kept the declaration the browser ignores and dropped the one it applies.
+    const important = /\s*!\s*important\s*$/i.test(rawValue);
+    rawValue = rawValue.replace(/\s*!\s*important\s*$/i, '').trim();
 
     if (!propertyName) continue;
 
@@ -332,7 +365,7 @@ function parseDeclarations(
 
     const existingIndex = indexByProperty.get(propertyName);
     if (existingIndex !== undefined) {
-      if (!overridesInCascade(properties[existingIndex], entry)) continue;
+      if (!overridesInCascade(properties[existingIndex], entry)) { overridden.push(entry); continue; }
       properties[existingIndex] = entry;
     } else {
       indexByProperty.set(propertyName, properties.length);
@@ -340,7 +373,7 @@ function parseDeclarations(
     }
   }
 
-  return properties;
+  return { properties, overridden };
 }
 
 // ---------------------------------------------------------------------------
@@ -373,14 +406,22 @@ function coalesceBySelector(targets: CssTarget[]): CssTarget[] {
     const existing = bySelector.get(key);
     if (!existing) {
       order.push(key);
-      bySelector.set(key, { selector: target.selector, properties: [...target.properties] });
+      bySelector.set(key, {
+        selector: target.selector,
+        properties: [...target.properties],
+        ...(target.overridden?.length ? { overridden: [...target.overridden] } : {}),
+      });
       continue;
     }
     for (const prop of target.properties) {
       const i = existing.properties.findIndex((p) => p.property === prop.property);
       if (i === -1) existing.properties.push(prop);
       else if (overridesInCascade(existing.properties[i], prop)) existing.properties[i] = prop;
+      // A later plain declaration that an earlier !important one beats is not
+      // effective, but it is the user's text: kept apart for Advanced CSS.
+      else (existing.overridden ??= []).push(prop);
     }
+    if (target.overridden?.length) (existing.overridden ??= []).push(...target.overridden);
   }
 
   return order.map((key) => bySelector.get(key)!);
@@ -431,18 +472,19 @@ export function parseCssDetailed(css: string): { targets: CssTarget[]; passthrou
       // Restore selector in case a Jinja2 expression appeared in it (unusual
       // but possible with dynamic selectors).
       const restoredSelector = restoreJinja(selector, map);
-      const properties = parseDeclarations(declarationBlock, map);
+      const { properties, overridden } = parseDeclarations(declarationBlock, map);
 
       return {
         selector: restoredSelector,
         properties,
+        ...(overridden.length ? { overridden } : {}),
       };
     })
     .filter((target) => target.properties.length > 0);
 
   const passthroughCss = keyframes
     .map((block) => restoreJinja(block, map))
-    .filter((block) => !/^@keyframes\s+cms-/.test(block))
+    .filter((block) => !CMS_KEYFRAMES_RE.test(block))
     .join('\n\n');
 
   // Placeholders map 1:1 back to their source text, so this is the
@@ -450,6 +492,44 @@ export function parseCssDetailed(css: string): { targets: CssTarget[]; passthrou
   const tailCss = tailStart === null ? '' : restoreJinja(cleaned.slice(tailStart), map).trim();
 
   return { targets: coalesceBySelector(targets), passthroughCss, tailCss };
+}
+
+const CMS_KEYFRAMES_RE = /^@keyframes\s+cms-/;
+
+/**
+ * The studio-named `@keyframes cms-*` blocks of the claimable head, verbatim,
+ * in source order — the ones parseCssDetailed leaves out of `passthroughCss`
+ * because the Animation module regenerates them. When the module does NOT
+ * adopt the `animation:` declaration that uses one, the declaration stays
+ * hand-written and its keyframes must come back with it: callers (mapAdvanced,
+ * parseEntityRowCss) re-insert the ones a remaining declaration still names.
+ */
+export function cmsKeyframesOf(css: string): { name: string; text: string }[] {
+  if (!css || !css.trim()) return [];
+  const { cleaned, map } = extractJinja(css);
+  const { keyframes, verbatim } = splitIntoBlocks(cleaned);
+  if (verbatim) return [];
+  const out: { name: string; text: string }[] = [];
+  for (const block of keyframes) {
+    const text = restoreJinja(block, map);
+    const m = /^@keyframes\s+(cms-[^\s{]+)/.exec(text);
+    if (m) out.push({ name: m[1], text });
+  }
+  return out;
+}
+
+/** The kept keyframes blocks (see cmsKeyframesOf) that `referencedIn` still
+ *  names as a whole word (a Jinja literal counts), minus `regenerated` — the
+ *  one the generator writes itself. Joined with blank lines; '' when none. */
+export function keptCmsKeyframes(css: string, referencedIn: string, regenerated?: string): string {
+  return cmsKeyframesOf(css)
+    .filter(({ name }) => {
+      if (name === regenerated) return false;
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`).test(referencedIn);
+    })
+    .map(({ text }) => text)
+    .join('\n\n');
 }
 
 /**
@@ -466,7 +546,7 @@ export function parseAllRules(css: string): CssTarget[] {
     blocks
       .map(({ selector, declarationBlock }) => ({
         selector: restoreJinja(selector, map),
-        properties: parseDeclarations(declarationBlock, map),
+        properties: parseDeclarations(declarationBlock, map).properties,
       }))
       .filter((target) => target.properties.length > 0),
   );

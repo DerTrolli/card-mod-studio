@@ -10,18 +10,49 @@
  * picker must never point at a module that isn't on screen).
  */
 
-import {
-  NO_ICON_COLOR_TYPES,
-  NO_BACKGROUND_TYPES,
-  NO_FONT_TYPES,
-} from './card-caps.js';
+import { capsFor } from './card-caps.js';
+import { getCustomCardProfile, emitKeyOf, type ClickRule, type ProfileModule } from './custom-card-profiles.js';
 
-/** One element of the hovered element's ancestor chain (lowercased tag). */
+/** Viewport rect (client coordinates). */
+export interface PickRect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** One element of the hovered element's ancestor chain (lowercased tag). The
+ *  geometry is optional (pure callers/tests omit it): `rect` is the element's
+ *  box, `textRects` the boxes of the words under it (one per line; `textRect`
+ *  is their union, null: it has none). */
 export interface PickChainElement {
   tag: string;
   id: string;
   classes: string[];
+  rect?: PickRect;
+  textRect?: PickRect | null;
+  textRects?: PickRect[];
 }
+
+/** The pointer and what is under it, for rules that need geometry. */
+export interface PickPointer {
+  x: number;
+  y: number;
+  /** Every (non-overlay) element of the card whose box contains the point. */
+  under?: PickChainElement[];
+}
+
+const inRect = (r: PickRect, x: number, y: number, slop = 0): boolean =>
+  x >= r.left - slop && x <= r.right + slop && y >= r.top - slop && y <= r.bottom + slop;
+
+/** A block wider than its label only counts where the text itself is: the box
+ *  of the words under the pointer, or `true` for callers without geometry
+ *  (pure tests), which keep the plain match. */
+const textUnder = (el: PickChainElement, p?: PickPointer): PickRect | true | null => {
+  if (!p || !el.rect) return true;
+  const boxes = el.textRects ?? (el.textRect ? [el.textRect] : []);
+  return boxes.find((r) => inRect(r, p.x, p.y, 2)) ?? null;
+};
 
 /** What the picker resolved a hovered element to. */
 export interface PickTarget {
@@ -40,6 +71,8 @@ export interface PickMatch {
   target: PickTarget;
   /** Index into the chain (0 = deepest) of the element to highlight. */
   index: number;
+  /** Highlight this box instead (a match on an element outside the chain). */
+  rect?: PickRect;
 }
 
 /** Entity-row custom elements on an entities card (hui-sensor-entity-row,
@@ -72,19 +105,62 @@ const GENERIC_ROW_TEXT_CLASSES = new Set(['text-content', 'secondary', 'state'])
 /** Per-card text containers that carry none of the generic markers —
  *  verified against each card's live DOM (picker coverage probe): the
  *  button card's name/state are bare `<span>`/`span.state`, glance entities
- *  are `div.entity`, media-control titles sit in hui-marquee /
- *  div.media-info / div.icon-name, picture footers are div.footer/div.box. */
+ *  are `div.entity`. */
 const CARD_TEXT_MATCHERS: Record<string, (el: PickChainElement) => boolean> = {
   button: (el) => el.tag === 'span',
   markdown: (el) => el.tag === 'ha-markdown' || el.tag === 'ha-markdown-element',
   glance: (el) => el.classes.includes('entity'),
-  'media-control': (el) =>
-    el.tag === 'hui-marquee' ||
-    el.classes.includes('media-info') ||
-    el.classes.includes('icon-name'),
-  'picture-entity': (el) => el.classes.includes('footer'),
-  'picture-glance': (el) => el.classes.includes('box'),
 };
+
+/** Text parts whose element is wider than the words (HA 2026.11 DOM): only
+ *  the words read as Font, the blank beside them is the card surface. `up` is
+ *  the element's parent in the chain. */
+const CARD_TEXT_ONLY: Record<string, (el: PickChainElement, up?: PickChainElement) => boolean> = {
+  date: (el) => el.classes.includes('date-text'),
+  area: (el) => el.id === 'info',
+  'media-control': (el, up) =>
+    el.classes.includes('media-info') ||
+    el.classes.includes('icon-name') ||
+    (el.tag === 'span' && !!up?.classes.includes('marquee-inner')) ||
+    (el.tag === 'div' && !el.classes.length && !!up?.classes.includes('icon-name')),
+  'picture-entity': (el, up) =>
+    el.tag === 'div' && !!up?.classes.includes('footer'),
+  'picture-elements': (el, up) => el.tag === 'div' && up?.tag === 'hui-state-label-element',
+};
+
+/** Icon parts beyond ICON_TAGS: picture-glance's entity buttons. */
+const CARD_ICON_MATCHERS: Record<string, (el: PickChainElement) => boolean> = {
+  'picture-glance': (el) => el.tag === 'ha-icon-button',
+};
+
+/** Parts nothing styles (a wrapper spanning the card, an icon the card's
+ *  modules don't reach): the walk stops there and the card-level fallback
+ *  answers, instead of a class like `header` reading as Font. (On statistic
+ *  the glyph itself is caught earlier by the Icon Color rule.) */
+const CARD_SURFACE_PARTS: Record<string, (el: PickChainElement) => boolean> = {
+  statistic: (el) => ['header', 'info', 'icon'].some((c) => el.classes.includes(c)),
+  area: (el) => el.classes.includes('header'),
+};
+
+/** Panel module tag → the profile module that shows/hides it (click rules). */
+const MODULE_OF_TAG: Record<string, ProfileModule> = {
+  'cms-font-module': 'font',
+  'cms-icon-color-module': 'iconColor',
+  'cms-accent-color-module': 'accentColor',
+  'cms-background-module': 'background',
+  'cms-border-module': 'border',
+  'cms-threshold-module': 'threshold',
+  'cms-filter-module': 'filter',
+  'cms-animation-module': 'animation',
+  'cms-heading-style-module': 'headingStyle',
+};
+
+/** Does this card's profile have click rules that read `pointer.under`? Only
+ *  those need the elements under the pointer measured (a box and a class copy
+ *  per element, on every pointer move). */
+export function needsUnder(cardType: string): boolean {
+  return getCustomCardProfile(cardType)?.clickToEdit?.some((r) => !!r.under) ?? false;
+}
 
 /** Chain-wide context computed once per lookup. */
 interface ChainContext {
@@ -101,7 +177,7 @@ interface PickRule {
   test(el: PickChainElement, i: number, ctx: ChainContext): boolean;
   /** Resolve the target for this card type — null means "this module is
    *  hidden on this card type, fall through to later rules/elements". */
-  target(cardType: string): PickTarget | null;
+  target(cardType: string, config?: Record<string, unknown> | null): PickTarget | null;
   /** Which chain index to highlight (defaults to the matched element). */
   highlightIndex?(i: number, ctx: ChainContext): number;
 }
@@ -117,20 +193,21 @@ const RULES: PickRule[] = [
     // a heading card's .title (those belong to Heading Style below).
     test: (el, i, ctx) =>
       ICON_TAGS.has(el.tag) ||
+      (CARD_ICON_MATCHERS[emitKeyOf(ctx.cardType)]?.(el) ?? false) ||
       (el.tag === 'ha-icon' && (ctx.titleIndex === -1 || i > ctx.titleIndex)),
-    target: (cardType) =>
+    target: (cardType, config) =>
       // Mirror cms-panel._showIconColor: hidden on NO_ICON_COLOR_TYPES and on
       // entities cards (rows carry their own per-row icon color instead — the
       // walk falls through to the entity-row rule there).
-      NO_ICON_COLOR_TYPES.has(cardType) || cardType === 'entities'
+      !capsFor(cardType, config).modules.iconColor
         ? null
         : { module: 'cms-icon-color-module', label: 'Icon Color' },
   },
   {
     // Heading card title (.title wraps the p + ha-icon) → Heading Style.
     test: (_el, i, ctx) => ctx.titleIndex !== -1 && i <= ctx.titleIndex,
-    target: (cardType) =>
-      cardType === 'heading'
+    target: (cardType, config) =>
+      capsFor(cardType, config).modules.headingStyle
         ? { module: 'cms-heading-style-module', label: 'Heading Style' }
         : null,
     highlightIndex: (_i, ctx) => ctx.titleIndex,
@@ -138,9 +215,9 @@ const RULES: PickRule[] = [
   {
     // ha-gauge internals (value text / needle / dial) → Accent Color.
     test: (el) => el.tag === 'ha-gauge' || el.classes.some((c) => GAUGE_CLASSES.has(c)),
-    target: (cardType) =>
-      // Accent module is hidden on heading + entities cards (cms-panel).
-      cardType === 'heading' || cardType === 'entities'
+    target: (cardType, config) =>
+      // Accent is hidden on heading, entities and the cards that never read it.
+      !capsFor(cardType, config).modules.accentColor
         ? null
         : {
             module: 'cms-accent-color-module',
@@ -186,36 +263,44 @@ const RULES: PickRule[] = [
       (ctx.genericRowIndex !== -1 &&
         i < ctx.genericRowIndex &&
         el.classes.some((c) => GENERIC_ROW_TEXT_CLASSES.has(c))) ||
-      (CARD_TEXT_MATCHERS[ctx.cardType]?.(el) ?? false),
-    target: (cardType) =>
-      NO_FONT_TYPES.has(cardType) ? null : { module: 'cms-font-module', label: 'Font' },
+      // a profile's `emitAs` borrows the built-in card's text matchers (D4)
+      (CARD_TEXT_MATCHERS[emitKeyOf(ctx.cardType)]?.(el) ?? false),
+    target: (cardType, config) =>
+      !capsFor(cardType, config).modules.font ? null : { module: 'cms-font-module', label: 'Font' },
   },
   {
     // A row element on an entities card → the per-row styling module.
     // rowEntity is resolved by the caller (the picker), which can see the
     // actual DOM order and the card's entity list — this mapper can't.
     test: (el) => ENTITY_ROW_TAG_RE.test(el.tag),
-    target: (cardType) =>
-      cardType === 'entities'
+    target: (cardType, config) =>
+      capsFor(cardType, config).isEntities
         ? { module: 'cms-entities-rows-module', label: 'Entity Rows' }
         : null,
   },
 ];
 
-/** The catch-all: the card surface itself (or anything unrecognised). */
-function fallbackTarget(cardType: string): PickTarget {
-  return NO_BACKGROUND_TYPES.has(cardType)
-    ? { module: 'cms-advanced-module', label: 'Advanced CSS' }
-    : { module: 'cms-background-module', label: 'Background & card surface' };
+/** The catch-all: the card surface itself (or anything unrecognised) — the
+ *  first module that styles the card as a whole and is on screen for it. */
+function fallbackTarget(cardType: string, config?: Record<string, unknown> | null): PickTarget {
+  const shown = capsFor(cardType, config).modules;
+  if (shown.background) return { module: 'cms-background-module', label: 'Background & card surface' };
+  if (shown.border) return { module: 'cms-border-module', label: 'Border & Radius' };
+  if (shown.filter) return { module: 'cms-filter-module', label: 'Visual Filters' };
+  return { module: 'cms-advanced-module', label: 'Advanced CSS' };
 }
 
-function buildContext(chain: PickChainElement[], cardType: string): ChainContext {
+function buildContext(
+  chain: PickChainElement[],
+  cardType: string,
+  config?: Record<string, unknown> | null,
+): ChainContext {
   return {
     cardType,
     // Heading cards: `.content.title`, or `.content.subtitle` for
     // `heading_style: subtitle` — both are the Heading Style module's.
     titleIndex: chain.findIndex(
-      (el) => el.classes.includes('title') || (cardType === 'heading' && el.classes.includes('subtitle')),
+      (el) => el.classes.includes('title') || (capsFor(cardType, config).isHeading && el.classes.includes('subtitle')),
     ),
     genericRowIndex: chain.findIndex((el) => el.tag === 'hui-generic-entity-row'),
   };
@@ -226,20 +311,36 @@ function buildContext(chain: PickChainElement[], cardType: string): ChainContext
  *
  * @param chain the hovered element's ancestor chain, deepest first, ending at
  *              the preview card root; tags lowercased.
- * @param cardType the card's `type:` (e.g. 'tile', 'gauge', 'entities').
+ * @param cardType the card's profile key (profileKeyOf(config); e.g. 'tile',
+ *                 'gauge', 'entities', 'custom:bubble-card/button').
  */
 export function mapElementToMatch(
   chain: PickChainElement[],
   cardType: string,
+  config?: Record<string, unknown> | null,
+  pointer?: PickPointer,
+  onlyModules?: readonly string[],
+): PickMatch | null {
+  const match = resolveMatch(chain, cardType, config, pointer);
+  // A panel that shows only some modules (a locked entities card shows just
+  // the row styling): anything else has nothing to open, so it gets no label.
+  return match && onlyModules && !onlyModules.includes(match.target.module) ? null : match;
+}
+
+function resolveMatch(
+  chain: PickChainElement[],
+  cardType: string,
+  config?: Record<string, unknown> | null,
+  pointer?: PickPointer,
 ): PickMatch | null {
   if (!chain.length) return null;
-  const ctx = buildContext(chain, cardType);
+  const ctx = buildContext(chain, cardType, config);
 
   // Entities card: anywhere inside a row — icon, name, state, toggle — is
   // that row (its section holds the row's icon/text colour and font). The
   // OUTERMOST row element is the row itself; HA nests a
   // hui-generic-entity-row inside every row, which the same pattern matches.
-  if (cardType === 'entities') {
+  if (capsFor(cardType, config).isEntities) {
     for (let i = chain.length - 1; i >= 0; i--) {
       if (ENTITY_ROW_TAG_RE.test(chain[i].tag)) {
         return { target: { module: 'cms-entities-rows-module', label: 'Entity Rows' }, index: i };
@@ -247,11 +348,60 @@ export function mapElementToMatch(
     }
   }
 
+  // A custom-card profile's own click-to-edit rows win over the generic walk.
+  // Order: ancestor rows (deepest element first, like the rule table below),
+  // then `under` rows (elements under the pointer outside the chain), then
+  // `last` rows (the card surface). A row whose module the panel hides for
+  // this card (profile or config gate) is skipped — the picker never points
+  // at a module that isn't on screen.
+  const clicks = getCustomCardProfile(cardType)?.clickToEdit;
+  if (clicks?.length) {
+    const shown = capsFor(cardType, config).modules;
+    const usable = (r: ClickRule): boolean =>
+      (!!r.tag || !!r.className) && (!MODULE_OF_TAG[r.module] || shown[MODULE_OF_TAG[r.module]]);
+    const rowMatches = (r: ClickRule, el: PickChainElement): boolean =>
+      (!r.tag || r.tag === el.tag) && (!r.className || el.classes.includes(r.className));
+    // `textOnly` needs geometry; callers that give none keep the plain match.
+    const textOk = (r: ClickRule, el: PickChainElement): boolean =>
+      !r.textOnly || textUnder(el, pointer) !== null;
+    const walk = (rows: ClickRule[]): PickMatch | null => {
+      for (let i = 0; i < chain.length; i++) {
+        const hit = rows.find((r) => rowMatches(r, chain[i]) && textOk(r, chain[i]));
+        // a text rule highlights the text itself, not its full-width block
+        const words = hit?.textOnly ? textUnder(chain[i], pointer) : null;
+        if (hit) return { target: { module: hit.module, label: hit.label }, index: i, ...(words && words !== true ? { rect: words } : {}) };
+      }
+      return null;
+    };
+    const plain = clicks.filter((r) => usable(r) && !r.under && !r.last);
+    const hit = walk(plain);
+    if (hit) return hit;
+    for (const r of clicks.filter((x) => usable(x) && x.under)) {
+      const el = pointer?.under?.find((u) => rowMatches(r, u) && u.rect && inRect(u.rect, pointer.x, pointer.y));
+      if (el) return { target: { module: r.module, label: r.label }, index: 0, rect: el.rect };
+    }
+    const last = walk(clicks.filter((r) => usable(r) && r.last));
+    if (last) return last;
+  }
+
+  const key = emitKeyOf(cardType);
+  const haCardIndex = chain.findIndex((el) => el.tag === 'ha-card');
+  const surface = (): PickMatch => ({
+    target: fallbackTarget(cardType, config),
+    index: haCardIndex !== -1 ? haCardIndex : chain.length - 1,
+  });
   for (let i = 0; i < chain.length; i++) {
     const el = chain[i];
+    if (CARD_SURFACE_PARTS[key]?.(el)) return surface();
+    if (CARD_TEXT_ONLY[key]?.(el, chain[i + 1])) {
+      // off the words: not Font here, and no generic marker (`info`, …) may claim it
+      const words = textUnder(el, pointer);
+      if (!words || !capsFor(cardType, config).modules.font) continue;
+      return { target: { module: 'cms-font-module', label: 'Font' }, index: i, ...(words !== true ? { rect: words } : {}) };
+    }
     for (const rule of RULES) {
       if (!rule.test(el, i, ctx)) continue;
-      const target = rule.target(cardType);
+      const target = rule.target(cardType, config);
       if (!target) continue; // module hidden for this card type — keep walking
       return { target, index: rule.highlightIndex ? rule.highlightIndex(i, ctx) : i };
     }
@@ -259,17 +409,16 @@ export function mapElementToMatch(
 
   // Nothing specific matched → the card surface. Highlight ha-card if the
   // chain has one, else the outermost element.
-  const haCardIndex = chain.findIndex((el) => el.tag === 'ha-card');
-  return {
-    target: fallbackTarget(cardType),
-    index: haCardIndex !== -1 ? haCardIndex : chain.length - 1,
-  };
+  return surface();
 }
 
 /** Target-only convenience wrapper (the unit-tested surface). */
 export function mapElementToTarget(
   chain: PickChainElement[],
   cardType: string,
+  config?: Record<string, unknown> | null,
+  pointer?: PickPointer,
+  onlyModules?: readonly string[],
 ): PickTarget | null {
-  return mapElementToMatch(chain, cardType)?.target ?? null;
+  return mapElementToMatch(chain, cardType, config, pointer, onlyModules)?.target ?? null;
 }

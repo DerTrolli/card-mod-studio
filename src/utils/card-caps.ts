@@ -7,7 +7,13 @@
  *
  * The sets are the product of live verification, not guesses — see
  * docs/CARD_SUPPORT_MATRIX.md and the notes next to each entry.
+ *
+ * D2: consumers do NOT read these sets directly — they ask `capsFor(key)`
+ * (bottom of this file), which answers from the sets for built-in cards and
+ * from a custom-card profile (custom-card-profiles.ts) where one exists.
  */
+
+import { configGateHits, configSets, getCustomCardProfile, iconSizeLimit, type ProfileModule } from './custom-card-profiles.js';
 
 export const NON_STATE_CARD_TYPES = new Set([
   'sensor', 'gauge', 'history-graph', 'statistics-graph', 'statistic',
@@ -29,18 +35,46 @@ export const STYLABLE_CHILDREN_CARD_TYPES = new Set([
   'grid', 'vertical-stack', 'horizontal-stack',
 ]);
 
+/**
+ * Animation is an `animation:` on ha-card — a transform / opacity / shadow on
+ * the whole card. Operated with real pointer input while it runs (v0.11,
+ * HA 2026.11, every preset, card-mod): alarm-panel keypad, calendar day and
+ * event, gauge / statistic / weather more-info, history- and statistics-graph
+ * tooltip, logbook row, media-control buttons, to-do tick all work and their
+ * dialogs open centred, so those are no longer listed.
+ *
+ * Some cards are offered the module with single presets left out (see
+ * `noAnimationPresets` in buildCaps; a preset already stored stays listed):
+ *  - Spin on thermostat, humidifier, light: it drags the arc handle ~40°
+ *    (60-130 px) away from the pointer (the slider reads the screen angle, the
+ *    dial is drawn rotated); on map it pans the map sideways (drag -120 px
+ *    moved the marker +73 px). The other presets end on the same value as an
+ *    un-animated card.
+ *  - Gradient Shift on every card whose Background module is hidden (iframe,
+ *    picture, picture-entity, picture-glance, picture-elements, map …): it
+ *    moves a `background-position` those cards cannot show.
+ *
+ * Still hidden altogether, with the measured reason:
+ *  - heading: no painted box, the glow outlines bare text.
+ *  - never measured: energy cards, activity, webpage, shopping-list.
+ */
 export const NO_ANIMATION_TYPES = new Set([
-  'gauge', 'history-graph', 'statistics-graph', 'statistic',
-  'energy-distribution', 'energy-usage-graph',
-  'thermostat', 'humidifier', 'light', 'alarm-panel',
-  'media-control', 'weather-forecast', 'calendar', 'logbook', 'activity',
-  'map', 'iframe', 'webpage', 'shopping-list', 'todo-list',
-  'heading', 'picture', 'picture-entity', 'picture-glance', 'picture-elements',
+  'heading',
+  'energy-distribution', 'energy-usage-graph', 'activity', 'webpage', 'shopping-list',
 ]);
+
+/** Cards where Spin breaks the pointer: the dial handle (thermostat,
+ *  humidifier, light) and the map's pan drift away from it. */
+export const NO_SPIN_TYPES = new Set(['thermostat', 'humidifier', 'light', 'map']);
 
 export const NO_BACKGROUND_TYPES = new Set([
   'picture', 'picture-entity', 'picture-glance', 'picture-elements',
   'iframe', 'webpage', 'map',
+  // media-control paints its own full-face colour block (`.color-block`, the
+  // theme's primary colour, greyed while off) and artwork over ha-card in every
+  // player state — measured: idle, paused, playing, off, unavailable — so an
+  // ha-card background shows only as a ~1px rim. A stored one still round-trips.
+  'media-control',
   // heading cards have no painted ha-card box — background has no visual effect
   // (verified empirically). See docs/CARD_SUPPORT_MATRIX.md.
   'heading',
@@ -55,13 +89,18 @@ export const NO_BORDER_TYPES = new Set([
 // Threshold Colors writes icon/accent/background/text/border colour —
 // none of which shows on a heading card (measured on a real dashboard:
 // title colour, background and border all unchanged; Heading Style has its
-// own colour controls). Entities cards hide it too, for per-row thresholds.
+// own colour controls). An entities card offers it for the card frame only:
+// Background, Text colour and Border colour work there (v0.11, both engines);
+// Icon Color and Accent stay off for entities, so thresholdProperty() leaves
+// exactly those three. Per-row icon/text thresholds live in the rows section.
 export const NO_THRESHOLD_TYPES = new Set([
   'heading',
 ]);
 
 export const NO_ICON_COLOR_TYPES = new Set([
-  'gauge', 'history-graph', 'statistics-graph', 'statistic',
+  // (statistic is not listed: its one icon takes Icon Color's fixed colour and,
+  // what Accent cannot do, its size — 12-64 px measured, HA 2026.11.)
+  'gauge', 'history-graph', 'statistics-graph',
   'energy-distribution', 'energy-usage-graph',
   'thermostat', 'humidifier',
   'weather-forecast', 'calendar', 'logbook', 'activity',
@@ -94,17 +133,37 @@ export const NO_ACCENT_TYPES = new Set([
   'statistics-graph', 'todo-list', 'weather-forecast', 'logbook', 'picture-glance',
   // HA 2026.11 date card (module-effect audit, UIX 9): dead.
   'date',
+  // alert card: accent dead (module-effect audit, HA 2026.11.0 + UIX 9.0.0)
+  'alert',
+  // webpage (HA's successor of iframe): accent dead, like iframe (same audit)
+  'webpage',
 ]);
 
 /** Font's size slider changes nothing visible on these cards — they size
  *  their own text (module-effect audit, `font:size` slice, HA 2026.10.4 and
  *  2026.6, card-mod and UIX). Weight, family and colour stay where they work.
  *  The size declaration is still written: it's what the parser recognises
- *  the Font module by, and it has no visible effect on these cards. */
+ *  the Font module by, and it has no visible effect on these cards.
+ *  (alarm-panel is not here: its title follows the header variables — size
+ *  and colour reach it, measured on 2026.11.) */
 export const NO_FONT_SIZE_TYPES = new Set([
-  'alarm-panel', 'area', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast',
+  'area', 'humidifier', 'picture-entity', 'picture-glance', 'weather-forecast',
   // HA 2026.11 date card (module-effect audit, UIX 9)
   'date',
+  // HA 2026.11 alert card: the title stays 14px, only the family reaches it
+  // (measured, both engines). A stored size is still read and written back.
+  'alert',
+]);
+
+/**
+ * Font's weight row changes nothing visible on these cards — the text the
+ * user means keeps its own weight (measured on Home Assistant 2026.11, card-mod
+ * and UIX: area name, date text and alert text stay put; only the family
+ * reaches them). A weight already stored in an older style is still read,
+ * written back and shown (module-font) until the user changes it.
+ */
+export const NO_FONT_WEIGHT_TYPES = new Set([
+  'area', 'date', 'alert',
 ]);
 
 /**
@@ -116,10 +175,15 @@ export const NO_FONT_SIZE_TYPES = new Set([
  * graph labels are canvas-drawn, but the colour reaches the card title.)
  */
 export const NO_TEXT_COLOR_TYPES = new Set([
+  // alarm-panel: the title and Arm buttons DO follow a colour (measured 2026.11),
+  // but this set also gates Threshold's Text Color target, which was not
+  // verified there — left hidden until it is.
   'alarm-panel', 'area', 'media-control', 'picture-elements', 'picture-entity',
   'picture-glance',
   // HA 2026.11 date card (module-effect audit, UIX 9)
   'date',
+  // alert card: Font text colour and Threshold text colour dead (same audit)
+  'alert',
 ]);
 
 /**
@@ -135,7 +199,25 @@ export const NO_TEXT_COLOR_TYPES = new Set([
  */
 export const ICON_SIZE_TYPES = new Set([
   'tile', 'entity', 'sensor', 'picture-glance',
+  // statistic: the sensor layout; the variable resizes its top-right icon and
+  // the card grows with it (12-64 px, phone width too — measured, 2026.11).
+  'statistic',
 ]);
+
+/** The Icon size slider's top end. A tile's circle grows with the glyph
+ *  (1.5x) and a sections-view tile has a fixed row height of 56px: a 36px
+ *  glyph (54px circle) is the largest that still fits it (measured, HA
+ *  2026.11); past that the circle overflows into the next card. */
+export const DEFAULT_ICON_SIZE_MAX = 64;
+export const TILE_ICON_SIZE_MAX = 36;
+/** picture-glance: its icon buttons are a fixed 40px wide and sit edge to edge,
+ *  so a glyph past 40px overlaps its neighbours (measured 24-64px with 1, 2, 3
+ *  and 5 entities, HA 2026.11, both engines). */
+export const PICTURE_GLANCE_ICON_SIZE_MAX = 40;
+const ICON_SIZE_MAX_BY_TYPE: Record<string, number> = {
+  tile: TILE_ICON_SIZE_MAX,
+  'picture-glance': PICTURE_GLANCE_ICON_SIZE_MAX,
+};
 
 // Font module (issue #25): sets font-size/weight/color/family on ha-card,
 // which cascades via plain CSS inheritance into most cards' text (verified
@@ -150,49 +232,311 @@ export const NO_FONT_TYPES = new Set([
   'picture',
 ]);
 
-export const showsAccentColor = (cardType: string): boolean =>
-  cardType !== 'heading' && cardType !== 'entities' && !NO_ACCENT_TYPES.has(cardType);
+/** Cards whose own stylesheet overrides a plain filter transition (see
+ *  the filter block in css-generator). */
+export const TRANSITION_IMPORTANT_TYPES = new Set(['tile', 'sensor', 'entity', 'area', 'alert']);
+
+/**
+ * Card types whose title is rendered through ha-card's header slot
+ * (`.card-header`), styled inside ha-card's own shadow stylesheet via
+ * `--ha-card-header-{font-size,color,font-family}` — a plain inherited
+ * font-size never reaches it. Verified live for entities (slotted h1) and
+ * glance (h1 inside ha-card's shadow root); the rest use the identical
+ * `ha-card .header=` mechanism.
+ * (picture-glance left this list in v0.11: its title isn't a card header —
+ * the module-effect audit measured header size and colour dead there; the
+ * parser still claims the variables in older output.)
+ */
+export const HEADER_TITLE_CARD_TYPES = new Set([
+  'entities', 'glance', 'history-graph', 'statistics-graph', 'statistic',
+  'calendar', 'todo-list', 'shopping-list', 'logbook',
+  // v0.11 measured on 2026.11: markdown's title and alarm-panel's title are
+  // the same ha-card header (h1.card-header) and follow the header variables.
+  'markdown', 'alarm-panel',
+]);
+
+/**
+ * Everything the code asks about a card, answered once per profile key.
+ * Built-in cards answer exactly as the sets above; a registered custom
+ * profile overrides; an unknown type keeps the default (every module — D7's
+ * notice is a later chunk).
+ */
+export interface CardCaps {
+  key: string;
+  /** True when a custom-card profile answered (not the built-in sets). */
+  custom: boolean;
+  isEntities: boolean;
+  isHeading: boolean;
+  isLight: boolean;
+  isContainer: boolean;
+  /** Container with a `cards: []` list the panel offers child sections for. */
+  stylableChildren: boolean;
+  /** Which panel modules show. */
+  modules: Record<ProfileModule, boolean>;
+  /** Animation presets left out of this card's list: Spin where it breaks a
+   *  drag, Gradient Shift where Background is hidden (nothing to shift). */
+  noAnimationPresets: string[];
+  /** Font's colour picker / size slider reach something. */
+  fontColor: boolean;
+  fontSize: boolean;
+  /** Font's weight select reaches something. */
+  fontWeight: boolean;
+  /** Icon Color offers its size control. */
+  iconSize: boolean;
+  /** …and how far its slider goes. */
+  iconSizeMax: number;
+  /** Card is assumed to have an on/off state when no entity says otherwise. */
+  stateAwareByDefault: boolean;
+  /** Title lives in ha-card's header slot (Font writes header variables). */
+  headerTitle: boolean;
+  /** Filter's transition needs `!important` here. */
+  transitionImportant: boolean;
+  /** A markdown card with `text_only`: HA's own `.text-only` rule strips the
+   *  card's background, border and shadow and out-ranks a plain declaration,
+   *  so Background / Border / Threshold write theirs `!important`. */
+  textOnlyCard: boolean;
+  /** Icon Color is a size-only control (the card's icons can't take its
+   *  colour — Mushroom chips). */
+  iconColorless: boolean;
+  /** The profile writes Accent as `R, G, B` variables (Mushroom): a colour
+   *  with no exact form can't be written — the modules say so. */
+  accentTriplet: boolean;
+  /** Does a Threshold "Apply to" property do anything here? */
+  thresholdProperty(property: string): boolean;
+}
+
+function buildCaps(
+  key: string,
+  custom: boolean,
+  m: Record<ProfileModule, boolean>,
+  f: {
+    fontColor: boolean;
+    fontSize: boolean;
+    fontWeight?: boolean;
+    iconSize: boolean;
+    stateAwareByDefault: boolean;
+    headerTitle?: boolean;
+    transitionImportant?: boolean;
+    iconColorless?: boolean;
+    accentTriplet?: boolean;
+    textOnlyCard?: boolean;
+    iconSizeMax?: number;
+    /** Custom profile only: Gradient Shift moves nothing on this card. */
+    noGradientShift?: boolean;
+  },
+): CardCaps {
+  const { noGradientShift, iconSizeMax, headerTitle, transitionImportant, iconColorless, accentTriplet, textOnlyCard, fontWeight, ...flags } = f;
+  return {
+    key,
+    custom,
+    isEntities: !custom && key === 'entities',
+    isHeading: !custom && key === 'heading',
+    isLight: !custom && key === 'light',
+    isContainer: !custom && CONTAINER_CARD_TYPES.has(key),
+    stylableChildren: !custom && STYLABLE_CHILDREN_CARD_TYPES.has(key),
+    modules: m,
+    // Spin is gated on built-in dial cards only (nothing measured for custom
+    // cards); Gradient Shift needs a Background to move, and on a custom card
+    // also a profile that paints it where the animation runs (ha-card).
+    noAnimationPresets: [
+      ...(!custom && NO_SPIN_TYPES.has(key) ? ['spin'] : []),
+      ...(!m.background || noGradientShift ? ['gradient-shift'] : []),
+    ],
+    ...flags,
+    iconSizeMax: iconSizeMax ?? (custom ? DEFAULT_ICON_SIZE_MAX : ICON_SIZE_MAX_BY_TYPE[key] ?? DEFAULT_ICON_SIZE_MAX),
+    fontWeight: fontWeight !== false,
+    headerTitle: custom ? !!headerTitle : HEADER_TITLE_CARD_TYPES.has(key),
+    transitionImportant: custom ? !!transitionImportant : TRANSITION_IMPORTANT_TYPES.has(key),
+    iconColorless: !!iconColorless,
+    accentTriplet: !!accentTriplet,
+    textOnlyCard: !!textOnlyCard,
+    thresholdProperty(property: string): boolean {
+      switch (property) {
+        case 'icon-color': return m.iconColor && !iconColorless;
+        case 'accent-color': return m.accentColor;
+        case 'background': return m.background;
+        case 'border-color': return m.border;
+        case 'text-color': return m.font && f.fontColor;
+        default: return true;
+      }
+    },
+  };
+}
+
+/**
+ * The capabilities lookup — the ONE place per-card-type gating is decided.
+ *
+ * `config` (optional) is the card's own config: a custom profile can hide a
+ * module depending on it (`configGates` — e.g. Mushroom's Accent while the
+ * card sets `icon_color`). Callers without a config get the config-free answer.
+ */
+export function capsFor(profileKey: string | undefined, config?: Record<string, unknown> | null): CardCaps {
+  const key = profileKey ?? '';
+  const profile = getCustomCardProfile(key);
+  if (profile) {
+    const modules: Record<ProfileModule, boolean> = {
+      iconColor: true, accentColor: true, font: true, threshold: true,
+      background: true, border: true, animation: true, headingStyle: false, filter: true,
+      ...profile.modules,
+    };
+    for (const gate of profile.configGates ?? []) {
+      if (configGateHits(config, gate)) for (const m of gate.hide) modules[m] = false;
+    }
+    return buildCaps(key, true, modules, {
+      fontColor: profile.fontColor ?? true,
+      fontSize: profile.fontSize ?? true,
+      iconSize: profile.iconSize ?? false,
+      // The panel can't tell whether the card sits in a sections view (which
+      // applies the large layout implicitly), so: normal limit unless the
+      // card's own `card_layout` says large.
+      iconSizeMax: iconSizeLimit(profile, config),
+      stateAwareByDefault: profile.stateAware ?? true,
+      headerTitle: profile.headerTitle,
+      transitionImportant: profile.transitionImportant,
+      iconColorless: profile.emitters?.iconSize?.colorless,
+      accentTriplet: !!profile.emitters?.accent && profile.emitters.accent.triplet !== false,
+      noGradientShift: profile.gradientShift === false,
+    });
+  }
+  const entities = key === 'entities';
+  return buildCaps(
+    key,
+    false,
+    {
+      iconColor: !entities && !NO_ICON_COLOR_TYPES.has(key),
+      accentColor: key !== 'heading' && !entities && !NO_ACCENT_TYPES.has(key),
+      font: !NO_FONT_TYPES.has(key),
+      threshold: !NO_THRESHOLD_TYPES.has(key),
+      background: !NO_BACKGROUND_TYPES.has(key),
+      border: !NO_BORDER_TYPES.has(key),
+      animation: !NO_ANIMATION_TYPES.has(key),
+      headingStyle: key === 'heading',
+      filter: true,
+    },
+    {
+      fontColor: !NO_TEXT_COLOR_TYPES.has(key),
+      fontSize: !NO_FONT_SIZE_TYPES.has(key),
+      fontWeight: !NO_FONT_WEIGHT_TYPES.has(key),
+      iconSize: ICON_SIZE_TYPES.has(key),
+      stateAwareByDefault: !NON_STATE_CARD_TYPES.has(key),
+      textOnlyCard: key === 'markdown' && configSets(config, 'text_only'),
+    },
+  );
+}
+
+export const showsAccentColor = (cardType: string, config?: Record<string, unknown> | null): boolean =>
+  capsFor(cardType, config).modules.accentColor;
 
 /**
  * Which Threshold Colors "Apply to" properties do something on a card type —
  * the same gating as the module each property mirrors, so Threshold never
  * offers a colour the matching module hides as dead.
  */
-export function thresholdPropertyAllowed(property: string, cardType: string): boolean {
-  switch (property) {
-    case 'icon-color': return cardType !== 'entities' && !NO_ICON_COLOR_TYPES.has(cardType);
-    case 'accent-color': return showsAccentColor(cardType);
-    case 'background': return !NO_BACKGROUND_TYPES.has(cardType);
-    case 'border-color': return !NO_BORDER_TYPES.has(cardType);
-    case 'text-color': return !NO_FONT_TYPES.has(cardType) && !NO_TEXT_COLOR_TYPES.has(cardType);
-    default: return true;
-  }
+export function thresholdPropertyAllowed(
+  property: string,
+  cardType: string,
+  config?: Record<string, unknown> | null,
+): boolean {
+  return capsFor(cardType, config).thresholdProperty(property);
 }
 
-/** Domains whose entities carry a binary on/off state usable in an
- *  is_state(x, 'on'/'off') condition even when the state string itself
- *  isn't literally on/off right now. */
+/** Domains whose entities report `on` / `off` as their state, so
+ *  is_state(x, 'on'/'off') is meaningful even while the state string is
+ *  momentarily `unavailable` / `unknown` (which is why the domain, not just
+ *  the current state, decides). Home Assistant's state lists: switch, light,
+ *  binary_sensor, input_boolean, fan, humidifier, siren, remote, automation,
+ *  script — on/off; group — on/off for the usual switch/light groups. */
 const BINARY_DOMAINS = [
-  'switch', 'light', 'binary_sensor', 'input_boolean', 'lock',
-  'fan', 'cover', 'climate', 'alarm_control_panel', 'person',
-  'automation', 'script', 'timer', 'group', 'input_button',
+  'switch', 'light', 'binary_sensor', 'input_boolean', 'fan', 'humidifier',
+  'siren', 'remote', 'automation', 'script', 'group',
 ];
+
+/** Domains that never report `on`, whatever their current state (HA's own
+ *  state lists): lock locked/unlocked/…, cover open/closed/opening/closing,
+ *  climate / water_heater an HVAC / operation mode (can be `off`, never `on`),
+ *  alarm_control_panel disarmed/armed_home/armed_away/…, person
+ *  home/not_home/<zone>, timer idle/active/paused, input_button a timestamp.
+ *  An "ON" condition can never match there, so they are decided by the domain
+ *  alone — a climate that happens to be `off` right now is not state-aware. */
+const NEVER_ON_OFF_DOMAINS = new Set([
+  'lock', 'cover', 'climate', 'water_heater', 'alarm_control_panel', 'person', 'timer', 'input_button',
+]);
+
+/** The subset of NEVER_ON_OFF_DOMAINS whose state CAN be `off` (a mode), so
+ *  "Only while entity is OFF" is real there while "ON" never matches. */
+const OFF_ONLY_DOMAINS = new Set(['climate', 'water_heater']);
+
+/** What an entity's state can match: both `on` and `off`, only `off`, or
+ *  neither. */
+export type OwnStateKind = 'on-off' | 'off-only' | 'none';
+
+/** True for an entity that can be `off` but never `on` (climate, water_heater). */
+export function isOffOnlyEntity(entityId: string | undefined): boolean {
+  return !!entityId && OFF_ONLY_DOMAINS.has(entityId.split('.')[0]);
+}
+
+/** Same three-way answer from what a module receives: the panel's boolean
+ *  `stateAware` plus the card's entity id. No entity stays 'none'. */
+export function stateKindFor(stateAware: boolean, cardEntity: string | undefined): OwnStateKind {
+  if (stateAware) return 'on-off';
+  return isOffOnlyEntity(cardEntity) ? 'off-only' : 'none';
+}
+
+/**
+ * Whether a card config has an entity of its own — the one `config.entity`
+ * refers to inside a card-mod template. A missing or empty `entity` makes
+ * `is_state(config.entity, …)` fail to render, and the style engine then
+ * drops EVERY rule of the card's style, so nothing may emit it for such a card.
+ */
+export function hasOwnEntity(config?: Record<string, unknown> | null): boolean {
+  const entity = config?.entity;
+  return typeof entity === 'string' && entity.trim() !== '';
+}
 
 /**
  * Whether a card's own entity meaningfully has an on/off state to condition
- * on. Mirrors the old cms-panel._isStateAware exactly.
+ * on. Domains that never report on/off say no (see NEVER_ON_OFF_DOMAINS); the
+ * rest mirror the old cms-panel._isStateAware. With no entity id it
+ * only answers for the card TYPE; the panels additionally require
+ * hasOwnEntity() before offering "own entity is ON / OFF".
  */
 export function isStateAware(
   cardType: string | undefined,
   entityId: string | undefined,
   hass?: { states?: Record<string, { state: string }> },
 ): boolean {
+  // The domain alone settles it for an entity that never reports on/off —
+  // with or without hass, and whatever its current state is.
+  if (entityId && NEVER_ON_OFF_DOMAINS.has(entityId.split('.')[0])) return false;
   if (!entityId || !hass?.states) {
-    return !NON_STATE_CARD_TYPES.has(cardType ?? '');
+    return capsFor(cardType).stateAwareByDefault;
   }
   const entity = hass.states[entityId];
-  if (!entity) return !NON_STATE_CARD_TYPES.has(cardType ?? '');
+  if (!entity) return capsFor(cardType).stateAwareByDefault;
 
   const domain = entityId.split('.')[0];
   return BINARY_DOMAINS.includes(domain) || ['on', 'off'].includes(entity.state);
+}
+
+/**
+ * The state-aware flag both panels (top level and stack children) hand to the
+ * modules: the card's own entity has an on/off state to condition on. No entity
+ * of its own → no state of its own to react to, whatever the type.
+ */
+export function panelStateAware(
+  profileKey: string | undefined,
+  config: Record<string, unknown> | null | undefined,
+  hass?: { states?: Record<string, { state: string }> },
+): boolean {
+  return hasOwnEntity(config) && isStateAware(profileKey, config?.entity as string | undefined, hass);
+}
+
+/** The three-way answer for a card's own entity, from the card config —
+ *  `isStateAware` stays the "ON and OFF can both match" boolean. */
+export function ownStateKind(
+  profileKey: string | undefined,
+  config: Record<string, unknown> | null | undefined,
+  hass?: { states?: Record<string, { state: string }> },
+): OwnStateKind {
+  return stateKindFor(panelStateAware(profileKey, config, hass), hasOwnEntity(config) ? (config?.entity as string) : undefined);
 }

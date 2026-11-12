@@ -83,7 +83,7 @@ describe('filterPresetStateForCardType', () => {
     expect(kept.headingStyle).toEqual(headingPreset.headingStyle);
   });
 
-  it('tile preset onto entities: iconColor, accent and threshold (all hidden there) reset', () => {
+  it('tile preset onto entities: iconColor and accent (hidden there) reset; its icon-only threshold has nothing left to drive', () => {
     const filtered = filterPresetStateForCardType(tilePresetState(), 'entities');
     expect(filtered.iconColor.enabled).toBe(false);
     expect(filtered.accentColor.enabled).toBe(false);
@@ -94,6 +94,21 @@ describe('filterPresetStateForCardType', () => {
     expect(filtered.animation.enabled).toBe(true);
     expect(filtered.border.enabled).toBe(true);
     expect(filtered.font.enabled).toBe(true);
+  });
+
+  it('a preset threshold keeps only the properties an entities card frame can show', () => {
+    const preset = tilePresetState();
+    preset.threshold = {
+      ...preset.threshold,
+      enabled: true,
+      entityId: 'sensor.t',
+      properties: ['icon-color', 'accent-color', 'background', 'text-color', 'border-color'],
+      rules: [{ id: 'r', operator: '>', value: 5, color: '#ff0000' }],
+    };
+    const kept = filterPresetStateForCardType(preset, 'entities').threshold;
+    expect(kept.enabled).toBe(true);
+    expect(kept.properties).toEqual(['background', 'text-color', 'border-color']);
+    expect(kept.rules).toHaveLength(1);
   });
 
   it('resets never alias the shared DEFAULT_THRESHOLD arrays', () => {

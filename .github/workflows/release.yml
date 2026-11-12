@@ -21,6 +21,17 @@ jobs:
           node-version: "20"
           cache: "npm"
 
+      # Guard: the tag must name the version being built. A release created on
+      # the wrong branch (e.g. a beta tag on main) fails here instead of
+      # publishing the wrong code under the beta's name (happened 2026-11-07).
+      - name: Check tag matches package.json version
+        run: |
+          expected="v$(node -p "require('./package.json').version")"
+          if [ "$expected" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version ($expected). Was the release created on the right branch?"
+            exit 1
+          fi
+
       - name: Install dependencies
         run: npm ci
 
@@ -32,4 +43,6 @@ jobs:
         with:
           files: dist/card-mod-studio.js
           generate_release_notes: true
+          # vX.Y.Z-beta.N (any tag with a pre-release suffix) → GitHub pre-release
+          prerelease: ${{ contains(github.ref_name, '-') }}
           fail_on_unmatched_files: true

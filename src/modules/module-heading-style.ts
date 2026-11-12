@@ -2,9 +2,25 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { HeadingStyleModuleState } from '../types/index.js';
 import { DEFAULT_HEADING_STYLE } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
+import {
+  moduleStyles, renderOverrideHint, renderModuleHeader, renderResetButton, renderDefaultOption,
+  guardSliderTouch, nameSwitches, prepareSliders,
+} from './module-base.js';
 import { FONT_FAMILY_PRESETS } from './module-font.js';
 import '../components/cms-color-picker.js';
+
+/** What Home Assistant's heading card shows when nothing is set (measured on
+ *  HA 2026.11: title vs subtitle differ in size, weight and colour). Shown as
+ *  display-only placeholders — never written into the style. */
+export const HEADING_NATIVE = {
+  title: { fontSize: 16, weight: 'normal', color: 'var(--primary-text-color)', colorLabel: 'primary text', iconSize: 18 },
+  subtitle: { fontSize: 14, weight: 'medium', color: 'var(--secondary-text-color)', colorLabel: 'secondary text', iconSize: 18 },
+} as const;
+
+/** Native look for a card's `heading_style` (HA's default is `title`). */
+export function headingNative(headingStyle?: string) {
+  return headingStyle === 'subtitle' ? HEADING_NATIVE.subtitle : HEADING_NATIVE.title;
+}
 
 export class HeadingStyleModule extends LitElement {
   @property({ attribute: false }) state: HeadingStyleModuleState = {
@@ -16,12 +32,16 @@ export class HeadingStyleModule extends LitElement {
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
 
+  /** The heading card's `heading_style` (`title` | `subtitle`), so the
+   *  "Default (…)" placeholders match what that variant really looks like. */
+  @property({ attribute: false }) headingStyle?: string;
+
   @state() private _open = false;
-  @state() private _fontSize = DEFAULT_HEADING_STYLE.fontSize;
+  @state() private _fontSize?: number = undefined;
   /** "Custom…" chosen but nothing typed yet — picking it changes no state,
    *  so without this the text field never appeared. */
   @state() private _customPicked = false;
-  @state() private _iconSize = DEFAULT_HEADING_STYLE.iconSize;
+  @state() private _iconSize?: number = undefined;
 
   static override styles = [moduleStyles];
 
@@ -30,6 +50,8 @@ export class HeadingStyleModule extends LitElement {
   }
 
   override updated(changed: Map<PropertyKey, unknown>) {
+    nameSwitches(this.renderRoot);
+    prepareSliders(this.renderRoot);
     if (changed.has('state')) {
       const prev = changed.get('state') as HeadingStyleModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;
@@ -53,27 +75,25 @@ export class HeadingStyleModule extends LitElement {
     );
   }
 
+  override connectedCallback() {
+    super.connectedCallback();
+    guardSliderTouch(this.renderRoot);
+  }
+
   override render() {
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this._open ? 'true' : 'false'}
-          @click=${this._toggleOpen}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">🔤 Heading Style</span>
-          ${renderOverrideBadge(this.overridden)}
-          <ha-switch
-            .checked=${this.state.enabled}
-            @click=${(e: Event) => e.stopPropagation()}
-            @change=${(e: Event) =>
-              this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
-        </div>
+        ${renderModuleHeader({
+          icon: '🔤',
+          title: 'Heading Style',
+          open: this._open,
+          onToggle: () => this._toggleOpen(),
+          overridden: this.overridden,
+          enable: {
+            checked: this.state.enabled,
+            onChange: (enabled) => this._emit({ enabled }),
+          },
+        })}
         ${this._open ? this._renderBody() : nothing}
       </div>
     `;
@@ -86,18 +106,21 @@ export class HeadingStyleModule extends LitElement {
   private _renderBody() {
     const family = this.state.fontFamily ?? '';
     const isCustom = this._isCustomFamily;
+    const native = headingNative(this.headingStyle);
 
     return html`
-      <div class="module-body">
+      <div class="module-body" id="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         <div class="control-row">
           <span class="control-label">Text size</span>
           <div class="control-right">
             <ha-slider
+              label="Text size"
+              aria-label="Text size"
               min="12"
               max="48"
               step="1"
-              .value=${String(this._fontSize)}
+              .value=${String(this._fontSize ?? native.fontSize)}
               @input=${(e: Event) => {
                 this._fontSize = parseFloat((e.target as HTMLInputElement).value);
               }}
@@ -106,7 +129,12 @@ export class HeadingStyleModule extends LitElement {
                   fontSize: parseFloat((e.target as HTMLInputElement).value),
                 })}
             ></ha-slider>
-            <span class="value-label">${this._fontSize}px</span>
+            ${this._fontSize === undefined
+              ? html`<span class="value-label unset">Default (${native.fontSize}px)</span>`
+              : html`<span class="value-label">${this._fontSize}px</span>${renderResetButton(
+                  () => this._emit({ fontSize: undefined }),
+                  'Reset text size to default',
+                )}`}
           </div>
         </div>
 
@@ -114,13 +142,15 @@ export class HeadingStyleModule extends LitElement {
           <span class="control-label">Weight</span>
           <div class="control-right">
             <select
-              .value=${this.state.fontWeight ?? 'normal'}
+              aria-label="Weight"
+              .value=${this.state.fontWeight ?? ''}
               @change=${(e: Event) =>
                 this._emit({
-                  fontWeight: (e.target as HTMLSelectElement).value as HeadingStyleModuleState['fontWeight'],
+                  fontWeight: ((e.target as HTMLSelectElement).value || undefined) as HeadingStyleModuleState['fontWeight'],
                 })}
             >
-              <option value="normal" ?selected=${(this.state.fontWeight ?? 'normal') === 'normal'}>Normal</option>
+              ${renderDefaultOption(!this.state.fontWeight, native.weight)}
+              <option value="normal" ?selected=${this.state.fontWeight === 'normal'}>Normal</option>
               <option value="medium" ?selected=${this.state.fontWeight === 'medium'}>Medium</option>
               <option value="bold" ?selected=${this.state.fontWeight === 'bold'}>Bold</option>
             </select>
@@ -128,9 +158,10 @@ export class HeadingStyleModule extends LitElement {
         </div>
 
         <div class="control-row">
-          <span class="control-label">Font family</span>
+          <span class="control-label" id="lbl-font-family">Font family</span>
           <div class="control-right">
             <select
+              aria-labelledby="lbl-font-family"
               .value=${isCustom ? 'custom' : family}
               @change=${(e: Event) => {
                 const v = (e.target as HTMLSelectElement).value;
@@ -150,9 +181,10 @@ export class HeadingStyleModule extends LitElement {
         ${isCustom
           ? html`
               <div class="control-row">
-                <span class="control-label">Custom family</span>
+                <span class="control-label" id="lbl-custom-family">Custom family</span>
                 <div class="control-right">
                   <input
+                    aria-labelledby="lbl-custom-family"
                     type="text"
                     style="width:100%;box-sizing:border-box;"
                     .value=${family}
@@ -169,9 +201,13 @@ export class HeadingStyleModule extends LitElement {
           <span class="control-label">Text color</span>
           <div class="control-right">
             <cms-color-picker
-              .value=${this.state.textColor}
+              label="Text color"
+              clearable
+              .placeholder=${`Default (${native.colorLabel})`}
+              .placeholderColor=${native.color}
+              .value=${this.state.textColor ?? ''}
               @color-changed=${(e: CustomEvent) =>
-                this._emit({ textColor: e.detail.value })}
+                this._emit({ textColor: e.detail.value || undefined })}
             ></cms-color-picker>
           </div>
         </div>
@@ -180,10 +216,12 @@ export class HeadingStyleModule extends LitElement {
           <span class="control-label">Icon size</span>
           <div class="control-right">
             <ha-slider
+              label="Icon size"
+              aria-label="Icon size"
               min="12"
               max="48"
               step="1"
-              .value=${String(this._iconSize)}
+              .value=${String(this._iconSize ?? native.iconSize)}
               @input=${(e: Event) => {
                 this._iconSize = parseFloat((e.target as HTMLInputElement).value);
               }}
@@ -192,7 +230,12 @@ export class HeadingStyleModule extends LitElement {
                   iconSize: parseFloat((e.target as HTMLInputElement).value),
                 })}
             ></ha-slider>
-            <span class="value-label">${this._iconSize}px</span>
+            ${this._iconSize === undefined
+              ? html`<span class="value-label unset">Default (${native.iconSize}px)</span>`
+              : html`<span class="value-label">${this._iconSize}px</span>${renderResetButton(
+                  () => this._emit({ iconSize: undefined }),
+                  'Reset icon size to default',
+                )}`}
           </div>
         </div>
 
@@ -200,9 +243,13 @@ export class HeadingStyleModule extends LitElement {
           <span class="control-label">Icon color</span>
           <div class="control-right">
             <cms-color-picker
-              .value=${this.state.iconColor}
+              label="Icon color"
+              clearable
+              .placeholder=${`Default (${native.colorLabel})`}
+              .placeholderColor=${native.color}
+              .value=${this.state.iconColor ?? ''}
               @color-changed=${(e: CustomEvent) =>
-                this._emit({ iconColor: e.detail.value })}
+                this._emit({ iconColor: e.detail.value || undefined })}
             ></cms-color-picker>
           </div>
         </div>
@@ -211,15 +258,18 @@ export class HeadingStyleModule extends LitElement {
           <span class="control-label">Alignment</span>
           <div class="control-right">
             <select
-              .value=${this.state.alignment}
+              aria-label="Alignment"
+              .value=${this.state.alignment ?? ''}
               @change=${(e: Event) =>
                 this._emit({
-                  alignment: (e.target as HTMLSelectElement).value as
+                  alignment: ((e.target as HTMLSelectElement).value || undefined) as
                     | 'left'
                     | 'center'
-                    | 'right',
+                    | 'right'
+                    | undefined,
                 })}
             >
+              ${renderDefaultOption(!this.state.alignment, 'spread')}
               <option value="left" ?selected=${this.state.alignment === 'left'}>Left</option>
               <option value="center" ?selected=${this.state.alignment === 'center'}>Center</option>
               <option value="right" ?selected=${this.state.alignment === 'right'}>Right</option>

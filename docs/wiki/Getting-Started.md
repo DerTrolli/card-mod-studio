@@ -5,7 +5,7 @@
    screens)
 3. The Card-Mod Studio panel opens in place of the card's normal config form
 
-![The panel](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/02%20Card-Mod%20Studio.png)
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/02%20Card-Mod%20Studio.png" alt="The panel" width="1024">
 
 The layout:
 
@@ -17,17 +17,58 @@ The layout:
   narrower than about 720px (phones, small windows, tablet split view) the
   preview stacks below the controls instead.
 
-The panel follows your theme in light and dark mode (new text colors start
-from your theme's own text color, not a fixed light grey). Every collapsible
-section is keyboard-accessible: Tab to it, Enter or Space to open and close.
+The panel follows your theme in light and dark mode. Each module has a
+**toggle** (enables its output) and a collapsible body. A module that's off
+contributes nothing to the generated YAML, and a module that's on but where you
+haven't set anything writes nothing either — Heading Style, Font and Icon
+Color start from "Default", the card's own look.
 
-Each module has a **toggle** (enables its output) and a collapsible body.
-A module that's off contributes nothing to the generated YAML.
+**Using the keyboard.** Tab moves through the controls: a module header is a
+button (Enter or Space opens and closes it) and its enable switch is the next
+Tab stop. Every switch, slider, selection list and colour field has a name a
+screen reader reads out. A row of colour swatches is one Tab stop — use the
+arrow keys, Home and End to move along it. Enter in a field commits the value
+and stays in the Studio. The live preview is deliberately not reachable with
+Tab and can't be operated: neither keys nor clicks reach your real entities.
+On a touch screen the controls are larger, and a vertical swipe that starts on
+a slider scrolls the panel.
 
 **Not sure which control styles what?** Since v0.9.0, just point at it:
-hovering any part of the preview shows a highlight box naming the control
-that styles that element, and clicking jumps straight to it (the preview
-stays safe — clicks never reach your real entities).
+hovering a part of the preview shows a highlight box naming the control that
+styles that element (on an entities card, "Entity Rows — " plus the row's
+label), and clicking jumps straight to it. A part that nothing styles names the
+card's **Background** (or **Border**, or **Visual Filters**, on cards where
+Background is hidden). Click-to-edit works on the card itself and on its
+parts, but not on the children of a stack in the preview.
+
+Click-to-edit follows the card's settings like the panel does: a part whose
+control the panel hides for that card (for example the icon of a Mushroom
+template card with no icon) doesn't name it, and a locked entities card (one with *mixed-form* styling: a plain
+`card_mod` style together with a `uix` dictionary, shown with the 🔒
+"Mixed-form styling — preserved as-is" notice) only offers its rows. A
+pure dictionary-form style stays editable.
+
+**Show code editor.** The Studio covers both of HA's editors; when you
+switch between the visual and the code editor yourself ("Show code editor" or
+"Show visual editor"), the Studio closes so you can see the YAML — click
+**Style** to come back. A card whose config has an error (an unknown custom
+card type, an entities or glance card without entities, a stack without cards)
+is shown by Home Assistant in the code editor only; the Style button opens the
+Studio there too.
+
+**The colour popover** (the small swatch pickers in Threshold rules and
+similar): opening it, with the mouse or Enter or Space on its swatch, moves
+focus into it, to the selected swatch or the first. Tab and Shift+Tab move
+through its own controls; tabbing out of either end closes it and returns focus
+to the swatch that opened it (a typed hex value is committed first). Escape,
+picking a swatch or committing a value also return focus there; clicking
+elsewhere closes it without moving focus. Screen readers get it as a dialog
+named "<label>: Color picker". After Escape, Cancel or a save in the preset name
+field, focus returns to "Save preset".
+
+**Custom cards.** On a `custom:` card the Studio has no profile for (anything
+other than Mushroom and Bubble Card's button, separator and cover), a notice
+says some controls may not reach the card; Advanced CSS always works.
 
 ## Saving
 

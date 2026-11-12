@@ -14,10 +14,15 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import {
   mapElementToMatch,
+  needsUnder,
   ENTITY_ROW_TAG_RE,
   type PickChainElement,
+  type PickPointer,
+  type PickRect,
   type PickTarget,
 } from '../utils/preview-map.js';
+import { entityRowLabels } from '../modules/module-entities-rows.js';
+import type { EntitiesCardRow, HomeAssistant } from '../types/index.js';
 
 interface HighlightBox {
   left: number;
@@ -46,9 +51,14 @@ const HL_OUTSET = 3;
 export class CmsPreviewPicker extends LitElement {
   /** The preview card's `type:` — drives the module mapping. */
   @property({ attribute: false }) cardType = '';
+  /** The card's own config (profile config gates, e.g. Mushroom `icon_color`). */
+  @property({ attribute: false }) cardConfig?: Record<string, unknown>;
   /** Entities cards: entity_id per row, in config order (undefined for
    *  rows without one, so indices stay aligned with the DOM row order). */
   @property({ attribute: false }) rows: Array<string | undefined> = [];
+  /** When set, only targets on these modules (cms-* tags) are offered — the
+   *  panel shows no others (a locked entities card shows just its rows). */
+  @property({ attribute: false }) onlyModules?: readonly string[];
   @state() private _box: HighlightBox | null = null;
   @state() private _label = '';
 
@@ -91,6 +101,9 @@ export class CmsPreviewPicker extends LitElement {
     .hl-label {
       position: absolute;
       z-index: 2;
+      /* the chip can land on the card (lifted into a short preview): it must
+         not steal the hover from the element it names */
+      pointer-events: none;
       white-space: nowrap;
       max-width: calc(100% - 4px);
       box-sizing: border-box;
@@ -141,7 +154,7 @@ export class CmsPreviewPicker extends LitElement {
    * Rects don't care about pointer-events. Overlay/ripple layers are still
    * skipped so the full-card tap surface never wins over real content.
    */
-  private _deepElementFromPoint(x: number, y: number): Element | null {
+  private _deepElementFromPoint(x: number, y: number, under?: Element[]): Element | null {
     const cardEl = this._resolvedCardEl;
     if (!cardEl) return null;
     let best: Element | null = null;
@@ -156,12 +169,19 @@ export class CmsPreviewPicker extends LitElement {
       const r = el.getBoundingClientRect();
       if (r.width <= 0 || r.height <= 0) continue;
       if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
+      under?.push(el);
       const area = r.width * r.height;
       // <= so a deeper element of equal size wins over its wrapper
       if (area <= bestArea) {
         best = el;
         bestArea = area;
       }
+    }
+    // A point on the card's own box that no child covers (a corner, a gap)
+    // is still the card surface.
+    if (!best) {
+      const r = cardEl.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return cardEl;
     }
     return best;
   }
@@ -187,11 +207,66 @@ export class CmsPreviewPicker extends LitElement {
   }
 
   private static _describe(el: Element): PickChainElement {
+    let words: PickRect[] | undefined;
+    const lines = () => (words ??= CmsPreviewPicker._textRects(el));
     return {
       tag: el.tagName.toLowerCase(),
       id: el.id ?? '',
       classes: Array.from(el.classList),
+      rect: CmsPreviewPicker._rectOf(el.getBoundingClientRect()),
+      // lazy: walking a big element's text on every move is wasted unless a rule asks
+      get textRects() {
+        return lines();
+      },
+      get textRect() {
+        const all = lines();
+        return all.length
+          ? {
+              left: Math.min(...all.map((r) => r.left)),
+              top: Math.min(...all.map((r) => r.top)),
+              right: Math.max(...all.map((r) => r.right)),
+              bottom: Math.max(...all.map((r) => r.bottom)),
+            }
+          : null;
+      },
     };
+  }
+
+  private static _rectOf(r: DOMRect): PickRect {
+    return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+  }
+
+  /** Visible text nodes under `node`, as the browser flattens them: through
+   *  shadow roots and into whatever a <slot> shows (HA's tile-style info
+   *  blocks keep the words in a slotted light-DOM child). */
+  private static _collectText(node: Node, out: Text[]): void {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.textContent?.trim()) out.push(node as Text);
+      return;
+    }
+    if (!(node instanceof Element) || node.localName === 'style' || node.localName === 'script') return;
+    if (node instanceof HTMLSlotElement) {
+      const assigned = node.assignedNodes();
+      (assigned.length ? assigned : Array.from(node.childNodes)).forEach((n) => CmsPreviewPicker._collectText(n, out));
+    } else {
+      (node.shadowRoot ?? node).childNodes.forEach((n) => CmsPreviewPicker._collectText(n, out));
+    }
+  }
+
+  /** The boxes of the words under the element, one per text line (not of the
+   *  block around them — a block that spans the card is not "the text"). */
+  private static _textRects(el: Element): PickRect[] {
+    const texts: Text[] = [];
+    CmsPreviewPicker._collectText(el, texts);
+    const out: PickRect[] = [];
+    for (const t of texts) {
+      const range = document.createRange();
+      range.selectNodeContents(t);
+      for (const r of Array.from(range.getClientRects())) {
+        if (r.width > 0 && r.height > 0) out.push(CmsPreviewPicker._rectOf(r));
+      }
+    }
+    return out;
   }
 
   /** All entity-row elements inside the card, in document order — used to
@@ -218,6 +293,16 @@ export class CmsPreviewPicker extends LitElement {
     return allRows.indexOf(rowEl);
   }
 
+  /** The chip text for a row: the label the panel's row list shows (shared
+   *  names numbered), so two rows on one entity read differently. */
+  private _rowLabel(cardEl: HTMLElement, rowIndex: number): string | undefined {
+    const rows = this.cardConfig?.entities;
+    if (!Array.isArray(rows)) return undefined;
+    const hass = (cardEl as unknown as { hass?: HomeAssistant }).hass;
+    const label = entityRowLabels(hass, rows as Array<EntitiesCardRow | string>).get(rowIndex);
+    return label ? `Entity Rows — ${label}` : undefined;
+  }
+
   // ---------------------------------------------------------------------------
   // Pointer handling
   // ---------------------------------------------------------------------------
@@ -226,20 +311,25 @@ export class CmsPreviewPicker extends LitElement {
    *  (also cached in _target), or null when the point hits nothing pickable. */
   private _updateFromPoint(x: number, y: number): PickEventDetail | null {
     const cardEl = this._resolvedCardEl;
-    const deepest = cardEl ? this._deepElementFromPoint(x, y) : null;
+    // Only profiles with `under` click rules read the elements under the pointer.
+    const wantUnder = needsUnder(this.cardType);
+    const underEls: Element[] = [];
+    const deepest = cardEl ? this._deepElementFromPoint(x, y, wantUnder ? underEls : undefined) : null;
     const chain = deepest && cardEl ? this._buildChain(deepest, cardEl) : null;
     if (!chain || !cardEl) {
       this._clear();
       return null;
     }
 
-    const match = mapElementToMatch(chain.map(CmsPreviewPicker._describe), this.cardType);
+    const pointer: PickPointer = { x, y, ...(wantUnder ? { under: underEls.map(CmsPreviewPicker._describe) } : {}) };
+    const match = mapElementToMatch(chain.map(CmsPreviewPicker._describe), this.cardType, this.cardConfig, pointer, this.onlyModules);
     if (!match) {
       this._clear();
       return null;
     }
 
     const target: PickEventDetail = { ...match.target };
+    let rowLabel: string | undefined;
     if (target.module === 'cms-entities-rows-module') {
       // Outermost match (chain runs innermost → card): the row element
       // itself, not the hui-generic-entity-row HA nests inside every row,
@@ -250,20 +340,28 @@ export class CmsPreviewPicker extends LitElement {
       if (rowIndex !== -1) {
         target.rowIndex = rowIndex;
         target.rowEntity = this.rows[rowIndex];
+        rowLabel = this._rowLabel(cardEl, rowIndex);
       }
     }
 
     // Highlight the matched (meaningful) ancestor's rect, not the deepest
     // text node's, positioned relative to this host.
-    const rect = chain[match.index].getBoundingClientRect();
+    // Only the VISIBLE part: an element can reach past the card (Bubble's
+    // slider fill is a full-width bar shifted left, clipped by the card).
+    const rect = match.rect ?? CmsPreviewPicker._rectOf(chain[match.index].getBoundingClientRect());
+    const card = cardEl.getBoundingClientRect();
+    const left = Math.max(rect.left, card.left);
+    const top = Math.max(rect.top, card.top);
+    const right = Math.min(rect.right, card.right);
+    const bottom = Math.min(rect.bottom, card.bottom);
     const hostRect = this.getBoundingClientRect();
     this._box = {
-      left: rect.left - hostRect.left,
-      top: rect.top - hostRect.top,
-      width: rect.width,
-      height: rect.height,
+      left: left - hostRect.left,
+      top: top - hostRect.top,
+      width: Math.max(0, right - left),
+      height: Math.max(0, bottom - top),
     };
-    this._label = target.rowEntity ? `${target.label} — ${target.rowEntity}` : target.label;
+    this._label = rowLabel ?? (target.rowEntity ? `${target.label} — ${target.rowEntity}` : target.label);
     this._target = target;
     return target;
   }

@@ -22,7 +22,7 @@ The click-to-edit preview picker, more animation presets, value-conditional
 animations, and "Reacts to" conditions beyond color (border width, filter
 effects, icon size).
 
-## v0.10 ✅ (current) — piercing + polish
+## v0.10 ✅ — piercing + polish
 
 - **Dictionary-form (`$` shadow-piercing) styles are editable.** The `.` entry
   runs through the normal controls; every other entry is preserved
@@ -35,15 +35,30 @@ effects, icon size).
 - A 20-bug audit of how hand-written CSS survives an edit, a light/dark/phone
   overhaul of the editor, and keyboard access to every collapsible section.
 
-## v0.11 — Font size unlocks
+## v0.11 ✅ "Reach" — Font size unlocks + Mushroom/Bubble
 
-- **Gauge value number and thermostat big number size** in the Font module,
-  built on the dictionary-form machinery from v0.10 (both are reachable with
-  shadow-piercing styles). They need a new generated-dictionary path in the
-  save logic — which deserves its own beta round — and the gauge's SVG text
-  also needs a scale-based control design. See the
-  [Gauge](Gauge-Card) and [Thermostat](Thermostat-and-Humidifier-Cards)
-  pages.
+- **Gauge value number and thermostat big number size** (Font → Number
+  size / Temperature size). See the [Gauge](Gauge-Card) and
+  [Thermostat](Thermostat-and-Humidifier-Cards) pages.
+- **Mushroom and Bubble Card support** — controls that reach all 18 Mushroom
+  (5.2.3) card types and Bubble's button, slider button, separator and cover
+  (other Bubble card types aren't profiled yet); see the
+  [Mushroom](Mushroom-Cards) and [Bubble Card](Bubble-Card) guides and
+  [Card Support](Card-Support).
+- **A notice on custom cards the Studio has no profile for** (including
+  Bubble cards of a type without one): some controls may not reach the card,
+  Advanced CSS always works (v0.11.0-beta.3).
+- **Release review fixes** (v0.11.0-beta.3): controls you switch on but don't
+  touch write nothing; a conditional Background or Border keeps the card's
+  own look while off; Animation, card-level Threshold Colors (entities) and
+  Icon Color (statistic) on more cards; Advanced CSS and input checks;
+  keyboard, screen-reader and touch work. See the
+  [changelog](https://github.com/DerTrolli/card-mod-studio/blob/main/CHANGELOG.md).
+- **Read-back fixes** (v0.11.0): a Font without a size next to
+  Threshold Colors, and Threshold rules pointing both ways, come back in
+  their modules after reopening; your own `!important`, `border-radius: 0px`
+  and `border: 0px solid …` are no longer changed by a save.
+
 - Glance icon color stays out: even shadow-piercing styles don't reach it
   ([why](Glance-Card#why-no-icon-color)).
 
@@ -58,7 +73,7 @@ effects, icon size).
 
 ## Post-1.0 stretch
 
-- Official Mushroom / Bubble card support
+- Further custom cards beyond Mushroom / Bubble, and more Bubble card types (pop-ups, climate, …)
 - A multi-entity AND/OR condition builder
 - A visual keyframe animation builder (beyond the built-in presets)
 - Bulk dashboard `card_mod:` → `uix:` key migration (parked deliberately:

@@ -23,8 +23,11 @@ import {
   DEFAULT_ICON_COLOR,
   DEFAULT_ACCENT_COLOR,
 } from '../parser/state-mapper.js';
-import { generateCss, buildThresholdJinja, FONT_WEIGHT_VALUE } from '../generator/css-generator.js';
+import { generateCss, buildThresholdJinja, settleEntityless, FONT_WEIGHT_VALUE } from '../generator/css-generator.js';
 import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
+import { generateOwnedEntries, fontHasBaseSettings } from '../utils/owned-entries.js';
+import { capsFor } from '../utils/card-caps.js';
+import { profileKeyOf } from '../utils/custom-card-profiles.js';
 import {
   hasStyleContent,
   usesUixOnlyFeatures,
@@ -114,11 +117,24 @@ export function buildMergedStudioState(
   config: CardModCardConfig,
   hass?: HomeAssistant,
 ): StudioState {
+  // A card with no entity of its own can't react to "its" state — a style
+  // saved earlier with `is_state(config.entity, …)` on one (or the Grayscale
+  // default) loads as "always", which is what the next save writes
+  // (settleEntityless; the panel never offers those options there).
+  return settleEntityless(mergedStudioState(config, hass), config as unknown as Record<string, unknown>);
+}
+
+function mergedStudioState(
+  config: CardModCardConfig,
+  hass?: HomeAssistant,
+): StudioState {
   const outputKey = pickOutputKey(hass);
+  const profileKey = profileKeyOf(config);
+  const cardConfig = config as unknown as Record<string, unknown>;
   const primaryStyle = outputKey === 'uix' ? config.uix?.style : config.card_mod?.style;
   const secondaryStyle = outputKey === 'uix' ? config.card_mod?.style : config.uix?.style;
 
-  const primaryState = mapToStudioState(parseStyleValue(primaryStyle), config.type);
+  const primaryState = mapToStudioState(parseStyleValue(primaryStyle), profileKey, cardConfig);
 
   if (isDictForm(secondaryStyle) && hasStyleContent(secondaryStyle)) {
     // v0.10: a dict-form SECONDARY that is the card's ONLY style is simply
@@ -127,7 +143,7 @@ export function buildMergedStudioState(
     // a uix: dict using UIX-only features, which stays under uix: (audit
     // v0.10 #6 — it used to be frozen behind a false "Mixed-form" banner).
     if (!hasStyleContent(primaryStyle)) {
-      const effective = mapToStudioState(parseStyleValue(secondaryStyle), config.type);
+      const effective = mapToStudioState(parseStyleValue(secondaryStyle), profileKey, cardConfig);
       const pin = outputKey === 'card_mod' && usesUixOnlyFeatures(config);
       return applyPaletteDefaults(
         pin && effective.dictSource ? { ...effective, dictSource: { ...effective.dictSource, pinKey: 'uix' } } : effective,
@@ -142,13 +158,14 @@ export function buildMergedStudioState(
     // carrier too, so the panel gate and the save path both fall back to
     // the mixed-form freeze (both keys preserved verbatim).
     const { dictSource: _mixed, ...frozen } = primaryState;
-    return applyPaletteDefaults(frozen);
+    // …and nothing may write owned entries into it either.
+    return applyPaletteDefaults({ ...frozen, font: { ...frozen.font, numberSizeEnabled: false, enabled: frozen.font.enabled && fontHasBaseSettings(frozen.font) } });
   }
 
   const secondaryUsable = outputKey === 'uix' || !usesUixOnlyFeatures(config);
   if (!hasStyleContent(secondaryStyle) || !secondaryUsable) return applyPaletteDefaults(primaryState);
 
-  const secondaryState = mapToStudioState(parseStyleValue(secondaryStyle), config.type);
+  const secondaryState = mapToStudioState(parseStyleValue(secondaryStyle), profileKey, cardConfig);
   return applyPaletteDefaults(mergeStudioStates(primaryState, secondaryState));
 }
 
@@ -163,10 +180,44 @@ export function applyStudioState(
   config: CardModCardConfig,
   hass?: HomeAssistant,
 ): CardModCardConfig {
-  const css = generateCss(state, config.type, {
+  const profileKey = profileKeyOf(config);
+  const css = generateCss(state, profileKey, {
     gaugeNeedle: (config as { needle?: boolean }).needle === true,
+    config: config as unknown as Record<string, unknown>,
   });
-  return applyCardModStyle(css, config, pickOutputKey(hass), state.dictSource);
+  return applyCardModStyle(css, config, pickOutputKey(hass), state.dictSource, generateOwnedEntries(state, profileKey));
+}
+
+/**
+ * The state with its dict carrier re-derived from the config it just
+ * wrote. The panel's echo guard skips rebuilding state for the Studio's own
+ * emits, so without this a write that switched the style between string
+ * and dictionary form (Number size on/off, v0.11) left a stale carrier:
+ * the first switch-on showed the mixed-form lock, and a switch-off kept
+ * re-writing a dictionary.
+ */
+export function refreshCarrier(
+  state: StudioState,
+  written: CardModCardConfig,
+  hass?: HomeAssistant,
+): StudioState {
+  const { dictSource: fresh } = buildMergedStudioState(written, hass);
+  const { dictSource: old, ...rest } = state;
+  if (!fresh) return rest;
+  let dictSource = fresh;
+  if (old) {
+    // What the written config can't tell: whether the Studio created the
+    // dict (a hand-written `{'.': …}` stays a dict after Number size goes
+    // off), and where `.` sat when this write left it out (all CSS off) —
+    // a later write puts it back there, not first.
+    dictSource = { ...dictSource, studioCreated: old.studioCreated ?? false };
+    if (fresh.rootIndex === null && old.rootIndex !== null) {
+      const kept = new Set(fresh.entries.map((e) => e.key));
+      const before = old.entries.slice(0, old.rootIndex).filter((e) => kept.has(e.key)).length;
+      dictSource = { ...dictSource, rootIndex: before };
+    }
+  }
+  return { ...rest, dictSource };
 }
 
 // ---------------------------------------------------------------------------
@@ -255,7 +306,7 @@ export function initEntityRowStyles(
   config: CardModCardConfig,
   hass?: HomeAssistant,
 ): EntitiesRowStyles {
-  if (config.type !== 'entities') return {};
+  if (!capsFor(profileKeyOf(config)).isEntities) return {};
   const rows = (config as unknown as { entities?: EntitiesRowLike[] }).entities;
   if (!rows?.length) return {};
 
@@ -287,7 +338,7 @@ export function generateEntityRowCss(style: EntitiesRowStyle, entityId: string):
 
   // Per-row font (issue #25 follow-up): rows inherit the card-level Font by
   // default; these override just this row.
-  if (style.fontSizePx) decls.push(`  font-size: ${style.fontSizePx}px;`);
+  if (style.fontSizePx != null) decls.push(`  font-size: ${style.fontSizePx}px;`);
   if (style.fontWeight) decls.push(`  font-weight: ${FONT_WEIGHT_VALUE[style.fontWeight]};`);
 
   const hostBlock = decls.length ? `:host {\n${decls.join('\n')}\n}` : '';
@@ -307,7 +358,7 @@ export function rowStyleHasContent(rowStyle: EntitiesRowStyle | undefined): bool
     rowStyle.textColor ||
     (rowStyle.textMode === 'threshold' && rowStyle.textRules?.length)
   );
-  return hasIcon || hasText || !!rowStyle.fontSizePx || !!rowStyle.fontWeight || !!rowStyle.extraCss;
+  return hasIcon || hasText || rowStyle.fontSizePx != null || !!rowStyle.fontWeight || !!rowStyle.extraCss;
 }
 
 /**
@@ -347,6 +398,35 @@ function withRowStateColor(
   return updated;
 }
 
+/** Canonical JSON with sorted keys, so a slot whose keys came out in another
+ *  order still compares equal. (`undefined` properties are already omitted by
+ *  JSON.stringify — that is what makes an on-then-off control compare equal.) */
+function canonicalStyle(value: unknown): string {
+  const norm = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(norm);
+    if (v && typeof v === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const k of Object.keys(v as object).sort()) out[k] = norm((v as Record<string, unknown>)[k]);
+      return out;
+    }
+    return v;
+  };
+  return JSON.stringify(norm(value));
+}
+
+/** True when the row's style slot equals a fresh parse of the row as it
+ *  stands in the config now — i.e. this slot would write nothing new, so the
+ *  row is handed back as the same object. The panel emits every edit and the
+ *  config comes back, so "now" is the row as last written, not as first
+ *  loaded: a toggle on then off compares against the row after the "on"
+ *  write. Derived, not tracked: no dirty flag can go stale. */
+function rowStyleUnchanged(row: EntitiesRowLike, rowStyle: EntitiesRowStyle, hass?: HomeAssistant): boolean {
+  const baseline = typeof row === 'string'
+    ? { iconColor: '', textColor: '' }
+    : buildMergedRowStyle(row, hass);
+  return canonicalStyle(baseline) === canonicalStyle(rowStyle);
+}
+
 /** Writes the row-style map (keyed by rowStyleKey(index) — see above) back
  *  into each row's card_mod:/uix: block, matching styles to rows by
  *  position so duplicate-entity rows round-trip independently. */
@@ -363,6 +443,10 @@ export function applyEntityRowStyles(
     const entityId = rowEntityId(row);
     if (!entityId) return row;
     const rowStyle = rowStyles[rowStyleKey(index)];
+    // Untouched row (slot equals a fresh parse of the row as it is now): hand
+    // back the original object — never regenerate it. A missing slot means
+    // nothing was ever read for this row, so it is equally untouched.
+    if (!rowStyle || rowStyleUnchanged(row, rowStyle, hass)) return row;
     const hasContent = rowStyleHasContent(rowStyle);
     // Bare-string rows stay bare strings until they actually gain a style —
     // then they're promoted to the equivalent object form (the only form

@@ -34,6 +34,8 @@
 - [Picture](Picture-Cards)
 - [Media & Alarm](Media-and-Alarm-Cards)
 - [Containers](Container-Cards)
+- [Mushroom](Mushroom-Cards) *(new in 0.11, beta)*
+- [Bubble Card](Bubble-Card) *(new in 0.11, beta)*
 - [iframe / webpage / map](Minimal-Support-Cards)
 
 **Reference**

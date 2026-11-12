@@ -66,3 +66,4 @@ harness/functional-ui-check-*.json
 harness/dbg*.png
 harness/module-effect-audit-*.json
 harness/module-effect-audit-*.md
+harness/pierce-check-*.json

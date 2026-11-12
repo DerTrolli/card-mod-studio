@@ -2,7 +2,7 @@
 styling section per row, because card-level icon/text styling can't reach
 into individual rows (each row is its own shadow-DOM element).
 
-![Per-row styling](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/06%20Entities%20Card%20Modifications.png)
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/06%20Entities%20Card%20Modifications.png" alt="Per-row styling" width="630">
 
 ## Per row, you can style
 
@@ -11,9 +11,18 @@ into individual rows (each row is its own shadow-DOM element).
   [Threshold Colors](Threshold-Colors), evaluated against this row's entity)
 - **Text / state color** — Static or Threshold, same way
 - **Font (this row)** — a text size + weight override, layered on top of the
-  card-level [Font module](Font-and-Text)
+  card-level [Font module](Font-and-Text). Its switch only reveals the
+  controls: size starts at "Default" and weight at "Default", and nothing is
+  written until you set one (switching it off clears both)
 
-A dot on the row header marks rows that carry styling.
+A dot on the row header marks rows that carry styling. Each row is labelled
+the way HA labels it: on HA 2026.11 and newer that is HA's own text for the
+row (it follows HA 2026.11's naming of device and entity); on older HA it
+falls back to the row's `name:`, then the entity's friendly name, then the
+entity id. When two rows would get the same label they are numbered
+("Lamp (1)", "Lamp (2)"). Section, divider and link rows have no styling
+controls and say so. Pointing at a row in the live preview names it too
+("Entity Rows — Living room lamp").
 
 ## Row forms — both work
 
@@ -27,6 +36,18 @@ entities:
 Bare-string rows are styleable too (since v0.8.0); they're converted to the
 object form automatically the moment they gain styling, because only the
 object form can carry a style block. Unstyled string rows are left untouched.
+A row stays an `{entity: …}` object after its styling is removed again; it
+isn't turned back into a string.
+
+Saving never rewrites a row you didn't touch: its CSS, its key order and
+options such as `state_color` stay exactly as they were. (Before
+v0.11.0-beta.3 an unrelated save could rewrite every row.)
+
+A row declaration you wrote with `!important` (`color`, `--state-icon-color`,
+`font-size`, `font-weight`) is not read into the row's controls and is written
+back unchanged when you edit the row (v0.11.0; earlier the flag was
+dropped). If you then set the same thing with a row control, the row shows a
+warning that your own CSS overrides it.
 
 ## The generated YAML
 

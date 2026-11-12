@@ -7,6 +7,8 @@ import type { TemplateResult } from 'lit';
 import type { HomeAssistant, StyleCondition } from '../types/index.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
+import type { OwnStateKind } from '../utils/card-caps.js';
+import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 
 /**
  * Theme-aware design tokens shared by every module (and re-declared on
@@ -75,6 +77,67 @@ export const moduleStyles = [
   }
 
   .module-header:focus-visible {
+    outline: 2px solid var(--primary-color, #03a9f4);
+    outline-offset: -2px;
+  }
+
+  /* Text kept for assistive technology only (names the control it sits in). */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /* HA's switch (2026.x) indents its label slot by .5em even when the
+     slotted text is the screen-reader-only name above. */
+  ha-switch::part(label) {
+    margin-inline-start: 0;
+  }
+  /* HA's slider (2026.x) takes its name from a label part it would show
+     above the track; the row already shows the label, so keep the part out
+     of the layout (a hidden part still names the slider). The label's
+     presence also gives the track a gap above it of its own, which the
+     margin below takes away again. Where the slider pads its track for
+     touch (2026.11: 14px of padding balanced by a negative margin that the
+     label's gap overrides), prepareSliders reports that padding in
+     --cms-slider-pad and the margin gives it back. Where there is no such
+     padding (2026.2) the variable is unset and the margin is 0. */
+  ha-slider::part(label) {
+    display: none;
+  }
+  ha-slider::part(slider) {
+    margin-block-start: calc(-1 * var(--cms-slider-pad, 0px));
+    /* The slider's own touch-action is "none", so a vertical swipe that
+       starts on it neither scrolls the panel nor stays a no-op (it moves the
+       value): hand vertical pans back to the browser. See guardSliderTouch. */
+    touch-action: pan-y;
+  }
+
+  /* Header whose button and switch are siblings (renderModuleHeader): the
+     button takes over the bar's padding so the whole bar still toggles. */
+  .module-header.has-toggle {
+    padding: 0 14px 0 0;
+    gap: 0;
+    cursor: default;
+  }
+  .module-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    align-self: stretch;
+    box-sizing: border-box;
+    min-height: 44px;
+    padding: 6px 6px 6px 14px;
+    cursor: pointer;
+  }
+  .module-toggle:focus-visible {
     outline: 2px solid var(--primary-color, #03a9f4);
     outline-offset: -2px;
   }
@@ -201,9 +264,16 @@ export const moduleStyles = [
   input[type='text'] {
     width: 100%;
   }
-  input[type='number'] {
+  input[type='number'],
+  input.num {
     width: 84px;
     min-width: 0;
+  }
+  /* Invalid number: dashed border as well as colour, plus aria-invalid. */
+  input[aria-invalid='true'] {
+    border: 1px dashed var(--cms-line-error);
+    background: var(--cms-tint-error);
+    color: var(--cms-ink-error);
   }
   select:focus-visible,
   input[type='text']:focus-visible,
@@ -281,27 +351,151 @@ export const moduleStyles = [
     font-size: 11px;
   }
 
-  /* Touch screens: grow the small controls to comfortable tap targets. */
+  /* Touch screens: every control gets at least a 40x40px hit area. Fields
+     and buttons that already have a box grow a little; small round or inline
+     controls keep their look and take an invisible extension instead. */
   @media (pointer: coarse) {
     select,
     input[type='text'],
     input[type='number'] {
-      min-height: 38px;
+      min-height: 40px;
     }
     .btn-danger {
-      min-width: 36px;
-      min-height: 36px;
+      min-width: 40px;
+      min-height: 40px;
     }
+    .btn-add {
+      min-height: 40px;
+    }
+    .reset-btn {
+      position: relative;
+    }
+    .reset-btn::after {
+      content: '';
+      position: absolute;
+      inset: -9px;
+    }
+    /* HA's switch draws a 40px touch area itself (2026.x); say so explicitly. */
+    ha-switch {
+      --ha-switch-min-touch-size: 40px;
+    }
+  }
+
+  /* "Not set" affordances (see renderResetButton / renderDefaultOption). */
+  /* The unset label ("Default (14px)") and the set one (value + reset
+     button) take the same width, so the slider doesn't jump when a drag
+     flips between them: 80 = 48 + 8 gap + 24 button. */
+  .value-label.unset,
+  .value-label:has(+ .reset-btn) {
+    white-space: nowrap;
+  }
+  /* Italic alone marks "not set": dimming the 11px label as well dropped it
+     below 4.5:1 against the panel in both themes. */
+  .value-label.unset {
+    min-width: 80px;
+    font-style: italic;
+  }
+  .value-label:has(+ .reset-btn) {
+    min-width: 48px;
+  }
+  .reset-btn {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--secondary-text-color, #727272);
+    background: none;
+    border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .reset-btn:hover {
+    background: var(--cms-fill-hover);
+  }
+  .reset-btn:focus-visible {
+    outline: 2px solid var(--primary-color, #03a9f4);
+    outline-offset: 1px;
   }
 `,
 ];
 
 /**
+ * "Not set" support for controls whose property is optional (undefined =
+ * the card keeps its native value; nothing is written to the style).
+ *
+ * Sliders: while unset, show the native value as a neutral placeholder
+ * (`<span class="value-label unset">Default (16px)</span>`), emit only on
+ * the user's own `@change`, and once set follow the label with this button.
+ * It sits on the control's existing line (inside `.control-right`) and
+ * `onClick` should emit the field as `undefined`.
+ * Colour pickers use `<cms-color-picker clearable>` instead.
+ */
+export function renderResetButton(
+  onClick: () => void,
+  label = 'Reset to default',
+): TemplateResult {
+  return html`<button
+    type="button"
+    class="reset-btn"
+    aria-label=${label}
+    title=${label}
+    @click=${onClick}
+  >↺</button>`;
+}
+
+/**
+ * First option of a `<select>` whose property is optional: value `''` means
+ * "not set"; handlers map it to `undefined`. `native` names the card's own
+ * value, e.g. `renderDefaultOption(!weight, 'medium')` → "Default (medium)".
+ */
+export function renderDefaultOption(selected: boolean, native = ''): TemplateResult {
+  return html`<option value="" ?selected=${selected}>${native ? `Default (${native})` : 'Default'}</option>`;
+}
+
+/** The pending observer per editor and the name it should apply. */
+const pendingNames = new WeakMap<Element, { mo: MutationObserver; name: string }>();
+
+/**
+ * Names the text box inside HA's code editor. `ha-code-editor` (2026.x) takes
+ * no label and its `.cm-content` role=textbox stays unnamed, so the name is
+ * set on that node once CodeMirror has created it (it may not exist yet at the
+ * first render). The editor's shadow root is open, so this needs no HA API.
+ * At most one observer per editor, gone once the node has its name.
+ */
+export function nameCodeEditor(editor: Element, name: string): void {
+  const root = editor.shadowRoot;
+  if (!root) return;
+  const apply = (n: string): boolean => {
+    const box = root.querySelector('.cm-content');
+    if (!box) return false;
+    if (box.getAttribute('aria-label') !== n) box.setAttribute('aria-label', n);
+    return true;
+  };
+  // updated() calls this on every render: keep one observer per editor.
+  const waiting = pendingNames.get(editor);
+  if (waiting) {
+    waiting.name = name;
+    if (apply(name)) { waiting.mo.disconnect(); pendingNames.delete(editor); }
+    return;
+  }
+  if (apply(name) || typeof MutationObserver === 'undefined') return;
+  const entry = { mo: undefined as unknown as MutationObserver, name };
+  entry.mo = new MutationObserver(() => {
+    if (apply(entry.name)) { entry.mo.disconnect(); pendingNames.delete(editor); }
+  });
+  pendingNames.set(editor, entry);
+  entry.mo.observe(root, { childList: true, subtree: true });
+}
+
+/**
  * Keyboard support for the collapsible headers (module / child / row):
  * they're `role="button" tabindex="0"` divs, so Enter / Space must toggle
- * them like a click. Key events coming from a control INSIDE the header
- * (its enable switch) are left alone, so flipping the switch with the
- * keyboard doesn't also fold the module.
+ * them like a click. Only a key pressed on the header itself counts; the
+ * enable switch is a SIBLING (see renderModuleHeader), so its keys never
+ * arrive here, and anything else focusable inside is left alone.
  */
 export function onHeaderKeydown(e: KeyboardEvent): void {
   if (e.target !== e.currentTarget) return;
@@ -309,6 +503,303 @@ export function onHeaderKeydown(e: KeyboardEvent): void {
     e.preventDefault();
     (e.currentTarget as HTMLElement).click();
   }
+}
+
+export interface ModuleHeaderOptions {
+  icon: string;
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  /** Advanced CSS is overriding this module (warning badge). */
+  overridden?: boolean;
+  /** The module's on/off switch; omitted for modules that have none. */
+  enable?: { checked: boolean; onChange: (checked: boolean) => void };
+}
+
+/** Id of the module's body, which the header button controls. */
+export const MODULE_BODY_ID = 'module-body';
+
+/**
+ * The collapsible header every module shares. The expand/collapse button
+ * covers the chevron, title and badge; the enable switch is its SIBLING, not
+ * a descendant (an interactive control inside a button is read badly by
+ * assistive technology). The decorative chevron and emoji are hidden from the
+ * button's name, so it reads "Font". The switch is named "Enable <title>"
+ * from the same text.
+ */
+export function renderModuleHeader(o: ModuleHeaderOptions): TemplateResult {
+  const name = `Enable ${o.title}`;
+  return html`
+    <div class="module-header has-toggle">
+      <div
+        class="module-toggle"
+        role="button"
+        tabindex="0"
+        aria-expanded=${o.open ? 'true' : 'false'}
+        aria-controls=${o.open ? MODULE_BODY_ID : nothing}
+        @click=${() => o.onToggle()}
+        @keydown=${onHeaderKeydown}
+      >
+        <span class="module-chevron" aria-hidden="true">${o.open ? '▼' : '▶'}</span>
+        <span class="module-title"><span><span aria-hidden="true">${o.icon}</span> ${o.title}</span></span>
+        ${renderOverrideBadge(o.overridden ?? false)}
+      </div>
+      ${o.enable
+        ? html`<ha-switch
+            aria-label=${name}
+            .checked=${o.enable.checked}
+            @change=${(e: Event) => o.enable!.onChange((e.target as HTMLInputElement).checked)}
+          ></ha-switch>`
+        : nothing}
+    </div>
+  `;
+}
+
+/** The name each switch was last given (see nameSwitches). */
+const namedSwitches = new WeakMap<HTMLElement, string>();
+
+/** Marks the screen-reader-only text added to a switch whose inner input
+ *  cannot be reached (see nameSwitch). */
+const SWITCH_NAME_FALLBACK = 'data-cms-switch-name';
+
+/**
+ * Gives a switch its accessible name from the `aria-label` on the host.
+ *
+ * Home Assistant 2026.x ignores the host's aria-label and names the switch
+ * from its slotted text, which a screen reader then also reads as a separate
+ * static text node. So the name goes on the inner `[role=switch]` input in
+ * the switch's own shadow root. Where that input can't be reached (a switch
+ * that isn't defined yet, or built differently — Home Assistant 2025.9), the
+ * name stays as screen-reader-only slotted text, as before. Safe to call on
+ * every render: it settles on one of the two and removes the other.
+ */
+export function nameSwitch(sw: HTMLElement): void {
+  const name = (sw.getAttribute('aria-label') ?? '').trim();
+  if (!name) return;
+  namedSwitches.set(sw, name);
+  const inner = (): Element | null => sw.shadowRoot?.querySelector('[role="switch"]') ?? null;
+  const settle = (): void => {
+    const input = inner();
+    const fallback = sw.querySelector(`[${SWITCH_NAME_FALLBACK}]`);
+    if (input) {
+      input.setAttribute('aria-label', name);
+      fallback?.remove();
+    } else if (fallback) {
+      if (fallback.textContent !== name) fallback.textContent = name;
+    } else {
+      const span = sw.ownerDocument.createElement('span');
+      span.className = 'sr-only';
+      span.setAttribute(SWITCH_NAME_FALLBACK, '');
+      span.textContent = name;
+      sw.appendChild(span);
+    }
+  };
+  const rendered = (sw as { updateComplete?: Promise<unknown> }).updateComplete;
+  if (inner()) {
+    settle();
+  } else if (rendered) {
+    // Defined, but its shadow root isn't built yet: wait for its first render.
+    void rendered.then(settle, settle);
+  } else {
+    // Not defined (yet): keep the name now, and move it once it is.
+    settle();
+    if (!customElements.get(sw.localName)) {
+      void customElements.whenDefined?.(sw.localName)
+        .then(() => (sw as { updateComplete?: Promise<unknown> }).updateComplete)
+        .then(settle, settle);
+    }
+  }
+}
+
+/** nameSwitch for every `ha-switch[aria-label]` under `root` — call after render.
+ *  A switch already given its current name is left alone (no shadow-root
+ *  query per update); a re-created switch or a changed label is handled. */
+export function nameSwitches(root: ParentNode | null | undefined): void {
+  root?.querySelectorAll?.<HTMLElement>('ha-switch[aria-label]').forEach((sw) => {
+    if (namedSwitches.get(sw) === (sw.getAttribute('aria-label') ?? '').trim()) return;
+    nameSwitch(sw);
+  });
+}
+
+/** The custom property markSliderPadding sets on a slider (see moduleStyles). */
+const SLIDER_PAD_VAR = '--cms-slider-pad';
+
+/** Sliders markSliderPadding has already looked at. */
+const paddedSliders = new WeakSet<HTMLElement>();
+
+/**
+ * Tells the module styles how much block padding the slider puts around its
+ * track.
+ *
+ * Some Home Assistant sliders (2026.11) pad the `slider` part by N px and pull
+ * it back with a margin of -N px, and show the label above it; the module
+ * styles hide that label, so they have to restore the -N px margin that the
+ * label's gap replaced. Other versions (2026.2) have no such padding, and
+ * 2025.9 has no `slider` part at all, so nothing is restored there. This reads
+ * the padding from the rendered part rather than from a version number and
+ * publishes it as `--cms-slider-pad` on the host. Safe to call on every
+ * update: a slider is only looked at once.
+ */
+export function markSliderPadding(sl: HTMLElement): void {
+  if (paddedSliders.has(sl)) return;
+  paddedSliders.add(sl);
+  /** Reads the part's padding; false while the part is not rendered yet. */
+  const apply = (): boolean => {
+    const part = sl.shadowRoot?.querySelector('[part~="slider"]');
+    const view = sl.ownerDocument?.defaultView;
+    if (!part || !view) return false;
+    const pad = parseFloat(view.getComputedStyle(part).paddingBlockStart);
+    if (pad > 0) sl.style.setProperty(SLIDER_PAD_VAR, `${pad}px`);
+    else sl.style.removeProperty(SLIDER_PAD_VAR);
+    return true;
+  };
+  const updated = (): Promise<unknown> | undefined =>
+    (sl as { updateComplete?: Promise<unknown> }).updateComplete;
+  // A shadow root can exist before the first render has filled it, so a
+  // missing part is retried once the slider has finished rendering.
+  const retry = (): void => {
+    if (!apply()) void updated()?.then(() => { apply(); }, () => undefined);
+  };
+  if (apply()) return;
+  if (customElements.get(sl.localName) || !customElements.whenDefined) {
+    retry();
+  } else {
+    void customElements.whenDefined(sl.localName).then(retry, retry);
+  }
+}
+
+/** The name each slider was last given (see nameSlider). */
+const namedSliders = new WeakMap<HTMLElement, string>();
+
+/**
+ * Gives a slider built on a native range input its accessible name.
+ *
+ * Home Assistant 2025.9's slider keeps its input in its shadow root and names
+ * it from its `ariaLabel` property, falling back to the current value (so a
+ * screen reader hears `slider "14"`). It drops the host's `aria-label`
+ * attribute without keeping it, and ignores `label`. Setting the `ariaLabel`
+ * property on the host with the name gives the input that label, and, unlike
+ * rewriting the input's attribute, survives the slider re-rendering when its
+ * value changes; the value stays on the input as its value text. Newer sliders
+ * (no such input: they name their slider part from `label`) are left alone.
+ * The name comes from the host's `aria-label`, else its `label`.
+ */
+export function nameSlider(sl: HTMLElement): void {
+  const name = (sl.getAttribute('aria-label') ?? sl.getAttribute('label') ?? '').trim();
+  if (!name) return;
+  namedSliders.set(sl, name);
+  const apply = (): boolean => {
+    const root = sl.shadowRoot;
+    if (!root) return false;
+    if (root.querySelector('input[type="range"]')) {
+      (sl as { ariaLabel: string | null }).ariaLabel = name;
+      return true;
+    }
+    return !!root.querySelector('[part~="slider"]');
+  };
+  const updated = (): Promise<unknown> | undefined =>
+    (sl as { updateComplete?: Promise<unknown> }).updateComplete;
+  const retry = (): void => {
+    if (!apply()) void updated()?.then(() => { apply(); }, () => undefined);
+  };
+  if (apply()) return;
+  if (customElements.get(sl.localName) || !customElements.whenDefined) {
+    retry();
+  } else {
+    void customElements.whenDefined(sl.localName).then(retry, retry);
+  }
+}
+
+/** Gets every `ha-slider` under `root` ready — its name and the module
+ *  styles' offset. Call after render, next to nameSwitches. A slider already
+ *  given its current name is left alone. */
+export function prepareSliders(root: ParentNode | null | undefined): void {
+  root?.querySelectorAll?.<HTMLElement>('ha-slider').forEach((sl) => {
+    markSliderPadding(sl);
+    const name = (sl.getAttribute('aria-label') ?? sl.getAttribute('label') ?? '').trim();
+    if (namedSliders.get(sl) !== name) nameSlider(sl);
+  });
+}
+
+const guardedRoots = new WeakSet<object>();
+
+/**
+ * Keeps a vertical swipe that starts on a slider from changing its value.
+ *
+ * HA's slider (2026.x) sets its value on pointer-down and commits it when the
+ * gesture ends; once the browser takes a touch for scrolling (see the
+ * `touch-action: pan-y` rule above) it sends pointercancel, but the slider
+ * still fires `change` with the jumped value. So for TOUCH pointers only, the
+ * module root watches the gesture in the capture phase: while it is undecided
+ * (or turned vertical, or was cancelled) the slider's `input` / `change` never
+ * reach the module and the slider is put back to the value it had. A tap or a
+ * mostly-horizontal drag passes through unchanged; mouse, pen and keyboard are
+ * not touched. Reads only standard pointer events plus the slider's `value`.
+ */
+export function guardSliderTouch(root: EventTarget): void {
+  if (guardedRoots.has(root)) return;
+  guardedRoots.add(root);
+
+  type Slider = HTMLElement & { value: unknown };
+  interface Gesture {
+    id: number;
+    x: number;
+    y: number;
+    slider: Slider;
+    v0: unknown;
+    mode: 'pending' | 'horizontal' | 'vertical' | 'tap' | 'cancelled';
+  }
+  let g: Gesture | undefined;
+
+  const sliderOf = (e: Event): Slider | undefined =>
+    (e.composedPath?.() ?? []).find((n) => (n as Element).localName === 'ha-slider') as Slider | undefined;
+  const on = (type: string, fn: (e: PointerEvent) => void) =>
+    root.addEventListener(type, fn as unknown as EventListener, true);
+  /** Forget the gesture once the slider has finished its own end-of-gesture events. */
+  const finish = (restore: boolean) => {
+    const done = g!;
+    setTimeout(() => {
+      if (restore) done.slider.value = done.v0;
+      if (g === done) g = undefined;
+    }, 0);
+  };
+  const muted = (e: Event) => {
+    if (!g || sliderOf(e) !== g.slider) return false;
+    return g.mode === 'pending' || g.mode === 'vertical' || g.mode === 'cancelled';
+  };
+
+  on('pointerdown', (e) => {
+    const slider = e.pointerType === 'touch' ? sliderOf(e) : undefined;
+    g = slider ? { id: e.pointerId, x: e.clientX, y: e.clientY, slider, v0: slider.value, mode: 'pending' } : undefined;
+  });
+  on('pointermove', (e) => {
+    if (!g || e.pointerId !== g.id || g.mode !== 'pending') return;
+    const dx = e.clientX - g.x;
+    const dy = e.clientY - g.y;
+    if (Math.hypot(dx, dy) < 8) return;
+    g.mode = Math.abs(dy) > Math.abs(dx) ? 'vertical' : 'horizontal';
+  });
+  on('pointerup', (e) => {
+    if (!g || e.pointerId !== g.id) return;
+    if (g.mode === 'pending') g.mode = 'tap';
+    if (g.mode === 'vertical') {
+      g.mode = 'cancelled';
+      finish(true);
+    } else finish(false);
+  });
+  on('pointercancel', (e) => {
+    if (!g || e.pointerId !== g.id) return;
+    const was = g.mode;
+    if (was === 'pending' || was === 'vertical') {
+      g.mode = 'cancelled';
+      finish(true);
+    } else finish(false);
+  });
+  const swallow = (e: Event) => {
+    if (muted(e)) e.stopPropagation();
+  };
+  root.addEventListener('input', swallow, true);
+  root.addEventListener('change', swallow, true);
 }
 
 // ---------------------------------------------------------------------------
@@ -322,6 +813,9 @@ export interface WhenControlOptions {
   value: WhenValue;
   /** False when the card's entity has no on/off state (e.g. a sensor). */
   stateAware: boolean;
+  /** The entity can be OFF but never ON (climate, water_heater): OFF is
+   *  offered, ON is not. Ignored when stateAware. */
+  offOnly?: boolean;
   /** Noun used in the hint, e.g. "background", "grayscale", "animation". */
   noun: string;
   /** Offer the "another entity" option. */
@@ -332,6 +826,20 @@ export interface WhenControlOptions {
   hass?: HomeAssistant;
   onChange: (v: WhenValue) => void;
   onCustomEntity?: (id: string) => void;
+}
+
+/** Which of the ON / OFF options a condition select offers. A stored on/off
+ *  value keeps both visible (never a blank select, never rewritten); an
+ *  OFF-only entity offers OFF alone. */
+export function offeredOnOff(
+  stateAware: boolean,
+  offOnly: boolean | undefined,
+  hasStoredOnOff: boolean,
+): { showOn: boolean; showOff: boolean } {
+  return {
+    showOn: stateAware || hasStoredOnOff,
+    showOff: stateAware || !!offOnly || hasStoredOnOff,
+  };
 }
 
 function whenHint(v: WhenValue, o: WhenControlOptions): string {
@@ -354,25 +862,23 @@ function whenHint(v: WhenValue, o: WhenControlOptions): string {
  * so nothing changes silently. Returns the rows + a plain-language hint.
  */
 export function renderWhen(o: WhenControlOptions): TemplateResult {
-  const hasStateValue = o.value === 'on' || o.value === 'off';
-  const showOnOff = o.stateAware || hasStateValue;
+  const { showOn, showOff } = offeredOnOff(o.stateAware, o.offOnly, o.value === 'on' || o.value === 'off');
   // If "Always" is the only meaningful choice, drop the single-option dropdown.
-  const showSelect = showOnOff || !!o.allowCustom;
+  const showSelect = showOn || showOff || !!o.allowCustom;
 
   const opts: Array<{ v: WhenValue; label: string }> = [{ v: 'always', label: 'Always' }];
-  if (showOnOff) {
-    opts.push({ v: 'on', label: 'Only while entity is ON' });
-    opts.push({ v: 'off', label: 'Only while entity is OFF' });
-  }
+  if (showOn) opts.push({ v: 'on', label: 'Only while entity is ON' });
+  if (showOff) opts.push({ v: 'off', label: 'Only while entity is OFF' });
   if (o.allowCustom) opts.push({ v: 'custom', label: 'While another entity is ON…' });
 
   return html`
     ${showSelect
       ? html`
           <div class="control-row">
-            <span class="control-label">Apply when</span>
+            <span class="control-label" id="when-label">Apply when</span>
             <div class="control-right">
               <select
+                aria-labelledby="when-label"
                 .value=${o.value}
                 @change=${(e: Event) =>
                   o.onChange((e.target as HTMLSelectElement).value as WhenValue)}
@@ -398,6 +904,7 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
                 .value=${o.customEntity ?? ''}
                 .includeDomains=${TOGGLE_DOMAINS}
                 label=""
+                accessible-name="Entity to watch"
                 placeholder="input_boolean.my_entity"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>
                   o.onCustomEntity?.(e.detail.value.trim())}
@@ -408,6 +915,33 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
       : nothing}
     <div class="when-hint">${whenHint(o.value, o)}</div>
   `;
+}
+
+/**
+ * The hint under "Controlled by" in Icon Color / Accent's ON / OFF (and light)
+ * mode — one wording for both modules. Warns (class `warn`) when the card's own
+ * entity is what gets watched and it can't be ON.
+ */
+export function renderWatchHint(o: {
+  entityId?: string;
+  cardEntity: string;
+  kind: OwnStateKind;
+}): TemplateResult {
+  const { entityId, cardEntity, kind } = o;
+  const useless = kind !== 'on-off' && !entityId;
+  const text = entityId
+    ? cardEntity
+      ? `Uses ${entityId}'s on/off state, not this card's own entity.`
+      : `Uses ${entityId}'s on/off state.`
+    : !useless
+    ? "Leave empty to use this card's own entity."
+    : !cardEntity
+    ? "This card has no entity of its own — pick the entity to watch, or choose One fixed color. Until then no color is written and this choice isn't kept."
+    : kind === 'off-only'
+    // Anything that isn't "on" takes the OFF branch, so the OFF colour shows in every mode.
+    ? `This card's entity (${cardEntity}) is never "on" — the ON colour never shows and the OFF colour shows in every state. Pick another entity, or use Threshold Colors for its modes.`
+    : `This card's entity (${cardEntity}) has no on/off state of its own — pick a toggleable entity above, or this mode won't do anything.`;
+  return html`<div class="when-hint ${useless ? 'warn' : ''}">${text}</div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -441,6 +975,8 @@ export function renderOverrideBadge(overridden: boolean): TemplateResult | typeo
   if (!overridden) return nothing;
   return html`<span
     class="override-badge"
+    role="img"
+    aria-label="Custom CSS in Advanced CSS is currently overriding this control"
     title="Custom CSS in Advanced CSS is currently overriding this control"
   >⚠️</span>`;
 }
@@ -472,6 +1008,8 @@ export interface ConditionControlOptions {
   condition: StyleCondition | undefined;
   /** False when the card's entity has no on/off state. */
   stateAware: boolean;
+  /** OFF-only entity (climate, water_heater): OFF offered, ON not. */
+  offOnly?: boolean;
   /** Noun used in labels/hints, e.g. "border", "effects", "icon size". */
   noun: string;
   hass?: HomeAssistant;
@@ -523,16 +1061,13 @@ function conditionHint(c: StyleCondition | undefined, o: ConditionControlOptions
 export function renderCondition(o: ConditionControlOptions): TemplateResult {
   const c = o.condition;
   const when = c?.when ?? 'always';
-  const hasStateValue = when === 'on' || when === 'off';
-  const showOnOff = o.stateAware || hasStateValue;
+  const { showOn, showOff } = offeredOnOff(o.stateAware, o.offOnly, when === 'on' || when === 'off');
 
   const opts: Array<{ v: StyleCondition['when']; label: string }> = [
     { v: 'always', label: 'Always' },
   ];
-  if (showOnOff) {
-    opts.push({ v: 'on', label: 'Only while entity is ON' });
-    opts.push({ v: 'off', label: 'Only while entity is OFF' });
-  }
+  if (showOn) opts.push({ v: 'on', label: 'Only while entity is ON' });
+  if (showOff) opts.push({ v: 'off', label: 'Only while entity is OFF' });
   opts.push({ v: 'custom', label: 'While another entity is ON…' });
   opts.push({ v: 'value', label: 'While a value matches…' });
 
@@ -553,9 +1088,10 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
 
   return html`
     <div class="control-row">
-      <span class="control-label">Reacts to</span>
+      <span class="control-label" id="cond-label">Reacts to</span>
       <div class="control-right">
         <select
+          aria-labelledby="cond-label"
           .value=${when}
           @change=${(e: Event) => pick((e.target as HTMLSelectElement).value as StyleCondition['when'])}
         >
@@ -576,6 +1112,7 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
                 .value=${c?.customEntity ?? ''}
                 .includeDomains=${TOGGLE_DOMAINS}
                 label=""
+                accessible-name="Entity to watch"
                 placeholder="input_boolean.my_entity"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>
                   change({ customEntity: e.detail.value.trim() })}
@@ -593,6 +1130,7 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
                 .hass=${o.hass}
                 .value=${c?.valueEntity ?? ''}
                 label=""
+                accessible-name="Entity to read the value from"
                 placeholder="sensor.temperature"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>
                   change({ valueEntity: e.detail.value.trim(), valueAttribute: '' })}
@@ -602,9 +1140,10 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
           ${attrNames.length > 0 || c?.valueAttribute
             ? html`
                 <div class="control-row">
-                  <span class="control-label">Value read from</span>
+                  <span class="control-label" id="cond-read-label">Value read from</span>
                   <div class="control-right">
                     <select
+                      aria-labelledby="cond-read-label"
                       .value=${c?.valueAttribute ?? ''}
                       @change=${(e: Event) =>
                         change({ valueAttribute: (e.target as HTMLSelectElement).value })}
@@ -622,9 +1161,10 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
               `
             : nothing}
           <div class="control-row">
-            <span class="control-label">Condition</span>
+            <span class="control-label" id="cond-op-label">Condition</span>
             <div class="control-right">
               <select
+                aria-labelledby="cond-op-label"
                 .value=${c?.valueOperator ?? '>'}
                 @change=${(e: Event) =>
                   change({
@@ -645,12 +1185,20 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
             <span class="control-label">Threshold</span>
             <div class="control-right">
               <input
-                type="number"
+                type="text"
+                class="num"
+                aria-label="Threshold value"
+                aria-invalid="false"
+                spellcheck="false"
+                autocomplete="off"
                 .value=${String(c?.valueThreshold ?? 0)}
-                @change=${(e: Event) =>
-                  change({
-                    valueThreshold: parseFloat((e.target as HTMLInputElement).value) || 0,
-                  })}
+                @input=${markNumberInput}
+                @change=${(e: Event) => {
+                  // Empty / unparseable: keep the previous value (cue shows until blur).
+                  const n = commitNumberInput(e);
+                  if (n !== undefined) change({ valueThreshold: n });
+                }}
+                @blur=${(e: Event) => revertNumberInput(e, c?.valueThreshold ?? 0)}
               />
             </div>
           </div>

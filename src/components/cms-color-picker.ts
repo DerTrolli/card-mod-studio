@@ -1,6 +1,9 @@
 import { LitElement, html, css, nothing, render as litRender } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { getCachedPalette, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
+import { isValidCssColor, type ColorMode } from '../utils/css-color.js';
+import { keepEnterInStudio } from '../utils/enter-guard.js';
+import { rovingTarget, tabStopIndex } from '../utils/roving-focus.js';
 
 /**
  * Walks up through shadow-root hosts *and* slot assignments — the
@@ -153,6 +156,23 @@ const swatchStyles = css`
     outline-offset: 2px;
   }
   .custom { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+  .clear {
+    flex-shrink: 0;
+    height: 28px;
+    padding: 0 8px;
+    font: inherit;
+    font-size: 12px;
+    color: var(--secondary-text-color, #727272);
+    background: none;
+    border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .clear:hover { background: color-mix(in srgb, var(--primary-text-color, #212121) 8%, transparent); }
+  .clear:focus-visible {
+    outline: 2px solid var(--primary-color, #03a9f4);
+    outline-offset: 1px;
+  }
   .custom input[type="color"] {
     -webkit-appearance: none;
     appearance: none;
@@ -187,6 +207,48 @@ const swatchStyles = css`
     border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
     border-radius: 4px;
   }
+  /* Tokens fall back to HA's own: the popover portal sits outside the panel
+     and doesn't inherit the panel's --cms-* tokens. Dashed border + hint
+     line so the state isn't colour-only. */
+  .custom input[type="text"][aria-invalid="true"] {
+    border: 1px dashed var(--cms-line-error, var(--error-color, #db4437));
+    background: var(--cms-tint-error, color-mix(in srgb, var(--error-color, #db4437) 11%, transparent));
+    color: var(--cms-ink-error, var(--error-color, #db4437));
+  }
+  .invalid-hint {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--cms-ink-error, var(--error-color, #db4437));
+  }
+  /* The live region stays in the DOM; empty, it cancels the flex gap above it. */
+  .invalid-hint:empty { margin-top: -8px; }
+  @media (pointer: coarse) {
+    /* 26px swatches and a 34x26 trigger keep their look; the hit area grows
+       to 40px with an invisible extension. */
+    .preset,
+    .swatch-trigger {
+      position: relative;
+    }
+    .preset::after {
+      content: '';
+      position: absolute;
+      inset: -7px;
+    }
+    /* Swatch centres 40px apart, so neighbouring hit areas don't cut each
+       other down to 32px. */
+    .presets,
+    .preset-group {
+      gap: 14px;
+    }
+    .custom input[type="color"] {
+      width: 40px;
+      height: 40px;
+    }
+    .custom input[type="text"],
+    .clear {
+      height: 40px;
+    }
+  }
 `;
 
 /**
@@ -215,9 +277,30 @@ const popoverStyles = css`
 @customElement('cms-color-picker')
 export class CmsColorPicker extends LitElement {
   @property() value = '#ffffff';
+  /** What this picker sets (e.g. "Color when ON"): prefixes the names of its
+   *  trigger and fields so several pickers in one module read differently. */
+  @property() label = '';
   /** Compact mode: renders a single small swatch button that opens a floating popover on click, instead of always showing the full picker inline. Use where many pickers appear in a dense list (e.g. one per threshold rule) and the always-expanded form would be too tall. */
   @property({ type: Boolean }) compact = false;
+  /** Opt-in "not set" state: an empty `value` means "leave the card's own
+   *  colour alone". Shows `placeholder` in the text field and a clear button
+   *  on the same row; clearing emits `color-changed` with `value: ''`.
+   *  Default false, so every other usage is untouched. */
+  @property({ type: Boolean }) clearable = false;
+  /** Text shown while a clearable picker is unset, e.g. "Default (primary text)".
+   *  Display-only — never written to the style. */
+  @property() placeholder = '';
+  /** Colour the swatch shows while unset (a hex or var(--x)); display-only. */
+  @property({ attribute: false }) placeholderColor = '';
 
+  /** What the text field accepts. Default `color` = one CSS colour. `background`
+   *  also takes an image / gradient / `none` (the Background module's solid
+   *  field adopts any plain `background:` value); `stop` takes a gradient
+   *  stop, a colour plus up to two positions (`red 0%`). */
+  @property() validation: ColorMode = 'color';
+
+  /** The text field holds something that isn't a colour yet (never emitted). */
+  @state() private _invalid = false;
   @state() private _popoverOpen = false;
   @state() private _popoverPos: { top: number; left: number } | null = null;
 
@@ -231,7 +314,7 @@ export class CmsColorPicker extends LitElement {
     // composedPath() — check the portal host too.
     const path = e.composedPath();
     if (!path.includes(this) && !(this._portalHost && path.includes(this._portalHost))) {
-      this._closePopover();
+      this._closePopover(false); // the user went elsewhere: don't pull focus back
     }
   };
 
@@ -243,8 +326,43 @@ export class CmsColorPicker extends LitElement {
     if (e.key !== 'Escape') return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    this._closePopover();
-    (this.shadowRoot?.querySelector('.swatch-trigger') as HTMLElement | null)?.focus();
+    this._closePopover(true);
+  };
+
+  /** Tab / Shift+Tab inside the popover. The portal sits at the end of the
+   *  dialog, not next to the trigger, so a Tab off either end of the popover
+   *  would walk through the rest of the dialog: instead the popover closes
+   *  and focus returns to the trigger, whose next Tab continues in the panel
+   *  from where the user was. Between its own stops the browser's order is
+   *  already right. A typed hex value is committed first, as leaving the
+   *  field always has. */
+  private _onPopoverKeydown = (e: KeyboardEvent) => {
+    if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey) return;
+    const root = this._portalShadow;
+    if (!root) return;
+    const active = root.activeElement as HTMLElement | null;
+    const field = active as HTMLInputElement | null;
+    if (field?.localName === 'input' && field.type === 'text' && field.value !== (this.value ?? '')) {
+      if (this._commitText(field, true) === 'committed') {
+        e.preventDefault();
+        return; // _commitText closed the popover and focused the trigger
+      }
+    }
+    const stops = Array.from(root.querySelectorAll<HTMLElement>(
+      'button.preset[tabindex="0"], input[type="color"], input[type="text"], button.clear',
+    ));
+    if (stops.length === 0) return;
+    let at = active ? stops.indexOf(active) : -1;
+    if (at < 0 && active) {
+      // An arrowed-to swatch whose row has not re-rendered yet: its row's stop.
+      const row = active.closest('[role="group"]');
+      at = row ? stops.findIndex((s) => s.closest('[role="group"]') === row) : -1;
+    }
+    if (at < 0) return;
+    if ((e.shiftKey && at === 0) || (!e.shiftKey && at === stops.length - 1)) {
+      e.preventDefault();
+      this._closePopover(true);
+    }
   };
 
   static styles = [
@@ -260,6 +378,13 @@ export class CmsColorPicker extends LitElement {
         border-radius: 6px;
         cursor: pointer;
         box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-text-color, #212121) 22%, transparent);
+      }
+      @media (pointer: coarse) {
+        .swatch-trigger::after {
+          content: '';
+          position: absolute;
+          inset: -7px -3px;
+        }
       }
     `,
   ];
@@ -280,6 +405,11 @@ export class CmsColorPicker extends LitElement {
     this._destroyPortal();
   }
 
+  /** An accessible name for one of this picker's controls, led by `label`. */
+  private _name(text: string): string {
+    return this.label ? `${this.label}: ${text}` : text;
+  }
+
   render() {
     if (!this.compact) {
       return this._renderPickerBody();
@@ -291,7 +421,7 @@ export class CmsColorPicker extends LitElement {
         class="swatch-trigger"
         style="background: ${previewHexFor(this.value)}"
         title="${this.value}"
-        aria-label="Color ${this.value} — change"
+        aria-label="${this._name(`Color ${this.value} — change`)}"
         aria-haspopup="dialog"
         aria-expanded="${this._popoverOpen}"
         @click=${this._toggleCompactPopover}
@@ -307,42 +437,77 @@ export class CmsColorPicker extends LitElement {
     if (this._popoverOpen) this._renderPortalContent();
   }
 
+  /** The swatch the user last moved to by keyboard, per row (undefined: the
+   *  selected one, else the first, is the row's Tab stop). */
+  private _moved = new Map<string, number>();
+
+  private _onSwatchKeydown(e: KeyboardEvent, rowKey: string) {
+    const row = e.currentTarget as HTMLElement;
+    const buttons = Array.from(row.querySelectorAll<HTMLElement>('button.preset'));
+    const current = buttons.indexOf(e.target as HTMLElement);
+    if (current < 0) return;
+    const next = rovingTarget(e.key, current, buttons.length, e);
+    if (next === null) return;
+    e.preventDefault();
+    this._moved.set(rowKey, next);
+    buttons[next].focus();
+    this.requestUpdate();
+  }
+
+  /** One row of swatches: a single Tab stop (roving tabindex), arrows /
+   *  Home / End move between swatches, Enter / Space pick as buttons do. */
+  private _renderSwatchRow(
+    rowKey: string,
+    name: string,
+    items: Array<{ hex: string; title: string; name: string; selected: boolean; pick: () => void }>,
+    title?: string,
+  ) {
+    const stop = tabStopIndex(items.length, items.findIndex((i) => i.selected), this._moved.get(rowKey));
+    const groups = chunk(items.map((item, index) => ({ item, index })), 5);
+    return html`<div
+      class="presets"
+      role="group"
+      aria-label=${this._name(name)}
+      title=${title ?? nothing}
+      @keydown=${(e: KeyboardEvent) => this._onSwatchKeydown(e, rowKey)}
+    >
+      ${groups.map((group) => html`<div class="preset-group">${group.map(({ item, index }) => html`
+        <button
+          type="button"
+          class="preset ${item.selected ? 'selected' : ''}"
+          style="background: ${item.hex}"
+          title="${item.title}"
+          aria-label="${item.name}"
+          aria-pressed="${item.selected}"
+          tabindex="${index === stop ? 0 : -1}"
+          @click=${() => { this._moved.delete(rowKey); item.pick(); }}
+        ></button>
+      `)}</div>`)}
+    </div>`;
+  }
+
   private _renderPickerBody() {
     const customColors = getCachedPalette().colors;
     return html`
       <div class="container">
-        <div class="presets">
-          ${chunk(HA_COLOR_PRESETS, 5).map(group => html`<div class="preset-group">${group.map(p => html`
-            <button
-              type="button"
-              class="preset ${this.value === p.variable ? 'selected' : ''}"
-              style="background: ${p.hex}"
-              title="${p.name} (${p.variable})"
-              aria-label="${p.name}"
-              aria-pressed="${this.value === p.variable}"
-              @click=${() => this._selectPreset(p)}
-            ></button>
-          `)}</div>`)}
-        </div>
+        ${this._renderSwatchRow('presets', 'Palette colors', HA_COLOR_PRESETS.map((p) => ({
+          hex: p.hex, title: `${p.name} (${p.variable})`, name: p.name,
+          selected: this.value === p.variable, pick: () => this._selectPreset(p),
+        })))}
         ${customColors.length > 0
-          ? html`<div class="presets" title="My colors">
-              ${chunk(customColors, 5).map(group => html`<div class="preset-group">${group.map(c => html`
-                <button
-                  type="button"
-                  class="preset ${this.value === c.hex ? 'selected' : ''}"
-                  style="background: ${c.hex}"
-                  title="${c.name || c.hex}"
-                  aria-label="${c.name || c.hex}"
-                  aria-pressed="${this.value === c.hex}"
-                  @click=${() => this._selectCustom(c.hex)}
-                ></button>
-              `)}</div>`)}
-            </div>`
+          ? this._renderSwatchRow('custom', 'My colors', customColors.map((c) => ({
+              hex: c.hex, title: c.name || c.hex, name: c.name || c.hex,
+              selected: this.value === c.hex, pick: () => this._selectCustom(c.hex),
+            })), 'My colors')
           : nothing}
         <div class="custom">
-          <input type="color" aria-label="Pick a custom color" .value=${this._toHex(this.value)} @input=${this._onColorInput} />
-          <input type="text" aria-label="Color value" .value=${this.value} @change=${this._onTextChange} placeholder="Color or var(--name)" />
+          <input type="color" aria-label="${this._name('Pick a custom color')}" .value=${this._toHex(this.value || (this.clearable ? this.placeholderColor : ''))} @input=${this._onColorInput} />
+          <input type="text" aria-label="${this._name('Color value')}" aria-invalid=${this._invalid ? 'true' : 'false'} aria-describedby=${this._invalid ? 'cms-color-hint' : nothing} spellcheck="false" autocomplete="off" .value=${this.value ?? ''} @input=${this._onTextInput} @keydown=${this._onTextKeydown} @change=${this._onTextChange} @blur=${this._onTextBlur} placeholder=${this.clearable ? (this.placeholder || 'Default') : 'Color or var(--name)'} />
+          ${this.clearable && this.value
+            ? html`<button type="button" class="clear" aria-label="Reset color to default" title="Reset to default" @click=${this._onClear}>Default</button>`
+            : nothing}
         </div>
+        <div class="invalid-hint" id="cms-color-hint" role="status">${this._invalid ? this._hint() : nothing}</div>
       </div>
     `;
   }
@@ -395,6 +560,10 @@ export class CmsColorPicker extends LitElement {
       this._portalHost.style.colorScheme = getComputedStyle(this).colorScheme;
       (this._containingDialog ?? blockingElementRoot() ?? document.body).appendChild(this._portalHost);
       this._portalShadow = this._portalHost.attachShadow({ mode: 'open' });
+      // The portal is outside the panel's subtree, so the panel's own Enter
+      // guard never sees keys typed in the popover's hex field.
+      this._portalHost.addEventListener('keydown', keepEnterInStudio);
+      this._portalHost.addEventListener('keydown', this._onPopoverKeydown as EventListener);
     }
     return this._portalShadow;
   }
@@ -406,6 +575,8 @@ export class CmsColorPicker extends LitElement {
         <style>${String(swatchStyles) + String(popoverStyles)}</style>
         <div
           class="popover"
+          role="dialog"
+          aria-label=${this._name('Color picker')}
           style="top: ${this._popoverPos.top}px; left: ${this._popoverPos.left}px;"
           @click=${(e: Event) => e.stopPropagation()}
         >
@@ -420,11 +591,19 @@ export class CmsColorPicker extends LitElement {
   private _destroyPortal() {
     document.removeEventListener('click', this._outsideClickHandler, true);
     window.removeEventListener('keydown', this._escapeHandler, true);
-    this._portalHost?.remove();
+    const host = this._portalHost;
     this._portalHost = null;
     this._portalShadow = null;
     this._containingDialog = null;
+    if (!host) return;
+    host.removeEventListener('keydown', this._onPopoverKeydown as EventListener);
+    // Removing the focused hex field makes the browser blur it and fire
+    // `change` for a typed value; that must not commit (or close) a second time.
+    this._closing = true;
+    try { host.remove(); } finally { this._closing = false; }
   }
+
+  private _closing = false;
 
   /** The popover's position is computed against `bounds` (the native
    *  dialog, else the viewport); a portal container with its own
@@ -492,16 +671,36 @@ export class CmsColorPicker extends LitElement {
       }
     }
     this._correctPortalOffset(bounds);
+    this._focusIntoPopover();
     // Capture phase so this fires before the click that opened it finishes
     // bubbling — otherwise it would immediately close itself.
     document.addEventListener('click', this._outsideClickHandler, true);
     window.addEventListener('keydown', this._escapeHandler, true);
   }
 
-  private _closePopover() {
+  /** The popover is not next to the trigger in the DOM, so focus has to be
+   *  taken there: the selected swatch, else the first. */
+  private _focusIntoPopover() {
+    const target = this._portalShadow?.querySelector<HTMLElement>('button.preset.selected')
+      ?? this._portalShadow?.querySelector<HTMLElement>('button.preset');
+    target?.focus({ preventScroll: true });
+  }
+
+  /** `restoreFocus`: put focus back on the trigger. Left out, it does so only
+   *  when focus is inside the popover now (the field about to disappear would
+   *  otherwise leave it on <body>); false when the user moved on by clicking
+   *  elsewhere. */
+  private _closePopover(restoreFocus?: boolean) {
+    const restore = restoreFocus ?? (this._portalShadow?.activeElement != null);
+    this._invalid = false; // a half-typed value is dropped with the popover
     this._popoverOpen = false;
     this._popoverPos = null;
     this._destroyPortal();
+    if (restore) this._focusTrigger();
+  }
+
+  private _focusTrigger() {
+    (this.shadowRoot?.querySelector('.swatch-trigger') as HTMLElement | null)?.focus();
   }
 
   private _selectPreset(preset: ColorPreset) {
@@ -524,10 +723,69 @@ export class CmsColorPicker extends LitElement {
     this._emit();
   }
 
-  private _onTextChange(e: Event) {
-    this.value = (e.target as HTMLInputElement).value;
+  private _onClear() {
+    this.value = '';
     this._emit();
-    if (this.compact) this._closePopover();
+  }
+
+  private _hint(): string {
+    if (this.validation === 'background') return 'Not a valid colour or image — try #ff8800, var(--primary-color) or linear-gradient(…)';
+    if (this.validation === 'stop') return 'Not a valid gradient colour — try #ff8800 or red 40%';
+    return 'Not a valid colour — try #ff8800 or var(--primary-color)';
+  }
+
+  /** Empty is valid only where it means "not set" (clearable). */
+  private _textOk(text: string): boolean {
+    return text.trim() === '' ? this.clearable : isValidCssColor(text, this.validation);
+  }
+
+  /** Typing only shows the cue — nothing is stored or reverted mid-typing. */
+  private _onTextInput(e: Event) {
+    this._invalid = !this._textOk((e.target as HTMLInputElement).value);
+  }
+
+  /** `change` follows the Enter keydown; blur also fires it, and only an
+   *  Enter commit should move focus (see _onTextChange). */
+  private _enterPressed = false;
+  private _onTextKeydown(e: KeyboardEvent) {
+    if (e.key !== 'Enter') return;
+    this._enterPressed = true;
+    setTimeout(() => { this._enterPressed = false; }, 0);
+  }
+
+  /** Enter / blur. An invalid or partial value is never emitted. */
+  private _onTextChange(e: Event) {
+    if (this._closing) return;
+    this._commitText(e.target as HTMLInputElement, false);
+  }
+
+  /** `viaTab`: committed by a Tab key press inside the popover, which, like
+   *  Enter, leaves focus on the trigger once the popover has closed. */
+  private _commitText(input: HTMLInputElement, viaTab: boolean): 'invalid' | 'committed' {
+    if (!this._textOk(input.value)) {
+      this._invalid = true;
+      return 'invalid';
+    }
+    this._invalid = false;
+    this.value = input.value.trim();
+    input.value = this.value;
+    this._emit();
+    if (this.compact) {
+      const viaEnter = this._enterPressed;
+      this._enterPressed = false;
+      this._closePopover(false);
+      // The field is gone with the popover: without this focus drops to <body>.
+      // Not on blur — the user has already moved on.
+      if (viaEnter || viaTab) this._focusTrigger();
+    }
+    return 'committed';
+  }
+
+  /** Leaving the field with invalid text restores the last valid value. */
+  private _onTextBlur(e: Event) {
+    if (!this._invalid) return;
+    (e.target as HTMLInputElement).value = this.value ?? '';
+    this._invalid = false;
   }
 
   private _toHex(val: string): string {

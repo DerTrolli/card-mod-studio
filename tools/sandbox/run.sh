@@ -9,7 +9,11 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
+# Pinned, not :stable — a new HA release must never move the baseline
+# silently (docs/V0.11_PLAN.md D8); try a newer one with HA_IMAGE=….
 HA_IMAGE="${HA_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.11.0}"
+MUSHROOM_TAG="${MUSHROOM_TAG:-v5.2.3}"
+BUBBLE_TAG="${BUBBLE_TAG:-v3.4.3}"  # 3.4.3 is the Bubble Card fix for HA 2026.11
 CARD_MOD_TAG="${CARD_MOD_TAG:-v4.2.1}"
 # Overridable so a second instance (e.g. HA_IMAGE=...:beta) can run beside
 # the default one: its own config dir, container, port and tokens file.
@@ -33,8 +37,25 @@ mkdir -p "$CFG/www"
 cp "$REPO/dist/card-mod-studio.js" "$CFG/www/card-mod-studio.js"
 
 echo "==> [3/6] fetch card-mod ($CARD_MOD_TAG)"
+# card-mod must be loaded the way its README recommends: configuration.yaml
+# has it under frontend: extra_module_url (the frontend waits for those before
+# it renders). As a plain lovelace resource it loads too late and styled cards
+# stay unstyled on most cold loads. An older CFG folder keeps its own file:
+grep -q 'extra_module_url' "$CFG/configuration.yaml" \
+  || echo "    WARNING: $CFG/configuration.yaml has no frontend: extra_module_url for /local/card-mod.js (see $HERE/config/configuration.yaml)"
 curl -fsSL -o "$CFG/www/card-mod.js" \
   "https://raw.githubusercontent.com/thomasloven/lovelace-card-mod/${CARD_MOD_TAG}/card-mod.js"
+
+echo "==> fetch pinned custom cards (Mushroom $MUSHROOM_TAG, Bubble Card $BUBBLE_TAG)"
+# Real Mushroom/Bubble builds so custom-card support can be probed and
+# audited (docs/V0.11_PLAN.md). CUSTOM_CARDS=0 skips; the resources in
+# configuration.yaml then just 404 and the cards render as errors.
+if [ "${CUSTOM_CARDS:-1}" != "0" ]; then
+  curl -fsSL -o "$CFG/www/mushroom.js" \
+    "https://github.com/piitaya/lovelace-mushroom/releases/download/${MUSHROOM_TAG}/mushroom.js"
+  curl -fsSL -o "$CFG/www/bubble-card.js" \
+    "https://github.com/Clooos/Bubble-Card/releases/download/${BUBBLE_TAG}/bubble-card.js"
+fi
 
 echo "==> [4/6] (re)start Home Assistant container"
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true

@@ -576,9 +576,11 @@ describe('mapToStudioState', () => {
   // ---------------------------------------------------------------------------
 
   it('puts unrecognised properties in rawCss', () => {
+    // A tile: Font would add its --ha-tile-info-* companions to a bare colour,
+    // so it is not adopted (on a markdown card it would be — see the font tests).
     const css = 'ha-card { color: red; }';
-    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
-    const state = mapToStudioState(parsed);
+    const parsed = parseCardModConfig({ type: 'tile', card_mod: { style: css } });
+    const state = mapToStudioState(parsed, 'tile');
     expect(state.advanced.rawCss).toContain('ha-card');
     expect(state.advanced.rawCss).toContain('color: red');
   });
@@ -633,14 +635,14 @@ describe('mapToStudioState', () => {
     const state = mapToStudioState(parsed);
     expect(state.font.enabled).toBe(true);
     expect(state.font.fontSize).toBe(18);
-    expect(state.font.fontWeight).toBe('normal'); // default, not claimed
+    expect(state.font.fontWeight).toBeUndefined(); // not in the CSS, not set
     expect(state.advanced.rawCss).toBe('');
   });
 
-  it('does not recognise Font from font-weight/color alone (no font-size present)', () => {
+  it('does not recognise Font from font-weight/color alone on a card whose companions it would add (tile)', () => {
     const css = 'ha-card { color: #ff0000; font-weight: bold; }';
-    const parsed = parseCardModConfig({ type: 'button', card_mod: { style: css } });
-    const state = mapToStudioState(parsed);
+    const parsed = parseCardModConfig({ type: 'tile', card_mod: { style: css } });
+    const state = mapToStudioState(parsed, 'tile');
     expect(state.font.enabled).toBe(false);
     // Falls through to Advanced CSS rather than being silently dropped.
     expect(state.advanced.rawCss).toContain('color: #ff0000');

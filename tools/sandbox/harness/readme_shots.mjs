@@ -8,15 +8,32 @@
 //
 //   node readme_shots.mjs           # writes to shots/readme/
 //
-// Then review and copy over the repo's images/ files.
+//   HA_URL=…          rig to shoot (default http://127.0.0.1:8124)
+//   TOKENS_FILE=…     token file (relative to this folder, or absolute)
+//   OUT_DIR=…         output folder (default shots/readme/)
+//   SHOT_SCALE=…      deviceScaleFactor (default 2: README images are shown
+//                     at half their pixel width via <img width="…">)
+//   ONLY=10,11,12     only take the shots whose file name starts with these
+//
+// Shots 10-12 (Mushroom, Bubble, gauge Number size) need Mushroom 5.x and
+// Bubble Card 3.x installed on the rig. The default theme is restored first
+// (resetTheme), so the set is always light.
+//
+// The demo palette (shots 02-09 show it) is written to the user's Home Assistant
+// profile for the run and the previous value is restored at the end.
+//
+// Then review every PNG and copy over the repo's images/ files.
 import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { waitForHassReady } from './harness-utils.mjs';
+import { waitForHassReady, resetTheme } from './harness-utils.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const OUT = resolve(HERE, 'shots', 'readme');
+const OUT = process.env.OUT_DIR ? resolve(process.env.OUT_DIR) : resolve(HERE, 'shots', 'readme');
+const SCALE = Number(process.env.SHOT_SCALE || 2);
+const ONLY = (process.env.ONLY || '').split(',').map((x) => x.trim()).filter(Boolean);
+const wanted = (n) => ONLY.length === 0 || ONLY.some((o) => n.startsWith(o));
 mkdirSync(OUT, { recursive: true });
 const HA = process.env.HA_URL || 'http://127.0.0.1:8124';
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
@@ -62,6 +79,11 @@ const CARDS = [
       { type: 'entities', entities: ['sensor.outside_temperature', 'sensor.outside_humidity'] },
     ],
   },
+  // Shots 10-12. Each uses an entity no other card above uses, so the edit
+  // dialog is found by entity.
+  { type: 'custom:mushroom-light-card', entity: 'light.living_room_rgbww_lights', show_brightness_control: true, use_light_color: false },
+  { type: 'custom:bubble-card', card_type: 'button', button_type: 'slider', entity: 'light.kitchen_lights', name: 'Kitchen', show_state: true },
+  { type: 'gauge', entity: 'sensor.power_consumption', name: 'Power', min: 0, max: 150 },
 ];
 
 async function openEditDialog(page, innerCardTag, entity = null) {
@@ -323,6 +345,11 @@ const union = (a, b) => {
 const pad = (r, p) => ({ x: r.x - p, y: r.y - p, width: r.width + 2 * p, height: r.height + 2 * p });
 
 const shot = async (page, rect, file) => {
+  if (!wanted(file)) return;
+  // A label that hangs past the dialog's left edge would put the dimmed page
+  // behind the modal into the crop — slide the window right instead.
+  const d = await dialogRect(page);
+  if (rect.x < d.x) rect = { ...rect, x: d.x };
   const clip = {
     x: Math.max(0, rect.x),
     y: Math.max(0, rect.y),
@@ -333,22 +360,48 @@ const shot = async (page, rect, file) => {
   console.log('📸', file);
 };
 
+const DEMO_PALETTE = {
+  colors: [
+    { id: 'c1', name: 'Brand blue', hex: '#03a9f4' },
+    { id: 'c2', name: 'Warm amber', hex: '#ffb300' },
+  ],
+  defaults: {},
+};
+let restore = async () => {};
+
 const run = async () => {
   const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
-  const page = await browser.newPage({ viewport: { width: 1920, height: 1400 } });
-  await page.addInitScript((t) => {
+  const page = await browser.newPage({ viewport: { width: 1920, height: 1400 }, deviceScaleFactor: SCALE });
+  await page.addInitScript(([t, demoPalette]) => {
     localStorage.setItem('hassTokens', JSON.stringify(t));
-    localStorage.setItem('cms-palette', JSON.stringify({
-      colors: [
-        { id: 'c1', name: 'Brand blue', hex: '#03a9f4' },
-        { id: 'c2', name: 'Warm amber', hex: '#ffb300' },
-      ],
-      defaults: {},
-    }));
-  }, tokens);
+    localStorage.setItem('cms-palette', JSON.stringify(demoPalette));
+  }, [tokens, DEMO_PALETTE]);
 
   await page.goto(`${HA}/lovelace/0`, { waitUntil: 'domcontentloaded' });
   await waitForHassReady(page);
+  // A theme choice persists in the user profile — shoot the default light theme.
+  const resetFrom = await resetTheme(page);
+  if (resetFrom) console.log('theme reset from', JSON.stringify(resetFrom));
+  // The Studio reads the palette from the user's Home Assistant profile first
+  // (localStorage is only the fallback), and the rig's profile holds an empty
+  // one — so the two demo colours must be written there for the colour pickers
+  // to show them. The previous value is put back at the end (see restore).
+  const prevPalette = await page.evaluate(async (demo) => {
+    const hass = document.querySelector('home-assistant').hass;
+    const prev = await hass.connection.sendMessagePromise({ type: 'frontend/get_user_data', key: 'cms_palette' });
+    await hass.connection.sendMessagePromise({ type: 'frontend/set_user_data', key: 'cms_palette', value: demo });
+    return prev?.value ?? null;
+  }, DEMO_PALETTE);
+  const restorePalette = async () => {
+    try {
+      await page.evaluate(async (prev) => {
+        const hass = document.querySelector('home-assistant').hass;
+        await hass.connection.sendMessagePromise({ type: 'frontend/set_user_data', key: 'cms_palette', value: prev ?? { colors: [], defaults: {} } });
+      }, prevPalette);
+      console.log('palette restored');
+    } catch (e) { console.error('PALETTE RESTORE FAILED', e); }
+  };
+  restore = restorePalette;
   await page.evaluate(async ({ urlPath, cards }) => {
     const hass = document.querySelector('home-assistant').hass;
     try {
@@ -373,7 +426,8 @@ const run = async () => {
     ]);
     const d = await dialogRect(page);
     // Crop to the lower part of the dialog — the button is the story here.
-    const lower = { x: d.x, y: d.y + d.height * 0.66, width: d.width, height: d.height * 0.34 };
+    // (+30px: start below the row above the footer so no row is cut in half)
+    const lower = { x: d.x, y: d.y + d.height * 0.66 + 30, width: d.width, height: d.height * 0.34 - 30 };
     await shot(page, union(lower, ann ? pad(ann, 14) : null), '01 Style button.png');
     await clearAnnotations(page);
   }
@@ -451,7 +505,7 @@ const run = async () => {
     await setNextModulesVisibility('hidden');
     const content = await panelElementRect(page, 'cms-background-module');
     const ann = await annotate(page, [
-      { find: { module: 'cms-background-module', sel: 'select', text: 'Only while entity is ON' }, label: 'Only while the entity is ON / OFF', side: 'insideRight' },
+      { find: { module: 'cms-background-module', sel: 'select', text: 'Only while entity is ON' }, label: 'Only while the entity is ON / OFF', side: 'insideRight', shiftX: -40 },
     ]);
     await shot(page, union(content, ann ? pad(ann, 12) : null), '04 Background Color.png');
     await clearAnnotations(page);
@@ -490,6 +544,15 @@ const run = async () => {
     await new Promise((r) => setTimeout(r, 400));
   }, { allByTagSrc });
   {
+    // The fade label hangs below the module — hide the modules after it.
+    await page.evaluate(({ allByTagSrc }) => {
+      const all = new Function('root', 'tag', allByTagSrc);
+      const panel = all(document.body, 'cms-panel').filter((x) => x.isConnected && x.getBoundingClientRect().width > 0).pop();
+      for (const sel of ['cms-background-module', 'cms-animation-module', 'cms-border-module', 'cms-advanced-module']) {
+        const el = panel.shadowRoot.querySelector(sel);
+        if (el) el.style.visibility = 'hidden';
+      }
+    }, { allByTagSrc });
     const content = await panelElementRect(page, 'cms-threshold-module');
     const ann = await annotate(page, [
       { find: { module: 'cms-threshold-module', sel: '.control-row', text: 'Apply to' }, label: 'One rule set can drive several properties', side: 'insideRight' },
@@ -520,7 +583,7 @@ const run = async () => {
   {
     const content = await panelElementRect(page, 'cms-palette-manager', 'cms-font-module');
     const ann = await annotate(page, [
-      { find: { module: 'cms-palette-manager', sel: '.color-row' }, label: 'Your named colors — in every color picker', side: 'top', shiftX: 230 },
+      { find: { module: 'cms-palette-manager', sel: '.color-row' }, label: 'Your named colors — in every color picker', side: 'insideRight', shiftX: -35 },
     ]);
     await shot(page, union(content, ann ? pad(ann, 12) : null), '09 Font and Palette.png');
     await clearAnnotations(page);
@@ -594,14 +657,88 @@ const run = async () => {
   }, { allByTagSrc });
   {
     const ann = await annotate(page, [
-      { find: { panel: 'cms-child-card-section' }, label: 'One styling section per card in the stack', side: 'bottom', shiftX: 200 },
+      { find: { panel: 'cms-child-card-section' }, label: 'One styling section per card in the stack', side: 'insideRight' },
     ]);
     await shot(page, union(await dialogRect(page), ann ? pad(ann, 10) : null), '08 Stack Children.png');
     await clearAnnotations(page);
   }
 
+  // Applies a studio-state patch (per module, shallow-merged), opens the
+  // named modules and re-emits the config so the preview restyles.
+  const patchPanel = (patch, open = []) => page.evaluate(async ({ allByTagSrc, patch, open }) => {
+    const all = new Function('root', 'tag', allByTagSrc);
+    const panel = all(document.body, 'cms-panel').filter((x) => x.isConnected && x.getBoundingClientRect().width > 0).pop();
+    const next = { ...panel._studioState };
+    for (const [k, v] of Object.entries(patch)) next[k] = { ...next[k], ...v };
+    panel._studioState = next;
+    await panel.updateComplete;
+    for (const sel of open) {
+      const m = panel.shadowRoot.querySelector(sel);
+      if (m) { m._open = true; await m.updateComplete; }
+    }
+    panel._emitConfigChanged();
+    await new Promise((r) => setTimeout(r, 900));
+  }, { allByTagSrc, patch, open });
+
+  // --- 10: Mushroom light card — Font + Icon Color + Accent ---
+  await openEditDialog(page, 'mushroom-light-card', 'light.living_room_rgbww_lights');
+  await clickStyleTab(page);
+  await patchPanel({
+    font: { enabled: true, fontSize: 20, fontWeight: 'bold', fontFamily: '', color: '#1a237e' },
+    iconColor: { enabled: true, mode: 'plain', color: '#e91e63' },
+    accentColor: { enabled: true, mode: 'plain', color: '#00897b' },
+  }, ['cms-font-module', 'cms-icon-color-module', 'cms-accent-color-module']);
+  {
+    const ann = await annotate(page, [
+      { find: { panel: '.preview-card-wrapper hui-card' }, label: 'Mushroom light card — font, icon and accent applied', side: 'bottom' },
+    ]);
+    await shot(page, union(await dialogRect(page), ann ? pad(ann, 10) : null), '10 Mushroom Card.png');
+    await clearAnnotations(page);
+  }
+
+  // --- 11: Bubble slider button — Accent colours the slider fill ---
+  await openEditDialog(page, 'bubble-card');
+  await clickStyleTab(page);
+  await patchPanel({
+    accentColor: { enabled: true, mode: 'plain', color: '#ff7043' },
+  }, ['cms-accent-color-module']);
+  {
+    const ann = await annotate(page, [
+      { find: { panel: '.preview-card-wrapper hui-card' }, label: 'Accent colors the slider fill', side: 'bottom' },
+    ]);
+    await shot(page, union(await dialogRect(page), ann ? pad(ann, 10) : null), '11 Bubble Card.png');
+    await clearAnnotations(page);
+  }
+
+  // --- 12: gauge — Font module's Number size ---
+  await openEditDialog(page, 'hui-gauge-card', 'sensor.power_consumption');
+  await clickStyleTab(page);
+  await patchPanel({
+    // Number size only takes effect while the Font module itself is on.
+    font: { enabled: true, numberSizeEnabled: true, numberSize: 120 },
+  }, ['cms-font-module']);
+  {
+    // The row label hangs below the row — hide the modules after Font so the
+    // crop doesn't show a half-covered module header.
+    await page.evaluate(({ allByTagSrc }) => {
+      const all = new Function('root', 'tag', allByTagSrc);
+      const panel = all(document.body, 'cms-panel').filter((x) => x.isConnected && x.getBoundingClientRect().width > 0).pop();
+      for (const sel of ['cms-filter-module', 'cms-accent-color-module', 'cms-threshold-module', 'cms-background-module', 'cms-border-module', 'cms-advanced-module']) {
+        const el = panel.shadowRoot.querySelector(sel);
+        if (el) el.style.visibility = 'hidden';
+      }
+    }, { allByTagSrc });
+    const ann = await annotate(page, [
+      { find: { panel: '.preview-card-wrapper hui-card' }, label: 'The value number grows', side: 'bottom' },
+      { find: { module: 'cms-font-module', sel: '.control-row', text: 'Number size' }, label: 'Number size — 50 to 130 % of HA\'s own size', side: 'bottom', shiftX: 200 },
+    ]);
+    await shot(page, union(await dialogRect(page), ann ? pad(ann, 10) : null), '12 Gauge Number Size.png');
+    await clearAnnotations(page);
+  }
+
+  await restore();
   await browser.close();
   console.log('done →', OUT);
 };
 
-run().catch((e) => { console.error('ERR', e); process.exit(1); });
+run().catch(async (e) => { console.error('ERR', e); await restore(); process.exit(1); });

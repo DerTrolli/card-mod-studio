@@ -2,7 +2,10 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { AccentColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ACCENT_COLOR } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint, renderThresholdOwnedHint, onHeaderKeydown } from './module-base.js';
+import { accentColorsWithoutTriplet, tripletHint } from '../utils/rgb-triplet.js';
+import { moduleStyles, renderOverrideHint, renderThresholdOwnedHint, renderWatchHint, renderModuleHeader, nameSwitches,
+} from './module-base.js';
+import { stateKindFor } from '../utils/card-caps.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
@@ -27,6 +30,8 @@ export class AccentColorModule extends LitElement {
   @property({ attribute: false }) overriddenDetail = '';
   /** Threshold Colors is currently writing this module's property. */
   @property({ attribute: false }) thresholdOwned = false;
+  /** The card writes Accent as `R, G, B` (Mushroom) — unconvertible colours get a hint. */
+  @property({ type: Boolean, attribute: 'triplet-accent' }) tripletAccent = false;
 
   @state() private _open = false;
 
@@ -37,6 +42,7 @@ export class AccentColorModule extends LitElement {
   }
 
   override updated(changed: Map<PropertyKey, unknown>) {
+    nameSwitches(this.renderRoot);
     if (changed.has('state')) {
       const prev = changed.get('state') as AccentColorModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;
@@ -58,24 +64,17 @@ export class AccentColorModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this._open ? 'true' : 'false'}
-          @click=${this._toggleOpen}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">🌈 Accent Color</span>
-          ${renderOverrideBadge(this.overridden)}
-          <ha-switch
-            .checked=${this.state.enabled}
-            @click=${(e: Event) => e.stopPropagation()}
-            @change=${(e: Event) =>
-              this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
-        </div>
+        ${renderModuleHeader({
+          icon: '🌈',
+          title: 'Accent Color',
+          open: this._open,
+          onToggle: () => this._toggleOpen(),
+          overridden: this.overridden,
+          enable: {
+            checked: this.state.enabled,
+            onChange: (enabled) => this._emit({ enabled }),
+          },
+        })}
         ${this._open ? this._renderBody() : nothing}
       </div>
     `;
@@ -83,16 +82,17 @@ export class AccentColorModule extends LitElement {
 
   private _renderBody() {
     const mode = this.state.mode;
-    const ownEntityUseless = !this.stateAware && !this.state.entityId;
+    const kind = stateKindFor(this.stateAware, this.cardEntity);
 
     return html`
-      <div class="module-body">
+      <div class="module-body" id="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         ${renderThresholdOwnedHint(this.thresholdOwned, 'accent color', 'Accent Color')}
         <div class="control-row">
-          <span class="control-label">Color mode</span>
+          <span class="control-label" id="lbl-color-mode">Color mode</span>
           <div class="control-right">
             <select
+              aria-labelledby="lbl-color-mode"
               .value=${mode}
               @change=${(e: Event) =>
                 this._emit({
@@ -111,6 +111,9 @@ export class AccentColorModule extends LitElement {
             ? 'One color, shown all the time.'
             : 'One color while the controlling entity is on, another while off.'}
         </div>
+        ${this.tripletAccent && accentColorsWithoutTriplet(this.state).length
+          ? html`<div class="when-hint warn">${tripletHint(accentColorsWithoutTriplet(this.state))}</div>`
+          : nothing}
         ${this.cardType === 'gauge'
           ? html`<div class="when-hint">
               Colors the gauge dial — or, with <code>needle: true</code>, the needle and
@@ -129,18 +132,13 @@ export class AccentColorModule extends LitElement {
                     .includeDomains=${TOGGLE_DOMAINS}
                     .placeholder=${this.stateAware ? this.cardEntity : 'binary_sensor.example'}
                     label=""
+                    accessible-name="Entity to watch"
                     @value-changed=${(e: CustomEvent<{ value: string }>) =>
                       this._emit({ entityId: e.detail.value.trim() })}
                   ></cms-entity-picker>
                 </div>
               </div>
-              <div class="when-hint ${ownEntityUseless ? 'warn' : ''}">
-                ${this.state.entityId
-                  ? `Uses ${this.state.entityId}'s on/off state, not this card's own entity.`
-                  : ownEntityUseless
-                  ? `This card's entity (${this.cardEntity || 'none'}) has no on/off state of its own — pick a toggleable entity above, or this mode won't do anything.`
-                  : "Leave empty to use this card's own entity."}
-              </div>
+              ${renderWatchHint({ entityId: this.state.entityId, cardEntity: this.cardEntity, kind })}
             `
           : nothing}
 
@@ -150,6 +148,7 @@ export class AccentColorModule extends LitElement {
                 <span class="control-label">Color</span>
                 <div class="control-right">
                   <cms-color-picker
+                    label="Accent color"
                     .value=${this.state.color}
                     @color-changed=${(e: CustomEvent) => this._emit({ color: e.detail.value })}
                   ></cms-color-picker>
@@ -161,6 +160,7 @@ export class AccentColorModule extends LitElement {
                 <span class="control-label">Color when ON</span>
                 <div class="control-right">
                   <cms-color-picker
+                    label="Accent color when ON"
                     .value=${this.state.colorOn}
                     @color-changed=${(e: CustomEvent) => this._emit({ colorOn: e.detail.value })}
                   ></cms-color-picker>
@@ -170,6 +170,7 @@ export class AccentColorModule extends LitElement {
                 <span class="control-label">Color when OFF</span>
                 <div class="control-right">
                   <cms-color-picker
+                    label="Accent color when OFF"
                     .value=${this.state.colorOff}
                     @color-changed=${(e: CustomEvent) => this._emit({ colorOff: e.detail.value })}
                   ></cms-color-picker>

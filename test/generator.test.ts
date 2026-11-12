@@ -98,14 +98,22 @@ describe('generateCss — filter', () => {
     expect(reparsed.filter.transitionMs).toBe(600);
     expect(reparsed.advanced.rawCss).toBe('');
     expect(generateCss(reparsed, 'tile')).toBe(tile);
-    // HA 2026.10.4 added sensor, entity and area to the cards that override it
-    for (const type of ['sensor', 'entity', 'area']) {
+    // HA 2026.10.4 added sensor, entity and area to the cards that override it; 2026.11 the alert card
+    for (const type of ['sensor', 'entity', 'area', 'alert']) {
       const css = generateCss(state, type);
       expect(css, type).toContain('transition: filter 600ms ease !important;');
       const back = mapToStudioState(parseCardModConfig({ type, card_mod: { style: css } }), type);
       expect(back.advanced.rawCss, type).toBe('');
       expect(generateCss(back, type), type).toBe(css);
+      // an older save without !important loads into the same control and upgrades on save
+      const plain = css.replace(' !important', '');
+      const old = mapToStudioState(parseCardModConfig({ type, card_mod: { style: plain } }), type);
+      expect(old.filter.transitionMs, type).toBe(600);
+      expect(old.advanced.rawCss, type).toBe('');
+      expect(generateCss(old, type), type).toBe(css);
     }
+    // the date card does not need it
+    expect(generateCss(state, 'date')).toContain('transition: filter 600ms ease;');
     // a hand-written transition in Advanced CSS keeps winning
     const withRaw = makeState({ ...state, advanced: { rawCss: 'ha-card {\n  transition: all 1s;\n}' } });
     expect(generateCss(withRaw, 'tile')).toContain('transition: filter 600ms ease;');
@@ -543,8 +551,10 @@ describe('generateCss — heading style', () => {
     expect(css).not.toContain('--ha-icon-size');
   });
 
-  it('defaults to the theme text colour (no near-white text on light themes)', () => {
-    const css = generateCss(makeState({ headingStyle: { ...DEFAULT_HEADING_STYLE, enabled: true } }));
+  it('writes the theme text colour only when it is chosen (no near-white text on light themes)', () => {
+    const css = generateCss(
+      makeState({ headingStyle: { ...DEFAULT_HEADING_STYLE, enabled: true, textColor: 'var(--primary-text-color)' } }),
+    );
     expect(css).toContain('--ha-heading-card-title-color: var(--primary-text-color);');
     expect(css).not.toContain('#e1e1e1');
   });
@@ -703,8 +713,7 @@ describe('generateCss — font', () => {
   });
 
   it('gauge: the theme-default text colour emits no self-referencing --primary-text-color (value text went black in dark mode)', () => {
-    const state = makeState({ font: { ...DEFAULT_FONT, enabled: true, fontSize: 20 } });
-    expect(state.font.color).toBe('var(--primary-text-color)');
+    const state = makeState({ font: { ...DEFAULT_FONT, enabled: true, fontSize: 20, color: 'var(--primary-text-color)' } });
     const css = generateCss(state, 'gauge');
     expect(css).not.toMatch(/--primary-text-color:\s*var\(--primary-text-color/);
     expect(css).toContain('color: var(--primary-text-color);');
@@ -747,7 +756,7 @@ describe('generateCss — font', () => {
         font: { ...DEFAULT_FONT, enabled: true, fontSize: 21, fontWeight: 'bold', color: '#123456', fontFamily: 'serif' },
       });
       const css = generateCss(state, type);
-      const reparsed = mapToStudioState(parseCardModConfig({ type, card_mod: { style: css } }));
+      const reparsed = mapToStudioState(parseCardModConfig({ type, card_mod: { style: css } }), type);
       expect(reparsed.font, type).toEqual(state.font);
       expect(reparsed.advanced.rawCss, type).toBe('');
       expect(generateCss(reparsed, type), type).toBe(css);
@@ -2012,7 +2021,7 @@ describe('v0.9 state-driven numeric controls', () => {
     });
     const css = generateCss(state, 'tile');
     expect(css).toContain(
-      `border: {{ '3px solid #ff0000' if is_state(config.entity, 'on') else 'none' }};`,
+      `border: {{ '3px solid #ff0000' if is_state(config.entity, 'on') else '' }};`,
     );
     const re = expectStable(state, 'tile');
     expect(re.border.widthWhen).toEqual({ when: 'on' });
@@ -2129,7 +2138,7 @@ describe('v0.9 state-driven numeric controls', () => {
       iconColor: { ...DEFAULT_ICON_COLOR, enabled: true, mode: 'plain', color: '#ff0000', sizePx: 40 },
     });
     const css = generateCss(state, 'tile');
-    expect(css).toContain('ha-tile-icon {\n  --mdc-icon-size: 40px;\n}');
+    expect(css).toContain('ha-tile-icon {\n  --tile-icon-size: 60px;\n  --mdc-icon-size: 40px;\n}');
     expect(css).not.toContain('--ha-icon-size');
     const re = expectStable(state, 'tile');
     expect(re.iconColor.sizePx).toBe(40);

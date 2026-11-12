@@ -19,6 +19,7 @@ import type {
   EntitiesRowStyles,
 } from '../types/index.js';
 import { isCardModInstalled, isUixInstalled } from '../utils/dom-helpers.js';
+import { keepEnterInStudio } from '../utils/enter-guard.js';
 import {
   isUixOnlyStyle,
   usesUixOnlyFeatures,
@@ -30,34 +31,27 @@ import {
   hasUnsupportedDictRoot,
 } from '../utils/style-compat.js';
 import {
-  CONTAINER_CARD_TYPES,
-  STYLABLE_CHILDREN_CARD_TYPES,
-  NO_ANIMATION_TYPES,
-  NO_BACKGROUND_TYPES,
-  NO_BORDER_TYPES,
-  NO_ICON_COLOR_TYPES,
-  NO_FONT_TYPES,
-  NO_THRESHOLD_TYPES,
-  NO_TEXT_COLOR_TYPES,
-  NO_FONT_SIZE_TYPES,
-  ICON_SIZE_TYPES,
-  isStateAware,
-  showsAccentColor,
+  capsFor,
+  panelStateAware,
 } from '../utils/card-caps.js';
-import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles, refreshPaletteDefaults } from './studio-state.js';
+import { profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
+import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles, refreshPaletteDefaults, applyStudioState, refreshCarrier } from './studio-state.js';
+import { withCardNumberSize, userEntries, numberSizeKind } from '../utils/owned-entries.js';
 import './cms-child-card-section.js';
 import './cms-preview-picker.js';
 import type { PickEventDetail } from './cms-preview-picker.js';
-import { loadPresets, savePresets } from '../utils/preset-storage.js';
+import { loadPresets, updatePresets, applyPresetChange, type PresetChange } from '../utils/preset-storage.js';
 import type { StylePreset } from '../utils/preset-storage.js';
-import { filterPresetStateForCardType } from '../utils/preset-caps.js';
+import { ArmGuard } from '../utils/arm-guard.js';
+import { filterPresetStateForCardType, presetFont } from '../utils/preset-caps.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
 import { initPaletteCache, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
-import { generateCss, thresholdOwnedProperties } from '../generator/css-generator.js';
-import { applyCardModStyle, pickOutputKey } from '../generator/yaml-generator.js';
+import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
 import { cmsTokens } from '../modules/module-base.js';
+import { hasTopLevelJinjaStatement, templateStatementNote, anyModuleOn } from '../utils/css-lint.js';
+import { uixStyleUsesMacro } from '../utils/uix-macro-use.js';
 
 import '../modules/module-filter.js';
 import '../modules/module-icon-color.js';
@@ -73,6 +67,8 @@ import '../modules/module-entities-rows.js';
 
 declare const __APP_VERSION__: string;
 const VERSION = __APP_VERSION__;
+/** Longest preset name the bar accepts. */
+const PRESET_NAME_MAX = 60;
 
 // Per-card-type capability tables live in ../utils/card-caps.ts, shared with
 // cms-child-card-section so a stack child gets the exact same module gating
@@ -93,6 +89,9 @@ function isDarkTheme(hass: HomeAssistant | undefined): boolean {
   return themes?.darkMode === true;
 }
 
+/** A locked card renders only the entity rows module, so only it can be picked. */
+const LOCKED_PICK_MODULES = ['cms-entities-rows-module'] as const;
+
 export class CmsPanel extends LitElement {
   @property({ attribute: false }) config?: CardModCardConfig;
   @property({ attribute: false }) hass?: HomeAssistant;
@@ -109,11 +108,28 @@ export class CmsPanel extends LitElement {
    *  Companion app's web views). */
   @state() private _namingPreset = false;
   @state() private _presetName = '';
+  /** Save was attempted with no name — keeps the "type a name" hint up. */
+  @state() private _presetNameTried = false;
+  /** First click on the delete (x) control arms it; the second deletes. */
+  @state() private _deleteArmed = false;
+  /** The last preset change could not reach Home Assistant (read or write
+   *  failed): it is saved on this device only. Clears on the next write that does. */
+  @state() private _presetsLocalOnly = false;
+  /** Storage is full: the last preset change is not even saved on this device. */
+  @state() private _presetsUnsaved = false;
+  /** Disarms the delete control on a press elsewhere or after a few seconds
+   *  (blur alone never fires where a click doesn't focus the button). */
+  private _deleteGuard = new ArmGuard(() => {
+    this._deleteArmed = false;
+  });
   @state() private _entityRowStyles: EntitiesRowStyles = {};
   /** The card arrived with CSS the modules didn't adopt (now in Advanced
    *  CSS) — drives the "weren't recognised" note, which must not appear
    *  just because the user types their own CSS. */
   @state() private _loadedRawCss = false;
+  /** The loaded style has a top-level `{% … %}` statement: the parser kept all
+   *  of it in Advanced CSS and every module is off (explained by a banner). */
+  @state() private _loadedWholeStyleKept = false;
   /** True when the panel is too narrow for the side-by-side preview. */
   @state() private _narrow = false;
 
@@ -125,6 +141,9 @@ export class CmsPanel extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
+    // One place for every field the Studio renders (modules, stack children,
+    // palette manager and preset bar all live in this subtree).
+    this.addEventListener('keydown', keepEnterInStudio);
     this._cardModPresent = isCardModInstalled();
     this._uixPresent = isUixInstalled();
     // Load from localStorage immediately (sync); HA sync happens when hass arrives
@@ -151,7 +170,9 @@ export class CmsPanel extends LitElement {
 
   override disconnectedCallback() {
     super.disconnectedCallback();
+    this.removeEventListener('keydown', keepEnterInStudio);
     window.removeEventListener(PALETTE_CHANGED_EVENT, this._onPaletteChanged);
+    this._deleteGuard.stop(); // an armed panel leaving the page keeps no window listener
     this._resizeObserver?.disconnect();
     this._resizeObserver = undefined;
   }
@@ -191,6 +212,7 @@ export class CmsPanel extends LitElement {
 
     this._studioState = this._buildMergedState(this.config);
     this._loadedRawCss = !!this._studioState.advanced.rawCss.trim();
+    this._loadedWholeStyleKept = hasTopLevelJinjaStatement(this._studioState.advanced.rawCss);
     this._initEntityRowStyles();
   }
 
@@ -253,23 +275,21 @@ export class CmsPanel extends LitElement {
     // check): a dict-form uix style with $$/& keys is preserved or frozen
     // outright (mixed-form gate), so this "can't be auto-synced" note
     // doesn't describe it.
-    return !!this.config && this._cardModPresent && usesUixMacroBlockFeatures(this.config.uix);
+    // Only relevant when a uix.style exists to keep rendering — macros
+    // defined next to no uix style change nothing for the user.
+    return !!this.config && this._cardModPresent && usesUixMacroBlockFeatures(this.config.uix) && !!this.config.uix?.style;
   }
 
   /**
-   * True when UIX is the active write target (pickOutputKey() would resolve
-   * to 'uix' — UIX installed, card-mod not) and the card's existing uix:
-   * block already uses macros/billets. Unlike the card_mod-primary case
-   * above, there's no fallback key to write to instead, so studio edits here
-   * DO overwrite uix.style directly — this is a heads-up that doing so will
-   * replace the hand-authored macro/billet-driven styling, not a "safe, no
-   * data lost" guarantee.
+   * UIX is the active write target and the card's uix style CALLS a macro or
+   * billet. A save replaces uix.style with the generated CSS, but the Studio
+   * keeps the macro call verbatim in Advanced CSS (so the card renders as
+   * before) and never rewrites `uix.macros` / `billets` — nothing is lost,
+   * so this is informational. Macros merely defined next to plain CSS don't
+   * qualify.
    */
-  private get _uixMacrosWillBeOverwritten(): boolean {
-    // Macro/billet-only for the same reason as _uixMacrosCoexist: a uix-keyed
-    // save on a dict-form style rebuilds it around `.` with every pierced
-    // ($$/&) entry byte-identical — nothing is overwritten there.
-    return !!this.config && this._uixPresent && !this._cardModPresent && usesUixMacroBlockFeatures(this.config.uix);
+  private get _uixMacroStyleKept(): boolean {
+    return !!this.config && this._uixPresent && !this._cardModPresent && uixStyleUsesMacro(this.config.uix);
   }
 
   /**
@@ -299,7 +319,7 @@ export class CmsPanel extends LitElement {
       next = { ...next, card_mod: { ...this.config.card_mod, style: this.config.uix!.style! } };
     }
 
-    if (this.config.type === 'entities') {
+    if (this._caps.isEntities) {
       const rows = (this.config as unknown as { entities?: EntitiesCardRow[] }).entities;
       if (rows?.length) {
         const updatedRows = rows.map((row) =>
@@ -318,52 +338,81 @@ export class CmsPanel extends LitElement {
   // Card-type helpers
   // ---------------------------------------------------------------------------
 
+  /** The card's profile key (D2) — derived once from the config; every
+   *  gating read below goes through capsFor(this._profileKey). */
+  private get _profileKey(): string {
+    return profileKeyOf(this.config);
+  }
+
+  /** The capabilities for this card — config-aware (a profile can hide a
+   *  module while the card config sets e.g. `icon_color`). */
+  private get _caps() {
+    return capsFor(this._profileKey, this.config as unknown as Record<string, unknown>);
+  }
+
   private get _isContainerCard(): boolean {
-    return CONTAINER_CARD_TYPES.has(this.config?.type ?? '');
+    return this._caps.isContainer;
+  }
+
+  /** A card with no style modules at all (Mushroom's empty card renders
+   *  nothing): only Advanced CSS reaches it. Decided from the capabilities,
+   *  so containers (their own layout) and entities (row styling) don't match. */
+  private get _nothingToStyle(): boolean {
+    const caps = this._caps;
+    return !caps.isContainer && !caps.isEntities && Object.values(caps.modules).every((on) => !on);
   }
 
   private get _showIconColor(): boolean {
-    if (this.config?.type === 'entities') return false;
-    return !NO_ICON_COLOR_TYPES.has(this.config?.type ?? '');
+    return this._caps.modules.iconColor;
   }
 
   /** A dict-form style the Studio can't rewrite faithfully (mixed-form, or
    *  a `.` that isn't plain CSS) — the card-level modules are replaced by
    *  the lock banner (see _renderModuleList). */
   private get _isLocked(): boolean {
-    return hasDictFormStyle(this.config ?? {}) && !this._studioState?.dictSource;
+    return hasDictFormStyle(this._written ?? this.config ?? {}) && !this._studioState?.dictSource;
+  }
+
+  /** The config this panel just emitted, until HA feeds it back as
+   *  `config`: the state's carrier already describes it, so judging the
+   *  lock against the older config flashed the lock banner for a frame
+   *  when Number size turned a dict back into a string. */
+  private _written?: CardModCardConfig;
+
+  override willUpdate(changed: Map<PropertyKey, unknown>) {
+    if (changed.has('config')) this._written = undefined;
   }
 
   private get _isEntitiesCard(): boolean {
-    return this.config?.type === 'entities';
+    return this._caps.isEntities;
   }
 
   private get _showAnimation(): boolean {
-    return !NO_ANIMATION_TYPES.has(this.config?.type ?? '');
+    return this._caps.modules.animation;
   }
 
   private get _showBackground(): boolean {
-    return !NO_BACKGROUND_TYPES.has(this.config?.type ?? '');
+    return this._caps.modules.background;
   }
 
   private get _showBorder(): boolean {
-    return !NO_BORDER_TYPES.has(this.config?.type ?? '');
+    return this._caps.modules.border;
   }
 
   private get _showHeadingStyle(): boolean {
-    return this.config?.type === 'heading';
+    return this._caps.modules.headingStyle;
   }
 
   private get _showFont(): boolean {
-    return !NO_FONT_TYPES.has(this.config?.type ?? '');
+    return this._caps.modules.font;
   }
 
   private get _isLightCard(): boolean {
-    return this.config?.type === 'light';
+    return this._caps.isLight;
   }
 
   private get _isStateAware(): boolean {
-    return isStateAware(this.config?.type, this.config?.entity as string | undefined, this.hass);
+    return panelStateAware(this._profileKey, this.config as unknown as Record<string, unknown>, this.hass);
   }
 
   // ---------------------------------------------------------------------------
@@ -471,13 +520,12 @@ export class CmsPanel extends LitElement {
 
   private _emitConfigChanged() {
     if (!this.config || !this._studioState) return;
-    const css = generateCss(this._studioState, this.config?.type, {
-      gaugeNeedle: (this.config as { needle?: boolean }).needle === true,
-    });
-    let newConfig = applyCardModStyle(css, this.config, pickOutputKey(this.hass), this._studioState.dictSource);
-    if (this.config.type === 'entities') {
+    let newConfig = applyStudioState(this._studioState, this.config, this.hass);
+    if (this._caps.isEntities) {
       newConfig = this._applyEntityRowStyles(newConfig);
     }
+    this._written = newConfig;
+    this._studioState = refreshCarrier(this._studioState, newConfig, this.hass);
     this._emitConfig(newConfig);
   }
 
@@ -490,22 +538,66 @@ export class CmsPanel extends LitElement {
   // Preset management
   // ---------------------------------------------------------------------------
 
+  /** The stored preset a typed name refers to: names are compared trimmed
+   *  and case-sensitively ("Warm" and "warm" stay two presets). */
+  private _presetNamed(typed: string): StylePreset | undefined {
+    const name = typed.trim();
+    return name ? this._presets.find((p) => p.name.trim() === name) : undefined;
+  }
+
   private _startNamingPreset() {
-    this._presetName = '';
+    // With a preset selected the field starts on its full name, so Overwrite is
+    // one click — even for a name stored before the length cap.
+    this._presetName = this._presets.find((p) => p.name === this._selectedPreset)?.name ?? '';
+    this._presetNameTried = false;
     this._namingPreset = true;
     void this.updateComplete.then(() => {
-      (this.shadowRoot?.querySelector('.preset-name') as HTMLInputElement | null)?.focus();
+      const input = this.shadowRoot?.querySelector('.preset-name') as HTMLInputElement | null;
+      input?.focus();
+      input?.select(); // typing a new name replaces the prefilled one
     });
   }
 
   private _cancelNamingPreset() {
     this._namingPreset = false;
     this._presetName = '';
+    this._presetNameTried = false;
+    this._focusPresetSaveButton();
+  }
+
+  /** The naming field (or its Save / Cancel) is gone after the re-render, and
+   *  with it focus: return it to the bar's "Save preset" button. */
+  private _focusPresetSaveButton() {
+    void this.updateComplete.then(() => {
+      (this.shadowRoot?.querySelector('.preset-bar .btn-preset-save') as HTMLElement | null)?.focus();
+    });
+  }
+
+  /** Leading blanks are dropped and the length capped as the user types; the
+   *  trailing end is only trimmed on save (trimming it here would make
+   *  "my preset" untypeable). The cap is for NEW names: a name that is
+   *  already a preset is left whole. */
+  private _onPresetNameInput(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const typed = input.value.replace(/^\s+/, '');
+    const name = this._presetNamed(typed) ? typed : typed.slice(0, PRESET_NAME_MAX);
+    // Blanks only: nothing is left to show, so say why Save stays disabled.
+    if (!name && input.value) this._presetNameTried = true;
+    if (name !== input.value) input.value = name;
+    this._presetName = name;
   }
 
   private _onPresetNameKeydown(e: KeyboardEvent) {
     // Keep Enter/Escape inside the field — Escape would otherwise close
     // HA's whole card-edit dialog.
+    // Enter that accepts an IME candidate (Japanese, Chinese, …) is not a save.
+    // Escape that cancels a candidate belongs to the IME: it must not cancel
+    // the naming nor be default-prevented, but it must still not reach HA's
+    // dialog.
+    if (e.isComposing || e.keyCode === 229) {
+      if (e.key === 'Escape') e.stopPropagation();
+      return;
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
@@ -520,23 +612,56 @@ export class CmsPanel extends LitElement {
   /** Saves the current styling under the name typed into the preset bar. */
   private _saveCurrentAsPreset() {
     if (!this._studioState) return;
-    const trimmed = this._presetName.trim();
-    if (!trimmed) return;
+    const typed = this._presetName.trim();
+    // An existing preset is overwritten under ITS name, whatever its length;
+    // only a new name is capped.
+    const trimmed = this._presetNamed(typed)?.name ?? typed.slice(0, PRESET_NAME_MAX);
+    if (!trimmed) {
+      this._presetNameTried = true;
+      return;
+    }
     this._namingPreset = false;
     this._presetName = '';
+    this._focusPresetSaveButton();
     // A dict card's carrier (its pierced entries) belongs to THAT card — a
     // preset must never carry it (audit v0.10 #8).
-    const { dictSource: _cardDict, ...presetState } = this._studioState;
-    const updated = [
-      ...this._presets.filter((p) => p.name !== trimmed),
-      { name: trimmed, state: presetState },
-    ];
-    this._presets = updated;
+    // Nor Number size: its units differ per card and it can sit under a
+    // hand-written entry (v0.11) — it stays the card's own setting.
+    const { dictSource: _cardDict, ...cardState } = this._studioState;
+    const presetState = { ...cardState, font: presetFont(cardState.font) };
+    const preset = { name: trimmed, state: presetState };
     this._selectedPreset = trimmed;
-    void savePresets(updated, this.hass);
+    this._commitPresetChange({ kind: 'save', preset });
+  }
+
+  /** Shows the change at once, writes it against the STORED list (another
+   *  browser may have saved since this panel loaded), then shows what was
+   *  actually written. */
+  private _commitPresetChange(change: PresetChange) {
+    this._presets = applyPresetChange(this._presets, change);
+    void updatePresets(change, this.hass, (reachedHa, kept) => {
+      this._presetsLocalOnly = !reachedHa;
+      this._presetsUnsaved = !kept;
+    }, this._presets)
+      .then((written) => { this._presets = written; });
+  }
+
+  private _disarmDelete() {
+    this._deleteArmed = false;
+    this._deleteGuard.stop();
+  }
+
+  private _onPresetDeleteKeydown(e: KeyboardEvent) {
+    // Escape would otherwise close HA's whole card-edit dialog.
+    if (e.key === 'Escape' && this._deleteArmed) {
+      e.preventDefault();
+      e.stopPropagation();
+      this._disarmDelete();
+    }
   }
 
   private _onPresetSelect(e: Event) {
+    this._disarmDelete();
     const name = (e.target as HTMLSelectElement).value;
     this._selectedPreset = name;
     if (!name) return;
@@ -552,6 +677,7 @@ export class CmsPanel extends LitElement {
     // none (the save then froze and the panel flipped to "Mixed-form"), and
     // an in-session one could carry stale/foreign pierced entries (audit
     // v0.10 #8).
+    const current = this._studioState;
     const currentDictSource = this._studioState?.dictSource;
     const { dictSource: _presetDict, ...presetState } = preset.state;
     // Reset any module THIS card type's panel hides back to its disabled
@@ -564,19 +690,29 @@ export class CmsPanel extends LitElement {
           ...presetState,
           ...(presetHasAdvanced || !currentAdvanced ? {} : { advanced: currentAdvanced }),
         },
-        this.config?.type,
+        this._profileKey,
+        this.config as unknown as Record<string, unknown>,
       ),
       ...(currentDictSource ? { dictSource: currentDictSource } : {}),
     };
+    if (current) this._studioState = { ...this._studioState, font: withCardNumberSize(this._studioState.font, current.font) };
     this._emitConfigChanged();
   }
 
-  private _deleteSelectedPreset() {
+  /** Two-step: the first click only arms the control (its label asks), the
+   *  second deletes. Blur, Escape, a press elsewhere and a short timeout
+   *  disarm it. */
+  private _deleteSelectedPreset(e?: Event) {
     if (!this._selectedPreset) return;
-    const updated = this._presets.filter((p) => p.name !== this._selectedPreset);
-    this._presets = updated;
+    if (!this._deleteArmed) {
+      this._deleteArmed = true;
+      this._deleteGuard.start(e?.currentTarget);
+      return;
+    }
+    this._disarmDelete();
+    const name = this._selectedPreset;
     this._selectedPreset = '';
-    void savePresets(updated, this.hass);
+    this._commitPresetChange({ kind: 'delete', name });
   }
 
   // ---------------------------------------------------------------------------
@@ -782,6 +918,26 @@ export class CmsPanel extends LitElement {
     }
 
     .btn-preset-delete:hover { background: var(--cms-tint-error-hover); }
+    .btn-preset-delete.armed {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .preset-bar.has-hint { flex-wrap: wrap; }
+
+    /* Touch: a finger needs more than the desktop 32px. */
+    @media (pointer: coarse) {
+      .preset-bar select,
+      .btn-preset-save { min-height: 40px; }
+    }
+
+    /* One line inside the bar, only while a hint applies. */
+    .preset-hint {
+      flex: 1 0 100%;
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--secondary-text-color, #727272);
+    }
 
     :is(.btn-preset-save, .btn-preset-delete, .btn-preset-cancel, .btn-banner-action, .preset-bar select, .preset-name):focus-visible {
       outline: 2px solid var(--primary-color, #03a9f4);
@@ -911,6 +1067,16 @@ export class CmsPanel extends LitElement {
       flex-shrink: 0;
     }
 
+    /* Read by screen readers, takes no space: the preview card is inert. */
+    .preview-sr-note {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+
     .preview-card-wrapper hui-card {
       width: 100%;
     }
@@ -942,9 +1108,11 @@ export class CmsPanel extends LitElement {
 
           ${this._studioState
             ? html`
-                ${this._isLocked ? nothing : this._renderPresetBar()}
+                ${this._isLocked || this._nothingToStyle ? nothing : this._renderPresetBar()}
                 <cms-palette-manager .hass=${this.hass}></cms-palette-manager>
-                ${this._renderModuleList(this._studioState)}
+                ${this._renderNothingToStyleNote()}
+                ${this._renderUnprofiledNotice()}
+                ${this._renderModuleList(settleEntityless(this._studioState, this.config as unknown as Record<string, unknown>))}
               `
             : html`<div class="no-config">No card selected.</div>`}
         </div>
@@ -993,16 +1161,26 @@ export class CmsPanel extends LitElement {
     // box, so its inset:0 overlay spans the card's FULL height — against the
     // scroll container it only covered the first screenful of a tall
     // preview (lower entity rows weren't pickable).
+    // `inert` sits on the card itself, not the wrapper: it removes the real
+    // card from Tab, key presses and the accessibility tree (pointer-events
+    // alone left it a keyboard tab stop that could switch a real entity),
+    // while the picker overlay — a sibling — keeps working and still reads
+    // the card's rects. aria-hidden would be redundant with inert.
+    // The sr-only note beside it
+    // (outside the inert card) is what tells a screen-reader user it exists.
     return html`
       <div class="preview-stage">
+        <span class="preview-sr-note">Live preview of the card (not interactive)</span>
         ${keyed(
           this._previewKey,
-          html`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`,
+          html`<hui-card inert .hass=${this.hass} .config=${previewConfig}></hui-card>`,
         )}
         ${this._pickerActive
           ? html`<cms-preview-picker
-              .cardType=${this.config.type ?? ''}
+              .cardType=${this._profileKey}
+              .cardConfig=${this.config as unknown as Record<string, unknown>}
               .rows=${this._rowEntityIds()}
+              .onlyModules=${this._isLocked ? LOCKED_PICK_MODULES : undefined}
               @cms-pick=${this._onPreviewPick}
             ></cms-preview-picker>`
           : nothing}
@@ -1013,7 +1191,7 @@ export class CmsPanel extends LitElement {
   /** Entities cards: entity_id per row in config order (undefined for rows
    *  without one, keeping indices aligned with the DOM row order). */
   private _rowEntityIds(): Array<string | undefined> {
-    if (this.config?.type !== 'entities') return [];
+    if (!this._caps.isEntities) return [];
     const rows = (this.config as unknown as { entities?: Array<EntitiesCardRow | string> }).entities ?? [];
     return rows.map((r) => (typeof r === 'string' ? r : r?.entity));
   }
@@ -1101,50 +1279,86 @@ export class CmsPanel extends LitElement {
       </div>`;
     }
 
-    if (this._uixMacrosWillBeOverwritten) {
+    if (this._uixMacroStyleKept) {
       return html`<div class="info-banner">
-        ℹ️ This card's uix: styling uses macros/billets — editing it here will replace that with
-        plain generated CSS (macros/billets can't be regenerated from the visual controls).
+        ℹ️ This card's uix: style uses macros/billets. They are kept as they are — the part of the style
+        that calls them stays in Advanced CSS.
       </div>`;
     }
 
     return nothing;
   }
 
+  /** D7: a custom card without a profile keeps every module, plus a one-line
+   *  hint that some may not reach it. Not shown over the lock banner. */
+  private _renderUnprofiledNotice() {
+    if (this._isLocked || !isUnprofiledCustomCard(this.config)) return nothing;
+    return html`<div class="info-banner">ℹ️ ${UNPROFILED_CARD_NOTICE}</div>`;
+  }
+
+  /** A card that renders nothing: say so instead of an empty preview. */
+  private _renderNothingToStyleNote() {
+    if (this._isLocked || !this._nothingToStyle) return nothing;
+    return html`<div class="info-banner">ℹ️ This card renders nothing, so there is nothing to style — Advanced CSS still applies.</div>`;
+  }
+
   private _renderPresetBar() {
     if (this._namingPreset) {
+      const name = this._presetName.trim();
+      const exists = !!this._presetNamed(name);
+      const hint = !name && (this._presetName.length > 0 || this._presetNameTried)
+        ? 'Type a name to save this preset.'
+        : exists
+          ? `Replaces the existing preset "${name}".`
+          : '';
       return html`
-        <div class="preset-bar">
+        <div class="preset-bar ${hint ? 'has-hint' : ''}">
           <input
             class="preset-name"
             type="text"
             aria-label="Preset name"
+            aria-describedby=${hint ? 'preset-hint' : nothing}
             placeholder="Preset name"
+            maxlength=${PRESET_NAME_MAX}
             .value=${this._presetName}
-            @input=${(e: Event) => { this._presetName = (e.target as HTMLInputElement).value; }}
+            @input=${this._onPresetNameInput}
             @keydown=${this._onPresetNameKeydown}
           />
           <button
             class="btn-preset-save"
-            ?disabled=${!this._presetName.trim()}
+            ?disabled=${!name}
             @click=${this._saveCurrentAsPreset}
-          >💾 Save</button>
+          ><span aria-hidden="true">💾</span> ${exists ? 'Overwrite' : 'Save'}</button>
           <button class="btn-preset-cancel" @click=${this._cancelNamingPreset}>Cancel</button>
+          ${hint ? html`<div class="preset-hint" id="preset-hint" role="status">${hint}</div>` : nothing}
         </div>
       `;
     }
+    const armedLabel = `Delete '${this._selectedPreset}'?`;
     return html`
-      <div class="preset-bar">
-        <select .value=${this._selectedPreset} @change=${this._onPresetSelect}>
-          <option value="">📋 Load preset…</option>
+      <div class="preset-bar ${this._presetsLocalOnly || this._presetsUnsaved ? 'has-hint' : ''}">
+        <select aria-label="Load preset" .value=${this._selectedPreset} @change=${this._onPresetSelect}>
+          <option value="">Load preset…</option>
           ${this._presets.map(
             (p) => html`<option value=${p.name} ?selected=${p.name === this._selectedPreset}>${p.name}</option>`,
           )}
         </select>
         ${this._selectedPreset
-          ? html`<button class="btn-preset-delete" title="Delete preset" @click=${this._deleteSelectedPreset}>×</button>`
+          ? html`<button
+              class="btn-preset-delete ${this._deleteArmed ? 'armed' : ''}"
+              title=${this._deleteArmed ? armedLabel : 'Delete preset'}
+              aria-label=${this._deleteArmed ? armedLabel : `Delete preset '${this._selectedPreset}'`}
+              @click=${this._deleteSelectedPreset}
+              @blur=${this._disarmDelete}
+              @keydown=${this._onPresetDeleteKeydown}
+            >${this._deleteArmed ? 'Delete?' : '×'}</button>`
           : nothing}
-        <button class="btn-preset-save" title="Save the current styling as a preset" @click=${this._startNamingPreset}>💾 Save preset</button>
+        <button class="btn-preset-save" title="Save the current styling as a preset" @click=${this._startNamingPreset}><span aria-hidden="true">💾</span> Save preset</button>
+        ${this._presetsUnsaved
+          ? html`<div class="preset-hint" role="status">Couldn't save this preset — this browser's storage is full.</div>`
+          : this._presetsLocalOnly
+            ? html`<div class="preset-hint" role="status">Couldn't reach your Home Assistant profile — saved on this device only.</div>`
+            : nothing}
       </div>
     `;
   }
@@ -1195,20 +1409,27 @@ export class CmsPanel extends LitElement {
     const showBorder = this._showBorder;
     const showHeadingStyle = this._showHeadingStyle;
     const showFont = this._showFont;
-    const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
+    const loadedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
+    // A module-less card has nothing that could have recognised anything.
+    const hasUnrecognisedCss = loadedCss && !this._nothingToStyle;
     // "Custom CSS is overriding this control" warnings (style-conflicts.ts)
-    const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s);
-    const thresholdOwned = thresholdOwnedProperties(s.threshold);
+    const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s, this._profileKey);
+    const thresholdOwned = cardThresholdOwned(s.threshold, this._caps);
 
     return html`
-      ${hasUnrecognisedCss
+      ${hasUnrecognisedCss && this._loadedWholeStyleKept
         ? html`<div class="info-banner">
-            ℹ️ Some existing styles weren't recognised — preserved in Advanced CSS.
+            ℹ️ ${templateStatementNote(anyModuleOn(s))}
           </div>`
-        : nothing}
+        : hasUnrecognisedCss
+          ? html`<div class="info-banner">
+              ℹ️ Some existing styles weren't recognised — preserved in Advanced CSS.
+            </div>`
+          : nothing}
 
       ${showHeadingStyle
         ? html`<cms-heading-style-module
+            .headingStyle=${(this.config as unknown as Record<string, unknown> | undefined)?.heading_style as string | undefined}
             .overridden=${!!conflicts.headingStyle}
             .overriddenDetail=${(conflicts.headingStyle ?? []).join(", ")}
             .state=${s.headingStyle}
@@ -1218,8 +1439,11 @@ export class CmsPanel extends LitElement {
 
       ${showFont
         ? html`<cms-font-module
-            .allowColor=${!NO_TEXT_COLOR_TYPES.has(this.config?.type ?? '')}
-            .allowSize=${!NO_FONT_SIZE_TYPES.has(this.config?.type ?? '')}
+            .allowColor=${this._caps.fontColor}
+            .thresholdOwned=${thresholdOwned.has('text-color')}
+            .allowSize=${this._caps.fontSize}
+            .numberSize=${numberSizeKind(this._profileKey)}
+            .cardType=${this._profileKey}
             .overridden=${!!conflicts.font}
             .overriddenDetail=${(conflicts.font ?? []).join(", ")}
             .state=${s.font}
@@ -1227,16 +1451,19 @@ export class CmsPanel extends LitElement {
           ></cms-font-module>`
         : nothing}
 
-      <cms-filter-module
-        .overridden=${!!conflicts.filter}
-        .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
-        .state=${s.filter}
-        .stateAware=${stateAware}
-        .hass=${this.hass}
-        @state-changed=${this._onFilterChanged}
-      ></cms-filter-module>
+      ${this._caps.modules.filter
+        ? html`<cms-filter-module
+            .cardEntity=${this.config?.entity ?? ''}
+            .overridden=${!!conflicts.filter}
+            .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
+            .state=${s.filter}
+            .stateAware=${stateAware}
+            .hass=${this.hass}
+            @state-changed=${this._onFilterChanged}
+          ></cms-filter-module>`
+        : nothing}
 
-      ${showsAccentColor(this.config?.type ?? '')
+      ${this._caps.modules.accentColor
         ? html`<cms-accent-color-module
             .overridden=${!!conflicts.accentColor}
             .overriddenDetail=${(conflicts.accentColor ?? []).join(", ")}
@@ -1244,7 +1471,8 @@ export class CmsPanel extends LitElement {
             .state=${s.accentColor}
             .stateAware=${stateAware}
             .cardEntity=${this.config?.entity ?? ''}
-            .cardType=${this.config?.type ?? ''}
+            .cardType=${this._profileKey}
+            .tripletAccent=${this._caps.accentTriplet}
             .hass=${this.hass}
             @state-changed=${this._onAccentColorChanged}
           ></cms-accent-color-module>`
@@ -1258,20 +1486,24 @@ export class CmsPanel extends LitElement {
             .state=${s.iconColor}
             .stateAware=${stateAware}
             .isLightCard=${this._isLightCard}
-            .allowSize=${ICON_SIZE_TYPES.has(this.config?.type ?? '')}
+            .allowSize=${this._caps.iconSize}
+            .sizeMax=${this._caps.iconSizeMax}
+            .allowColor=${!this._caps.iconColorless}
             .cardEntity=${this.config?.entity ?? ''}
             .hass=${this.hass}
             @state-changed=${this._onIconColorChanged}
           ></cms-icon-color-module>`
         : nothing}
 
-      ${!this._isEntitiesCard && !NO_THRESHOLD_TYPES.has(this.config?.type ?? '')
+      ${this._caps.modules.threshold
         ? html`<cms-threshold-module
               .overridden=${!!conflicts.threshold}
               .overriddenDetail=${(conflicts.threshold ?? []).join(", ")}
               .state=${s.threshold}
               .cardEntity=${this.config?.entity ?? ''}
-              .cardType=${this.config?.type ?? ''}
+              .cardType=${this._profileKey}
+              .cardConfig=${this.config}
+              .tripletAccent=${this._caps.accentTriplet}
               .hass=${this.hass}
               @state-changed=${this._onThresholdChanged}
             ></cms-threshold-module>`
@@ -1279,6 +1511,7 @@ export class CmsPanel extends LitElement {
 
       ${showBackground
         ? html`<cms-background-module
+            .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.background}
             .overriddenDetail=${(conflicts.background ?? []).join(", ")}
             .thresholdOwned=${thresholdOwned.has('background')}
@@ -1291,9 +1524,11 @@ export class CmsPanel extends LitElement {
 
       ${showAnimation
         ? html`<cms-animation-module
+            .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.animation}
             .overriddenDetail=${(conflicts.animation ?? []).join(", ")}
             .state=${s.animation}
+            .hiddenPresets=${this._caps.noAnimationPresets}
             .stateAware=${stateAware}
             .hass=${this.hass}
             @state-changed=${this._onAnimationChanged}
@@ -1302,6 +1537,7 @@ export class CmsPanel extends LitElement {
 
       ${showBorder
         ? html`<cms-border-module
+            .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.border}
             .overriddenDetail=${(conflicts.border ?? []).join(", ")}
             .thresholdOwned=${thresholdOwned.has('border-color')}
@@ -1314,8 +1550,8 @@ export class CmsPanel extends LitElement {
 
       <cms-advanced-module
         .state=${s.advanced}
-        .pierced=${s.dictSource?.entries ?? []}
-        .autoOpen=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
+        .pierced=${userEntries(s.dictSource)}
+        .autoOpen=${loadedCss || userEntries(s.dictSource).length > 0}
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
 
@@ -1324,7 +1560,7 @@ export class CmsPanel extends LitElement {
   }
 
   private _renderEntityRowsModule() {
-    return this.config?.type === 'entities'
+    return this._caps.isEntities
       ? html`<cms-entities-rows-module
             .hass=${this.hass}
             .rows=${(this.config as unknown as { entities?: EntitiesCardRow[] }).entities ?? []}
@@ -1347,8 +1583,9 @@ export class CmsPanel extends LitElement {
 
   private _renderContainerCard(s: StudioState) {
     const cardType = this.config?.type ?? 'layout';
-    const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
-    const childCards = STYLABLE_CHILDREN_CARD_TYPES.has(cardType)
+    // Its CSS all lives in Advanced CSS by design — nothing was "unrecognised".
+    const loadedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
+    const childCards = this._caps.stylableChildren
       ? ((this.config as unknown as { cards?: CardModCardConfig[] }).cards ?? [])
       : null;
 
@@ -1383,16 +1620,10 @@ export class CmsPanel extends LitElement {
             </div>
           `}
 
-      ${hasUnrecognisedCss
-        ? html`<div class="info-banner">
-            ℹ️ Some existing styles weren't recognised — preserved in Advanced CSS.
-          </div>`
-        : nothing}
-
       <cms-advanced-module
         .state=${s.advanced}
-        .pierced=${s.dictSource?.entries ?? []}
-        .autoOpen=${hasUnrecognisedCss || (s.dictSource?.entries.length ?? 0) > 0}
+        .pierced=${userEntries(s.dictSource)}
+        .autoOpen=${loadedCss || userEntries(s.dictSource).length > 0}
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
     `;

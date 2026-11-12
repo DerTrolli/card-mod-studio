@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mapElementToTarget, mapElementToMatch } from '../src/utils/preview-map.js';
+import { mapElementToTarget, mapElementToMatch, needsUnder } from '../src/utils/preview-map.js';
 import type { PickChainElement } from '../src/utils/preview-map.js';
 
 /** Shorthand chain-element builder. */
@@ -291,15 +291,51 @@ describe('mapElementToTarget', () => {
     });
   });
 
-  it('falls back to Advanced CSS on picture cards (no background module)', () => {
+  it('falls back to Border on picture cards (no background module, border shown)', () => {
     const chain = [el('ha-card'), el('hui-picture-card'), el('hui-card')];
     expect(mapElementToTarget(chain, 'picture')).toEqual({
-      module: 'cms-advanced-module',
-      label: 'Advanced CSS',
+      module: 'cms-border-module',
+      label: 'Border & Radius',
     });
   });
 
   it('returns null for an empty chain', () => {
     expect(mapElementToTarget([], 'tile')).toBeNull();
+  });
+});
+
+describe('onlyModules (a locked entities card shows just its rows)', () => {
+  const ROWS = ['cms-entities-rows-module'];
+  const row = [
+    el('state-badge'), el('hui-generic-entity-row'), el('hui-sensor-entity-row'),
+    el('div', [], 'states'), el('ha-card'), el('hui-entities-card'), el('hui-card'),
+  ];
+  const header = [el('div', ['card-header']), el('ha-card'), el('hui-entities-card'), el('hui-card')];
+  const surface = [el('ha-card'), el('hui-entities-card'), el('hui-card')];
+
+  it('a row part still maps to Entity Rows', () => {
+    expect(mapElementToTarget(row, 'entities', {}, undefined, ROWS)?.module).toBe('cms-entities-rows-module');
+  });
+
+  it('the header and the card surface map to nothing', () => {
+    expect(mapElementToTarget(header, 'entities', {}, undefined, ROWS)).toBeNull();
+    expect(mapElementToTarget(surface, 'entities', {}, undefined, ROWS)).toBeNull();
+    expect(mapElementToMatch(header, 'entities', {}, undefined, ROWS)).toBeNull();
+  });
+
+  it('unlocked (no filter) is unchanged', () => {
+    expect(mapElementToTarget(header, 'entities', {})?.module).toBe('cms-font-module');
+    expect(mapElementToTarget(surface, 'entities', {})?.module).toBe('cms-background-module');
+    expect(mapElementToTarget(row, 'entities', {})?.module).toBe('cms-entities-rows-module');
+  });
+});
+
+describe('needsUnder', () => {
+  it('is true only for card profiles with `under` click rules', () => {
+    expect(needsUnder('custom:bubble-card/button/slider')).toBe(true);
+    expect(needsUnder('custom:bubble-card/button')).toBe(false);
+    expect(needsUnder('tile')).toBe(false);
+    expect(needsUnder('custom:mushroom-light-card')).toBe(false);
+    expect(needsUnder('custom:unknown-card')).toBe(false);
   });
 });

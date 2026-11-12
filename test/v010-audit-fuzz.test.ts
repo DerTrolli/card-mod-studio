@@ -82,8 +82,11 @@ function randomState(r: () => number, cardType: string): StudioState {
       iconSize: pick([24, 40]), iconColor: pick(COLORS), alignment: pick(['left', 'center', 'right'] as const),
     } : { ...DEFAULT_HEADING_STYLE },
     font: coin(0.4) ? {
-      ...DEFAULT_FONT, enabled: true, fontSize: pick([12, 16, 22]), fontFamily: pick(['', 'serif']),
-      fontWeight: pick(['normal', 'medium', 'bold'] as const), color: pick(COLORS),
+      ...DEFAULT_FONT, enabled: true, fontFamily: pick(['', 'serif']),
+      // Each of the three is also drawn "not set" (undefined); 0 is a real value.
+      fontSize: coin(0.3) ? undefined : pick([0, 12, 16, 22]),
+      fontWeight: coin(0.3) ? undefined : pick(['normal', 'medium', 'bold'] as const),
+      color: coin(0.3) ? undefined : pick(COLORS),
     } : { ...DEFAULT_FONT },
     threshold: coin(0.3) ? (() => {
       const props = (['icon-color', 'background', 'text-color', 'accent-color', 'border-color'] as ThresholdProperty[]).filter(() => coin(0.4));
@@ -144,6 +147,43 @@ describe('fuzz 1 — generated module output is byte-stable through open/save', 
     }
     expect(fails).toEqual([]);
   });
+});
+
+describe('fuzz 1b — Number size × Font on gauge and thermostat', () => {
+  const KEY = { gauge: 'ha-gauge$', thermostat: 'ha-big-number$' } as const;
+  for (const engine of ['card-mod', 'uix'] as const) {
+    it(`open → save is byte-stable; the entry is present exactly when both are on (${engine}, seeded)`, () => {
+      installEngines([engine]);
+      const r = rng(engine === 'uix' ? 4242 : 2424);
+      const pick = <T,>(a: readonly T[]): T => a[Math.floor(r() * a.length)];
+      const fails: string[] = [];
+      for (let i = 0; i < 600; i++) {
+        const type = pick(['gauge', 'thermostat'] as const);
+        const sizeOn = r() < 0.5;
+        const fontOn = r() < 0.5;
+        const font = {
+          ...DEFAULT_FONT, enabled: fontOn,
+          fontFamily: pick(['', 'serif']),
+          fontSize: r() < 0.4 ? undefined : pick([12, 16, 22]),
+          fontWeight: r() < 0.4 ? undefined : pick(['normal', 'medium', 'bold'] as const),
+          color: r() < 0.4 ? undefined : pick(COLORS),
+          numberSizeEnabled: sizeOn,
+          numberSize: sizeOn ? (type === 'gauge' ? pick([80, 120, 150]) : pick([30, 70, 90])) : 0,
+        };
+        const config = cfg({ type, entity: type === 'gauge' ? 'sensor.t' : 'climate.x', [engine === 'uix' ? 'uix' : 'card_mod']: { style: '' } });
+        const first = applyStudioState({ ...buildMergedStudioState(config), font }, config);
+        const second = applyStudioState(buildMergedStudioState(first), first);
+        const text = JSON.stringify(first);
+        const has = text.includes(KEY[type]);
+        const reopened = buildMergedStudioState(first).font;
+        if (JSON.stringify(second) !== text) fails.push(`#${i} ${type} not stable\n${text}\n${JSON.stringify(second)}`);
+        else if (has !== (sizeOn && fontOn)) fails.push(`#${i} ${type} size=${sizeOn} font=${fontOn} entry=${has}`);
+        else if (sizeOn && fontOn && !reopened.numberSizeEnabled) fails.push(`#${i} ${type} lost on reopen`);
+        if (fails.length >= 5) break;
+      }
+      expect(fails).toEqual([]);
+    });
+  }
 });
 
 describe('fuzz 2 — entities rows round-trip byte-stably', () => {
@@ -284,6 +324,8 @@ describe('corpus — hand-written declarations survive an unrelated edit', () =>
     ['tile', 'ha-card {\n  border: 3px none red;\n}'],
     ['tile', 'ha-card {\n  box-shadow: 0 0 4px red !important;\n}\n\nha-card {\n  box-shadow: none;\n}'],
     ['tile', 'ha-card {\n  padding: 16px;\n}\n\n@media (max-width: 600px) {\n  ha-card {\n    padding: 0;\n  }\n}'],
+    // Size-less Font anchor must not claim a companion the card type never re-emits.
+    ['markdown', 'ha-card {\n  color: red;\n  --primary-text-color: red;\n}'],
     ['tile', 'HA-CARD {\n  Background: Red;\n}'],
     ['tile', 'ha-card{background:red}'],
   ];

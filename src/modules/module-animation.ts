@@ -2,7 +2,10 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { AnimationModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ANIMATION } from '../parser/state-mapper.js';
-import { moduleStyles, renderOverrideBadge, renderOverrideHint, onHeaderKeydown } from './module-base.js';
+import { moduleStyles, renderOverrideHint, renderModuleHeader, offeredOnOff, guardSliderTouch, nameSwitches, prepareSliders,
+} from './module-base.js';
+import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
+import { stateKindFor } from '../utils/card-caps.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
 
@@ -31,8 +34,12 @@ export class AnimationModule extends LitElement {
 
   /** False when the card has no binary entity state (e.g. sensor cards). */
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
+  /** The card's own entity id — tells an OFF-only entity (climate) from a never-on/off one. */
+  @property({ type: String }) cardEntity = '';
 
   @property({ attribute: false }) hass?: HomeAssistant;
+  /** Presets this card cannot use (card-caps noAnimationPresets); the saved one stays listed. */
+  @property({ attribute: false }) hiddenPresets: string[] = [];
 
   /** True when Advanced CSS overrides this module's output — shows the
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
@@ -49,6 +56,8 @@ export class AnimationModule extends LitElement {
   }
 
   override updated(changed: Map<PropertyKey, unknown>) {
+    nameSwitches(this.renderRoot);
+    prepareSliders(this.renderRoot);
     if (changed.has('state')) {
       const prev = changed.get('state') as AnimationModuleState | undefined;
       if (this.state.enabled && prev && !prev.enabled) this._open = true;
@@ -79,27 +88,25 @@ export class AnimationModule extends LitElement {
     this._emit(changes);
   }
 
+  override connectedCallback() {
+    super.connectedCallback();
+    guardSliderTouch(this.renderRoot);
+  }
+
   override render() {
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this._open ? 'true' : 'false'}
-          @click=${this._toggleOpen}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title">✨ Animation</span>
-          ${renderOverrideBadge(this.overridden)}
-          <ha-switch
-            .checked=${this.state.enabled}
-            @click=${(e: Event) => e.stopPropagation()}
-            @change=${(e: Event) =>
-              this._emit({ enabled: (e.target as HTMLInputElement).checked })}
-          ></ha-switch>
-        </div>
+        ${renderModuleHeader({
+          icon: '✨',
+          title: 'Animation',
+          open: this._open,
+          onToggle: () => this._toggleOpen(),
+          overridden: this.overridden,
+          enable: {
+            checked: this.state.enabled,
+            onChange: (enabled) => this._emit({ enabled }),
+          },
+        })}
         ${this._open ? this._renderBody() : nothing}
       </div>
     `;
@@ -107,19 +114,20 @@ export class AnimationModule extends LitElement {
 
   private _renderBody() {
     return html`
-      <div class="module-body">
+      <div class="module-body" id="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         <div class="control-row">
-          <span class="control-label">Preset</span>
+          <span class="control-label" id="lbl-preset">Preset</span>
           <div class="control-right">
             <select
+              aria-labelledby="lbl-preset"
               .value=${this.state.preset}
               @change=${(e: Event) =>
                 this._emit({
                   preset: (e.target as HTMLSelectElement).value as AnimationPreset,
                 })}
             >
-              ${PRESETS.map(
+              ${PRESETS.filter((p) => !this.hiddenPresets.includes(p.value) || p.value === this.state.preset).map(
                 (p) => html`
                   <option value=${p.value} ?selected=${this.state.preset === p.value}>
                     ${p.label}
@@ -131,9 +139,11 @@ export class AnimationModule extends LitElement {
         </div>
 
         <div class="control-row">
-          <span class="control-label">Speed</span>
+          <span class="control-label">Duration</span>
           <div class="control-right">
             <ha-slider
+              label="Duration"
+              aria-label="Duration"
               min="0.5"
               max="10"
               step="0.5"
@@ -149,6 +159,7 @@ export class AnimationModule extends LitElement {
             <span class="value-label">${this._speedS}s</span>
           </div>
         </div>
+        <div class="when-hint">Seconds per cycle — lower is faster.</div>
 
         ${this._renderTrigger()}
 
@@ -167,24 +178,26 @@ export class AnimationModule extends LitElement {
    * cards unless one is already the stored value.
    */
   private _renderTrigger() {
-    const hasStateValue = this.state.trigger === 'on' || this.state.trigger === 'off';
-    const showOnOff = this.stateAware || hasStateValue;
+    const { showOn, showOff } = offeredOnOff(
+      this.stateAware,
+      stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
+      this.state.trigger === 'on' || this.state.trigger === 'off',
+    );
 
     const opts: Array<{ v: AnimationTrigger; label: string }> = [
       { v: 'always', label: 'Always' },
     ];
-    if (showOnOff) {
-      opts.push({ v: 'on', label: 'Only while entity is ON' });
-      opts.push({ v: 'off', label: 'Only while entity is OFF' });
-    }
+    if (showOn) opts.push({ v: 'on', label: 'Only while entity is ON' });
+    if (showOff) opts.push({ v: 'off', label: 'Only while entity is OFF' });
     opts.push({ v: 'custom', label: 'While another entity is ON…' });
     opts.push({ v: 'value', label: 'While a value matches…' });
 
     return html`
       <div class="control-row">
-        <span class="control-label">Apply when</span>
+        <span class="control-label" id="lbl-apply-when">Apply when</span>
         <div class="control-right">
           <select
+            aria-labelledby="lbl-apply-when"
             .value=${this.state.trigger}
             @change=${(e: Event) =>
               this._onTriggerChange((e.target as HTMLSelectElement).value as AnimationTrigger)}
@@ -208,6 +221,7 @@ export class AnimationModule extends LitElement {
                   .value=${this.state.customEntity ?? ''}
                   .includeDomains=${TOGGLE_DOMAINS}
                   label=""
+                  accessible-name="Entity to watch"
                   placeholder="input_boolean.my_entity"
                   @value-changed=${(e: CustomEvent<{ value: string }>) =>
                     this._emit({ customEntity: e.detail.value.trim() })}
@@ -258,9 +272,10 @@ export class AnimationModule extends LitElement {
     if (options.length === 0 && !this.state.valueAttribute) return nothing;
     return html`
       <div class="control-row">
-        <span class="control-label">Value read from</span>
+        <span class="control-label" id="lbl-value-read-from">Value read from</span>
         <div class="control-right">
           <select
+            aria-labelledby="lbl-value-read-from"
             .value=${this.state.valueAttribute ?? ''}
             @change=${(e: Event) =>
               this._emit({ valueAttribute: (e.target as HTMLSelectElement).value })}
@@ -286,6 +301,7 @@ export class AnimationModule extends LitElement {
             .hass=${this.hass}
             .value=${this.state.valueEntity ?? ''}
             label=""
+            accessible-name="Entity to read the value from"
             placeholder="sensor.temperature"
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
               this._emit({ valueEntity: e.detail.value.trim(), valueAttribute: '' })}
@@ -294,9 +310,10 @@ export class AnimationModule extends LitElement {
       </div>
       ${this._renderAttributeSelect()}
       <div class="control-row">
-        <span class="control-label">Condition</span>
+        <span class="control-label" id="lbl-condition">Condition</span>
         <div class="control-right">
           <select
+            aria-labelledby="lbl-condition"
             .value=${this.state.valueOperator ?? '>'}
             @change=${(e: Event) =>
               this._emit({
@@ -316,12 +333,20 @@ export class AnimationModule extends LitElement {
         <span class="control-label">Threshold</span>
         <div class="control-right">
           <input
-            type="number"
+            type="text"
+            class="num"
+            aria-label="Threshold value"
+            aria-invalid="false"
+            spellcheck="false"
+            autocomplete="off"
             .value=${String(this.state.valueThreshold ?? 0)}
-            @change=${(e: Event) =>
-              this._emit({
-                valueThreshold: parseFloat((e.target as HTMLInputElement).value) || 0,
-              })}
+            @input=${markNumberInput}
+            @change=${(e: Event) => {
+              // Empty / unparseable: keep the previous value (cue shows until blur).
+              const n = commitNumberInput(e);
+              if (n !== undefined) this._emit({ valueThreshold: n });
+            }}
+            @blur=${(e: Event) => revertNumberInput(e, this.state.valueThreshold ?? 0)}
           />
         </div>
       </div>

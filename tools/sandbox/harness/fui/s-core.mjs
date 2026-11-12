@@ -4,7 +4,7 @@
 import {
   sleep, openEditor, clickEditOn, openStudio, styleBtn, panelVisible, mod, enable, expand, setSlider, choose,
   pickSwatch, expectCfg, expectPage, getCfg, styleStr, waitCfg, rowOf, dialogButton, readDashboardCards,
-  resolveRgb, sameRgb, waitHass, saveDashboard, viewDashboard, pollPage, waitDialogClosed,
+  resolveRgb, sameRgb, waitHass, saveDashboard, viewDashboard, pollPage, waitDialogClosed, expectDashboardCard,
 } from './lib.mjs';
 import { P_CARD, P_HIT, P_PANEL } from './probes.mjs';
 
@@ -110,7 +110,16 @@ async function styleButtonSection(T) {
   await dialogButton(T, 'Show visual editor').waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
   T.check('code editor toggled while the Studio is open (button now "Show visual editor")', (await dialogButton(T, 'Show visual editor').count()) === 1);
   T.check('config intact after toggling HA\'s YAML mode', same(await getCfg(T), cfgA));
-  T.check('Studio still visible over the YAML editor', await panelVisible(T));
+  // Switching HA's editor mode closes the Studio (it covers both editors, so the
+  // switch would otherwise look like it did nothing); the edit made so far stays.
+  await T.page.waitForFunction(() => !window.__fui.panel(), null, { timeout: 5000 }).catch(() => {});
+  T.check('switching to HA\'s code editor closes the Studio and un-presses Style', !(await panelVisible(T)) && (await b.getAttribute('aria-pressed')) === 'false');
+  const yamlShown = await T.page.evaluate(() => { const Q = window.__fui; return Q.q(Q.dialog(), 'ha-code-editor').some((e) => Q.vis(e)); });
+  T.check('HA\'s own YAML editor is what the user now sees', yamlShown);
+  T.check('the Studio edit is still in the config after the switch', S(T, await getCfg(T)).includes('font-size: 20px;'));
+  await b.click();
+  await openStudio(T);
+  T.check('Style opens the Studio again over the YAML editor', (await panelVisible(T)) && (await b.getAttribute('aria-pressed')) === 'true');
   await choose(rowOf(T, mod(T, 'cms-font-module'), 'Weight').locator('select'), 'bold');
   await expectCfg(T, 'Studio edits still emit while HA is in YAML mode', has(T, 'font-weight: bold;', 'font-size: 20px;'));
   await b.click();
@@ -148,7 +157,9 @@ async function styleButtonSection(T) {
   T.check('Studio opens fine while HA is in YAML mode', await panelVisible(T));
   await choose(rowOf(T, mod(T, 'cms-font-module'), 'Weight').locator('select'), 'medium');
   await expectCfg(T, 'edit made from YAML mode lands in the config', has(T, 'font-weight: 500;'));
-  await dialogButton(T, 'Show visual editor').click().catch(() => {});
+  await dialogButton(T, 'Show visual editor').click();
+  await T.page.waitForFunction(() => !window.__fui.panel(), null, { timeout: 5000 }).catch(() => {});
+  T.check('switching back to HA\'s visual editor also closes the open Studio', !(await panelVisible(T)) && (await b.getAttribute('aria-pressed')) === 'false' && (await codeBtn.count()) === 1);
 
   // Cancel discards
   const ok = await cancelDialog(T);
@@ -207,7 +218,7 @@ async function saveCancelSection(T) {
   const direct = await pollPage(T, dashProbe, null, (v) => sameRgb(v?.bg, red), 8000);
   T.note(`saved card on a DIRECT page load of the dashboard: ${direct.ok ? 'styled' : 'NOT styled'} (${JSON.stringify(direct.v)}) — engine ${JSON.stringify(T.engines)}`);
   await viewDashboard(T, 'fui-save');
-  await expectPage(T, 'dashboard (navigated to, not edit mode): saved card renders red with a 2px border', dashProbe, null, (v) => sameRgb(v?.bg, red) && v.bw === '2px', { timeout: 20000 });
+  await expectDashboardCard(T, 'dashboard (navigated to, not edit mode): saved card renders red with a 2px border', 'fui-save', dashProbe, (v) => sameRgb(v?.bg, red) && v.bw === '2px');
 
   // Cancel discards a later edit
   await T.page.goto(`${T.HA}/fui-save/0?edit=1`, { waitUntil: 'domcontentloaded' });
@@ -227,7 +238,7 @@ async function saveCancelSection(T) {
   const after = (await readDashboardCards(T, 'fui-save'))[0];
   T.check('Cancel: dashboard still holds the saved (red) config', same(after, emitted), JSON.stringify(after).slice(0, 400));
   await viewDashboard(T, 'fui-save');
-  await expectPage(T, 'dashboard: still red after Cancel', dashProbe, null, (v) => sameRgb(v?.bg, red), { timeout: 20000 });
+  await expectDashboardCard(T, 'dashboard: still red after Cancel', 'fui-save', dashProbe, (v) => sameRgb(v?.bg, red));
   await saveDashboard(T, 'fui-save', cards);
 }
 

@@ -72,6 +72,11 @@ interface HuiDialogEditCard extends HTMLElement {
   _cardConfig?: CardModCardConfig;
   /** The HA instance — inherited from parent. */
   hass?: HomeAssistant;
+  /** True while the dialog shows the visual editor, false for the YAML one. */
+  _GUImode?: boolean;
+  /** False while the visual editor cannot be used (the card editor reported
+   *  an error or no GUI editor): the "Show visual editor" switch is disabled. */
+  _guiModeAvailable?: boolean;
   /** Guard flag so multiple CMS loads don't double-patch. */
   _cmsPatched?: boolean;
 }
@@ -189,6 +194,40 @@ function togglePanel(dialog: HuiDialogEditCard, active: boolean): void {
   }
 }
 
+/**
+ * "Show code editor" / "Show visual editor" flips the dialog's `_GUImode`
+ * state, but the Studio panel covers both editors — so the switch looked
+ * like it did nothing. Close the Studio (and un-press Style) when the mode
+ * really changes; pending Studio edits are already in `_cardConfig`.
+ * `_GUImode` is read from Lit's changed-properties map, not the button's
+ * (translated) label. The first render has no previous value — ignored.
+ *
+ * Not a user switch: Home Assistant itself falls back to the code editor when
+ * the card's editor reports an error (an unknown `custom:` card whose element
+ * is not defined, an invalid config). That flip arrives a moment after the
+ * dialog opens, with the visual-editor switch disabled
+ * (`_guiModeAvailable === false`) — closing the Studio then made the Style
+ * button look dead on such a card. The panel works there (generic modules,
+ * Advanced CSS), so it stays open.
+ * Exported for tests.
+ */
+export function closeStudioOnModeSwitch(
+  dialog: HuiDialogEditCard,
+  changedProps: Map<PropertyKey, unknown>,
+): void {
+  if (!changedProps.has('_GUImode')) return;
+  const was = changedProps.get('_GUImode');
+  if (was === undefined || was === dialog._GUImode) return;
+  if (dialog._GUImode === false && dialog._guiModeAvailable === false) return;
+  const tab = dialog.shadowRoot?.querySelector(`[${CMS_BUTTON_ATTR}]`) as
+    | { active?: boolean }
+    | null
+    | undefined;
+  if (!tab?.active) return;
+  tab.active = false;
+  togglePanel(dialog, false);
+}
+
 // ---------------------------------------------------------------------------
 // Button injection — inserts cms-tab-button next to the existing Cancel button
 // ---------------------------------------------------------------------------
@@ -268,6 +307,12 @@ function patchDialogElement(DialogClass: CustomElementConstructor): void {
     // Always call the original first — HA's own render must complete before we query.
     if (originalUpdated) {
       originalUpdated.call(this, changedProps);
+    }
+
+    try {
+      closeStudioOnModeSwitch(this, changedProps);
+    } catch (err) {
+      console.error('[Card-Mod Studio] Error closing Studio on editor switch:', err);
     }
 
     // Defer by one animation frame so the shadow DOM is fully settled.

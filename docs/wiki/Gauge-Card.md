@@ -1,17 +1,21 @@
-`type: gauge` — well supported, with the dial color as the star and one
-documented limit (value-number size — planned for v0.11).
+`type: gauge` — well supported, with the dial color as the star; since v0.11
+the value number's size can be changed too.
+
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/12%20Gauge%20Number%20Size.png" alt="Number size on a gauge card" width="1024">
+
+*The Font module's Number size row makes the gauge's value number bigger.*
 
 ## Available options
 
 | Module | Available | Notes on this card |
 |---|---|---|
-| Font | ✅ | Title: size/weight/color. Value number: **color only** for now (see limits) |
+| Font | ✅ | Title: size/weight/color. Value number: color, and **Number size** (v0.11) |
 | Visual Filters | ✅ | |
 | Accent Color | ✅ | Labeled "Gauge / Accent Color" — colors the **dial's value arc** |
 | Icon Color | — hidden | A gauge has no icon |
 | Threshold Colors | ✅ | Enabling it defaults to the Accent property here; **Fade mode** gives a smoothly blending dial |
 | Background | ✅ | |
-| Animation | — hidden | Interferes with the gauge's own rendering |
+| Animation | ✅ | Offered since v0.11.0-beta.3 (the gauge still opens its dialog while a preset runs) |
 | Border & Radius | ✅ | |
 | Advanced CSS | ✅ | |
 
@@ -31,10 +35,18 @@ documented limit (value-number size — planned for v0.11).
 
 ## Limits
 
-- **The value number's size can't be changed from the Font module yet** —
-  it's SVG text that HA auto-scales to fill the dial. Its **color** follows
-  the Font module's text color. A size control is **planned for v0.11**: the
-  number is reachable with a dictionary-form (`$` shadow-piercing) style, but
-  the Font module can't generate one yet, and because the text auto-scales
-  the control needs a scale-based design rather than a plain px slider. See
-  [What's Planned](Whats-Planned).
+- **Number size** (Font module, v0.11) scales the box HA fits the value
+  into — 50–130 % of HA's own size. 100 % is exactly what Home Assistant
+  draws, and a wide value (many characters, such as "123 °C") stops
+  growing at about 112 % because the width limit is reached first, so 130 %
+  only shows fully on short values; the number never touches the arc. It has its own switch in
+  the Font module and is written, as a shadow-piercing (`$`) dictionary
+  entry the Studio keeps editable, only while the Font module is on:
+  switching Number size on switches Font on, and a card that already has the
+  entry opens with Font on. If you already wrote your own `ha-gauge$` CSS,
+  the control shows as locked and your CSS stays as it is.
+- **Styles from beta.1 and beta.2** (which went up to 150 %, with 100 %
+  about 10 % larger than Home Assistant's own number) load at the same
+  percentage and are rewritten the next time you save: a number set to 100 %
+  looks about 10 % smaller for wide values, and anything above 130 % reads as
+  130 %.

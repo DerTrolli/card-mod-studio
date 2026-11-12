@@ -12,8 +12,25 @@ The bar at the top of the panel:
   Escape cancels).
 - **📋 Load preset…** — applies a saved preset to any other card, in one
   click. Card-type-specific parts adapt (the same accent preset colors a
-  gauge's dial and a tile's tint).
-- **×** — deletes the selected preset.
+  gauge's dial and a tile's tint). Settings the card can't use are left
+  out: hidden modules, Font rows the card hides, an animation preset the
+  card doesn't offer (Spin on a dial card, Gradient Shift without a
+  background).
+- **×** — deletes the selected preset; press it a second time to confirm
+  (it disarms itself after a few seconds or when you click elsewhere).
+
+A name that already exists is saved only through an explicit **Overwrite**;
+new names are limited to 60 characters. Presets saved with text instead of
+numbers in a threshold rule or fade point (some older ones) load when the
+text is a plain decimal number; any other value in such a rule or fade point
+is dropped when the preset loads. Escape or Enter while an input method is
+composing the name (Japanese, Chinese, …) neither closes the dialog nor saves
+a half-typed name.
+
+If Home Assistant can't be reached, a preset change is kept on this device
+and sent to Home Assistant when it is reachable again (the bar tells you it
+was "saved on this device only"). If this browser's storage is full too, it
+says the change can't be saved.
 
 Loading a preset keeps the current card's hand-written Advanced CSS unless
 the preset itself carries Advanced CSS — a preset from a different card
@@ -21,7 +38,7 @@ won't silently wipe your custom rules.
 
 ## My Color Palette
 
-![My Color Palette](https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/09%20Font%20and%20Palette.png)
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/09%20Font%20and%20Palette.png" alt="My Color Palette" width="618">
 
 The **🖌️ My Color Palette** section (below the preset bar):
 
@@ -33,6 +50,17 @@ The **🖌️ My Color Palette** section (below the preset bar):
   threshold rule's color, a new fade point, a row's icon color. Changing
   these never touches already-styled cards — only what *new* controls start
   from. **Reset** returns to the built-ins.
+
+Each entry has a hex field next to the colour box (`#rgb` or `#rrggbb`; text
+that isn't a colour is never stored). Removing an entry takes a second press
+of the same button. Cards **keep the colour they were given**: a colour is
+copied into the style when you pick it, so changing or removing a palette entry
+doesn't restyle cards that already use it. Edits are saved to Home Assistant as
+you commit them; one made while Home Assistant is unreachable (or just before
+you close the tab) is kept and sent later, and the manager says so when it can
+only be kept in this browser's memory. A colour added while both the browser's
+storage and Home Assistant are unavailable stays visible until it can be
+saved.
 
 ## Where exactly is this stored?
 

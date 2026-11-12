@@ -224,7 +224,7 @@ export async function launch(env, tokens) {
 export async function waitHass(page, timeout = 60000) {
   await page.waitForFunction(() => {
     const ha = document.querySelector('home-assistant');
-    return !!(ha && ha.hass && ha.hass.states && Object.keys(ha.hass.states).length > 10);
+    return !!(ha && ha.hass && ha.hass.states && Object.keys(ha.hass.states).length > 10 && ha.hass.config && ha.hass.config.version && ha.hass.user);
   }, null, { timeout });
 }
 
@@ -505,6 +505,24 @@ export async function expectPage(T, name, probe, arg, pred, { timeout = 20000, r
   return { ok, v };
 }
 
+/**
+ * Like expectPage, for a card on a real dashboard shown with viewDashboard.
+ * The style engine sometimes does not style a card on a page's first load
+ * (a known load-timing issue: the engine hooks in after the first cards were
+ * built). That is not what is being tested, so when nothing was styled within
+ * the first window the dashboard is shown once more before the result counts.
+ */
+export async function expectDashboardCard(T, name, urlPath, probe, pred, { timeout = 15000 } = {}) {
+  let r = await expectPage(T, name, probe, null, pred, { timeout, record: false });
+  if (!r.ok) {
+    T.note(`${name}: not styled within ${timeout}ms — showing the dashboard once more (engine load timing)`);
+    await viewDashboard(T, urlPath);
+    r = await expectPage(T, name, probe, null, pred, { timeout, record: false });
+  }
+  T.check(name, r.ok, JSON.stringify(r.v));
+  return r;
+}
+
 export async function pollPage(T, probe, arg, pred, timeout = 8000) {
   return expectPage(T, '', probe, arg, pred, { timeout, record: false });
 }
@@ -528,14 +546,15 @@ export async function entityState(T, id) {
 export const mod = (T, tag, scope) => (scope || panelLoc(T)).locator(tag).first();
 
 export async function isOpen(m) {
-  return (await m.locator('.module-header').first().getAttribute('aria-expanded')) === 'true';
+  // The open state lives on the toggle button inside the header (role=button).
+  return (await m.locator('.module-header [aria-expanded]').first().getAttribute('aria-expanded')) === 'true';
 }
 
 /** Expands a module by clicking its title (not the switch). */
 export async function expand(m) {
   if (await isOpen(m)) return;
   await m.locator('.module-header .module-title').first().click();
-  await m.locator('.module-header[aria-expanded="true"]').first().waitFor({ timeout: 5000 });
+  await m.locator('.module-header [aria-expanded="true"]').first().waitFor({ timeout: 5000 });
 }
 
 export async function collapse(m) {

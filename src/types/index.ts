@@ -103,6 +103,11 @@ export interface CssProperty {
 export interface CssTarget {
   selector: string;
   properties: CssProperty[];
+  /** Later plain declarations that an earlier `!important` one of the same
+   *  property wins over (same selector). Not part of the effective cascade
+   *  (`properties` holds the winner) but hand-written text: Advanced CSS keeps
+   *  it. Absent when there is none. */
+  overridden?: CssProperty[];
 }
 
 /**
@@ -120,6 +125,10 @@ export interface CssTarget {
 export interface PiercedEntry {
   key: string;
   value: unknown;
+  /** v0.11: an entry the Studio itself writes (Font → Number size,
+   *  src/utils/owned-entries.ts). It keeps its place in the dict; its value
+   *  is regenerated on save, and it is never listed as the user's CSS. */
+  owned?: true;
 }
 
 /** The dict-form carrier threaded from parse to save (v0.10): preserved
@@ -136,6 +145,9 @@ export interface DictSource {
    *  UIX-only features (`$$`/`&` keys, macros/billets/theme) can't move to
    *  `card_mod:` (audit v0.10 #6). */
   pinKey?: 'card_mod' | 'uix';
+  /** v0.11: the dict holds nothing but `.` and owned entries, so it may
+   *  return to a plain string once no owned entry is written any more. */
+  studioCreated?: boolean;
 }
 
 export interface CardModStyleState {
@@ -197,8 +209,9 @@ export interface FilterModuleState {
 
 export interface IconColorModuleState {
   enabled: boolean;
-  /** plain = single static color; conditional = on/off entity-state colors; light = use actual light rgb_color attribute */
-  mode: 'plain' | 'conditional' | 'light';
+  /** plain = single static color; conditional = on/off entity-state colors; light = use actual light rgb_color attribute;
+   *  none = write no colour (size only: "Keep the card's colour") */
+  mode: 'plain' | 'conditional' | 'light' | 'none';
   color: string;            // used when mode='plain'
   colorOn: string;          // used when mode='conditional'
   colorOff: string;         // used when mode='conditional'
@@ -267,7 +280,8 @@ export interface BorderModuleState {
   borderColor: string;
   /** Condition the border reacts to; undefined / when:'always' = static. */
   widthWhen?: StyleCondition;
-  /** Border width while widthWhen does NOT match; 0/undefined = no border then. */
+  /** Border width while widthWhen does NOT match; 0/undefined = the card's
+   *  own border (the Studio writes nothing then). */
   widthOffPx?: number;
 }
 
@@ -275,27 +289,41 @@ export interface AdvancedModuleState {
   rawCss: string;
 }
 
+/** Every visual property is optional: `undefined` = "not set" — nothing is
+ *  written for it, so the card keeps its native look (title and subtitle
+ *  headings differ, and neither matches a fixed panel default). */
 export interface HeadingStyleModuleState {
   enabled: boolean;
-  fontSize: number;        // px, 12–48
-  textColor: string;       // CSS color for ha-card .title p
+  fontSize?: number;       // px, 12–48
+  textColor?: string;      // CSS color for the heading text
   /** Weight of the heading text (issue #25 follow-up: headings previously
    *  had size+color only). */
-  fontWeight: 'normal' | 'medium' | 'bold';
+  fontWeight?: 'normal' | 'medium' | 'bold';
   /** '' = leave the theme's font-family alone. */
   fontFamily: string;
-  iconSize: number;        // px for --mdc-icon-size on ha-card .title ha-icon
-  iconColor: string;       // CSS color for ha-card .title ha-icon
-  alignment: 'left' | 'center' | 'right';
+  iconSize?: number;       // px for --mdc-icon-size on the heading icon
+  iconColor?: string;      // CSS color for the heading icon
+  alignment?: 'left' | 'center' | 'right';
 }
 
 export interface FontModuleState {
   enabled: boolean;
-  fontSize: number;        // px, 10-48
+  /** px, 10-48. Size, weight and colour: `undefined` = not set — nothing is
+   *  written for it (nor for the companions derived from it). */
+  fontSize?: number;
   /** '' = leave the theme's font-family alone. */
   fontFamily: string;
-  fontWeight: 'normal' | 'medium' | 'bold';
-  color: string;
+  fontWeight?: 'normal' | 'medium' | 'bold';
+  color?: string;
+  /** v0.11 Number size (gauge value / thermostat big number), independent
+   *  of `enabled` — see docs/V0.11_PLAN.md C1.0. */
+  numberSizeEnabled: boolean;
+  /** Gauge: % of HA's own box for the value (100 = default); thermostat:
+   *  px (57 = default). 0 = the card's default. */
+  numberSize: number;
+  /** Derived on read, never saved: a hand-written entry sits under the
+   *  Studio's key, so the control can't write without touching it. */
+  numberSizeLocked?: boolean;
 }
 
 export interface ThresholdRule {

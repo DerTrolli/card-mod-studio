@@ -20,7 +20,20 @@ import type {
   ColorStop,
   StyleCondition,
 } from '../types/index.js';
-import { ICON_SIZE_TYPES } from '../utils/card-caps.js';
+import { capsFor, hasOwnEntity, type CardCaps } from '../utils/card-caps.js';
+import {
+  getCustomCardProfile,
+  emitKeyOf,
+  scaledFontValue,
+  type AccentEmitter,
+  type BorderEmitter,
+  type FontEmitter,
+  type IconSizeEmitter,
+  type ProfileEmitters,
+  type Companion,
+} from '../utils/custom-card-profiles.js';
+import { toRgbTriplet } from '../utils/rgb-triplet.js';
+import { jinjaStr } from '../utils/jinja-str.js';
 
 /**
  * Renders the entity reference used inside an `is_state(...)`/`state_attr(...)`
@@ -31,7 +44,7 @@ import { ICON_SIZE_TYPES } from '../utils/card-caps.js';
  * way everywhere (see ENTITY_STATE_PATTERN in css-parser.ts).
  */
 function entityRef(entityId?: string): string {
-  return entityId ? `'${entityId}'` : 'config.entity';
+  return entityId ? `'${jinjaStr(entityId)}'` : 'config.entity';
 }
 
 // ---------------------------------------------------------------------------
@@ -115,21 +128,17 @@ export function conditionExpr(c: StyleCondition | undefined): string | null {
   if (c.when === 'on') return `is_state(config.entity, 'on')`;
   if (c.when === 'off') return `is_state(config.entity, 'off')`;
   if (c.when === 'custom') {
-    return c.customEntity ? `is_state('${c.customEntity}', 'on')` : null;
+    return c.customEntity ? `is_state('${jinjaStr(c.customEntity)}', 'on')` : null;
   }
   // when === 'value'
   if (!c.valueEntity || !c.valueOperator || c.valueThreshold === undefined) return null;
   const src = c.valueAttribute
-    ? `state_attr('${c.valueEntity}', '${c.valueAttribute}') | float(0)`
-    : `states('${c.valueEntity}') | float(0)`;
+    ? `state_attr('${jinjaStr(c.valueEntity)}', '${jinjaStr(c.valueAttribute)}') | float(0)`
+    : `states('${jinjaStr(c.valueEntity)}') | float(0)`;
   return `${src} ${c.valueOperator} ${c.valueThreshold}`;
 }
 
-/** Cards whose own stylesheet overrides a plain filter transition (see
- *  the filter block below). */
-const TRANSITION_IMPORTANT_TYPES = new Set(['tile', 'sensor', 'entity', 'area']);
-
-function filterDecls(s: FilterModuleState, cardType?: string, rawCss = ''): string[] {
+function filterDecls(s: FilterModuleState, caps: CardCaps, rawCss = ''): string[] {
   if (!s.enabled) return [];
 
   const decls: string[] = [];
@@ -199,11 +208,58 @@ function filterDecls(s: FilterModuleState, cardType?: string, rawCss = ''): stri
     // HA 2026.10.4 (harmless where not needed). Same mechanism as the
     // button card's font size. Not when Advanced CSS sets a transition
     // itself: hand-written CSS must keep winning, as it does everywhere else.
-    const important = TRANSITION_IMPORTANT_TYPES.has(cardType ?? '') && !/(^|[\s;{])transition\s*:/.test(rawCss);
+    const important = caps.transitionImportant && !/(^|[\s;{])transition\s*:/.test(rawCss);
     decls.push(`transition: filter ${s.transitionMs}ms ease${important ? ' !important' : ''};`);
   }
 
   return decls;
+}
+
+/**
+ * What a style means on a card WITHOUT an entity of its own: every "own
+ * entity is ON / OFF" condition falls back to unconditional ("always").
+ * `config.entity` would be undefined there, `is_state()` on it fails
+ * to render, and the style engine then drops the card's WHOLE style — so
+ * generateCss() applies this as its last line of defence, and the panel and
+ * the loader apply it too so what the controls show is what gets saved.
+ * Conditions on another entity or on a value are untouched; a card that has
+ * an entity gets its state back unchanged (same object).
+ */
+export function settleEntityless(state: StudioState, config?: Record<string, unknown> | null): StudioState {
+  if (config == null || hasOwnEntity(config)) return state;
+  const own = (w?: string) => w === 'on' || w === 'off';
+  const cond = (c?: StyleCondition) => (c && own(c.when) ? undefined : c);
+  const { filter: f, background: b, border: bo, animation: a, iconColor: ic } = state;
+  return {
+    ...state,
+    filter: {
+      ...f,
+      grayscaleWhen: own(f.grayscaleWhen) ? 'always' : f.grayscaleWhen,
+      effectsWhen: cond(f.effectsWhen),
+    },
+    background: { ...b, applyWhen: own(b.applyWhen) ? 'always' : b.applyWhen },
+    border: { ...bo, widthWhen: cond(bo.widthWhen) },
+    animation: { ...a, trigger: own(a.trigger) ? 'always' : a.trigger },
+    iconColor: { ...ic, sizeWhen: cond(ic.sizeWhen) },
+  };
+}
+
+/**
+ * Icon Color / Accent in their on/off (or light) mode with no entity picked
+ * fall back to the card's own entity — which an entity-less card doesn't
+ * have, so there is nothing to watch yet: write NO colour (the OFF grey used
+ * to be written as a fixed colour nobody chose). The icon size is a separate
+ * setting and is still written. Not part of settleEntityless: the panel keeps
+ * the mode, so the user can still pick the entity to watch.
+ */
+function withoutUnwatchedEntity(state: StudioState, config?: Record<string, unknown> | null): StudioState {
+  if (config == null || hasOwnEntity(config)) return state;
+  const { iconColor: ic, accentColor: ac } = state;
+  return {
+    ...state,
+    iconColor: (ic.mode === 'conditional' || ic.mode === 'light') && !ic.entityId ? { ...ic, mode: 'none' } : ic,
+    accentColor: ac.mode === 'conditional' && !ac.entityId ? { ...ac, enabled: false } : ac,
+  };
 }
 
 /** The single accent value (static color or on/off Jinja ternary) every
@@ -211,7 +267,7 @@ function filterDecls(s: FilterModuleState, cardType?: string, rawCss = ''): stri
  *  and the gauge's separate ha-gauge block can't drift apart. */
 function accentValue(s: AccentColorModuleState): string {
   return s.mode === 'conditional'
-    ? `{{ '${s.colorOn}' if is_state(${entityRef(s.entityId)}, 'on') else '${s.colorOff}' }}`
+    ? `{{ '${jinjaStr(s.colorOn)}' if is_state(${entityRef(s.entityId)}, 'on') else '${jinjaStr(s.colorOff)}' }}`
     : s.color;
 }
 
@@ -272,11 +328,82 @@ function accentColorDecls(s: AccentColorModuleState, cardType?: string): string[
   return [`--accent-color: ${value};`, ...accentAuxDecls(value, cardType)];
 }
 
+/** The accent value in Mushroom's `R, G, B` form (static, or the on/off
+ *  ternary with both branches converted). null when a colour has no exact
+ *  `R, G, B` form (see rgb-triplet.ts) — then nothing is written. */
+function accentTripletValue(s: AccentColorModuleState): string | null {
+  if (s.mode !== 'conditional') return toRgbTriplet(s.color);
+  const on = toRgbTriplet(s.colorOn);
+  const off = toRgbTriplet(s.colorOff);
+  return on && off ? `{{ '${on}' if is_state(${entityRef(s.entityId)}, 'on') else '${off}' }}` : null;
+}
+
+/** A profile's companion declarations (`opacity: 1 !important`), written only
+ *  next to declarations their module actually wrote. */
+function companionDecls(
+  decls: string[],
+  companions: Companion[] | undefined,
+  /** The module's own condition: the companion rides on it too, else it would
+   *  change the card's look (Bubble's opacity) while the module is off. The
+   *  empty branch drops the declaration. */
+  cond: string | null = null,
+): string[] {
+  if (!decls.length || !companions?.length) return decls;
+  return [
+    ...decls,
+    ...companions.map((c) => {
+      const value = cond ? `{{ '${c.value}' if ${cond} else '' }}` : c.value;
+      return `${c.prop}: ${value}${c.important ? ' !important' : ''};`;
+    }),
+  ];
+}
+
+/** Accent through a profile emitter: each variable gets the `R, G, B` value —
+ *  or, with `triplet: false`, the colour as written (optionally `!important`). */
+function accentVarDecls(s: AccentColorModuleState, e: AccentEmitter): string[] {
+  if (!s.enabled) return [];
+  const value = e.triplet === false ? accentValue(s) : accentTripletValue(s);
+  const imp = e.important ? ' !important' : '';
+  return value ? companionDecls(e.vars.map((v) => `${v}: ${value}${imp};`), e.companions) : [];
+}
+
+/** Border written directly on a profile's selector. */
+function borderDirectDecls(s: BorderModuleState, e: BorderEmitter, thresholdOwnsColor: boolean): string[] {
+  return borderDecls(s, thresholdOwnsColor).map((d) =>
+    e.important?.some((p) => d.startsWith(`${p}:`)) ? d.replace(/;$/, ' !important;') : d,
+  );
+}
+
+/** Border through a profile emitter (radius / width / colour as variables). A
+ *  state-driven width becomes a quoted-branch ternary on the width variable. */
+function borderVarDecls(s: BorderModuleState, e: BorderEmitter, skipColor = false): string[] {
+  if (!s.enabled) return [];
+  const decls: string[] = [];
+  if (s.radiusPx > 0) for (const v of e.radius ?? []) decls.push(`${v}: ${s.radiusPx}px;`);
+  if (!skipColor && s.borderWidth > 0) {
+    const cond = conditionExpr(s.widthWhen);
+    // Variables take `inherit` (see ownLookBranch); with no "otherwise" width
+    // the COLOUR is conditional too, else the card's own border would turn
+    // the Studio's colour while the condition is off.
+    const ownBorder = !!cond && !(s.widthOffPx && s.widthOffPx > 0);
+    const width = cond
+      ? `{{ '${s.borderWidth}px' if ${cond} else '${ownBorder ? 'inherit' : `${s.widthOffPx}px`}' }}`
+      : `${s.borderWidth}px`;
+    const color = ownBorder ? `{{ '${jinjaStr(s.borderColor)}' if ${cond} else 'inherit' }}` : s.borderColor;
+    for (const v of e.width ?? []) decls.push(`${v}: ${width};`);
+    for (const v of e.color ?? []) decls.push(`${v}: ${color};`);
+  }
+  return decls;
+}
+
 /**
  * Options threaded from the card's full config into generation — cardType
  * alone doesn't carry everything that changes what CSS is meaningful.
  */
 export interface GenerateCssOptions {
+  /** The card's own config: a profile's `configGates` (Mushroom's Accent while
+   *  the card sets `icon_color`) switch emission off here too. */
+  config?: Record<string, unknown> | null;
   /** The gauge card's `needle: true` — switches which ha-gauge variable the
    *  accent value drives (see gaugeColorBlock). */
   gaugeNeedle?: boolean;
@@ -325,27 +452,56 @@ function gaugeColorBlock(
   return `ha-gauge {\n${markerLine}  --gauge-color: ${value} !important;\n${needleLine}}`;
 }
 
-function backgroundDecls(s: BackgroundModuleState): string[] {
-  if (!s.enabled) return [];
+/** The "condition not met" branch of a Background / Border ternary: the card
+ *  keeps its own look. Empty renders `prop: ;` — an invalid declaration the
+ *  browser drops, so the card's own value wins (measured on tile, markdown,
+ *  Mushroom and Bubble). A CSS custom property is the exception — `--x: ;` is
+ *  a VALID empty value that blanks whatever reads it — so variables take
+ *  `inherit` (the value from the parent, i.e. the one they would have
+ *  without the rule). Never `none`: for `background` and `border` that is an
+ *  explicit "no background / no border". */
+function ownLookBranch(name: string): string {
+  return name.startsWith('--') ? 'inherit' : '';
+}
 
+/** `names`: the property (or, for a profile's background emitter, the
+ *  variables) that carry the value — `background` by default. */
+function backgroundDecls(s: BackgroundModuleState, names: string[] = ['background'], important = false): string[] {
+  if (!s.enabled) return [];
+  return names.flatMap((n) =>
+    backgroundValueDecls(s, ownLookBranch(n)).map((d) => asImportant(d.replace(/^background:/, `${n}:`), important)),
+  );
+}
+
+/** `prop: value;` → `prop: value !important;` (when `on`). A text-only
+ *  markdown card needs it: HA's `.text-only` rule out-ranks a plain one. */
+function asImportant(decl: string, on: boolean): string {
+  return on ? decl.replace(/;$/, ' !important;') : decl;
+}
+
+/** The condition a Background reacts to (null = unconditional). */
+function backgroundCondition(s: BackgroundModuleState): string | null {
+  if (s.applyWhen === 'always') return null;
+  // 'custom' with no entity picked yet → unconditional. The old fallthrough
+  // mapped an incomplete 'custom' to the 'off' branch — the background
+  // instantly INVERTED and the intent was rewritten to applyWhen:'off' on
+  // reopen (audit W8/BUG-2).
+  if (s.applyWhen === 'custom') {
+    return s.customEntity ? `is_state(${entityRef(s.customEntity)}, 'on')` : null;
+  }
+  return `is_state(config.entity, '${s.applyWhen === 'on' ? 'on' : 'off'}')`;
+}
+
+function backgroundValueDecls(s: BackgroundModuleState, otherwise = ''): string[] {
   const bgValue =
     s.type === 'gradient'
       ? `linear-gradient(${s.angle}deg, ${s.color1}, ${s.color2})`
       : s.color1;
-
-  if (s.applyWhen === 'always') return [`background: ${bgValue};`];
-  if (s.applyWhen === 'custom') {
-    // No entity picked yet → unconditional. The old fallthrough mapped an
-    // incomplete 'custom' to the 'off' branch — the background instantly
-    // INVERTED and the intent was rewritten to applyWhen:'off' on reopen
-    // (audit W8/BUG-2).
-    return s.customEntity
-      ? [`background: {{ '${bgValue}' if is_state(${entityRef(s.customEntity)}, 'on') else 'none' }};`]
-      : [`background: ${bgValue};`];
-  }
-  const when = s.applyWhen === 'on' ? 'on' : 'off';
+  const cond = backgroundCondition(s);
   return [
-    `background: {{ '${bgValue}' if is_state(config.entity, '${when}') else 'none' }};`,
+    cond
+      ? `background: {{ '${jinjaStr(bgValue)}' if ${cond} else '${jinjaStr(otherwise)}' }};`
+      : `background: ${bgValue};`,
   ];
 }
 
@@ -355,7 +511,7 @@ function backgroundDecls(s: BackgroundModuleState): string[] {
  *   the two modules don't emit conflicting `border` declarations in the
  *   same `ha-card` block (border-radius still applies either way).
  */
-function borderDecls(s: BorderModuleState, skipColor = false): string[] {
+function borderDecls(s: BorderModuleState, skipColor = false, important = false): string[] {
   if (!s.enabled) return [];
   const decls: string[] = [];
   if (s.radiusPx > 0) decls.push(`border-radius: ${s.radiusPx}px;`);
@@ -364,12 +520,14 @@ function borderDecls(s: BorderModuleState, skipColor = false): string[] {
     if (cond) {
       // v0.9: width reacts to a state condition. Same color both branches —
       // this control drives WIDTH; a state-driven color is Threshold's job.
-      const onVal = `${s.borderWidth}px solid ${s.borderColor}`;
+      const onVal = jinjaStr(`${s.borderWidth}px solid ${s.borderColor}`);
+      // "Width otherwise" 0 = the card's own border (empty branch — see
+      // ownLookBranch); a real width keeps drawing that width.
       const offVal =
-        s.widthOffPx && s.widthOffPx > 0 ? `${s.widthOffPx}px solid ${s.borderColor}` : 'none';
-      decls.push(`border: {{ '${onVal}' if ${cond} else '${offVal}' }};`);
+        s.widthOffPx && s.widthOffPx > 0 ? jinjaStr(`${s.widthOffPx}px solid ${s.borderColor}`) : ownLookBranch('border');
+      decls.push(asImportant(`border: {{ '${onVal}' if ${cond} else '${offVal}' }};`, important));
     } else {
-      decls.push(`border: ${s.borderWidth}px solid ${s.borderColor};`);
+      decls.push(asImportant(`border: ${s.borderWidth}px solid ${s.borderColor};`, important));
     }
   }
   return decls;
@@ -404,7 +562,7 @@ function animationDecls(s: AnimationModuleState): string[] {
     // reset the whole module to disabled on reopen (audit W8/BUG-4).
     decls.push(
       s.customEntity
-        ? `animation: {{ '${animValue}' if is_state('${s.customEntity}', 'on') else 'none' }};`
+        ? `animation: {{ '${animValue}' if is_state('${jinjaStr(s.customEntity)}', 'on') else 'none' }};`
         : `animation: ${animValue};`,
     );
   } else if (s.trigger === 'value') {
@@ -412,8 +570,8 @@ function animationDecls(s: AnimationModuleState): string[] {
       // Same value-source expressions as buildThresholdJinja, so both
       // features read a numeric state/attribute in the identical spelling.
       const stateExpr = s.valueAttribute
-        ? `state_attr('${s.valueEntity}', '${s.valueAttribute}') | float(0)`
-        : `states('${s.valueEntity}') | float(0)`;
+        ? `state_attr('${jinjaStr(s.valueEntity)}', '${jinjaStr(s.valueAttribute)}') | float(0)`
+        : `states('${jinjaStr(s.valueEntity)}') | float(0)`;
       decls.push(
         `animation: {{ '${animValue}' if ${stateExpr} ${s.valueOperator} ${s.valueThreshold} else 'none' }};`,
       );
@@ -452,18 +610,20 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
     center: 'center',
     right: 'flex-end',
   };
-  const alignVal = alignMap[s.alignment] ?? 'flex-start';
-  const weight = FONT_WEIGHT_VALUE[s.fontWeight ?? 'normal'];
 
+  // Each property is written only when set: an untouched one must leave the
+  // card's native value alone (it differs between title and subtitle).
   const containerDecls = [
-    `justify-content: ${alignVal} !important;`,
+    ...(s.alignment ? [`justify-content: ${alignMap[s.alignment] ?? 'flex-start'} !important;`] : []),
     ...(['title', 'subtitle'] as const).flatMap((kind) => [
-      `--ha-heading-card-${kind}-font-size: ${s.fontSize}px;`,
-      `--ha-heading-card-${kind}-color: ${s.textColor};`,
-      `--ha-heading-card-${kind}-font-weight: ${weight};`,
+      ...(s.fontSize != null ? [`--ha-heading-card-${kind}-font-size: ${s.fontSize}px;`] : []),
+      ...(s.textColor ? [`--ha-heading-card-${kind}-color: ${s.textColor};`] : []),
+      ...(s.fontWeight ? [`--ha-heading-card-${kind}-font-weight: ${FONT_WEIGHT_VALUE[s.fontWeight]};`] : []),
     ]),
   ];
-  const container = `.container {\n${containerDecls.map((d) => `  ${d}`).join('\n')}\n}`;
+  const container = containerDecls.length
+    ? `.container {\n${containerDecls.map((d) => `  ${d}`).join('\n')}\n}`
+    : '';
 
   const family = s.fontFamily?.trim()
     ? `${HEADING_FAMILY_SELECTOR} {\n  font-family: ${s.fontFamily.trim()};\n}`
@@ -472,34 +632,24 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
   // --mdc-icon-size is what ha-icon honours (still, as of HA 2026.10 —
   // HA's own usage grew); the pre-v0.10 `--ha-icon-size` twin was inert and
   // is no longer emitted (still recognised when reading older configs).
-  const icon = `${HEADING_ICON_SELECTOR} {\n  --mdc-icon-size: ${s.iconSize}px;\n  color: ${s.iconColor} !important;\n}`;
+  const iconDecls = [
+    ...(s.iconSize != null ? [`--mdc-icon-size: ${s.iconSize}px;`] : []),
+    ...(s.iconColor ? [`color: ${s.iconColor} !important;`] : []),
+  ];
+  const icon = iconDecls.length
+    ? `${HEADING_ICON_SELECTOR} {\n${iconDecls.map((d) => `  ${d}`).join('\n')}\n}`
+    : '';
 
   return [container, family, icon].filter(Boolean).join('\n\n');
 }
 
 /** CSS value per Font-module weight name. Exported for the parser's
  *  companion-claiming and the entities-row generator. */
-export const FONT_WEIGHT_VALUE: Record<FontModuleState['fontWeight'], string> = {
+export const FONT_WEIGHT_VALUE: Record<NonNullable<FontModuleState['fontWeight']>, string> = {
   normal: 'normal',
   medium: '500',
   bold: 'bold',
 };
-
-/**
- * Card types whose title is rendered through ha-card's header slot
- * (`.card-header`), styled inside ha-card's own shadow stylesheet via
- * `--ha-card-header-{font-size,color,font-family}` — a plain inherited
- * font-size never reaches it. Verified live for entities (slotted h1) and
- * glance (h1 inside ha-card's shadow root); the rest use the identical
- * `ha-card .header=` mechanism.
- */
-const HEADER_TITLE_CARD_TYPES = new Set([
-  'entities', 'glance', 'history-graph', 'statistics-graph', 'statistic',
-  'calendar', 'todo-list', 'shopping-list', 'logbook',
-]);
-// (picture-glance is not in this list: its title isn't a card header — the
-// module-effect audit measured header size and colour dead there; the
-// parser still claims the variables in older output.)
 
 /** Header title scales at 1.5× the body size (HA default: 24px header vs
  *  16px body), so "make the text bigger" keeps the hierarchy intact.
@@ -512,6 +662,13 @@ export function headerFontSize(sizePx: number): string {
  *  size (HA default: 28px value vs 16px name). Exported for the parser. */
 export function valueFontSize(sizePx: number): string {
   return `calc(${sizePx}px * 1.75)`;
+}
+
+/** The button card's state line is 0.9rem next to a 16px name (a ratio of
+ *  0.7875): scaled with the name so "make the text bigger" keeps both lines
+ *  in proportion. Exported for the parser's companion-claiming. */
+export function buttonStateFontSize(sizePx: number): string {
+  return `calc(${sizePx}px * 0.7875)`;
 }
 
 /**
@@ -532,87 +689,110 @@ export function valueFontSize(sizePx: number): string {
  *   (name also weight+color, measurement also color) — direct selectors.
  * - gauge: .title has explicit size/color; the value text is SVG inside
  *   ha-gauge's nested shadow root — its color is `fill:
- *   var(--primary-text-color)` (reachable by variable only), its SIZE is
- *   auto-scaled to a fixed viewBox by ha-gauge and effectively fixed.
+ *   var(--primary-text-color)` (reachable by variable only); its SIZE is
+ *   Font → Number size, a Studio-owned pierced entry scaling the box
+ *   ha-gauge fits it into (src/utils/owned-entries.ts) — a font-size there
+ *   is refitted away by HA.
  * - thermostat: .title has explicit size; the hvac label reads
- *   --ha-font-size-l / --ha-font-weight-medium; the big number's size is
- *   hard-coded (57px) two shadow roots deep — unreachable, weight/color
- *   inherit through.
- * - header-title cards: see HEADER_TITLE_CARD_TYPES above.
+ *   --ha-font-size-l / --ha-font-weight-medium; the big number (57px, two
+ *   shadow roots deep) takes weight/color by inheritance and its size from
+ *   Font → Temperature size (owned pierced entry, owned-entries.ts).
+ * - header-title cards: see HEADER_TITLE_CARD_TYPES in card-caps.
  *
  * All returned as extra top-level blocks joined after the base ha-card block.
  */
 function fontCompanionBlocks(
   cardType: string | undefined,
-  size: string,
-  sizePx: number,
-  weight: string,
+  size: string | null,
+  sizePx: number | null,
+  weight: string | null,
   color: string | null,
 ): string[] {
   const blocks: string[] = [];
+  const block = (selector: string, decls: Array<string | null>) => {
+    const d = decls.filter((x): x is string => !!x);
+    if (d.length) blocks.push(`${selector} {\n${d.join('\n')}\n}`);
+  };
+  const sizeDecl = size ? `  font-size: ${size} !important;` : null;
+  const weightDecl = weight ? `  font-weight: ${weight} !important;` : null;
+  const colorDecl = color ? `  color: ${color} !important;` : null;
 
   if (cardType === 'light') {
-    blocks.push(`#info {\n  font-size: ${size} !important;\n}`);
-    blocks.push(`.brightness {\n  font-size: ${size} !important;\n}`);
+    block('#info', [sizeDecl]);
+    block('.brightness', [sizeDecl]);
   }
 
-  if (cardType === 'sensor' || cardType === 'entity') {
-    const nameDecls = [
-      `  font-size: ${size} !important;`,
-      `  font-weight: ${weight} !important;`,
-      ...(color ? [`  color: ${color} !important;`] : []),
-    ];
-    blocks.push(`.name {\n${nameDecls.join('\n')}\n}`);
-    blocks.push(`.value {\n  font-size: ${valueFontSize(sizePx)} !important;\n}`);
-    const unitDecls = [
-      `  font-size: ${size} !important;`,
-      ...(color ? [`  color: ${color} !important;`] : []),
-    ];
-    blocks.push(`.measurement {\n${unitDecls.join('\n')}\n}`);
+  // The statistic card shares the sensor card's layout and its fixed sizes
+  // (16px name / 28px value / 16px unit): same selectors, same ratio.
+  if (cardType === 'sensor' || cardType === 'entity' || cardType === 'statistic') {
+    block('.name', [sizeDecl, weightDecl, colorDecl]);
+    block('.value', [sizePx != null ? `  font-size: ${valueFontSize(sizePx)} !important;` : null]);
+    block('.measurement', [sizeDecl, colorDecl]);
   }
 
   if (cardType === 'gauge' || cardType === 'thermostat') {
-    const titleDecls = [
-      `  font-size: ${size} !important;`,
-      `  font-weight: ${weight} !important;`,
-      ...(color ? [`  color: ${color} !important;`] : []),
-    ];
-    blocks.push(`.title {\n${titleDecls.join('\n')}\n}`);
+    const titleDecls = [sizeDecl, weightDecl, colorDecl];
+    block('.title', titleDecls);
     // On older HA the gauge's name is a div.name (checked live on 2026.2 and
     // 2025.9; 2026.6+ uses p.title); current HA has no .name in the gauge, so
     // this is inert there.
-    if (cardType === 'gauge') blocks.push(`.name {\n${titleDecls.join('\n')}\n}`);
+    if (cardType === 'gauge') block('.name', titleDecls);
+  }
+
+  if (cardType === 'picture-glance') {
+    // The title over the picture carries a fixed weight of its own (the card
+    // sizes and colours its text itself, so only the weight is offered).
+    block('.title', [weightDecl]);
+  }
+
+  if (cardType === 'button') {
+    // The state line has its own fixed size (0.9rem) and a grey colour that
+    // doesn't depend on the entity's state; the name follows the base rule.
+    block('.state', [
+      sizePx != null ? `  font-size: ${buttonStateFontSize(sizePx)} !important;` : null,
+      colorDecl,
+    ]);
   }
 
   if (cardType === 'entities') {
     // The slotted h1 is in the card's own shadow root — a plain rule beats
     // ha-card's internal ::slotted() styling, no !important needed. Weight
     // has no dedicated header variable, hence the direct rule.
-    blocks.push(`.card-header {\n  font-weight: ${weight};\n}`);
+    if (weight) blocks.push(`.card-header {\n  font-weight: ${weight};\n}`);
   }
 
   return blocks;
 }
 
+/** Header-title cards whose title weight rides on `--ha-font-weight-normal`
+ *  (everything with an ha-card header except entities, whose slotted h1 takes
+ *  the plain `.card-header` rule, and statistic, whose title is its `.name`).
+ *  Exported for the parser. */
+export function headerWeightViaToken(cardType: string | undefined, caps: CardCaps): boolean {
+  return caps.headerTitle && cardType !== 'entities' && cardType !== 'statistic';
+}
+
 /** ha-card-block companion declarations (variables that must ride in the
- *  same block as the base font declarations). */
+ *  same block as the base font declarations). Each one is written only when
+ *  the value it derives from is set. */
 function fontCompanionDecls(
   cardType: string | undefined,
-  size: string,
-  sizePx: number,
-  weight: string,
+  size: string | null,
+  sizePx: number | null,
+  weight: string | null,
   color: string | null,
   family: string | null,
+  caps: CardCaps,
 ): string[] {
   const decls: string[] = [];
 
   if (cardType === 'tile') {
-    decls.push(
-      `--ha-tile-info-primary-font-size: ${size};`,
-      `--ha-tile-info-secondary-font-size: ${size};`,
-      `--ha-tile-info-primary-font-weight: ${weight};`,
-      `--ha-tile-info-secondary-font-weight: ${weight};`,
-    );
+    if (size) {
+      decls.push(`--ha-tile-info-primary-font-size: ${size};`, `--ha-tile-info-secondary-font-size: ${size};`);
+    }
+    if (weight) {
+      decls.push(`--ha-tile-info-primary-font-weight: ${weight};`, `--ha-tile-info-secondary-font-weight: ${weight};`);
+    }
     if (color) {
       decls.push(`--ha-tile-info-primary-color: ${color};`, `--ha-tile-info-secondary-color: ${color};`);
     }
@@ -630,11 +810,24 @@ function fontCompanionDecls(
   if (cardType === 'thermostat') {
     // hvac-action/current-temperature label inside the nested climate
     // control reads these tokens.
-    decls.push(`--ha-font-size-l: ${size};`, `--ha-font-weight-medium: ${weight};`);
+    if (size) decls.push(`--ha-font-size-l: ${size};`);
+    if (weight) decls.push(`--ha-font-weight-medium: ${weight};`);
   }
 
-  if (HEADER_TITLE_CARD_TYPES.has(cardType ?? '')) {
-    decls.push(`--ha-card-header-font-size: ${headerFontSize(sizePx)};`);
+  if (cardType === 'humidifier' && weight) {
+    // Same token, same label ("Humidifying"): it kept weight 500 otherwise.
+    decls.push(`--ha-font-weight-medium: ${weight};`);
+  }
+
+  if (weight && headerWeightViaToken(cardType, caps)) {
+    // The title is an h1 inside ha-card's own shadow root, which takes its
+    // weight from this token (and has no other hook): a selector can't get
+    // in, the variable can. Scoped to this card, like the tile variables.
+    decls.push(`--ha-font-weight-normal: ${weight};`);
+  }
+
+  if (caps.headerTitle) {
+    if (sizePx != null) decls.push(`--ha-card-header-font-size: ${headerFontSize(sizePx)};`);
     if (color) decls.push(`--ha-card-header-color: ${color};`);
     if (family) decls.push(`--ha-card-header-font-family: ${family};`);
   }
@@ -642,89 +835,139 @@ function fontCompanionDecls(
   return decls;
 }
 
+/** Font through a profile emitter: variables (size `Npx`, weight, colour) on
+ *  the emitter's selector, plus a plain `font-family` when it asks for one.
+ *  Each list is written only when its value is set. */
+function fontVarBlock(s: FontModuleState, e: FontEmitter, skipColor = false): string {
+  if (!s.enabled) return '';
+  const family = s.fontFamily.trim();
+  const weight = s.fontWeight ? FONT_WEIGHT_VALUE[s.fontWeight] : null;
+  const decls = [
+    ...(s.fontSize != null ? (e.size ?? []).map((v) => `${v}: ${s.fontSize}px;`) : []),
+    ...(s.fontSize != null
+      ? (e.scaled ?? []).flatMap((v) => {
+          const val = scaledFontValue(v, s.fontSize!);
+          return val ? [`${v.prop}: ${val};`] : [];
+        })
+      : []),
+    ...(weight ? (e.weight ?? []).map((v) => `${v}: ${weight};`) : []),
+    ...(skipColor || !s.color ? [] : (e.color ?? []).map((v) => `${v}: ${s.color};`)),
+    ...(e.family && family ? [`font-family: ${family};`] : []),
+  ];
+  return decls.length ? `${e.selector} {\n${decls.map((d) => `  ${d}`).join('\n')}\n}` : '';
+}
+
 /**
  * @param skipColor  Omit the `color` declarations (base and companions) —
  *   used when Threshold already owns the 'text-color' property for this
  *   card, so the two modules don't emit conflicting `color` declarations
  *   into the same ha-card block (size/weight/family still apply either way).
+ *
+ * Exported for the parser's size-less reproducibility check.
  */
-function fontBlock(s: FontModuleState, cardType?: string, skipColor = false): string {
+export function fontBlock(s: FontModuleState, cardType: string | undefined, caps: CardCaps, skipColor = false): string {
   if (!s.enabled) return '';
 
-  const size = `${s.fontSize}px`;
-  const weight = FONT_WEIGHT_VALUE[s.fontWeight];
-  const color = skipColor ? null : s.color;
+  const sizePx = s.fontSize ?? null;
+  const size = sizePx != null ? `${sizePx}px` : null;
+  const weight = s.fontWeight ? FONT_WEIGHT_VALUE[s.fontWeight] : null;
+  const color = skipColor ? null : s.color || null;
   const family = s.fontFamily.trim() || null;
 
   // Button: ha-card's own adopted stylesheet declares font-size, and adopted
   // sheets order after injected <style> elements — !important required.
   const sizeImportant = cardType === 'button' ? ' !important' : '';
-  const decls = [`font-size: ${size}${sizeImportant};`, `font-weight: ${weight};`];
+  const decls: string[] = [];
+  if (size) decls.push(`font-size: ${size}${sizeImportant};`);
+  if (weight) decls.push(`font-weight: ${weight};`);
   if (color) decls.push(`color: ${color};`);
   if (family) decls.push(`font-family: ${family};`);
-  decls.push(...fontCompanionDecls(cardType, size, s.fontSize, weight, color, family));
+  decls.push(...fontCompanionDecls(cardType, size, sizePx, weight, color, family, caps));
 
-  const base = `ha-card {\n${decls.map((d) => `  ${d}`).join('\n')}\n}`;
-  return [base, ...fontCompanionBlocks(cardType, size, s.fontSize, weight, color)].join('\n\n');
+  const base = decls.length ? `ha-card {\n${decls.map((d) => `  ${d}`).join('\n')}\n}` : '';
+  return [base, ...fontCompanionBlocks(cardType, size, sizePx, weight, color)].filter(Boolean).join('\n\n');
 }
 
 /**
  * The icon-size value: static `Npx`, or a quoted-branch ternary when the
  * size reacts to a condition (sizeOffPx falls back to HA's 24px default).
  */
-function iconSizeValue(s: IconColorModuleState): string | null {
+export function iconSizeValue(s: IconColorModuleState, scale: (px: number) => number = (px) => px): string | null {
   if (!s.sizePx || s.sizePx <= 0) return null;
   const cond = conditionExpr(s.sizeWhen);
-  if (!cond) return `${s.sizePx}px`;
+  if (!cond) return `${scale(s.sizePx)}px`;
   const offPx = s.sizeOffPx && s.sizeOffPx > 0 ? s.sizeOffPx : 24;
-  return `{{ '${s.sizePx}px' if ${cond} else '${offPx}px' }}`;
+  return `{{ '${scale(s.sizePx)}px' if ${cond} else '${scale(offPx)}px' }}`;
+}
+
+/** A profile icon-size emitter's glyph/box ratio (Mushroom: 24px glyph in a
+ *  36px shape) — the glyph variables get this share of the slider value. */
+export const GLYPH_SCALE = (px: number): number => Math.round((px * 2) / 3);
+
+/** Icon size through a profile emitter: `box` variables get the slider value,
+ *  `glyph` ones its glyph share. Returns the declarations (no selector). */
+function iconSizeVarDecls(s: IconColorModuleState, e: IconSizeEmitter): string[] {
+  if (!s.enabled) return [];
+  const box = iconSizeValue(s);
+  if (!box) return [];
+  const glyph = e.glyph?.length ? iconSizeValue(s, GLYPH_SCALE) : null;
+  return [...e.box.map((v) => `${v}: ${box};`), ...(glyph ? e.glyph!.map((v) => `${v}: ${glyph};`) : [])];
 }
 
 /**
  * Icon-size declarations for the ha-card block (entity/sensor/
  * picture-glance — the vars cascade to exactly the main state icon there,
  * live-verified) — tile instead needs the separate ha-tile-icon block
- * below. Gated on ICON_SIZE_TYPES: everywhere else the vars either do
+ * below. Gated on capsFor(key).iconSize (ICON_SIZE_TYPES): everywhere else the vars either do
  * nothing or hit the wrong icons (see card-caps.ts).
  */
-function iconSizeDecls(s: IconColorModuleState, cardType?: string): string[] {
-  if (!s.enabled || !cardType || cardType === 'tile' || !ICON_SIZE_TYPES.has(cardType)) return [];
+function iconSizeDecls(s: IconColorModuleState, cardType: string | undefined, caps: CardCaps): string[] {
+  if (!s.enabled || !cardType || cardType === 'tile' || !caps.iconSize) return [];
   const value = iconSizeValue(s);
   return value ? [`--mdc-icon-size: ${value};`, `--ha-icon-size: ${value};`] : [];
 }
 
-/** Tile's icon pins its own size — the variable only works set directly on
- *  ha-tile-icon (live-verified; `--ha-icon-size` is untested there and
- *  deliberately not emitted). */
+/** HA's tile draws a 24px glyph in a 36px circle (`--tile-icon-size`, 36px
+ *  default; the glyph is `--mdc-icon-size`). The circle follows the glyph at
+ *  the same 3:2 once the glyph outgrows the native one; never below native. */
+export const TILE_GLYPH_NATIVE_PX = 24;
+export const tileCirclePx = (glyphPx: number): number => Math.max(36, Math.round((glyphPx * 3) / 2));
+
+/** Tile's icon pins its own size — both variables only work set directly on
+ *  ha-tile-icon (live-verified on HA 2026.11; `--ha-icon-size` is not read
+ *  there and deliberately not emitted). A glyph above the native one scales
+ *  its circle with it: a bare 64px glyph overflowed the 36px circle. A glyph at
+ *  or below native writes the glyph variable only, as before. */
 function tileIconSizeBlock(s: IconColorModuleState, cardType?: string): string {
   if (!s.enabled || cardType !== 'tile') return '';
   const value = iconSizeValue(s);
-  return value ? `ha-tile-icon {\n  --mdc-icon-size: ${value};\n}` : '';
+  if (!value) return '';
+  const offPx = s.sizeWhen && s.sizeWhen.when !== 'always' && s.sizeOffPx && s.sizeOffPx > 0 ? s.sizeOffPx : TILE_GLYPH_NATIVE_PX;
+  const outgrows = (s.sizePx ?? 0) > TILE_GLYPH_NATIVE_PX || (!!conditionExpr(s.sizeWhen) && offPx > TILE_GLYPH_NATIVE_PX);
+  const circle = outgrows ? iconSizeValue(s, tileCirclePx) : null;
+  return `ha-tile-icon {\n${circle ? `  --tile-icon-size: ${circle};\n` : ''}  --mdc-icon-size: ${value};\n}`;
+}
+
+/** Icon Color's colour declaration (always `!important`: Bubble and HA both
+ *  set the icon colour on the element itself). */
+function iconColorDecl(s: IconColorModuleState): string | null {
+  if (!s.enabled || s.mode === 'none') return null;
+  if (s.mode === 'plain') return `color: ${s.color} !important;`;
+
+  const ref = entityRef(s.entityId);
+  if (s.mode === 'light') {
+    return (
+      `color: {{ 'rgb(' ~ (state_attr(${ref}, 'rgb_color') | join(', ')) ~ ')' ` +
+      `if is_state(${ref}, 'on') and state_attr(${ref}, 'rgb_color') ` +
+      `else '${jinjaStr(s.colorOff)}' }} !important;`
+    );
+  }
+  return `color: {{ '${jinjaStr(s.colorOn)}' if is_state(${ref}, 'on') else '${jinjaStr(s.colorOff)}' }} !important;`;
 }
 
 function iconColorBlock(s: IconColorModuleState): string {
-  if (!s.enabled) return '';
-
-  if (s.mode === 'plain') {
-    return `ha-state-icon {\n  color: ${s.color} !important;\n}`;
-  }
-
-  const ref = entityRef(s.entityId);
-
-  if (s.mode === 'light') {
-    const jinja =
-      `{{ 'rgb(' ~ (state_attr(${ref}, 'rgb_color') | join(', ')) ~ ')' ` +
-      `if is_state(${ref}, 'on') and state_attr(${ref}, 'rgb_color') ` +
-      `else '${s.colorOff}' }}`;
-    return `ha-state-icon {\n  color: ${jinja} !important;\n}`;
-  }
-
-  // Conditional mode
-  return (
-    `ha-state-icon {\n` +
-    `  color: {{ '${s.colorOn}' if is_state(${ref}, 'on') else '${s.colorOff}' }} !important;\n` +
-    `}`
-  );
+  const decl = iconColorDecl(s);
+  return decl ? `ha-state-icon {\n  ${decl}\n}` : '';
 }
 
 /**
@@ -753,18 +996,20 @@ export function buildThresholdJinja(
   defaultColor: string,
   entityId: string,
   attribute?: string,
+  /** Rewrites each colour before it is written (Mushroom: `R, G, B`). */
+  mapColor: (color: string) => string = (c) => c,
 ): string {
   const stateExpr = attribute
-    ? `state_attr('${entityId}', '${attribute}') | float(0)`
-    : `states('${entityId}') | float(0)`;
+    ? `state_attr('${jinjaStr(entityId)}', '${jinjaStr(attribute)}') | float(0)`
+    : `states('${jinjaStr(entityId)}') | float(0)`;
   const sortedRules = sortThresholdRules(rules);
   let jinja = '{{ ';
   for (let i = 0; i < sortedRules.length; i++) {
     const rule = sortedRules[i];
     if (i > 0) jinja += ' else (';
-    jinja += `'${rule.color}' if ${stateExpr} ${rule.operator} ${rule.value}`;
+    jinja += `'${jinjaStr(mapColor(rule.color))}' if ${stateExpr} ${rule.operator} ${rule.value}`;
   }
-  jinja += ` else '${defaultColor}'`;
+  jinja += ` else '${jinjaStr(mapColor(defaultColor))}'`;
   jinja += ')'.repeat(sortedRules.length - 1);
   jinja += ' }}';
   return jinja;
@@ -881,32 +1126,76 @@ export function decodeGradientStops(encoded: string): ColorStop[] | null {
   return stops;
 }
 
+/**
+ * A threshold's accent expression in `R, G, B` form for a profile's accent
+ * variables. A rule whose colour has no exact form is LEFT OUT (the others
+ * keep working); no convertible rule, or an unconvertible default, → null and
+ * nothing is written for that property.
+ */
+export function thresholdAccentJinja(s: ThresholdModuleState | undefined): string | null {
+  if (!s || !s.entityId) return null;
+  let rules = s.rules;
+  let defaultColor = s.defaultColor;
+  if (s.valueMode === 'gradient') {
+    if (s.colorStops.length < 2) return null;
+    ({ rules, defaultColor } = gradientToRules(s.colorStops));
+  }
+  const usable = rules.filter((r) => toRgbTriplet(r.color) !== null);
+  if (usable.length === 0 || toRgbTriplet(defaultColor) === null) return null;
+  return buildThresholdJinja(usable, defaultColor, s.entityId, s.attribute || undefined, (c) => toRgbTriplet(c)!);
+}
+
+/** What the generator knows about the card when it writes a module. */
+interface EmitCtx {
+  /** The key built-in emitter choices compare against (the profile's `emitAs`). */
+  emitType: string | undefined;
+  caps: CardCaps;
+  em: ProfileEmitters | undefined;
+  opts?: GenerateCssOptions;
+}
+
+const varLines = (selector: string, marker: string, decls: string[]): string =>
+  `${selector} {\n${marker}${decls.map((d) => `  ${d}`).join('\n')}\n}`;
+
 function thresholdPropertyBlock(
   property: ThresholdProperty,
   jinja: string,
   borderWidth: number,
   gradientMarker: string | null,
-  cardType?: string,
-  opts?: GenerateCssOptions,
+  ctx: EmitCtx,
+  /** the same expression with every colour as `R, G, B` (null: not exact) */
+  tripletJinja: string | null,
 ): string {
+  const { emitType: cardType, caps, em, opts } = ctx;
   const marker = gradientMarker ? `  ${GRADIENT_MARKER_PROPERTY}: ${gradientMarker};\n` : '';
   switch (property) {
     case 'icon-color':
       return `ha-state-icon {\n${marker}  color: ${jinja} !important;\n}`;
     case 'background':
-      return `ha-card {\n${marker}  background: ${jinja};\n}`;
+      if (em?.background) {
+        return varLines(em.background.selector, marker, em.background.vars.map((v) => `${v}: ${jinja};`));
+      }
+      return `ha-card {\n${marker}  background: ${jinja}${caps.textOnlyCard ? ' !important' : ''};\n}`;
     case 'text-color': {
+      // A profile's own text-colour variables (no plain `color`: it reaches
+      // nothing on those cards).
+      if (em?.font?.color?.length) {
+        return varLines(em.font.selector, marker, em.font.color.map((v) => `${v}: ${jinja};`));
+      }
       // The same colour companions the Font module writes: tile text reads
       // its own --ha-tile-info-* colours, card titles --ha-card-header-color
       // — neither inherits ha-card's colour.
       const aux = cardType === 'tile'
         ? `  --ha-tile-info-primary-color: ${jinja};\n  --ha-tile-info-secondary-color: ${jinja};\n`
-        : HEADER_TITLE_CARD_TYPES.has(cardType ?? '')
+        : caps.headerTitle
           ? `  --ha-card-header-color: ${jinja};\n`
           : '';
       return `ha-card {\n${marker}  color: ${jinja};\n${aux}}`;
     }
     case 'accent-color': {
+      if (em?.accent) {
+        return tripletJinja ? varLines(em.accent.selector, marker, em.accent.vars.map((v) => `${v}: ${tripletJinja};`)) : '';
+      }
       // Same card-type companion variables as the Accent Color module —
       // --accent-color alone is invisible on tile/thermostat/button/gauge.
       const decls = [`--accent-color: ${jinja};`, ...accentAuxDecls(jinja, cardType)]
@@ -917,7 +1206,13 @@ function thresholdPropertyBlock(
       return gauge ? `${haCardBlock}\n\n${gauge}` : haCardBlock;
     }
     case 'border-color':
-      return `ha-card {\n${marker}  border: ${borderWidth}px solid ${jinja};\n}`;
+      if (em?.border?.color?.length) {
+        return varLines(em.border.selector, marker, [
+          ...(em.border.width ?? []).map((v) => `${v}: ${borderWidth}px;`),
+          ...em.border.color.map((v) => `${v}: ${jinja};`),
+        ]);
+      }
+      return `ha-card {\n${marker}  border: ${borderWidth}px solid ${jinja}${caps.textOnlyCard ? ' !important' : ''};\n}`;
     default:
       return '';
   }
@@ -936,13 +1231,30 @@ export function thresholdOwnedProperties(s: ThresholdModuleState | undefined): S
 }
 
 /**
+ * What the Threshold module owns on THIS card: thresholdOwnedProperties, but
+ * empty where the generator writes no threshold CSS — a custom-card profile
+ * that hides Threshold (a stray threshold state, e.g. a preset's, overrides
+ * nothing there). generateCss and the panel's "Threshold Colors is setting
+ * this" hints both use it.
+ */
+export function cardThresholdOwned(
+  s: ThresholdModuleState | undefined,
+  caps: Pick<CardCaps, 'custom' | 'modules'>,
+): Set<ThresholdProperty> {
+  return caps.custom && !caps.modules.threshold ? new Set() : thresholdOwnedProperties(s);
+}
+
+/**
  * Threshold rules can drive more than one CSS property at once (e.g. icon
  * color AND accent color changing together off the same rule set) — one
  * block is emitted per selected property, all sharing the same computed
  * Jinja2 expression.
  */
-function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string, opts?: GenerateCssOptions): string {
+function thresholdBlock(s: ThresholdModuleState | undefined, ctx: EmitCtx): string {
   if (!s || !s.enabled || !s.entityId || s.properties.length === 0) return '';
+  // A profile with its own emitters that hides Threshold (Bubble: no probed
+  // target) writes none — a preset's threshold state would be dead CSS there.
+  if (ctx.caps.custom && !ctx.caps.modules.threshold) return '';
 
   let rules = s.rules;
   let defaultColor = s.defaultColor;
@@ -957,13 +1269,18 @@ function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string, 
   }
 
   const jinja = buildThresholdJinja(rules, defaultColor, s.entityId, s.attribute || undefined);
+  // The accent variables of a profile take `R, G, B` (thresholdAccentJinja:
+  // a rule with no exact form is left out, nothing convertible → no block).
+  const tripletJinja = ctx.em?.accent ? thresholdAccentJinja(s) : null;
   // Canonical property order, matching the parser's candidate-collection
   // order exactly — without this, a reopen reordered the blocks and broke
   // the byte-stable round-trip once (audit C1).
   const CANONICAL: ThresholdProperty[] = ['background', 'text-color', 'accent-color', 'border-color', 'icon-color'];
-  const ordered = [...s.properties].sort((a, b) => CANONICAL.indexOf(a) - CANONICAL.indexOf(b));
+  const ordered = [...s.properties]
+    .sort((a, b) => CANONICAL.indexOf(a) - CANONICAL.indexOf(b));
   return ordered
-    .map((property) => thresholdPropertyBlock(property, jinja, s.borderWidth ?? 2, gradientMarker, cardType, opts))
+    .map((property) => thresholdPropertyBlock(property, jinja, s.borderWidth ?? 2, gradientMarker, ctx, tripletJinja))
+    .filter(Boolean)
     .join('\n\n');
 }
 
@@ -971,13 +1288,40 @@ function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string, 
 // Public API
 // ---------------------------------------------------------------------------
 
+/**
+ * `cardType` is the card's PROFILE KEY (profileKeyOf(config); equal to
+ * `config.type` for every built-in card) — passed once, here. Gating reads go
+ * through capsFor(); the emitter choice below still compares the key against
+ * the built-in names, and a custom profile's `emitters` (later chunks) hook
+ * in at those same points.
+ */
 export function generateCss(state: StudioState, cardType?: string, opts?: GenerateCssOptions): string {
   const parts: string[] = [];
+
+  // No own entity → no `config.entity` anywhere in the output (see
+  // settleEntityless). Without `opts.config` the card is unknown: unchanged.
+  state = withoutUnwatchedEntity(settleEntityless(state, opts?.config), opts?.config);
+
+  // What the card's profile says (C2.2): `emitAs` borrows a built-in card's
+  // emitter choices, `emitters` replace a module's output with the profile's
+  // own variables. Gating questions go through the capabilities lookup.
+  const caps = capsFor(cardType, opts?.config);
+  const profile = getCustomCardProfile(cardType ?? '');
+  const em = profile?.emitters;
+  // A module the card config hides (Mushroom `icon_color` → Accent) is still
+  // written when it holds a value, like every other hidden module: it is not
+  // lost, and comes back with the control when the option goes.
+  const ctx: EmitCtx = { emitType: emitKeyOf(cardType) || undefined, caps, em, opts };
+  const emitType = ctx.emitType;
 
   // Keyframes only ever ride along an actual `animation:` declaration — an
   // orphan @keyframes block resets the module on reopen (audit W8/BUG-4).
   const animDecls = animationDecls(state.animation);
-  const kf = animDecls.some((d) => d.startsWith('animation')) ? animationKeyframes(state.animation) : '';
+  let kf = animDecls.some((d) => d.startsWith('animation')) ? animationKeyframes(state.animation) : '';
+  // A hand-written block of the same name already sits in Advanced CSS (kept
+  // because an unadopted `animation:` names it): writing the preset's too
+  // would define it twice.
+  if (kf && new RegExp(`@keyframes\\s+cms-${state.animation.preset}\\s*\\{`).test(state.advanced.rawCss)) kf = '';
   if (kf) parts.push(kf);
 
   // A property the Threshold module already drives is skipped in the
@@ -988,43 +1332,107 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // Only once Threshold actually writes something: an enabled-but-unfinished
   // Threshold (no entity / no rules yet) used to silently disable e.g.
   // Background on a thermostat or Accent on a gauge (its default property).
-  const thresholdProps = thresholdOwnedProperties(state.threshold);
+  // A custom profile that hides Threshold writes no threshold block (see
+  // thresholdBlock), so it owns nothing: a stray threshold state (a preset's)
+  // must not silence the static modules.
+  const thresholdProps = cardThresholdOwned(state.threshold, caps);
+  // …but only for what is actually written: a profile's accent property with
+  // nothing convertible (or gated off) emits no block, so it must not silence
+  // the Accent module's own, valid value.
+  if (em?.accent && thresholdAccentJinja(state.threshold) === null) thresholdProps.delete('accent-color');
+
+  // Profile emitters on a selector other than ha-card get their own block —
+  // one per selector, in first-use order (Bubble: background + border share
+  // `.bubble-button-background`, icon colour + size share `.bubble-icon`).
+  const extraBlocks = new Map<string, string[]>();
+  const onHaCard = (selector: string, decls: string[]): string[] => {
+    if (selector.trim().toLowerCase() === 'ha-card') return decls;
+    if (decls.length > 0) extraBlocks.set(selector, [...(extraBlocks.get(selector) ?? []), ...decls]);
+    return [];
+  };
 
   // ha-card block
   const haCardDecls = [
-    ...(thresholdProps.has('accent-color') ? [] : accentColorDecls(state.accentColor, cardType)),
-    ...filterDecls(state.filter, cardType, state.advanced.rawCss),
-    ...(thresholdProps.has('background') ? [] : backgroundDecls(state.background)),
-    ...borderDecls(state.border, thresholdProps.has('border-color')),
+    ...(thresholdProps.has('accent-color')
+      ? []
+      : em?.accent
+        ? onHaCard(em.accent.selector, accentVarDecls(state.accentColor, em.accent))
+        : accentColorDecls(state.accentColor, emitType)),
+    ...filterDecls(state.filter, caps, state.advanced.rawCss),
+    ...(thresholdProps.has('background')
+      ? []
+      : em?.background
+        ? onHaCard(
+            em.background.selector,
+            companionDecls(
+              backgroundDecls(state.background, em.background.vars),
+              em.background.companions,
+              backgroundCondition(state.background),
+            ),
+          )
+        : backgroundDecls(state.background, undefined, caps.textOnlyCard)),
+    ...(em?.border
+      ? (() => {
+          const own = em.border.direct
+            ? borderDirectDecls(state.border, em.border, thresholdProps.has('border-color'))
+            : borderVarDecls(state.border, em.border, thresholdProps.has('border-color'));
+          const left = onHaCard(em.border.selector, own);
+          // companions on other selectors, only while the module wrote something
+          if (own.length) {
+            for (const c of em.border.companions ?? []) {
+              onHaCard(c.selector ?? em.border.selector, [`${c.prop}: ${c.value}${c.important ? ' !important' : ''};`]);
+            }
+          }
+          return left;
+        })()
+      : borderDecls(state.border, thresholdProps.has('border-color'), caps.textOnlyCard)),
     ...animDecls,
-    ...iconSizeDecls(state.iconColor, cardType),
+    // Icon colour on a profile's own selector (Bubble `.bubble-icon`): joins the
+    // icon-size block below instead of writing `ha-state-icon`.
+    ...(em?.iconColor
+      ? onHaCard(
+          em.iconColor.selector,
+          [!(thresholdProps.has('icon-color') || caps.iconColorless) ? iconColorDecl(state.iconColor) : null].filter(
+            (d): d is string => !!d,
+          ),
+        )
+      : []),
+    ...(em?.iconSize
+      ? onHaCard(em.iconSize.selector, iconSizeVarDecls(state.iconColor, em.iconSize))
+      : iconSizeDecls(state.iconColor, emitType, caps)),
   ];
   if (haCardDecls.length > 0) {
     const body = haCardDecls.map((d) => `  ${d}`).join('\n');
     parts.push(`ha-card {\n${body}\n}`);
   }
+  // (the extra blocks above were queued while building the ha-card list)
+  for (const [selector, decls] of extraBlocks) parts.push(varLines(selector, '', decls));
 
   // Gauge dial color needs its own ha-gauge block (see gaugeColorBlock).
   if (!thresholdProps.has('accent-color') && state.accentColor.enabled) {
-    const gauge = gaugeColorBlock(accentValue(state.accentColor), cardType, null, opts);
+    const gauge = gaugeColorBlock(accentValue(state.accentColor), emitType, null, opts);
     if (gauge) parts.push(gauge);
   }
 
   // Skip icon-color module when threshold is already driving icon color — both
   // emit ha-state-icon { color } and the second block would silently win.
-  const iconColor = thresholdProps.has('icon-color') ? '' : iconColorBlock(state.iconColor);
+  // (A colourless profile — chips — has no icon the colour could reach.)
+  const iconColor =
+    em?.iconColor || thresholdProps.has('icon-color') || caps.iconColorless ? '' : iconColorBlock(state.iconColor);
   if (iconColor) parts.push(iconColor);
 
-  const tileIconSize = tileIconSizeBlock(state.iconColor, cardType);
+  const tileIconSize = em?.iconSize ? '' : tileIconSizeBlock(state.iconColor, emitType);
   if (tileIconSize) parts.push(tileIconSize);
 
-  const threshold = thresholdBlock(state.threshold, cardType, opts);
+  const threshold = thresholdBlock(state.threshold, ctx);
   if (threshold) parts.push(threshold);
 
   const headingStyle = headingStyleBlocks(state.headingStyle);
   if (headingStyle) parts.push(headingStyle);
 
-  const font = fontBlock(state.font, cardType, thresholdProps.has('text-color'));
+  const font = em?.font
+    ? fontVarBlock(state.font, em.font, thresholdProps.has('text-color'))
+    : fontBlock(state.font, emitType, caps, thresholdProps.has('text-color'));
   if (font) parts.push(font);
 
   if (state.advanced.rawCss.trim()) {
