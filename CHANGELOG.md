@@ -76,9 +76,13 @@ translations nobody has read yet, and the new features want real-world use.
 
 - Overwriting a preset keeps its place in the list (it used to move to the
   end).
+- A word longer than the label column (some languages) is hyphenated
+  instead of running into the control next to it, and a "Default (…)" value
+  label wraps when the row is squeezed; the panel carries its language
+  (`lang`), which hyphenation and screen readers use.
 - The Default ON/OFF rows of My Color Palette show the administrator's
   default when one is set ("for everyone: …").
-- The bundle doubles with the languages: 553 → 1,130 kB (133 → 275 kB
+- The bundle doubles with the languages: 553 → 1,131 kB (133 → 276 kB
   gzipped). All languages are in the one file, as HACS installs one file.
 - English text is unchanged apart from the new features and two notices
   reworded for them (the container banner, and the one on a container the
@@ -96,34 +100,46 @@ translations nobody has read yet, and the new features want real-world use.
 
 ### Verified
 
-With the release build (the same file on every rig):
+With the release build (the same file on every rig) unless noted:
 
 - **Every language, live:** a new check
   (`tools/sandbox/harness/languages_sweep_check.mjs`) switches through all
   22 languages with the real Settings selector, on a vertical stack holding
-  a tile with a feature row and an entities card, with every module on and
-  every one of the 26 sections open, and fails on panel text that sticks
-  out sideways or is cut off: 23 of 23 at 1440 px and at 390 px on Home
-  Assistant 2026.11.0 with card-mod 4.2.1, 23 of 23 at 1440 px with UIX
-  9.0.0.
+  a tile with a feature row and an entities card, with all 15 modules on
+  and all 26 sections open (asserted), and fails on panel text that sticks
+  out sideways, is cut off, or runs out of its own box: 23 of 23 at 1440 px
+  and at 390 px, on Home Assistant 2026.11.0 with card-mod 4.2.1 and with
+  UIX 9.0.0. It found two layout problems that are fixed above (a Russian
+  label 5 px too wide for the label column at 1440 px; a Ukrainian
+  "Default (…)" label at 390 px).
+- **Home Assistant's own terms:** every short message of every language was
+  compared with Home Assistant's translations of the same word
+  (`tools/i18n/glossary_diff.py`) and switched to Home Assistant's word where
+  it has a clear one; the differences left are nouns inflected for their
+  sentence, words Home Assistant leaves in English, and words with few
+  votes.
 - **The integration** (`integration_check.mjs`, Home Assistant's own UI with
   real input): add it, a second add is refused, Configure → Português
   (Brasil) / ON colour Green / ask off → the Studio follows (Portuguese, no
   question, Icon Color starts green): 7 of 7 on Home Assistant 2026.11.0
   and on 2025.9.4. Home Assistant serves the options dialog's own
   translations (checked in Japanese and Korean, all 23 language options).
-- **The one-time question and Settings** (`language_check.mjs`): 13 of 13
-  with card-mod and with UIX on 2026.11.0.
-- **Presets** (`presets_check.mjs`) 11 of 11, **containers**
-  (`containers_check.mjs`) 6 of 6, **tile Features**
-  (`features_check.mjs`) 5 of 5 — each with card-mod and with UIX on
-  2026.11.0.
-- In English: SUITE_PLACEHOLDER
+- **The one-time question and Settings** (`language_check.mjs`) 13 of 13,
+  **presets** (`presets_check.mjs`) 11 of 11, **containers**
+  (`containers_check.mjs`) 6 of 6, **tile Features** (`features_check.mjs`)
+  5 of 5 — each with card-mod and with UIX on 2026.11.0, with the build
+  just before the last change (the "Default (…)" label's wrapping).
+- **In English**, on 2026.11.0: the check suite 21 of 21 (card-mod) and 19
+  of 19 (UIX); the functional check of every control in the real card
+  editor 489 of 489 (card-mod) and 491 of 491 (UIX).
 - Unit tests 3,277 of 3,277, including every language's completeness and
   placeholders, a scan that renders the panel, every module and the pickers
   in a pseudo-language and fails on any English text outside the
   dictionary, and the integration's files in step with the Studio
   (version, languages, translation keys).
+- Not rerun for this beta: Home Assistant 2026.2.3 and 2025.9.4 beyond the
+  integration check, and the Mushroom / Bubble Card audits (nothing in
+  their profiles changed).
 
 ## [0.11.0] — 2026-11-12
 

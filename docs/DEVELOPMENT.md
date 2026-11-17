@@ -221,7 +221,7 @@ Since v0.12 every piece of interface text goes through `src/i18n/`:
   `protected readonly i18n = new LangController(this);` (not `lang`, which
   is an `HTMLElement` property).
 - All languages are bundled (about 20–30 KB of text each; the bundle is
-  1,130 kB, 275 kB gzipped, with 22); there is no lazy loading — HACS
+  1,131 kB, 276 kB gzipped, with 22); there is no lazy loading — HACS
   installs one file.
 - Live checks: the shared launchers (`click-driver.mjs`, `fui/lib.mjs`,
   `release_qa.mjs`, …) pre-answer the one-time language question with

@@ -191,12 +191,12 @@ inspiration notes (UIX, browser_mod, Mushroom) in
 
 **Open in this cycle:**
 - **Proposal (owner's decision):** native speakers' reads of the 20 machine
-  translations (and one more of the German) before 0.12.0 final — or ship
+  translations before 0.12.0 final (the German was read by the owner) — or ship
   them marked as machine translations and take corrections as they come.
 - Distribution of the integration through HACS would need its own
   repository (HACS installs one category per repository); the owner
   decides. Until then it's a manual install from the release zip.
-- The bundle doubled with the languages (609 → 1,130 kB, 146 → 275 kB
+- The bundle doubled with the languages (609 → 1,131 kB, 146 → 276 kB
   gzipped). Loading only the active language would need more than one file,
   which HACS's single-file plugin install doesn't do; left as is.
 
