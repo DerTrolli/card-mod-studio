@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card-Mod Studio",
+        "description": "将 Card-Mod Studio 的设置添加到此页面。Studio 本身作为仪表盘资源安装（HACS、Marketplace 或手动）；此条目只保存其设置。"
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card-Mod Studio 已设置。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Card-Mod Studio 设置",
+        "description": "此 Home Assistant 中所有人的默认值。用户在 Studio 中自己的选择（⚙️ 设置、我的调色板）始终优先。",
+        "data": {
+          "language": "语言",
+          "ask_language": "询问每位用户要使用的语言",
+          "on_color": "默认开启颜色",
+          "off_color": "默认关闭颜色"
+        },
+        "data_description": {
+          "language": "自动检测跟随 Home Assistant 为每位用户显示的语言。",
+          "ask_language": "有人首次打开 Studio 时，会用一个简短的问题让其选择语言。关闭：所有人都使用上方的语言。",
+          "on_color": "实体开启时，新的图标颜色、强调色或阈值规则的初始颜色。Studio 默认：Studio 自带的颜色。",
+          "off_color": "实体关闭时同理。"
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "自动检测（推荐）",
+        "en": "English",
+        "de": "Deutsch"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Studio 默认",
+        "red": "红色",
+        "pink": "粉色",
+        "purple": "紫色",
+        "blue": "蓝色",
+        "cyan": "青色",
+        "teal": "深青色",
+        "green": "绿色",
+        "yellow": "黄色",
+        "orange": "橙色",
+        "grey": "灰色"
+      }
+    }
+  }
+}
