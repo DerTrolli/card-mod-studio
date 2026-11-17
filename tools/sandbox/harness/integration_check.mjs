@@ -15,6 +15,7 @@ const tokensFile = process.env.TOKENS_FILE || undefined;
 const results = [];
 const need = (cond, msg) => { if (!cond) throw new Error(msg); };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const ICON_TITLE = 'Cor do ícone'; // pt-BR 'icon.title' (src/i18n/pt-BR.ts)
 const step = async (name, fn) => {
   try {
     const detail = await fn();
@@ -84,7 +85,7 @@ try {
     return JSON.stringify(c);
   });
 
-  await step('Configure → options dialog: Language Deutsch, ON colour Green, ask off → Submit; open subscriptions get it', async () => {
+  await step('Configure → options dialog: Language Português (Brasil), ON colour Green, ask off → Submit; open subscriptions get it', async () => {
     await page.goto(`${ha}/config/integrations/integration/card_mod_studio`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => document.querySelector('home-assistant')?.hass?.connection, null, { timeout: 30000 });
     // listen like the Studio does: a subscription that gets every change
@@ -123,19 +124,19 @@ try {
       }
       await page.waitForTimeout(300);
     };
-    await choose('Language', 'Deutsch');
+    await choose('Language', 'Português (Brasil)'); // a code with a region: pt-br in HA, pt-BR in the Studio
     await choose('Default ON colour', 'Green');
     await dialog.locator('ha-switch').first().click(); // Ask each user: off
     await dialog.getByRole('button', { name: /^submit$/i }).click();
     await dialog.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
     const c = await ws(page, { type: 'card_mod_studio/config' });
-    need(c.language === 'de' && c.ask_language === false && c.on_color === 'var(--green-color)' && c.off_color === null, JSON.stringify(c));
+    need(c.language === 'pt-br' && c.ask_language === false && c.on_color === 'var(--green-color)' && c.off_color === null, JSON.stringify(c));
     const pushes = await page.evaluate(() => window.__cmsPushes);
-    need(pushes.length >= 2 && pushes.at(-1).language === 'de', `pushes ${JSON.stringify(pushes)}`);
+    need(pushes.length >= 2 && pushes.at(-1).language === 'pt-br', `pushes ${JSON.stringify(pushes)}`);
     return `${JSON.stringify(c)}; ${pushes.length} pushes, last language ${pushes.at(-1).language}`;
   });
 
-  await step('the Studio follows the admin: German, no question, ON colour Green', async () => {
+  await step('the Studio follows the admin: Português (Brasil), no question, ON colour Green', async () => {
     // a user who never chose (no stored Studio settings)
     await ws(page, { type: 'frontend/set_user_data', key: 'cms_settings', value: null });
     await page.evaluate(() => localStorage.removeItem('cms-settings'));
@@ -146,9 +147,9 @@ try {
     await D.openStudio(page);
     await page.waitForTimeout(1500);
     const names = (await D.listSections(page)).map((x) => x.name);
-    need(names.includes('Symbolfarbe'), `sections: ${names.join(' | ')}`);
+    need(names.includes(ICON_TITLE), `sections: ${names.join(' | ')}`);
     need(!(await page.locator('cms-language-notice .notice').isVisible().catch(() => false)), 'question shown although the admin turned it off');
-    await D.setSectionEnabled(page, 'Symbolfarbe', true);
+    await D.setSectionEnabled(page, ICON_TITLE, true);
     await page.waitForTimeout(500);
     const on = await page.evaluate(() => {
       const find = (root) => {
@@ -162,7 +163,7 @@ try {
     });
     need(on === 'var(--green-color)', `Icon Color starts from ${on}`);
     await D.cancelCard(page);
-    return `sections German, Icon Color ON = ${on}`;
+    return `sections Português (Brasil), Icon Color ON = ${on}`;
   });
 
   await step('no console errors', async () => {
