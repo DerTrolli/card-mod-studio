@@ -28,6 +28,7 @@ export type ConflictableModule =
   | 'border'
   | 'filter'
   | 'animation'
+  | 'features'
   | 'threshold';
 
 export type ModuleConflicts = Partial<Record<ConflictableModule, string[]>>;
@@ -97,6 +98,7 @@ const RULES: Rule[] = [
   { module: 'border', selector: 'ha-card', props: ['border', 'border-radius', 'border-width', 'border-color'] },
   { module: 'filter', selector: 'ha-card', props: ['filter', '-webkit-filter'] },
   { module: 'animation', selector: 'ha-card', props: ['animation', 'animation-name'] },
+  { module: 'features', selector: 'hui-card-features', props: ['--feature-height', '--feature-border-radius', '--feature-color'] },
 ];
 
 /** The properties Threshold drives, per selected target property. */
@@ -126,6 +128,12 @@ function isWritten(state: StudioState, module: ConflictableModule, prop: string,
     if (/font-family$/.test(prop)) return !!f.fontFamily?.trim();
     if (prop === 'color' || /-color$|^--primary-text-color$/.test(prop)) return !!f.color;
   }
+  if (module === 'features') {
+    const f = state.features;
+    if (prop === '--feature-height') return (f?.heightPx ?? 0) > 0;
+    if (prop === '--feature-border-radius') return (f?.radiusPx ?? -1) >= 0;
+    if (prop === '--feature-color') return !!f?.color;
+  }
   if (module === 'headingStyle') {
     const h = state.headingStyle;
     if (/font-size$/.test(prop)) return h.fontSize != null;
@@ -147,6 +155,7 @@ function isEnabled(state: StudioState, module: ConflictableModule): boolean {
     case 'border': return state.border.enabled;
     case 'filter': return state.filter.enabled || state.filter.grayscale;
     case 'animation': return state.animation.enabled;
+    case 'features': return !!state.features?.enabled;
     case 'threshold': return state.threshold.enabled;
   }
 }

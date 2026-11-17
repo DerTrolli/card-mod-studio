@@ -71,6 +71,13 @@ export const de: Record<MessageKey, string> = {
 
   // --- Border & Radius ----------------------------------------------------------
   'border.title': 'Rahmen & Radius',
+  'features.title': 'Funktionen',
+  'features.height': 'Höhe',
+  'features.radius': 'Eckenradius',
+  'features.color': 'Farbe',
+  'features.colorDefault': 'Farbe: leer folgt dem Zustand der Entität, wie in Home Assistant.',
+  'features.colorHint': 'Wird statt der Zustandsfarbe für die Schieberegler und Schaltflächen in den Funktionsreihen verwendet.',
+  'features.none': 'Diese Karte hat noch keine Funktionen — füge im eigenen Editor der Karte welche hinzu (Funktionen) und gestalte sie dann hier.',
   'border.radius': 'Eckenradius',
   'border.width': 'Rahmenbreite',
   'border.color': 'Rahmenfarbe',
@@ -345,7 +352,6 @@ export const de: Record<MessageKey, string> = {
 
   // --- click-to-edit, stack children, Style button ----------------------------------------------------------
   'pick.graphAccent': 'Diagramm / Akzentfarbe',
-  'pick.featuresAccent': 'Funktionen / Akzentfarbe',
   'pick.surface': 'Hintergrund & Kartenfläche',
   'pick.rowChip': '{rows} — {row}',
   'child.innerCard': 'Karte darin: {type}',

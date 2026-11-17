@@ -271,6 +271,8 @@ export interface CardCaps {
   isContainer: boolean;
   /** Container with a `cards: []` list the panel offers child sections for. */
   stylableChildren: boolean;
+  /** Features module (tile feature rows, v0.12 — measured on tile only). */
+  features: boolean;
   /** Which panel modules show. */
   modules: Record<ProfileModule, boolean>;
   /** Animation presets left out of this card's list: Spin where it breaks a
@@ -334,6 +336,7 @@ function buildCaps(
     isLight: !custom && key === 'light',
     isContainer: !custom && CONTAINER_CARD_TYPES.has(key),
     stylableChildren: !custom && STYLABLE_CHILDREN_CARD_TYPES.has(key),
+    features: !custom && key === 'tile',
     modules: m,
     // Spin is gated on built-in dial cards only (nothing measured for custom
     // cards); Gradient Shift needs a Background to move, and on a custom card

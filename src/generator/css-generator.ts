@@ -13,6 +13,7 @@ import type {
   AnimationModuleState,
   BorderModuleState,
   HeadingStyleModuleState,
+  FeaturesModuleState,
   FontModuleState,
   ThresholdModuleState,
   ThresholdRule,
@@ -601,6 +602,20 @@ function animationDecls(s: AnimationModuleState): string[] {
  */
 export const HEADING_FAMILY_SELECTOR = '.content p,\n.content .heading';
 export const HEADING_ICON_SELECTOR = '.content ha-icon';
+
+/**
+ * Features (v0.12, tile): HA's `hui-card-features` declares these variables
+ * on itself, so they're set there (a value on ha-card doesn't reach it); the
+ * colour needs `!important` over the tile's own. Only what was set is written.
+ */
+export function featuresBlock(s: FeaturesModuleState | undefined): string {
+  if (!s?.enabled) return '';
+  const decls: string[] = [];
+  if (s.heightPx > 0) decls.push(`  --feature-height: ${s.heightPx}px;`);
+  if (s.radiusPx >= 0) decls.push(`  --feature-border-radius: ${s.radiusPx}px;`);
+  if (s.color) decls.push(`  --feature-color: ${s.color} !important;`);
+  return decls.length ? `hui-card-features {\n${decls.join('\n')}\n}` : '';
+}
 
 function headingStyleBlocks(s: HeadingStyleModuleState): string {
   if (!s.enabled) return '';
@@ -1429,6 +1444,9 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
 
   const headingStyle = headingStyleBlocks(state.headingStyle);
   if (headingStyle) parts.push(headingStyle);
+
+  const features = featuresBlock(state.features);
+  if (features) parts.push(features);
 
   const font = em?.font
     ? fontVarBlock(state.font, em.font, thresholdProps.has('text-color'))

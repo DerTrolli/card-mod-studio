@@ -71,6 +71,13 @@ export const en = {
 
   // --- Border & Radius -------------------------------------------------------
   'border.title': 'Border & Radius',
+  'features.title': 'Features',
+  'features.height': 'Height',
+  'features.radius': 'Corner radius',
+  'features.color': 'Color',
+  'features.colorDefault': 'Color: empty follows the entity\'s state, as Home Assistant does.',
+  'features.colorHint': 'Used instead of the state color for the sliders and buttons in the feature rows.',
+  'features.none': 'This card has no features yet — add some in the card\'s own editor (Features), then style them here.',
   'border.radius': 'Border radius',
   'border.width': 'Border width',
   'border.color': 'Border color',
@@ -323,7 +330,6 @@ export const en = {
   'preset.localOnly': "Couldn't reach your Home Assistant profile — saved on this device only.",
   // --- click-to-edit, stack children, Style button ---------------------------
   'pick.graphAccent': 'Graph / Accent Color',
-  'pick.featuresAccent': 'Features / Accent Color',
   'pick.surface': 'Background & card surface',
   'pick.rowChip': '{rows} — {row}',
   'child.hasStyle': 'This card has styling',

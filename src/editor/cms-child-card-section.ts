@@ -43,6 +43,7 @@ import type {
   AdvancedModuleState,
   HeadingStyleModuleState,
   FontModuleState,
+  FeaturesModuleState,
   EntitiesCardRow,
   EntitiesRowStyles,
 } from '../types/index.js';
@@ -77,6 +78,8 @@ import '../modules/module-threshold.js';
 import '../modules/module-advanced.js';
 import '../modules/module-heading-style.js';
 import '../modules/module-font.js';
+import '../modules/module-features.js';
+import { DEFAULT_FEATURES } from '../parser/state-mapper.js';
 import '../modules/module-entities-rows.js';
 import { LangController, t, tParts } from '../i18n/index.js';
 
@@ -508,6 +511,16 @@ export class CmsChildCardSection extends LitElement {
               .hass=${this.hass}
               @state-changed=${(e: CustomEvent<BorderModuleState>) => this._emitChanged({ border: e.detail })}
             ></cms-border-module>`
+          : nothing}
+
+        ${caps.features
+          ? html`<cms-features-module
+              .state=${s.features ?? DEFAULT_FEATURES}
+              .noFeatures=${!Array.isArray((c as unknown as { features?: unknown[] }).features) || !(c as unknown as { features: unknown[] }).features.length}
+              .overridden=${!!conflicts.features}
+              .overriddenDetail=${(conflicts.features ?? []).join(", ")}
+              @state-changed=${(e: CustomEvent<FeaturesModuleState>) => this._emitChanged({ features: e.detail })}
+            ></cms-features-module>`
           : nothing}
 
         <cms-advanced-module

@@ -245,12 +245,12 @@ const RULES: PickRule[] = [
         : null,
   },
   {
-    // Tile feature rows (sliders/toggles below the info block): their
-    // --feature-color derives from --tile-color, which Accent drives.
+    // Tile feature rows (sliders/toggles below the info block): the Features
+    // module (v0.12) styles them — height, corner radius, colour.
     test: (el) => el.tag === 'hui-card-features' || el.tag === 'hui-card-feature',
-    target: (cardType) =>
-      cardType === 'tile'
-        ? { module: 'cms-accent-color-module', label: t('pick.featuresAccent') }
+    target: (cardType, config) =>
+      capsFor(cardType, config).features
+        ? { module: 'cms-features-module', label: t('features.title') }
         : null,
   },
   {

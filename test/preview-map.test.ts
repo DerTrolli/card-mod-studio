@@ -198,7 +198,7 @@ describe('mapElementToTarget', () => {
     });
   });
 
-  it('maps tile feature rows to Features / Accent Color', () => {
+  it('maps tile feature rows to the Features module (v0.12)', () => {
     const chain = [
       el('div', ['slider-track-bar', 'start']),
       el('ha-control-slider'),
@@ -210,8 +210,8 @@ describe('mapElementToTarget', () => {
       el('hui-card'),
     ];
     expect(mapElementToTarget(chain, 'tile')).toEqual({
-      module: 'cms-accent-color-module',
-      label: 'Features / Accent Color',
+      module: 'cms-features-module',
+      label: 'Features',
     });
   });
 

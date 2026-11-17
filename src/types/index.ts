@@ -426,6 +426,24 @@ export interface EntitiesCardRow {
   [key: string]: unknown;
 }
 
+/**
+ * Tile card features (v0.12): the feature rows under a tile (brightness
+ * slider, toggles, …), styled through the variables HA's `hui-card-features`
+ * reads. Measured on HA 2025.9–2026.11 with card-mod and UIX: height and
+ * corner radius take a plain declaration there, the colour only with
+ * `!important` (the tile sets it from the entity's state). 0 / -1 / '' =
+ * not set: a control the user didn't touch writes nothing.
+ */
+export interface FeaturesModuleState {
+  enabled: boolean;
+  /** --feature-height in px; 0 = not set. */
+  heightPx: number;
+  /** --feature-border-radius in px; -1 = not set (0 = square). */
+  radiusPx: number;
+  /** --feature-color; '' = not set (the entity's state colour). */
+  color: string;
+}
+
 /** Aggregate state of the entire Style panel. */
 export interface StudioState {
   filter: FilterModuleState;
@@ -435,6 +453,8 @@ export interface StudioState {
   animation: AnimationModuleState;
   border: BorderModuleState;
   headingStyle: HeadingStyleModuleState;
+  /** Tile feature rows (v0.12). Optional: states written before it have none. */
+  features?: FeaturesModuleState;
   font: FontModuleState;
   threshold: ThresholdModuleState;
   advanced: AdvancedModuleState;

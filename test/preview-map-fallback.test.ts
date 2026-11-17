@@ -80,6 +80,7 @@ describe('a hover never names a module that is hidden for the card', () => {
     'cms-heading-style-module': 'headingStyle',
     'cms-advanced-module': null,
     'cms-entities-rows-module': null,
+    'cms-features-module': null, // a caps flag, not a profile module: checked below
   };
   const sets = [
     NON_STATE_CARD_TYPES, CONTAINER_CARD_TYPES, NO_ANIMATION_TYPES, NO_BACKGROUND_TYPES, NO_ICON_COLOR_TYPES,
@@ -137,6 +138,7 @@ describe('a hover never names a module that is hidden for the card', () => {
           expect(gate !== undefined, `${t!.module} is a module`).toBe(true);
           if (gate) expect(shown[gate], `${at(shape)} → ${t!.module} is hidden`).toBe(true);
           if (t!.module === 'cms-entities-rows-module') expect(isEntities, at(shape)).toBe(true);
+          if (t!.module === 'cms-features-module') expect(capsFor(type, config).features, at(shape)).toBe(true);
         }
       }
     }

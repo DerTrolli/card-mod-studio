@@ -22,6 +22,7 @@ import type {
   BackgroundModuleState,
   BorderModuleState,
   HeadingStyleModuleState,
+  FeaturesModuleState,
   FontModuleState,
   AnimationModuleState,
   ThresholdModuleState,
@@ -133,6 +134,16 @@ export const DEFAULT_BORDER: BorderModuleState = {
  *  (Was #e1e1e1 — near-invisible light grey on light themes.) */
 export const THEME_TEXT_COLOR = 'var(--primary-text-color)';
 
+export const DEFAULT_FEATURES: FeaturesModuleState = {
+  enabled: false,
+  heightPx: 0,
+  radiusPx: -1,
+  color: '',
+};
+
+/** The selector Features writes to (tile cards). */
+export const FEATURES_SELECTOR = 'hui-card-features';
+
 export const DEFAULT_HEADING_STYLE: HeadingStyleModuleState = {
   enabled: false,
   fontFamily: '',
@@ -198,6 +209,19 @@ function coerceNumericValues<T extends { value: unknown }>(items: T[]): T[] {
  * fields are translated (v0.6.x `threshold.property` → `properties: [...]`).
  * Safe on current-schema input (idempotent).
  */
+/** A stored or pasted Features state, every field checked. */
+function migrateFeatures(raw: unknown): FeaturesModuleState {
+  const f = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const num = (v: unknown, min: number, max: number, dflt: number) =>
+    typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? Math.round(v) : dflt;
+  return {
+    enabled: f.enabled === true,
+    heightPx: num(f.heightPx, 0, 200, 0),
+    radiusPx: num(f.radiusPx, -1, 100, -1),
+    color: typeof f.color === 'string' && /^(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)$/.test(f.color.trim()) ? f.color.trim() : '',
+  };
+}
+
 export function migrateStudioState(raw: unknown): StudioState {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, Record<string, unknown> | undefined>;
 
@@ -231,6 +255,7 @@ export function migrateStudioState(raw: unknown): StudioState {
     animation: { ...DEFAULT_ANIMATION, ...(r.animation ?? {}) } as AnimationModuleState,
     border: { ...DEFAULT_BORDER, ...(r.border ?? {}) } as BorderModuleState,
     headingStyle: { ...DEFAULT_HEADING_STYLE, ...(r.headingStyle ?? {}) } as HeadingStyleModuleState,
+    features: migrateFeatures(r.features),
     font: { ...DEFAULT_FONT, ...(r.font ?? {}) } as FontModuleState,
     threshold,
     advanced: { rawCss: typeof r.advanced?.rawCss === 'string' ? (r.advanced.rawCss as string) : '' },
@@ -593,6 +618,7 @@ function mapView(fullParsed: CardModStyleState, parsed: CardModStyleState, cardT
     findTargetNormalized(parsed.targets, HEADING_ICON_SELECTOR) ?? findTarget(parsed.targets, '.title ha-icon');
   const headingFamily = findTargetNormalized(parsed.targets, HEADING_FAMILY_SELECTOR);
   const container = findTarget(parsed.targets, '.container');
+  const featuresTarget = findTarget(parsed.targets, FEATURES_SELECTOR);
 
   const claimed = new Set<string>();
   const numberSize = claimNumberSize(parsed.dictSource, cardType);
@@ -651,6 +677,8 @@ function mapView(fullParsed: CardModStyleState, parsed: CardModStyleState, cardT
       hidden('headingStyle') || (cardType !== undefined && cardType !== 'heading')
         ? { ...DEFAULT_HEADING_STYLE }
         : mapHeadingStyle(titleP, headingIcon, container, headingFamily, claimed),
+    // Features: tile cards only (`hui-card-features` elsewhere is the user's).
+    features: cardType === 'tile' ? mapFeatures(featuresTarget, claimed) : { ...DEFAULT_FEATURES },
     font: {
       ...(hidden('font')
         ? { ...DEFAULT_FONT }
@@ -747,6 +775,7 @@ export function mergeStudioStates(primary: StudioState, secondary: StudioState):
     animation: primary.animation.enabled ? primary.animation : secondary.animation,
     border: primary.border.enabled ? primary.border : secondary.border,
     headingStyle: primary.headingStyle.enabled ? primary.headingStyle : secondary.headingStyle,
+    features: primary.features?.enabled ? primary.features : (secondary.features ?? primary.features),
     // Number size lives in the primary's dict (a string secondary can't
     // carry it), whichever side's base font wins.
     // A Font switched on only by that entry (nothing else set) is not a
@@ -1797,6 +1826,41 @@ function mapBackground(
 // ---------------------------------------------------------------------------
 // Border module
 // ---------------------------------------------------------------------------
+
+/**
+ * Features (v0.12): `hui-card-features { --feature-height: Npx;
+ * --feature-border-radius: Npx; --feature-color: C !important }` — exactly
+ * what featuresBlock writes. A colour without `!important` does nothing on
+ * the card (the tile sets its own), so it isn't taken over: it stays the
+ * user's, in Advanced CSS, as written. Conditions (Jinja) aren't ours either.
+ */
+function mapFeatures(target: CssTarget | null, claimed: Set<string>): FeaturesModuleState {
+  const state: FeaturesModuleState = { ...DEFAULT_FEATURES };
+  if (!target) return state;
+  const px = (prop: string, min: number): number | null => {
+    const p = findProp(target, prop);
+    if (!p || p.hasCondition || p.important) return null;
+    const m = p.value.match(/^(\d+)px$/);
+    return m && parseInt(m[1], 10) >= min ? parseInt(m[1], 10) : null;
+  };
+  const height = px('--feature-height', 1);
+  if (height !== null) {
+    state.heightPx = height;
+    claimed.add(claimKey(target.selector, '--feature-height'));
+  }
+  const radius = px('--feature-border-radius', 0);
+  if (radius !== null) {
+    state.radiusPx = radius;
+    claimed.add(claimKey(target.selector, '--feature-border-radius'));
+  }
+  const color = findProp(target, '--feature-color');
+  if (color && color.important && !color.hasCondition && /^(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)$/.test(color.value)) {
+    state.color = color.value;
+    claimed.add(claimKey(target.selector, '--feature-color'));
+  }
+  state.enabled = height !== null || radius !== null || !!state.color;
+  return state;
+}
 
 function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModuleState {
   if (!haCard) return { ...DEFAULT_BORDER };

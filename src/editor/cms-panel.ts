@@ -2,6 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
 import type {
+  FeaturesModuleState,
   CardModCardConfig,
   HomeAssistant,
   StudioState,
@@ -50,6 +51,8 @@ import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
 import './cms-settings.js';
 import { childSlots, withChild, type ChildSlot } from '../utils/child-slots.js';
+import '../modules/module-features.js';
+import { DEFAULT_FEATURES } from '../parser/state-mapper.js';
 import './cms-preset-manager.js';
 import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
 import { cmsTokens } from '../modules/module-base.js';
@@ -459,6 +462,12 @@ export class CmsPanel extends LitElement {
   private _onBorderChanged(e: CustomEvent<BorderModuleState>) {
     if (!this._studioState) return;
     this._studioState = { ...this._studioState, border: e.detail };
+    this._emitConfigChanged();
+  }
+
+  private _onFeaturesChanged(e: CustomEvent<FeaturesModuleState>) {
+    if (!this._studioState) return;
+    this._studioState = { ...this._studioState, features: e.detail };
     this._emitConfigChanged();
   }
 
@@ -1574,6 +1583,16 @@ export class CmsPanel extends LitElement {
             .hass=${this.hass}
             @state-changed=${this._onBorderChanged}
           ></cms-border-module>`
+        : nothing}
+
+      ${this._caps.features
+        ? html`<cms-features-module
+            .state=${s.features ?? DEFAULT_FEATURES}
+            .noFeatures=${!Array.isArray((this.config as unknown as { features?: unknown[] })?.features) || !(this.config as unknown as { features: unknown[] }).features.length}
+            .overridden=${!!conflicts.features}
+            .overriddenDetail=${(conflicts.features ?? []).join(", ")}
+            @state-changed=${this._onFeaturesChanged}
+          ></cms-features-module>`
         : nothing}
 
       <cms-advanced-module
