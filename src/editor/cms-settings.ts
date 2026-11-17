@@ -24,7 +24,7 @@ import {
   type LanguageCode,
   type LanguageSetting,
 } from '../i18n/index.js';
-import { getSettings, initSettings, settingsSettled, updateSettings, SETTINGS_CHANGED_EVENT } from '../utils/settings-storage.js';
+import { askLanguage, getSettings, initSettings, settingsSettled, updateSettings, SETTINGS_CHANGED_EVENT } from '../utils/settings-storage.js';
 
 /** The language select both views share. */
 function renderLanguageSelect(id: string, value: LanguageSetting, onChange: (v: LanguageSetting) => void) {
@@ -148,7 +148,7 @@ export class CmsLanguageNotice extends SettingsView {
   override render() {
     // Wait for Home Assistant's copy: a choice made on another device must not
     // be asked again (and answering would overwrite it).
-    if (getSettings().languageChosen || !settingsSettled(this.hass)) return nothing;
+    if (getSettings().languageChosen || !settingsSettled(this.hass) || !askLanguage()) return nothing;
     const pick = this._pick ?? getLanguageSetting();
     return html`<div class="notice" role="region" aria-label=${t('settings.noticeLabel')}>
       <span class="text"><span aria-hidden="true">🌐</span> ${t('settings.noticeText')}</span>

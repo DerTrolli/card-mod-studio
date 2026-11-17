@@ -363,6 +363,7 @@ export const en = {
   'palette.onDefault': 'ON default',
   'palette.offDefault': 'OFF default',
   'palette.builtin': '(built-in {color})',
+  'palette.siteDefault': '(for everyone: {color})',
   'palette.resetSubject': 'Reset {subject} to built-in',
   'palette.reset': 'Reset',
   // --- colour picker -----------------------------------------------------------

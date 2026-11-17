@@ -6,7 +6,7 @@ import {
   guardSliderTouch, nameSwitches, prepareSliders,
 } from './module-base.js';
 import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
-import { getCachedPalette } from '../utils/palette-storage.js';
+import { colorDefaults } from '../utils/palette-storage.js';
 import { findRowExtraCssConflicts } from '../utils/style-conflicts.js';
 import { THEME_TEXT_COLOR } from '../parser/state-mapper.js';
 import '../components/cms-color-picker.js';
@@ -17,7 +17,7 @@ import { LangController, t, tParts } from '../i18n/index.js';
  *  the card-level Icon Color module uses. Keeps "what enabling something
  *  starts with" consistent between card level and row level. */
 function defaultOnColor(): string {
-  return getCachedPalette().defaults.onColor ?? '#2196F3';
+  return colorDefaults().onColor ?? '#2196F3';
 }
 
 /** `hass.formatEntityName` (HA 2026.11+): what HA's own entities-card row

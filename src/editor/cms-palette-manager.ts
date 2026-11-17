@@ -22,7 +22,9 @@ import {
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
 import { ArmGuard } from '../utils/arm-guard.js';
-import { LangController, t } from '../i18n/index.js';
+import { LangController, t, type MessageKey } from '../i18n/index.js';
+import { getSiteDefaults } from '../utils/settings-storage.js';
+import { previewHexFor } from '../components/cms-color-picker.js';
 
 /** Rapid commits (e.g. several swatch changes in a row) become one storage write. */
 const COMMIT_DEBOUNCE_MS = 250;
@@ -452,10 +454,18 @@ export class CmsPaletteManager extends LitElement {
     builtin: string,
   ) {
     const subject = t(which === 'ON' ? 'palette.defaultOn' : 'palette.defaultOff');
+    // The integration's default for everyone stands in for the built-in.
+    const site = getSiteDefaults()?.[key];
+    const siteName = site ? t(`picker.color.${site.slice(6, -7)}` as MessageKey) : undefined;
+    const fallback = site ? previewHexFor(site) : builtin;
     return html`
       <div class="color-row" data-row=${key}>
-        ${this._renderColorFields(key, value ?? builtin, subject, (hex) => this._setDefault(key, hex))}
-        <span class="default-label">${t(which === 'ON' ? 'palette.onDefault' : 'palette.offDefault')}${value ? '' : html` <span class="default-builtin">${t('palette.builtin', { color: builtin })}</span>`}</span>
+        ${this._renderColorFields(key, value ?? fallback, subject, (hex) => this._setDefault(key, hex))}
+        <span class="default-label">${t(which === 'ON' ? 'palette.onDefault' : 'palette.offDefault')}${value
+          ? ''
+          : html` <span class="default-builtin">${siteName
+              ? t('palette.siteDefault', { color: siteName })
+              : t('palette.builtin', { color: builtin })}</span>`}</span>
         ${value
           ? html`<button class="reset-btn" aria-label=${t('palette.resetSubject', { subject })} @click=${() => this._setDefault(key, undefined)}>${t('palette.reset')}</button>`
           : nothing}

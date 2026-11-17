@@ -37,7 +37,7 @@ import {
   hasUnsupportedDictRoot,
   dictUsesUixOnlySelectors,
 } from '../utils/style-compat.js';
-import { getCachedPalette } from '../utils/palette-storage.js';
+import { colorDefaults } from '../utils/palette-storage.js';
 
 /**
  * Applies the Palette Manager's "default ON/OFF color" overrides to modules
@@ -47,7 +47,7 @@ import { getCachedPalette } from '../utils/palette-storage.js';
  * deliberately picked (or parsed from existing YAML).
  */
 function applyPaletteDefaults(state: StudioState): StudioState {
-  const { onColor, offColor } = getCachedPalette().defaults;
+  const { onColor, offColor } = colorDefaults();
   if (!onColor && !offColor) return state;
   const next = { ...state };
   if (!next.iconColor.enabled) {
@@ -76,7 +76,7 @@ function applyPaletteDefaults(state: StudioState): StudioState {
  * never touched.
  */
 export function refreshPaletteDefaults(state: StudioState): StudioState {
-  const { onColor, offColor } = getCachedPalette().defaults;
+  const { onColor, offColor } = colorDefaults();
   const next = { ...state };
   if (!next.iconColor.enabled) {
     next.iconColor = {

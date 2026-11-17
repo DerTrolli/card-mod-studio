@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { IconColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
-import { getCachedPalette } from '../utils/palette-storage.js';
+import { colorDefaults } from '../utils/palette-storage.js';
 import { hasOwnEntity, stateKindFor, type OwnStateKind } from '../utils/card-caps.js';
 import {
   moduleStyles,
@@ -22,7 +22,7 @@ import { LangController, t } from '../i18n/index.js';
  *  other than the factory one, a watched entity, or colours off the defaults
  *  (palette overrides count as defaults). */
 function hasColourIntent(s: IconColorModuleState): boolean {
-  const { onColor, offColor } = getCachedPalette().defaults;
+  const { onColor, offColor } = colorDefaults();
   return (
     s.mode !== DEFAULT_ICON_COLOR.mode ||
     !!s.entityId ||

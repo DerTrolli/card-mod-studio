@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card-Mod Studio",
+        "description": "Adds Card-Mod Studio's settings to this page. The Studio itself is installed as a dashboard resource (HACS, the Marketplace or by hand); this entry only holds its settings."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card-Mod Studio is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Card-Mod Studio settings",
+        "description": "Defaults for everyone on this Home Assistant. A user's own choice in the Studio (⚙️ Settings, My Color Palette) still wins.",
+        "data": {
+          "language": "Language",
+          "ask_language": "Ask each user which language to use",
+          "on_color": "Default ON colour",
+          "off_color": "Default OFF colour"
+        },
+        "data_description": {
+          "language": "Auto-detect follows the language Home Assistant shows each user.",
+          "ask_language": "The first time someone opens the Studio, a short question lets them pick a language. Off: everyone gets the language above.",
+          "on_color": "The colour a new Icon Color, Accent Color or threshold rule starts from while the entity is on. Studio default: the Studio's own.",
+          "off_color": "The same while the entity is off."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Auto-detect (recommended)",
+        "en": "English",
+        "de": "Deutsch"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Studio default",
+        "red": "Red",
+        "pink": "Pink",
+        "purple": "Purple",
+        "blue": "Blue",
+        "cyan": "Cyan",
+        "teal": "Teal",
+        "green": "Green",
+        "yellow": "Yellow",
+        "orange": "Orange",
+        "grey": "Grey"
+      }
+    }
+  }
+}

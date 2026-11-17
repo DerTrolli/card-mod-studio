@@ -386,6 +386,7 @@ export const de: Record<MessageKey, string> = {
   'palette.onDefault': 'EIN-Standard',
   'palette.offDefault': 'AUS-Standard',
   'palette.builtin': '(eingebaut: {color})',
+  'palette.siteDefault': '(für alle: {color})',
   'palette.resetSubject': '{subject} auf eingebauten Wert zurücksetzen',
   'palette.reset': 'Zurücksetzen',
 

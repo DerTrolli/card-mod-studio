@@ -10,7 +10,7 @@ import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/
 import { previewHexFor } from '../components/cms-color-picker.js';
 import { thresholdPropertyAllowed } from '../utils/card-caps.js';
 import { thresholdColorsWithoutTriplet, tripletHint } from '../utils/rgb-triplet.js';
-import { getCachedPalette } from '../utils/palette-storage.js';
+import { colorDefaults } from '../utils/palette-storage.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
 import { LangController, t, type MessageKey } from '../i18n/index.js';
@@ -687,7 +687,7 @@ export class ThresholdModule extends LitElement {
       value: 0,
       // Same "what a fresh control starts with" convention as the row-level
       // builder and the Icon/Accent modules: palette ON-default when set.
-      color: getCachedPalette().defaults.onColor ?? '#2196F3',
+      color: colorDefaults().onColor ?? '#2196F3',
     };
     this._emit({ rules: [...this.state.rules, newRule] });
   }
@@ -732,7 +732,7 @@ export class ThresholdModule extends LitElement {
       value: nextValue,
       // Stops need concrete hex (interpolation) — previewHexFor resolves a
       // palette var() ON-default the same way stop color picks resolve.
-      color: previewHexFor(getCachedPalette().defaults.onColor ?? '#2196F3'),
+      color: previewHexFor(colorDefaults().onColor ?? '#2196F3'),
     };
     this._emit({ colorStops: [...this.state.colorStops, newStop] });
   }

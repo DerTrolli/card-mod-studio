@@ -19,7 +19,17 @@ import {
   t,
   tParts,
 } from '../src/i18n/index.js';
-import { getSettings, initSettings, resetSettingsForTests, settingsSettled, updateSettings } from '../src/utils/settings-storage.js';
+import {
+  applySiteDefaults,
+  askLanguage,
+  effectiveLanguageSetting,
+  getSettings,
+  initSettings,
+  resetSettingsForTests,
+  settingsSettled,
+  updateSettings,
+} from '../src/utils/settings-storage.js';
+import { colorDefaults } from '../src/utils/palette-storage.js';
 
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
@@ -224,3 +234,63 @@ describe('the stored setting', () => {
     expect(getSettings()).toEqual({ language: 'auto', languageChosen: false, updatedAt: 0 });
   });
 });
+
+describe('site defaults from the integration', () => {
+  const g = globalThis as unknown as { localStorage?: unknown; window?: unknown; CustomEvent?: unknown };
+  let saved: { ls: unknown; win: unknown };
+  const events: string[] = [];
+  beforeEach(() => {
+    saved = { ls: g.localStorage, win: g.window };
+    const store = new Map<string, string>();
+    g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v) };
+    events.length = 0;
+    g.window = { dispatchEvent: (e: { type: string }) => { events.push(e.type); return true; } };
+    (g as { CustomEvent?: unknown }).CustomEvent ??= class { constructor(public type: string) {} };
+    resetSettingsForTests();
+  });
+  afterEach(() => {
+    g.localStorage = saved.ls;
+    g.window = saved.win;
+    resetSettingsForTests();
+  });
+  const pushed = (o: Record<string, unknown>) => ({ configured: true, language: 'auto', ask_language: true, on_color: null, off_color: null, ...o });
+
+  it("the admin's language applies until the user chooses; the user's choice wins", async () => {
+    setHomeAssistantLanguage('en');
+    applySiteDefaults(pushed({ language: 'de' }));
+    expect(effectiveLanguageSetting()).toBe('de');
+    expect(currentLanguage()).toBe('de');
+    await updateSettings({ language: 'auto', languageChosen: true }, undefined);
+    expect(currentLanguage()).toBe('en'); // the user picked Auto-detect: follows HA, not the admin
+  });
+
+  it('the admin can turn the question off', () => {
+    expect(askLanguage()).toBe(true);
+    applySiteDefaults(pushed({ ask_language: false }));
+    expect(askLanguage()).toBe(false);
+  });
+
+  it('the question waits for the integration when Home Assistant lists it', () => {
+    const hass = { config: { components: ['card_mod_studio'] }, connection: { sendMessagePromise: async () => null } };
+    expect(settingsSettled({ config: { components: [] } })).toBe(true);
+    expect(settingsSettled(hass)).toBe(false);
+    applySiteDefaults(pushed({}));
+    expect(settingsSettled({ ...hass, connection: undefined })).toBe(true);
+  });
+
+  it('ON/OFF defaults: the palette first, then the site, else none', () => {
+    expect(colorDefaults()).toEqual({ onColor: undefined, offColor: undefined });
+    applySiteDefaults(pushed({ on_color: 'var(--green-color)' }));
+    expect(colorDefaults().onColor).toBe('var(--green-color)');
+    expect(events).toContain('cms-palette-changed');
+  });
+
+  it('nonsense from the integration is ignored; an unconfigured answer means no defaults', () => {
+    applySiteDefaults(pushed({ language: 'xx', on_color: 'red; background: url(x)' }));
+    expect(effectiveLanguageSetting()).toBe('auto');
+    expect(colorDefaults().onColor).toBeUndefined();
+    applySiteDefaults({ configured: false, language: 'de' });
+    expect(effectiveLanguageSetting()).toBe('auto');
+  });
+});
+

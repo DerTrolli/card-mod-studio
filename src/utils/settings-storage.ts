@@ -9,8 +9,17 @@
  *
  * Applying the settings is immediate: the cache updates, the language layer
  * switches, and SETTINGS_CHANGED_EVENT tells open views.
+ *
+ * Site defaults (v0.12): the optional Card-Mod Studio integration (Settings →
+ * Devices & services) holds defaults for everyone on this Home Assistant —
+ * the language, whether each user is asked, the default ON/OFF colours. They
+ * arrive over the websocket subscription `card_mod_studio/subscribe` (pushed
+ * again whenever an admin changes them), only when Home Assistant lists the
+ * integration as loaded. Precedence: the user's own choice → the site
+ * default → Auto-detect.
  */
 import { isLanguageSetting, setLanguageSetting, type LanguageSetting } from '../i18n/index.js';
+import { PALETTE_CHANGED_EVENT, setSiteColorDefaults } from './palette-storage.js';
 
 export interface StudioSettings {
   /** 'auto' follows the language Home Assistant shows for this user. */
@@ -23,13 +32,28 @@ export interface StudioSettings {
 
 export const SETTINGS_CHANGED_EVENT = 'cms-settings-changed';
 
+/** Defaults an admin set in the integration's options (absent: not installed). */
+export interface SiteDefaults {
+  language: LanguageSetting;
+  askLanguage: boolean;
+  /** CSS colour (`var(--green-color)`) or undefined for the Studio's own. */
+  onColor?: string;
+  offColor?: string;
+}
+
+const INTEGRATION = 'card_mod_studio';
+
 const HA_KEY = 'cms_settings';
 const LS_KEY = 'cms-settings';
 
 export const DEFAULT_SETTINGS: StudioSettings = { language: 'auto', languageChosen: false, updatedAt: 0 };
 
 interface HassSub {
-  connection?: { sendMessagePromise(msg: Record<string, unknown>): Promise<unknown> };
+  connection?: {
+    sendMessagePromise(msg: Record<string, unknown>): Promise<unknown>;
+    subscribeMessage?(cb: (msg: unknown) => void, msg: Record<string, unknown>): Promise<() => void>;
+  };
+  config?: { components?: string[] };
 }
 
 function sanitize(raw: unknown): StudioSettings {
@@ -43,6 +67,73 @@ function sanitize(raw: unknown): StudioSettings {
 }
 
 let cache: StudioSettings = { ...DEFAULT_SETTINGS };
+let site: SiteDefaults | null = null;
+/** The integration's first answer arrived (or subscribing failed). */
+let siteReceived = false;
+let siteSubscribed = false;
+
+function integrationLoaded(hass: HassSub | undefined): boolean {
+  return !!hass?.config?.components?.includes(INTEGRATION);
+}
+
+/** The language setting in force: the user's choice, else the site default, else auto. */
+export function effectiveLanguageSetting(s: StudioSettings = cache): LanguageSetting {
+  return s.languageChosen ? s.language : (site?.language ?? 'auto');
+}
+
+/** The integration's defaults, or null when it isn't installed / hasn't answered. */
+export function getSiteDefaults(): SiteDefaults | null {
+  return site;
+}
+
+/** Whether the one-time question should be asked at all (the admin may turn it off). */
+export function askLanguage(): boolean {
+  return site?.askLanguage !== false;
+}
+
+function sanitizeSite(raw: unknown): SiteDefaults | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  if (o.configured !== true) return null;
+  const color = (v: unknown) => (typeof v === 'string' && /^var\(--[a-z-]+-color\)$/.test(v) ? v : undefined);
+  return {
+    language: isLanguageSetting(o.language) ? o.language : 'auto',
+    askLanguage: o.ask_language !== false,
+    onColor: color(o.on_color),
+    offColor: color(o.off_color),
+  };
+}
+
+/** Test helper / subscription callback: new site defaults arrived. */
+export function applySiteDefaults(raw: unknown): void {
+  const next = sanitizeSite(raw);
+  const changed = JSON.stringify(next) !== JSON.stringify(site);
+  site = next;
+  siteReceived = true;
+  setLanguageSetting(effectiveLanguageSetting());
+  const colorsChanged = setSiteColorDefaults({ onColor: next?.onColor, offColor: next?.offColor });
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(SETTINGS_CHANGED_EVENT));
+    if (changed) window.dispatchEvent(new CustomEvent(SITE_DEFAULTS_CHANGED_EVENT));
+    // Open modules re-read their starting colours like after a palette edit.
+    if (colorsChanged) window.dispatchEvent(new CustomEvent(PALETTE_CHANGED_EVENT));
+  }
+}
+
+/** Fired when the integration's defaults change (palette defaults follow). */
+export const SITE_DEFAULTS_CHANGED_EVENT = 'cms-site-defaults-changed';
+
+function subscribeSite(hass: HassSub | undefined): void {
+  if (siteSubscribed || !integrationLoaded(hass)) return;
+  const conn = hass?.connection;
+  if (!conn?.subscribeMessage) return;
+  siteSubscribed = true;
+  conn.subscribeMessage((msg) => applySiteDefaults(msg), { type: `${INTEGRATION}/subscribe` }).catch((err) => {
+    console.warn('[Card-Mod Studio] Could not read the integration settings:', err);
+    siteReceived = true;
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SETTINGS_CHANGED_EVENT));
+  });
+}
 let loadedLocal = false;
 let loadedFromHa = false;
 /** The last attempt to read Home Assistant's copy failed (this device's copy is all there is). */
@@ -51,7 +142,7 @@ let haLoad: Promise<void> | null = null;
 
 function apply(next: StudioSettings, notify = true): void {
   cache = next;
-  setLanguageSetting(next.language);
+  setLanguageSetting(effectiveLanguageSetting(next));
   if (notify && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SETTINGS_CHANGED_EVENT));
 }
 
@@ -87,6 +178,7 @@ export function getSettings(): StudioSettings {
  */
 export function initSettings(hass: HassSub | undefined): Promise<void> {
   getSettings();
+  subscribeSite(hass);
   const conn = hass?.connection;
   if (!conn?.sendMessagePromise || loadedFromHa) return haLoad ?? Promise.resolve();
   if (haLoad) return haLoad;
@@ -125,6 +217,8 @@ export function initSettings(hass: HassSub | undefined): Promise<void> {
  */
 export function settingsSettled(hass: HassSub | undefined): boolean {
   if (haLoad) return false; // a read started elsewhere is still on its way
+  // The admin may have turned the question off or chosen a language: wait for it.
+  if (integrationLoaded(hass) && !siteReceived) return false;
   if (!hass?.connection?.sendMessagePromise) return true;
   return loadedFromHa || haFailed;
 }
@@ -150,5 +244,9 @@ export function resetSettingsForTests(): void {
   loadedFromHa = false;
   haFailed = false;
   haLoad = null;
+  site = null;
+  setSiteColorDefaults({});
+  siteReceived = false;
+  siteSubscribed = false;
   setLanguageSetting('auto');
 }

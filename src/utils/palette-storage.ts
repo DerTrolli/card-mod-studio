@@ -94,6 +94,26 @@ let cacheLoaded = false;
 
 /** Synchronous read for hot paths (picker renders, state building). Returns
  *  the empty palette until initPaletteCache has completed. */
+/** The integration's ON/OFF defaults (settings-storage pushes them in). */
+let siteColors: { onColor?: string; offColor?: string } = {};
+
+/** Settings-storage: the site defaults from the integration changed. */
+export function setSiteColorDefaults(next: { onColor?: string; offColor?: string }): boolean {
+  const changed = next.onColor !== siteColors.onColor || next.offColor !== siteColors.offColor;
+  siteColors = { onColor: next.onColor, offColor: next.offColor };
+  return changed;
+}
+
+/**
+ * The ON/OFF colours a freshly enabled control starts from: the user's own
+ * (My Color Palette) → the site default (the integration's options) →
+ * undefined (the caller's built-in).
+ */
+export function colorDefaults(): { onColor?: string; offColor?: string } {
+  const own = getCachedPalette().defaults;
+  return { onColor: own.onColor ?? siteColors.onColor, offColor: own.offColor ?? siteColors.offColor };
+}
+
 export function getCachedPalette(): CustomPalette {
   return cache;
 }
