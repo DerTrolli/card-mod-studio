@@ -80,7 +80,9 @@ translations nobody has read yet, and the new features want real-world use.
   default when one is set ("for everyone: …").
 - The bundle doubles with the languages: 553 → 1,130 kB (133 → 275 kB
   gzipped). All languages are in the one file, as HACS installs one file.
-- English text is unchanged apart from the new features.
+- English text is unchanged apart from the new features and two notices
+  reworded for them (the container banner, and the one on a container the
+  Studio can't enter).
 
 ### Known limits
 

@@ -80,11 +80,12 @@ effects, icon size).
   a card's style or all presets as text — see
   [Presets](Presets-and-My-Color-Palette).
 
-## v1.0 — confidence
+## v1.0 — to be decided
 
-With the structure items in v0.12, v1.0 is about confidence rather than new
-features: native speakers' corrections to the translations, real-world
-reports on the v0.12 betas, and `sections` view containers.
+The structure items once planned for v1.0 shipped in v0.12. A proposal for
+what v1.0 then needs (not decided yet): native speakers' corrections to the
+translations, real-world reports on the v0.12 betas, and `sections` view
+containers.
 
 ## Post-1.0 stretch
 

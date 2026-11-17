@@ -224,7 +224,7 @@ export const pt: Record<MessageKey, string> = {
   'rows.noControls': 'Linhas de seção, divisória e link não têm definições de estilo.',
   'rows.overridden': 'CSS escrito manualmente nesta linha está a substituir estas definições',
   'rows.hasStyle': 'Esta linha tem estilo',
-  'rows.static': 'Fixo',
+  'rows.static': 'Estático',
   'rows.threshold': 'Limiar',
   'rows.alwaysUse': 'Sempre usar esta cor',
   'rows.textColor': 'Cor do texto / estado',

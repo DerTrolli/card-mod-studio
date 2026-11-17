@@ -224,7 +224,7 @@ export const nb: Record<MessageKey, string> = {
   'rows.noControls': 'Seksjons-, skille- og lenkerader har ingen stilinnstillinger.',
   'rows.overridden': 'Håndskrevet CSS på denne raden overstyrer disse innstillingene',
   'rows.hasStyle': 'Denne raden har stil',
-  'rows.static': 'Fast',
+  'rows.static': 'Statisk',
   'rows.threshold': 'Terskel',
   'rows.alwaysUse': 'Bruk alltid denne fargen',
   'rows.textColor': 'Tekst-/tilstandsfarge',

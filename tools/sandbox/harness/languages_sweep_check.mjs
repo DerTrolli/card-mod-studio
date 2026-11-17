@@ -75,6 +75,13 @@ const overflow = (page) => page.evaluate(() => {
   const box = panel.getBoundingClientRect();
   const out = [];
   const cut = [];
+  const spill = [];
+  const inPreview = (el) => {
+    for (let p = el; p && p !== panel; p = p.parentElement || p.getRootNode().host) {
+      if (p.classList && (p.classList.contains('preview-card-wrapper') || p.classList.contains('preview-stage'))) return true;
+    }
+    return false;
+  };
   const walk = (root) => {
     for (const el of root.querySelectorAll('*')) {
       const r = el.getBoundingClientRect();
@@ -102,6 +109,15 @@ const overflow = (page) => page.evaluate(() => {
           && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible') {
         cut.push(`${el.tagName.toLowerCase()} "${el.textContent.trim().slice(0, 50)}" ${el.scrollWidth}>${el.clientWidth}`);
       }
+      // Studio text running out of its own box inside the panel (over a
+      // neighbouring control); Home Assistant's card in the preview is not ours
+      if (!/^(INPUT|SELECT|TEXTAREA|CODE|PRE)$/.test(el.tagName) && el.clientWidth > 1
+          && !inPreview(el)
+          && !/^[a-z_]+\.[\w]+$/.test(el.textContent.trim())
+          && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
+          && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'visible') {
+        spill.push(`${el.tagName.toLowerCase()}${el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : ''} "${el.textContent.trim().slice(0, 50)}" ${el.scrollWidth}>${el.clientWidth}`);
+      }
       if (el.shadowRoot) walk(el.shadowRoot);
     }
   };
@@ -109,8 +125,19 @@ const overflow = (page) => page.evaluate(() => {
   walk(panel);
   // the panel itself: no sideways scrolling
   const sideways = panel.scrollWidth > panel.clientWidth + 1;
-  return { out, cut, sideways, vw: window.innerWidth, panel: [Math.round(box.left), Math.round(box.right)] };
+  return { out, cut, spill, sideways, vw: window.innerWidth, panel: [Math.round(box.left), Math.round(box.right)] };
 });
+
+/** Sections still closed / modules still off (visible ones). */
+async function notOpen(page) {
+  const all = (await D.listSections(page)).filter((s) => s.visible);
+  return {
+    all: all.length,
+    closed: all.filter((s) => s.collapsible && !s.open).map((s) => s.name),
+    off: all.filter((s) => s.enabled === false).map((s) => s.name),
+    on: all.filter((s) => s.enabled === true).length,
+  };
+}
 
 /** Switch every module on and open every section (several passes: new sections appear). */
 async function openEverything(page) {
@@ -148,14 +175,17 @@ try {
   await D.openCardEditor(page, 0);
   await D.openStudio(page);
   await openEverything(page);
-  const sectionCount = (await D.listSections(page)).length;
-  console.log(`setup: ${codes.length} languages, ${sectionCount} sections open (${PHONE ? '390 phone' : '1440 desktop'})`);
+  const st = await notOpen(page);
+  console.log(`setup: ${codes.length} languages, ${st.all} sections (${st.on} modules on; closed: ${st.closed.length}, off: ${st.off.length}) (${PHONE ? '390 phone' : '1440 desktop'})`);
+  if (st.closed.length || st.off.length) throw new Error(`not everything open: closed ${st.closed.join(', ')}; off ${st.off.join(', ')}`);
 
   for (const { code, name } of (process.env.ONLY ? codes.filter((c) => process.env.ONLY.split(",").includes(c.code)) : codes)) {
     await step(`${code} (${name}): the panel switches, nothing sticks out or is cut off`, async () => {
       await D.chooseOption(settingsSelect(page), name);
       await wait(400);
       await openEverything(page);
+      const now = await notOpen(page);
+      need(!now.closed.length && !now.off.length, `closed: ${now.closed.join(', ')}; off: ${now.off.join(', ')}`);
       const titles = (await D.listSections(page)).map((s) => s.name);
       const border = msg(code, 'border.title');
       const settings = msg(code, 'settings.title');
@@ -166,11 +196,12 @@ try {
       need(!o.sideways, `panel scrolls sideways (${JSON.stringify(o.panel)})`);
       need(o.out.length === 0, `${o.out.length} sticking out: ${o.out.slice(0, 3).join(' || ')}`);
       need(o.cut.length === 0, `${o.cut.length} cut off: ${o.cut.slice(0, 4).join(' || ')}`);
+      need(o.spill.length === 0, `${o.spill.length} running out of their box: ${o.spill.slice(0, 4).join(' || ')}`);
       if (SHOTS) {
         mkdirSync(SHOTS, { recursive: true });
         await page.screenshot({ path: `${SHOTS}/lang-${code}-${PHONE ? 390 : 1440}.png` });
       }
-      return `${titles.length} sections`;
+      return `${now.all} sections open, ${now.on} modules on`;
     });
   }
 

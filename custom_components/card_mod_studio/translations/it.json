@@ -24,7 +24,7 @@
         "data_description": {
           "language": "Il rilevamento automatico segue la lingua in cui Home Assistant viene mostrato a ogni utente.",
           "ask_language": "La prima volta che qualcuno apre lo Studio, una breve domanda gli permette di scegliere una lingua. Disattivato: tutti ricevono la lingua sopra.",
-          "on_color": "Il colore da cui partono un nuovo Colore dell'icona, Colore di accento o regola di soglia mentre l'entità è accesa. Predefinito dello Studio: quello dello Studio.",
+          "on_color": "Il colore da cui partono un nuovo Colore dell'icona, Colore secondario o regola di soglia mentre l'entità è accesa. Predefinito dello Studio: quello dello Studio.",
           "off_color": "Lo stesso mentre l'entità è spenta."
         }
       }

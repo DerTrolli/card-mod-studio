@@ -24,7 +24,7 @@
         "data_description": {
           "language": "Automatisk identifiering följer språket som Home Assistant visas på för varje användare.",
           "ask_language": "Första gången någon öppnar Studio låter en kort fråga dem välja språk. Av: alla får språket ovan.",
-          "on_color": "Färgen som en ny Ikonfärg, Accentfärg eller tröskelregel börjar med när entiteten är på. Studio-standard: Studios egen.",
+          "on_color": "Färgen som en ny Ikonfärg, Komplementfärg eller tröskelregel börjar med när entiteten är på. Studio-standard: Studios egen.",
           "off_color": "Samma sak när entiteten är av."
         }
       }

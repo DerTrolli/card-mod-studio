@@ -101,6 +101,18 @@ Font hidden on `picture`, Threshold's options following the matching
 module (`thresholdPropertyAllowed`), `entity-filter` treated as a container,
 and Threshold Text Color gained the tile/title colour companions.
 
+## Changes in v0.12.0-beta.1
+
+The container rows above (`entity-filter`, `vertical-stack`, `grid`) stay
+empty at the container level. Since v0.12 the Studio styles the cards
+*inside* `conditional` and `entity-filter` cards and inside containers
+nested in containers (`src/utils/child-slots.ts`), each with its own card
+type's row of this table. The tile card gained a **Features** module
+(`hui-card-features { --feature-height; --feature-border-radius;
+--feature-color !important }`), measured on card-mod 4.2.1 and UIX 9.0.0 on
+HA 2026.11.0 and on card-mod 3.4.5 on HA 2025.9.4; it is offered on the tile
+only (`features` in `card-caps.ts`).
+
 ## Changes since v0.10.0 (v0.10.2 → v0.11.0-beta.2)
 
 The tables above and below were measured for v0.10.0 (HA 2026.9.4 / 2026.10.0b0,

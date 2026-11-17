@@ -137,7 +137,7 @@ export const pl: Record<MessageKey, string> = {
   'heading.center': 'Środek',
   'heading.right': 'Prawo',
   'heading.primaryText': 'tekst główny',
-  'heading.secondaryText': 'tekst dodatkowy',
+  'heading.secondaryText': 'tekst pomocniczy',
   'heading.resetIconSize': 'Przywróć domyślny rozmiar ikony',
   'heading.spread': 'rozłożone',
   'heading.weightNormal': 'normalna',

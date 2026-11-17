@@ -28,7 +28,7 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | v0.10 ✅ | Piercing + polish | **Shipped (2026-10-04)** — see below. Dict-form/`$`-pierce styles are editable (the `.` entry runs through every module; every other entry is preserved byte-identically and shown read-only in Advanced CSS; cards, stack children and entities rows — items #1/#23); Heading Style rebuilt on HA's own `--ha-heading-card-*` variables so it works on HA 2026.10 (+ Subtitle headings); a 20-bug audit of how hand-written CSS survives an edit; light/dark/phone overhaul and keyboard access for the editor UI; re-verified on HA 2026.9.4 and 2026.10.0b0 with card-mod 4.2.1 and UIX 8.3.1. Plan (historical, incl. live feasibility probes): [`docs/V0.10_PLAN.md`](V0.10_PLAN.md). The planned Font size unlocks moved to v0.11. Glance icon color was probed and is NOT achievable (inline per-state style) — stays a documented limitation. |
 | v0.11 ✅ | Reach — Font size unlocks + Mushroom/Bubble | **Shipped (2026-11-12)** — see below. Font → Number size on the gauge value and the thermostat big number; Mushroom (5.2.3, all 18 types) and Bubble Card (3.x: button, slider button, separator, cover) through per-card profiles, in beta, with click-to-edit for their parts; a notice on custom cards without a profile; controls you switch on but don't touch write nothing; a conditional Background/Border keeps the card's look while off; Animation on 19 more built-in cards, card-level Threshold Colors on the entities card, Icon Color on the statistic card; keyboard, screen-reader and touch work; HA 2026.10/2026.11 fixes; read-back fixes from a replay of every release's styles. Plan: [`docs/V0.11_PLAN.md`](V0.11_PLAN.md), evidence in [`docs/research/2026-10-v0.11.md`](research/2026-10-v0.11.md) and [`docs/research/2026-11-v0.11.0-release-qa.md`](research/2026-11-v0.11.0-release-qa.md). |
 | v0.12 🧪 | Language + structure | **In beta (0.12.0-beta.1, 2026-11-17)** — see below. Every interface text through one dictionary, in 22 languages (English and German by hand, 20 machine-translated with Home Assistant's own terms, unreviewed); a one-time language question and a ⚙️ Settings section, stored per HA user; an optional integration for site-wide defaults. Also the structure items planned for v1.0: `conditional` and `entity-filter` cards, containers nested in containers with entities rows inside (item #7), tile Features (item #9), 📚 My Presets with rename/reorder/duplicate and style copy/paste (items #12/#13). |
-| v1.0 | Confidence | The structure items moved into v0.12. What's left: native speakers' corrections to the 20 machine translations, real-world reports on the v0.12 betas, `sections` view containers. |
+| v1.0 | To be decided | The structure items moved into v0.12. **Proposal (owner's decision):** native speakers' corrections to the 20 machine translations, real-world reports on the v0.12 betas, `sections` view containers. |
 | Post-1.0 | Stretch | Further custom cards beyond Mushroom/Bubble (now v0.11), Bubble pop-ups, UIX Forge/sparks support (item #28 — new in the 2026-08 engine audit), a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
 
 ## Recently shipped (v0.11.0)
@@ -190,8 +190,9 @@ inspiration notes (UIX, browser_mod, Mushroom) in
   `containers_check`, `features_check`.
 
 **Open in this cycle:**
-- The 20 machine translations need native speakers' reads (and the German
-  text one more read) before 0.12.0 final.
+- **Proposal (owner's decision):** native speakers' reads of the 20 machine
+  translations (and one more of the German) before 0.12.0 final — or ship
+  them marked as machine translations and take corrections as they come.
 - Distribution of the integration through HACS would need its own
   repository (HACS installs one category per repository); the owner
   decides. Until then it's a manual install from the release zip.

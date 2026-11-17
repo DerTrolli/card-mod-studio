@@ -24,7 +24,7 @@
         "data_description": {
           "language": "La détection automatique suit la langue dans laquelle Home Assistant s'affiche pour chaque utilisateur.",
           "ask_language": "La première fois qu'une personne ouvre le Studio, une courte question lui permet de choisir une langue. Désactivé : tout le monde reçoit la langue ci-dessus.",
-          "on_color": "La couleur avec laquelle démarrent une nouvelle Couleur de l'icône, Couleur d'accent ou règle de seuil quand l'entité est activée. Par défaut du Studio : celle du Studio.",
+          "on_color": "La couleur avec laquelle démarrent une nouvelle Couleur de l'icône, Couleur d'accentuation ou règle de seuil quand l'entité est activée. Par défaut du Studio : celle du Studio.",
           "off_color": "La même chose quand l'entité est désactivée."
         }
       }

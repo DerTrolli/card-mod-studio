@@ -24,7 +24,7 @@
         "data_description": {
           "language": "Automatické rozpoznání sleduje jazyk, ve kterém se Home Assistant každému uživateli zobrazuje.",
           "ask_language": "Když někdo poprvé otevře Studio, krátká otázka mu umožní vybrat jazyk. Vypnuto: všichni dostanou jazyk výše.",
-          "on_color": "Barva, se kterou začíná nová Barva ikony, Barva zvýraznění nebo prahové pravidlo, když je entita zapnutá. Výchozí Studia: barva Studia.",
+          "on_color": "Barva, se kterou začíná nová Barva ikony, Doplňková barva nebo prahové pravidlo, když je entita zapnutá. Výchozí Studia: barva Studia.",
           "off_color": "Totéž, když je entita vypnutá."
         }
       }
@@ -65,8 +65,8 @@
         "pink": "Růžová",
         "purple": "Fialová",
         "blue": "Modrá",
-        "cyan": "Azurová",
-        "teal": "Modrozelená",
+        "cyan": "Modrozelená",
+        "teal": "Tyrkysová",
         "green": "Zelená",
         "yellow": "Žlutá",
         "orange": "Oranžová",

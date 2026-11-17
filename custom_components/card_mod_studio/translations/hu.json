@@ -24,7 +24,7 @@
         "data_description": {
           "language": "Az automatikus felismerés azt a nyelvet követi, amelyen a Home Assistant az egyes felhasználóknak megjelenik.",
           "ask_language": "Amikor valaki először nyitja meg a Studiót, egy rövid kérdéssel nyelvet választhat. Ki: mindenki a fenti nyelvet kapja.",
-          "on_color": "Az a szín, amellyel egy új Ikonszín, Kiemelőszín vagy küszöbszabály indul, amíg az entitás be van kapcsolva. Studio-alapérték: a Studio sajátja.",
+          "on_color": "Az a szín, amellyel egy új Ikonszín, Kiemelő szín vagy küszöbszabály indul, amíg az entitás be van kapcsolva. Studio-alapérték: a Studio sajátja.",
           "off_color": "Ugyanez, amíg az entitás ki van kapcsolva."
         }
       }

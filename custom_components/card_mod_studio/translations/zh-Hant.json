@@ -24,7 +24,7 @@
         "data_description": {
           "language": "自動偵測跟隨 Home Assistant 為每位使用者顯示的語言。",
           "ask_language": "有人首次開啟 Studio 時，會用一個簡短的問題讓其選擇語言。關閉：所有人都使用上方的語言。",
-          "on_color": "實體開啟時，新的圖示顏色、強調色或閾值規則的初始顏色。Studio 預設：Studio 自帶的顏色。",
+          "on_color": "實體開啟時，新的圖示顏色、加重顏色或閾值規則的初始顏色。Studio 預設：Studio 自帶的顏色。",
           "off_color": "實體關閉時同理。"
         }
       }
@@ -69,7 +69,7 @@
         "teal": "藍綠色",
         "green": "綠色",
         "yellow": "黃色",
-        "orange": "橙色",
+        "orange": "橘色",
         "grey": "灰色"
       }
     }

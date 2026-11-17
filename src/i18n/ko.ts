@@ -7,7 +7,7 @@
 import type { MessageKey } from './en.js';
 
 export const ko: Record<MessageKey, string> = {
-  'base.resetToDefault': '기본값으로 초기화',
+  'base.resetToDefault': '기본값으로 재설정',
   'base.default': '기본값',
   'base.defaultWith': '기본값 ({value})',
   'base.enableModule': '{module} 사용',
@@ -134,7 +134,7 @@ export const ko: Record<MessageKey, string> = {
   'heading.title': '제목 스타일',
   'heading.alignment': '정렬',
   'heading.left': '왼쪽',
-  'heading.center': '가운데',
+  'heading.center': '중앙',
   'heading.right': '오른쪽',
   'heading.primaryText': '기본 텍스트',
   'heading.secondaryText': '보조 텍스트',
