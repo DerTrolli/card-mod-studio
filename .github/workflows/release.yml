@@ -38,10 +38,24 @@ jobs:
       - name: Build
         run: npx vite build
 
+      # The optional integration (Settings → Devices & services) as a zip to
+      # unpack into config/custom_components/. Its manifest version must match.
+      - name: Package the integration
+        run: |
+          want="$(node -p "require('./package.json').version")"
+          got="$(node -p "require('./custom_components/card_mod_studio/manifest.json').version")"
+          if [ "$want" != "$got" ]; then
+            echo "::error::custom_components/card_mod_studio/manifest.json version $got != package.json $want"
+            exit 1
+          fi
+          (cd custom_components && zip -r ../dist/card_mod_studio.zip card_mod_studio -x '*/__pycache__/*')
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/card-mod-studio.js
+          files: |
+            dist/card-mod-studio.js
+            dist/card_mod_studio.zip
           generate_release_notes: true
           # vX.Y.Z-beta.N (any tag with a pre-release suffix) → GitHub pre-release
           prerelease: ${{ contains(github.ref_name, '-') }}
