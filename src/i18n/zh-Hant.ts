@@ -7,7 +7,7 @@
 import type { MessageKey } from './en.js';
 
 export const zhHant: Record<MessageKey, string> = {
-  'base.resetToDefault': '重置為預設',
+  'base.resetToDefault': '重置為預設值',
   'base.default': '預設',
   'base.defaultWith': '預設（{value}）',
   'base.enableModule': '啟用{module}',

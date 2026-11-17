@@ -199,7 +199,7 @@ export const de: Record<MessageKey, string> = {
   'heading.left': 'Links',
   'heading.center': 'Mitte',
   'heading.right': 'Rechts',
-  'heading.primaryText': 'Haupttext',
+  'heading.primaryText': 'Primärer Text',
   'heading.secondaryText': 'Sekundärer Text',
   'heading.resetIconSize': 'Symbolgröße auf Standard zurücksetzen',
   'heading.spread': 'verteilt',

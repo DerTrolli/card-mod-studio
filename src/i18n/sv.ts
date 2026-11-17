@@ -134,7 +134,7 @@ export const sv: Record<MessageKey, string> = {
   'heading.title': 'Rubrikformat',
   'heading.alignment': 'Justering',
   'heading.left': 'Vänster',
-  'heading.center': 'Centrerad',
+  'heading.center': 'Mitten',
   'heading.right': 'Höger',
   'heading.primaryText': 'primär text',
   'heading.secondaryText': 'sekundär text',

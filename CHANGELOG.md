@@ -100,13 +100,17 @@ translations nobody has read yet, and the new features want real-world use.
 
 ### Verified
 
-With the release build (the same file on every rig) unless noted:
+With the release build (the same file on every rig) unless noted. Not
+covered by the live checks: the first-run question in each of the 20 new
+languages (it is the same component as in German, checked in
+`language_check.mjs`).
 
 - **Every language, live:** a new check
   (`tools/sandbox/harness/languages_sweep_check.mjs`) switches through all
   22 languages with the real Settings selector, on a vertical stack holding
-  a tile with a feature row and an entities card, with all 15 modules on
-  and all 26 sections open (asserted), and fails on panel text that sticks
+  a heading, a tile with a feature row and an entities card, with all 17
+  modules on, all 30 sections open (asserted), two rules in each Threshold
+  module and two saved presets, and fails on panel text that sticks
   out sideways, is cut off, or runs out of its own box: 23 of 23 at 1440 px
   and at 390 px, on Home Assistant 2026.11.0 with card-mod 4.2.1 and with
   UIX 9.0.0. It found two layout problems that are fixed above (a Russian
@@ -116,22 +120,31 @@ With the release build (the same file on every rig) unless noted:
   compared with Home Assistant's translations of the same word
   (`tools/i18n/glossary_diff.py`) and switched to Home Assistant's word where
   it has a clear one; the differences left are nouns inflected for their
-  sentence, words Home Assistant leaves in English, and words with few
-  votes.
+  sentence, words Home Assistant leaves in English, words with few votes,
+  words kept to match their pair (primary/secondary text, the durations),
+  and a few Home Assistant phrases that mean something else here (a plural
+  "reset the values" for one control's reset, a verb "preview" for the
+  preview heading).
 - **The integration** (`integration_check.mjs`, Home Assistant's own UI with
   real input): add it, a second add is refused, Configure → Português
   (Brasil) / ON colour Green / ask off → the Studio follows (Portuguese, no
   question, Icon Color starts green): 7 of 7 on Home Assistant 2026.11.0
   and on 2025.9.4. Home Assistant serves the options dialog's own
   translations (checked in Japanese and Korean, all 23 language options).
+  With the build before the last two changes (label wrapping and a few
+  translation words); the integration files themselves are unchanged
+  since.
 - **The one-time question and Settings** (`language_check.mjs`) 13 of 13,
   **presets** (`presets_check.mjs`) 11 of 11, **containers**
   (`containers_check.mjs`) 6 of 6, **tile Features** (`features_check.mjs`)
   5 of 5 — each with card-mod and with UIX on 2026.11.0, with the build
-  just before the last change (the "Default (…)" label's wrapping).
+  before the last two changes (label wrapping and a few translation
+  words), which these checks don't touch.
 - **In English**, on 2026.11.0: the check suite 21 of 21 (card-mod) and 19
   of 19 (UIX); the functional check of every control in the real card
-  editor 489 of 489 (card-mod) and 491 of 491 (UIX).
+  editor 489 of 489 (card-mod) and 491 of 491 (UIX). With the build before
+  the last change, which only changed words in the Swedish, Japanese,
+  Russian, Traditional Chinese and German dictionaries.
 - Unit tests 3,277 of 3,277, including every language's completeness and
   placeholders, a scan that renders the panel, every module and the pickers
   in a pseudo-language and fails on any English text outside the

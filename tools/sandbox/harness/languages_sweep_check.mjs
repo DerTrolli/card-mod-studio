@@ -4,8 +4,9 @@
 //   PHONE=1 node languages_sweep_check.mjs          (390×844, touch)
 //   RIG=uix UIX_TOKENS_FILE=/path/tokens.json node languages_sweep_check.mjs
 //   SHOTS_DIR=/path node languages_sweep_check.mjs  (one screenshot per language)
-// The card is a vertical stack (a tile with a feature row, an entities card),
-// with every module switched on and every section open, so the longest
+// The card is a vertical stack (a heading, a tile with a feature row, an
+// entities card), with every module switched on, every section open, two
+// rules in every Threshold module and two saved presets, so the longest
 // labels, hints and warnings of each language are on screen. Nothing is
 // saved: the editor is cancelled. Changes the rig user's Studio settings and
 // clears them at the end, so run it on its own.
@@ -174,12 +175,18 @@ const h = await D.launch({
   ...(tokensFile ? { tokensFile } : {}),
 });
 const { page } = h;
+let presetsBefore = null;
 try {
   // Fixture (not a UI action): a chosen English, so the first-run question stays away.
   await setSettings(page, { language: 'en', languageChosen: true, updatedAt: Date.now() });
+  // the user's presets are put aside (restored at the end): two are saved below
+  presetsBefore = (await ws(page, { type: 'frontend/get_user_data', key: 'cms_presets' }))?.value ?? null;
+  await ws(page, { type: 'frontend/set_user_data', key: 'cms_presets', value: null });
+  await page.evaluate(() => localStorage.removeItem('cms-presets'));
   await D.seedDashboard(page, URLPATH, [{
     type: 'vertical-stack',
     cards: [
+      { type: 'heading', heading: 'Kitchen' },
       { type: 'tile', entity: 'light.ceiling_lights', features: [{ type: 'light-brightness' }] },
       { type: 'entities', entities: ['light.ceiling_lights', 'sensor.outside_temperature'] },
     ],
@@ -189,7 +196,22 @@ try {
   await D.openCardEditor(page, 0);
   await D.openStudio(page);
   await openEverything(page);
+  // two presets through the preset bar, so 📚 My Presets shows its rows
+  for (const name of ['Warm', 'Cool']) {
+    await page.locator('cms-panel .btn-preset-save').first().click();
+    await page.locator('cms-panel input.preset-name').pressSequentially(name);
+    await page.locator('cms-panel input.preset-name').press('Enter');
+    await wait(500);
+  }
+  // two Threshold rules in every Threshold module, so the rule rows are on screen
+  const addRule = page.locator('cms-threshold-module button.add-btn', { hasText: 'Add rule' });
+  const nAdd = await addRule.count();
+  for (let i = 0; i < nAdd; i++) {
+    for (let k = 0; k < 2; k++) { await addRule.nth(i).click(); await wait(150); }
+  }
+  await openEverything(page);
   const st = await notOpen(page);
+  console.log(`fixture: ${nAdd} Threshold modules with 2 rules each, 2 presets`);
   console.log(`setup: ${codes.length} languages, ${st.all} sections (${st.on} modules on; closed: ${st.closed.length}, off: ${st.off.length}) (${PHONE ? '390 phone' : '1440 desktop'})`);
   if (st.closed.length || st.off.length) throw new Error(`not everything open: closed ${st.closed.join(', ')}; off ${st.off.join(', ')}`);
 
@@ -229,6 +251,10 @@ try {
   console.log('FAIL setup -', String(e.stack || e).split('\n').slice(0, 3).join(' | '));
 } finally {
   try { await setSettings(page, null); await page.evaluate(() => localStorage.removeItem('cms-settings')); } catch { /* closed */ }
+  try {
+    await ws(page, { type: 'frontend/set_user_data', key: 'cms_presets', value: presetsBefore });
+    await page.evaluate(() => localStorage.removeItem('cms-presets'));
+  } catch { /* closed */ }
   await h.close().catch(() => {});
 }
 const passed = results.filter(Boolean).length;

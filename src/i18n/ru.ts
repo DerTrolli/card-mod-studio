@@ -80,7 +80,7 @@ export const ru: Record<MessageKey, string> = {
   'filter.brightness': 'Яркость',
   'filter.blur': 'Размытие',
   'filter.opacity': 'Непрозрачность',
-  'filter.transition': 'Длительность перехода',
+  'filter.transition': 'Продолжительность перехода',
   'filter.msHint': 'Миллисекунды — меньше значит быстрее.',
   'accent.title': 'Цвет акцента',
   'accent.colorMode': 'Режим цвета',

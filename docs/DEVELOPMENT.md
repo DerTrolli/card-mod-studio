@@ -193,6 +193,11 @@ Since v0.12 every piece of interface text goes through `src/i18n/`:
   keys. A translation uses those words, and Home Assistant's register for
   that language (informal in nl/es/it/pl/pt-BR/sv/da/nb/fi like Home
   Assistant, formal in fr/pt/cs/sk/hu/ru/uk, polite in zh/ja/ko).
+  `tools/i18n/glossary_diff.py <glossary.json> [lang …]` then lists every
+  short message that differs from Home Assistant's word, with its vote
+  count, for review (inflected nouns and words Home Assistant leaves in
+  English are expected differences). Keep pairs consistent when switching
+  one word (primary/secondary text, left/centre/right, the durations).
 - **Adding a language:** copy `en.ts` to `<code>.ts` and translate it;
   register it in `LANGUAGES` in `src/i18n/index.ts` with its own name; add
   the lower-case code to `LANGUAGE_OPTIONS` in
