@@ -16,6 +16,20 @@ const tokensFile = process.env.TOKENS_FILE || undefined;
 const results = [];
 const need = (cond, msg) => { if (!cond) throw new Error(msg); };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// Not the Studio's, not counted: Home Assistant 2026.2's own page transitions
+// (see the v0.11.0 release notes), the demo media players' artwork that HA's
+// image proxy fails to serve on the 2025.9 rig (500 + "Image Colors"), and the
+// engines' theme wait.
+const HA_OWN_ERRORS = [
+  /Transition was skipped/,
+  /Failure writing unhandled promise rejection to system log/,
+  /status of 500 \(Internal Server Error\)/,
+  /Error getting Image Colors.*media_player_proxy/,
+  // card-mod 4.2.1 / UIX wait for hass.themes.theme, which HA 2026.11 no longer has
+  // (docs/research/2026-11-v0.11.0-release-qa.md)
+  /themesReady: Timeout waiting for themes/,
+];
+const ownErrors = (h) => h.errors.filter((e) => !HA_OWN_ERRORS.some((re) => re.test(e)));
 
 const step = async (name, fn) => {
   try {
@@ -46,7 +60,7 @@ const hasSection = async (page, name) => (await names(page)).includes(name);
 const styleButtonText = (page) => page.locator('cms-tab-button button').first().innerText();
 
 /** Dashboard menu → Edit dashboard → a card's Edit, in English or German Home Assistant. */
-async function openEditor(page) {
+async function openEditor(page, touch = false) {
   await page.getByRole('button', { name: /^(Open dashboard menu|Dashboard-Menü öffnen|.*[Mm]enü.*)$/ }).first().click();
   await page.getByRole('menuitem', { name: /Edit dashboard|Dashboard bearbeiten/i }).click();
   const done = page.getByRole('button', { name: /^(Done|Fertig)$/ });
@@ -60,7 +74,8 @@ async function openEditor(page) {
   const opts = page.locator('hui-card-options').first();
   const edit = opts.getByRole('button', { name: /^(Edit|Bearbeiten)$/ });
   if (await edit.isVisible().catch(() => false)) await edit.click();
-  else await D.tap(opts.locator('hui-card'));
+  else if (touch) await D.tap(opts.locator('hui-card'));
+  else await opts.locator('hui-card').click(); // HA 2025.9: no footer Edit button, a click on the card opens it
   await page.locator('cms-tab-button button').first().waitFor({ state: 'visible', timeout: 20000 });
 }
 
@@ -146,7 +161,7 @@ try {
   });
 
   await step('no console errors (A)', async () => {
-    need(a.errors.length === 0, a.errors.join(' || '));
+    need(ownErrors(a).length === 0, ownErrors(a).join(' || '));
   });
   await a.close();
 
@@ -168,7 +183,7 @@ try {
     need(await hasSection(pb, 'Rahmen & Radius'), `sections: ${(await names(pb)).join(' | ')}`);
     return 'Rahmen & Radius';
   });
-  await step('no console errors (B)', async () => { need(b.errors.length === 0, b.errors.join(' || ')); });
+  await step('no console errors (B)', async () => { need(ownErrors(b).length === 0, ownErrors(b).join(' || ')); });
   await b.close();
 
   // ------------------------------------------------------------------ C
@@ -177,7 +192,7 @@ try {
   const pc = c.page;
   await pc.reload({ waitUntil: 'domcontentloaded' });
   await D.gotoDashboard(pc, URLPATH, { engine: false });
-  await openEditor(pc);
+  await openEditor(pc, true);
   await openStudio(pc);
   await step('HA in German, first run at phone width: German before answering, Auto-detect names Deutsch', async () => {
     await notice(pc).waitFor({ state: 'visible', timeout: 10000 });
@@ -206,7 +221,7 @@ try {
     need(s?.language === 'auto' && s?.languageChosen === true, JSON.stringify(s));
     need(await hasSection(pc, 'Rahmen & Radius'), 'not German');
   });
-  await step('no console errors (C)', async () => { need(c.errors.length === 0, c.errors.join(' || ')); });
+  await step('no console errors (C)', async () => { need(ownErrors(c).length === 0, ownErrors(c).join(' || ')); });
 } catch (e) {
   results.push(false);
   console.log('FAIL setup -', String(e.stack || e).split('\n').slice(0, 3).join(' | '));

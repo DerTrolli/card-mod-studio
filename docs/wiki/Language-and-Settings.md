@@ -24,8 +24,7 @@ the card while it's shown, and until you answer the Studio uses Auto-detect.
 
 ## Changing it later
 
-Open the **⚙️ Settings** section at the bottom of the panel (below My Color
-Palette) and choose a different **Language**. The panel switches at once;
+Open the **⚙️ Settings** section (right below My Color Palette) and choose a different **Language**. The panel switches at once;
 open sections stay open and nothing you were editing is lost.
 
 ## Where the choice is stored

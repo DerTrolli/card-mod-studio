@@ -166,7 +166,7 @@ Define named custom colors once and they appear as extra swatches in **every** c
 
 ### Language *(new in 0.12, beta)*
 
-The Studio's own text is in **English** or **German (Deutsch)**. The first time you open it, a short notice asks which language to use — **Auto-detect** (recommended) follows the language Home Assistant shows for you — and you can change it any time under **⚙️ Settings** at the bottom of the panel. The choice is stored per HA user, so it's asked once, not on every device. The generated YAML/CSS is the same in every language. Other languages are welcome as contributions (about 350 short messages); see the [Language & Settings](../../wiki/Language-and-Settings) wiki page.
+The Studio's own text is in **English** or **German (Deutsch)**. The first time you open it, a short notice asks which language to use — **Auto-detect** (recommended) follows the language Home Assistant shows for you — and you can change it any time under **⚙️ Settings**, right below My Color Palette. The choice is stored per HA user, so it's asked once, not on every device. The generated YAML/CSS is the same in every language. Other languages are welcome as contributions (about 350 short messages); see the [Language & Settings](../../wiki/Language-and-Settings) wiki page.
 
 ---
 

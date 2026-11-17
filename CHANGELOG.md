@@ -23,13 +23,13 @@ A pre-release because the German text still needs a native speaker's read.
   Assistant shows for you (German for any German variant, otherwise
   English) and names what it picked. The notice takes no focus and blocks
   nothing; until it is answered the Studio uses Auto-detect.
-- **⚙️ Settings**, a new section at the bottom of the panel (below My Color
-  Palette), with the **Language** selector: Auto-detect, English, Deutsch.
+- **⚙️ Settings**, a new section right below My Color Palette, with the **Language** selector: Auto-detect, English, Deutsch.
   A change applies to the open panel at once; open sections stay open.
 - The choice is stored **per Home Assistant user** (like presets and the
   palette), so it is asked once, not on every device; a copy in the browser
   covers the moments Home Assistant can't be reached, and a choice made then
-  is sent up later.
+  is sent up later. On another device the question waits until Home
+  Assistant's copy has been read, so it isn't asked again there.
 
 ### Changed
 
@@ -47,7 +47,28 @@ A pre-release because the German text still needs a native speaker's read.
 
 ### Verified
 
-VERIFIED_TBD
+With the release build (the same file on every rig):
+
+- A new language check (`tools/sandbox/harness/language_check.mjs`, real
+  mouse, keyboard and touch input in the real card editor): the question on
+  first run with Auto-detect preselected and named; a module opens while it
+  is shown; Deutsch + OK switches at once and is stored for the HA user;
+  Settings → English and → Auto-detect switch the open panel live, the
+  open section stays open; on a second browser with empty storage the
+  question never shows and the panel is German; with Home Assistant in
+  German at 390 px the panel is German before answering, Auto-detect names
+  Deutsch and the question fits the width. 13 of 13 on Home Assistant
+  2026.11.0 with card-mod 4.2.1 and with UIX 9.0.0, on 2026.2.3 (card-mod
+  4.2.1) and on 2025.9.4 (card-mod 3.4.5). Console errors of Home
+  Assistant's and the engines' own (listed in the check) are not counted.
+- The read-back check: 6 of 6 on HA 2026.11.0 with card-mod and with UIX.
+- In English on HA 2026.11.0, with the build of `2bd5788` (before the
+  version number and the second-device fix; nothing else changed since): the check suite 21 of 21 (card-mod) and 19 of 19 (UIX),
+  the functional check of every control 489 of 489 and 491 of 491.
+- Unit tests 3,227 of 3,227, including a scan that renders the panel, every
+  module and the pickers in a pseudo-language and fails on any English text
+  outside the dictionary, and a check that both languages have every
+  message with the same placeholders.
 
 ## [0.11.0] — 2026-11-12
 
