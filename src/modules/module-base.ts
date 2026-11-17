@@ -9,6 +9,10 @@ import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
 import type { OwnStateKind } from '../utils/card-caps.js';
 import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
+import { t, type MessageKey } from '../i18n/index.js';
+
+/** A noun used inside the shared condition hints ("Applies the {noun} …"). */
+export type NounKey = Extract<MessageKey, `noun.${string}`>;
 
 /**
  * Theme-aware design tokens shared by every module (and re-declared on
@@ -435,7 +439,7 @@ export const moduleStyles = [
  */
 export function renderResetButton(
   onClick: () => void,
-  label = 'Reset to default',
+  label = t('base.resetToDefault'),
 ): TemplateResult {
   return html`<button
     type="button"
@@ -452,7 +456,7 @@ export function renderResetButton(
  * value, e.g. `renderDefaultOption(!weight, 'medium')` → "Default (medium)".
  */
 export function renderDefaultOption(selected: boolean, native = ''): TemplateResult {
-  return html`<option value="" ?selected=${selected}>${native ? `Default (${native})` : 'Default'}</option>`;
+  return html`<option value="" ?selected=${selected}>${native ? t('base.defaultWith', { value: native }) : t('base.default')}</option>`;
 }
 
 /** The pending observer per editor and the name it should apply. */
@@ -528,7 +532,7 @@ export const MODULE_BODY_ID = 'module-body';
  * from the same text.
  */
 export function renderModuleHeader(o: ModuleHeaderOptions): TemplateResult {
-  const name = `Enable ${o.title}`;
+  const name = t('base.enableModule', { module: o.title });
   return html`
     <div class="module-header has-toggle">
       <div
@@ -817,7 +821,7 @@ export interface WhenControlOptions {
    *  offered, ON is not. Ignored when stateAware. */
   offOnly?: boolean;
   /** Noun used in the hint, e.g. "background", "grayscale", "animation". */
-  noun: string;
+  noun: NounKey;
   /** Offer the "another entity" option. */
   allowCustom?: boolean;
   /** entity_id for the custom trigger. */
@@ -845,13 +849,15 @@ export function offeredOnOff(
 function whenHint(v: WhenValue, o: WhenControlOptions): string {
   switch (v) {
     case 'on':
-      return `Applies the ${o.noun} only while this card's entity is on (removed when off).`;
+      return t('when.hintOn', { noun: t(o.noun) });
     case 'off':
-      return `Applies the ${o.noun} only while this card's entity is off (removed when on).`;
+      return t('when.hintOff', { noun: t(o.noun) });
     case 'custom':
-      return `Applies the ${o.noun} only while ${o.customEntity || 'the chosen entity'} is on.`;
+      return o.customEntity
+        ? t('when.hintCustom', { noun: t(o.noun), entity: o.customEntity })
+        : t('when.hintCustomNone', { noun: t(o.noun) });
     default:
-      return `Always applies the ${o.noun}.`;
+      return t('when.hintAlways', { noun: t(o.noun) });
   }
 }
 
@@ -866,16 +872,16 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
   // If "Always" is the only meaningful choice, drop the single-option dropdown.
   const showSelect = showOn || showOff || !!o.allowCustom;
 
-  const opts: Array<{ v: WhenValue; label: string }> = [{ v: 'always', label: 'Always' }];
-  if (showOn) opts.push({ v: 'on', label: 'Only while entity is ON' });
-  if (showOff) opts.push({ v: 'off', label: 'Only while entity is OFF' });
-  if (o.allowCustom) opts.push({ v: 'custom', label: 'While another entity is ON…' });
+  const opts: Array<{ v: WhenValue; label: string }> = [{ v: 'always', label: t('when.always') }];
+  if (showOn) opts.push({ v: 'on', label: t('when.onlyOn') });
+  if (showOff) opts.push({ v: 'off', label: t('when.onlyOff') });
+  if (o.allowCustom) opts.push({ v: 'custom', label: t('when.otherEntity') });
 
   return html`
     ${showSelect
       ? html`
           <div class="control-row">
-            <span class="control-label" id="when-label">Apply when</span>
+            <span class="control-label" id="when-label">${t('when.applyWhen')}</span>
             <div class="control-right">
               <select
                 aria-labelledby="when-label"
@@ -897,14 +903,14 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
     ${o.value === 'custom'
       ? html`
           <div class="control-row">
-            <span class="control-label">Entity</span>
+            <span class="control-label">${t('base.entity')}</span>
             <div class="control-right">
               <cms-entity-picker
                 .hass=${o.hass}
                 .value=${o.customEntity ?? ''}
                 .includeDomains=${TOGGLE_DOMAINS}
                 label=""
-                accessible-name="Entity to watch"
+                accessible-name=${t('base.entityToWatch')}
                 placeholder="input_boolean.my_entity"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>
                   o.onCustomEntity?.(e.detail.value.trim())}
@@ -931,16 +937,16 @@ export function renderWatchHint(o: {
   const useless = kind !== 'on-off' && !entityId;
   const text = entityId
     ? cardEntity
-      ? `Uses ${entityId}'s on/off state, not this card's own entity.`
-      : `Uses ${entityId}'s on/off state.`
+      ? t('watch.usesOtherNotOwn', { entity: entityId })
+      : t('watch.usesOther', { entity: entityId })
     : !useless
-    ? "Leave empty to use this card's own entity."
+    ? t('watch.leaveEmpty')
     : !cardEntity
-    ? "This card has no entity of its own — pick the entity to watch, or choose One fixed color. Until then no color is written and this choice isn't kept."
+    ? t('watch.noOwnEntity')
     : kind === 'off-only'
     // Anything that isn't "on" takes the OFF branch, so the OFF colour shows in every mode.
-    ? `This card's entity (${cardEntity}) is never "on" — the ON colour never shows and the OFF colour shows in every state. Pick another entity, or use Threshold Colors for its modes.`
-    : `This card's entity (${cardEntity}) has no on/off state of its own — pick a toggleable entity above, or this mode won't do anything.`;
+    ? t('watch.neverOn', { entity: cardEntity })
+    : t('watch.noOnOff', { entity: cardEntity });
   return html`<div class="when-hint ${useless ? 'warn' : ''}">${text}</div>`;
 }
 
@@ -955,14 +961,13 @@ export function renderWatchHint(o: {
  */
 export function renderThresholdOwnedHint(
   owned: boolean,
-  what: string,
-  option: string,
+  what: NounKey,
+  option: MessageKey,
 ): TemplateResult | typeof nothing {
   if (!owned) return nothing;
+  const params = { what: t(what), option: t(option) };
   return html`<div class="override-hint">
-    🎯 <strong>Threshold Colors is setting the ${what}</strong>, so the
-    ${what} chosen here isn't used. Untick “${option}” under Threshold Colors
-    → Apply to (or turn Threshold Colors off) to use this module again.
+    🎯 <strong>${t('base.thresholdOwnedTitle', params)}</strong>${t('base.thresholdOwnedBody', params)}
   </div>`;
 }
 
@@ -976,8 +981,8 @@ export function renderOverrideBadge(overridden: boolean): TemplateResult | typeo
   return html`<span
     class="override-badge"
     role="img"
-    aria-label="Custom CSS in Advanced CSS is currently overriding this control"
-    title="Custom CSS in Advanced CSS is currently overriding this control"
+    aria-label=${t('base.overrideBadge')}
+    title=${t('base.overrideBadge')}
   >⚠️</span>`;
 }
 
@@ -988,12 +993,9 @@ export function renderOverrideHint(
 ): TemplateResult | typeof nothing {
   if (!overridden) return nothing;
   return html`<div class="override-hint">
-    ⚠️ <strong>Custom CSS is currently overriding this control</strong>${detail
+    ⚠️ <strong>${t('base.overrideTitle')}</strong>${detail
       ? html` — <code>${detail}</code>`
-      : nothing}.
-    Advanced CSS is applied after these settings (hand-written styles always
-    win), so changes here may not be visible on the card. Edit or remove
-    those lines in Advanced CSS to hand control back to this module.
+      : nothing}. ${t('base.overrideBody')}
   </div>`;
 }
 
@@ -1011,7 +1013,7 @@ export interface ConditionControlOptions {
   /** OFF-only entity (climate, water_heater): OFF offered, ON not. */
   offOnly?: boolean;
   /** Noun used in labels/hints, e.g. "border", "effects", "icon size". */
-  noun: string;
+  noun: NounKey;
   hass?: HomeAssistant;
   /** Emits the new condition — undefined when back to Always. */
   onChange: (c: StyleCondition | undefined) => void;
@@ -1039,15 +1041,17 @@ export function numericAttributes(
 function conditionHint(c: StyleCondition | undefined, o: ConditionControlOptions): string {
   switch (c?.when) {
     case 'on':
-      return `Applies the ${o.noun} only while this card's entity is on.`;
+      return t('cond.hintOn', { noun: t(o.noun) });
     case 'off':
-      return `Applies the ${o.noun} only while this card's entity is off.`;
+      return t('cond.hintOff', { noun: t(o.noun) });
     case 'custom':
-      return `Applies the ${o.noun} only while ${c.customEntity || 'the chosen entity'} is on.`;
+      return c.customEntity
+        ? t('when.hintCustom', { noun: t(o.noun), entity: c.customEntity })
+        : t('when.hintCustomNone', { noun: t(o.noun) });
     case 'value':
-      return `Applies the ${o.noun} only while the condition matches.`;
+      return t('cond.hintValue', { noun: t(o.noun) });
     default:
-      return `Always applies the ${o.noun}.`;
+      return t('when.hintAlways', { noun: t(o.noun) });
   }
 }
 
@@ -1064,12 +1068,12 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
   const { showOn, showOff } = offeredOnOff(o.stateAware, o.offOnly, when === 'on' || when === 'off');
 
   const opts: Array<{ v: StyleCondition['when']; label: string }> = [
-    { v: 'always', label: 'Always' },
+    { v: 'always', label: t('when.always') },
   ];
-  if (showOn) opts.push({ v: 'on', label: 'Only while entity is ON' });
-  if (showOff) opts.push({ v: 'off', label: 'Only while entity is OFF' });
-  opts.push({ v: 'custom', label: 'While another entity is ON…' });
-  opts.push({ v: 'value', label: 'While a value matches…' });
+  if (showOn) opts.push({ v: 'on', label: t('when.onlyOn') });
+  if (showOff) opts.push({ v: 'off', label: t('when.onlyOff') });
+  opts.push({ v: 'custom', label: t('when.otherEntity') });
+  opts.push({ v: 'value', label: t('cond.valueMatches') });
 
   const change = (patch: Partial<StyleCondition>) => {
     const next: StyleCondition = { when, ...c, ...patch };
@@ -1088,7 +1092,7 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
 
   return html`
     <div class="control-row">
-      <span class="control-label" id="cond-label">Reacts to</span>
+      <span class="control-label" id="cond-label">${t('cond.reactsTo')}</span>
       <div class="control-right">
         <select
           aria-labelledby="cond-label"
@@ -1105,14 +1109,14 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
     ${when === 'custom'
       ? html`
           <div class="control-row">
-            <span class="control-label">Entity</span>
+            <span class="control-label">${t('base.entity')}</span>
             <div class="control-right">
               <cms-entity-picker
                 .hass=${o.hass}
                 .value=${c?.customEntity ?? ''}
                 .includeDomains=${TOGGLE_DOMAINS}
                 label=""
-                accessible-name="Entity to watch"
+                accessible-name=${t('base.entityToWatch')}
                 placeholder="input_boolean.my_entity"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>
                   change({ customEntity: e.detail.value.trim() })}
@@ -1124,13 +1128,13 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
     ${when === 'value'
       ? html`
           <div class="control-row">
-            <span class="control-label">Entity</span>
+            <span class="control-label">${t('base.entity')}</span>
             <div class="control-right">
               <cms-entity-picker
                 .hass=${o.hass}
                 .value=${c?.valueEntity ?? ''}
                 label=""
-                accessible-name="Entity to read the value from"
+                accessible-name=${t('cond.valueEntity')}
                 placeholder="sensor.temperature"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>
                   change({ valueEntity: e.detail.value.trim(), valueAttribute: '' })}
@@ -1140,7 +1144,7 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
           ${attrNames.length > 0 || c?.valueAttribute
             ? html`
                 <div class="control-row">
-                  <span class="control-label" id="cond-read-label">Value read from</span>
+                  <span class="control-label" id="cond-read-label">${t('cond.valueReadFrom')}</span>
                   <div class="control-right">
                     <select
                       aria-labelledby="cond-read-label"
@@ -1148,11 +1152,11 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
                       @change=${(e: Event) =>
                         change({ valueAttribute: (e.target as HTMLSelectElement).value })}
                     >
-                      <option value="" ?selected=${!c?.valueAttribute}>State</option>
+                      <option value="" ?selected=${!c?.valueAttribute}>${t('cond.state')}</option>
                       ${attrNames.map(
                         (name) =>
                           html`<option value=${name} ?selected=${c?.valueAttribute === name}>
-                            Attribute: ${name}
+                            ${t('cond.attribute', { name })}
                           </option>`,
                       )}
                     </select>
@@ -1161,7 +1165,7 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
               `
             : nothing}
           <div class="control-row">
-            <span class="control-label" id="cond-op-label">Condition</span>
+            <span class="control-label" id="cond-op-label">${t('cond.condition')}</span>
             <div class="control-right">
               <select
                 aria-labelledby="cond-op-label"
@@ -1175,19 +1179,19 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
                 ${CONDITION_OPERATORS.map(
                   (op) =>
                     html`<option value=${op} ?selected=${(c?.valueOperator ?? '>') === op}>
-                      value ${op}
+                      ${t('cond.valueOp', { op })}
                     </option>`,
                 )}
               </select>
             </div>
           </div>
           <div class="control-row">
-            <span class="control-label">Threshold</span>
+            <span class="control-label">${t('cond.threshold')}</span>
             <div class="control-right">
               <input
                 type="text"
                 class="num"
-                aria-label="Threshold value"
+                aria-label=${t('cond.thresholdValue')}
                 aria-invalid="false"
                 spellcheck="false"
                 autocomplete="off"

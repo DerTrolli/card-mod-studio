@@ -79,3 +79,26 @@ export function templateText(t: unknown): string {
   const r = t as { strings?: readonly string[]; values?: unknown[] };
   return (r.strings ?? []).join('') + (r.values ?? []).map(templateText).join('');
 }
+
+/**
+ * The template as it renders: statics and values interleaved, an attribute
+ * bound to a text value written as `name="value"`. Text that comes from the
+ * translation layer (`t()`) is a value, so this is what label assertions use.
+ */
+export function renderedText(t: unknown): string {
+  if (t === null || t === undefined || t === false) return '';
+  if (typeof t === 'string' || typeof t === 'number') return String(t);
+  if (typeof t !== 'object') return '';
+  if (Array.isArray(t)) return (t as unknown[]).map(renderedText).join('');
+  const r = t as { strings?: readonly string[]; values?: unknown[] };
+  if (!r.strings) return '';
+  let out = '';
+  r.strings.forEach((s, i) => {
+    out += s;
+    if (i >= (r.values ?? []).length) return;
+    const v = (r.values ?? [])[i];
+    const inner = renderedText(v);
+    out += /[\s][\w-]+=$/.test(s) && (typeof v === 'string' || typeof v === 'number') ? `"${inner}"` : inner;
+  });
+  return out;
+}

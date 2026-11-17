@@ -9,16 +9,17 @@ import {
   guardSliderTouch, renderThresholdOwnedHint, nameSwitches, prepareSliders,
 } from './module-base.js';
 import '../components/cms-color-picker.js';
+import { LangController, t, type MessageKey } from '../i18n/index.js';
 
 /** Preset font-family values shown in the dropdown. '' = leave the theme's
  *  own font-family alone (the common case — most people only want size/color).
  *  Shared with the Heading Style module so both font-family selects offer
  *  the identical list (+ the same Custom… free-text escape hatch). */
-export const FONT_FAMILY_PRESETS: Array<{ value: string; label: string }> = [
-  { value: '', label: 'Theme default' },
-  { value: 'sans-serif', label: 'Sans-serif' },
-  { value: 'serif', label: 'Serif' },
-  { value: 'monospace', label: 'Monospace' },
+export const FONT_FAMILY_PRESETS: Array<{ value: string; label: MessageKey }> = [
+  { value: '', label: 'font.family.theme' },
+  { value: 'sans-serif', label: 'font.family.sans' },
+  { value: 'serif', label: 'font.family.serif' },
+  { value: 'monospace', label: 'font.family.mono' },
 ];
 
 /** The text size each card shows with no Font style, as measured on Home
@@ -37,6 +38,7 @@ export function fontNativeSize(cardType?: string): number | undefined {
 }
 
 export class FontModule extends LitElement {
+  protected readonly i18n = new LangController(this);
   @property({ attribute: false }) state: FontModuleState = {
     ...DEFAULT_FONT,
   };
@@ -144,7 +146,7 @@ export class FontModule extends LitElement {
       <div class="module">
         ${renderModuleHeader({
           icon: '🔠',
-          title: 'Font',
+          title: t('font.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),
           overridden: this.overridden,
@@ -167,11 +169,11 @@ export class FontModule extends LitElement {
       <div class="module-body" id="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         ${this.allowSize || this.state.fontSize !== undefined ? html`<div class="control-row">
-          <span class="control-label">Text size</span>
+          <span class="control-label">${t('font.textSize')}</span>
           <div class="control-right">
             <ha-slider
-              label="Text size"
-              aria-label="Text size"
+              label=${t('font.textSize')}
+              aria-label=${t('font.textSize')}
               min="10"
               max="48"
               step="1"
@@ -185,19 +187,19 @@ export class FontModule extends LitElement {
                 })}
             ></ha-slider>
             ${this._fontSize === undefined
-              ? html`<span class="value-label unset">${native === undefined ? 'Default' : `Default (${native}px)`}</span>`
+              ? html`<span class="value-label unset">${native === undefined ? t('base.default') : t('base.defaultWith', { value: `${native}px` })}</span>`
               : html`<span class="value-label">${this._fontSize}px</span>${renderResetButton(
                   () => this._emit({ fontSize: undefined }),
-                  'Reset text size to default',
+                  t('font.resetSize'),
                 )}`}
           </div>
         </div>` : nothing}
 
         ${this._allowWeight ? html`        <div class="control-row">
-          <span class="control-label">Weight</span>
+          <span class="control-label">${t('font.weight')}</span>
           <div class="control-right">
             <select
-              aria-label="Weight"
+              aria-label=${t('font.weight')}
               .value=${this.state.fontWeight ?? ''}
               @change=${(e: Event) =>
                 this._emit({
@@ -205,15 +207,15 @@ export class FontModule extends LitElement {
                 })}
             >
               ${renderDefaultOption(!this.state.fontWeight)}
-              <option value="normal" ?selected=${this.state.fontWeight === 'normal'}>Normal</option>
-              <option value="medium" ?selected=${this.state.fontWeight === 'medium'}>Medium</option>
-              <option value="bold" ?selected=${this.state.fontWeight === 'bold'}>Bold</option>
+              <option value="normal" ?selected=${this.state.fontWeight === 'normal'}>${t('font.weight.normal')}</option>
+              <option value="medium" ?selected=${this.state.fontWeight === 'medium'}>${t('font.weight.medium')}</option>
+              <option value="bold" ?selected=${this.state.fontWeight === 'bold'}>${t('font.weight.bold')}</option>
             </select>
           </div>
         </div>` : nothing}
 
         <div class="control-row">
-          <span class="control-label" id="lbl-font-family">Font family</span>
+          <span class="control-label" id="lbl-font-family">${t('font.family')}</span>
           <div class="control-right">
             <select
               aria-labelledby="lbl-font-family"
@@ -232,22 +234,22 @@ export class FontModule extends LitElement {
             >
               ${FONT_FAMILY_PRESETS.map(
                 (p) => html`<option value=${p.value} ?selected=${!isCustom && family === p.value}>
-                  ${p.label}
+                  ${t(p.label)}
                 </option>`,
               )}
-              <option value="custom" ?selected=${isCustom}>Custom…</option>
+              <option value="custom" ?selected=${isCustom}>${t('font.custom')}</option>
             </select>
           </div>
         </div>
         ${isCustom
           ? html`
               <div class="control-row">
-                <span class="control-label">Custom family</span>
+                <span class="control-label">${t('font.customFamily')}</span>
                 <div class="control-right">
                   <input
                     type="text"
                     style="width:100%;box-sizing:border-box;"
-                    aria-label="Custom family"
+                    aria-label=${t('font.customFamily')}
                     .value=${this._isCustomStored ? family : this._customText}
                     placeholder="'My Font', sans-serif"
                     @change=${(e: Event) => {
@@ -262,12 +264,12 @@ export class FontModule extends LitElement {
 
         ${this.allowColor || !!this.state.color
           ? html`<div class="control-row">
-              <span class="control-label">Text color</span>
+              <span class="control-label">${t('font.textColor')}</span>
               <div class="control-right">
                 <cms-color-picker
-                  label="Text color"
+                  label=${t('font.textColor')}
                   clearable
-                  .placeholder=${'Default'}
+                  .placeholder=${t('base.default')}
                   .value=${this.state.color ?? ''}
                   @color-changed=${(e: CustomEvent) => this._emit({ color: e.detail.value || undefined })}
                 ></cms-color-picker>
@@ -275,8 +277,8 @@ export class FontModule extends LitElement {
             </div>
             ${renderThresholdOwnedHint(
               this.thresholdOwned && this.state.enabled && !!this.state.color,
-              'text color',
-              'Text Color',
+              'noun.textColor',
+              'threshold.prop.textColor',
             )}`
           : nothing}
         ${this.numberSize ? this._renderNumberSize(this.numberSize) : nothing}
@@ -300,12 +302,12 @@ export class FontModule extends LitElement {
     const isGauge = kind === 'gauge';
     // Shown on only while it is actually written (Font on as well).
     const on = s.numberSizeEnabled && s.enabled;
-    const label = isGauge ? 'Number size' : 'Temperature size';
+    const label = isGauge ? t('font.numberSize') : t('font.tempSize');
     if (s.numberSizeLocked) {
       return html`<div class="control-row">
         <span class="control-label">${label}</span>
         <div class="control-right">
-          <span class="when-hint">Set by your own CSS for this card (listed read-only in Advanced CSS) — edit it in the card's YAML.</span>
+          <span class="when-hint">${t('font.numberLocked')}</span>
         </div>
       </div>`;
     }
@@ -314,7 +316,7 @@ export class FontModule extends LitElement {
       <div class="control-right">
         <ha-switch
           .checked=${on}
-          aria-label="Custom ${label.toLowerCase()}"
+          aria-label=${isGauge ? t('font.customNumberSize') : t('font.customTempSize')}
           @change=${(e: Event) => {
             const checked = (e.target as HTMLInputElement).checked;
             // Written only while Font is on, so switching it on switches Font on.

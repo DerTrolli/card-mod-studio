@@ -4,8 +4,10 @@ import type { AdvancedModuleState, PiercedEntry } from '../types/index.js';
 import { moduleStyles, renderModuleHeader, nameCodeEditor, nameSwitches,
 } from './module-base.js';
 import { lintAdvancedCss } from '../utils/css-lint.js';
+import { LangController, t } from '../i18n/index.js';
 
 export class AdvancedModule extends LitElement {
+  protected readonly i18n = new LangController(this);
   @property({ attribute: false }) state: AdvancedModuleState = { rawCss: '' };
   /** When true the editor is expanded; false collapses it. Toggled by the
    *  header and by the preview picker. */
@@ -74,7 +76,7 @@ export class AdvancedModule extends LitElement {
   override updated() {
     nameSwitches(this.renderRoot);
     const ed = this.renderRoot.querySelector('ha-code-editor');
-    if (ed) nameCodeEditor(ed, 'Advanced CSS');
+    if (ed) nameCodeEditor(ed, t('advanced.title'));
   }
 
   private _onValueChanged(e: CustomEvent<{ value: string }>) {
@@ -90,7 +92,7 @@ export class AdvancedModule extends LitElement {
       <div class="module">
         ${renderModuleHeader({
           icon: '📝',
-          title: 'Advanced CSS',
+          title: t('advanced.title'),
           open: this.open,
           onToggle: () => {
             this.open = !this.open;
@@ -100,25 +102,18 @@ export class AdvancedModule extends LitElement {
           ? html`
               <div class="editor-wrap" id="module-body">
                 <ha-code-editor
-                  label="Advanced CSS"
-                  aria-label="Advanced CSS"
+                  label=${t('advanced.title')}
+                  aria-label=${t('advanced.title')}
                   mode="jinja2"
                   .value=${this.state.rawCss}
                   @value-changed=${this._onValueChanged}
                 ></ha-code-editor>
                 ${this._renderLint()}
-                <p class="hint">
-                  Raw CSS appended after visual module output. Supports Jinja2
-                  templates just like card-mod.
-                </p>
+                <p class="hint">${t('advanced.hint')}</p>
                 ${this.pierced.length > 0
                   ? html`
                       <div class="pierced">
-                        <p class="hint">
-                          🔒 Hand-written shadow-piercing entries — preserved
-                          exactly as written on every save (read-only here;
-                          edit them in YAML):
-                        </p>
+                        <p class="hint">🔒 ${t('advanced.pierced')}</p>
                         <pre>${this._renderPierced()}</pre>
                       </div>
                     `

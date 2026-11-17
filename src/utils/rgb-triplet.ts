@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 /**
  * rgb-triplet.ts — Mushroom's colour contract is `R, G, B` (the card builds
  * `rgb(var(--rgb-state-light))` itself), not a CSS colour. These convert the
@@ -189,5 +190,5 @@ export function thresholdColorsWithoutTriplet(s: {
 /** The one-line explanation both modules show. */
 export function tripletHint(colors: string[]): string {
   const list = [...new Set(colors)].join(', ');
-  return `Mushroom's accent needs an exact colour (hex, rgb, hsl, a colour name or a palette colour). ${list} can't be converted, so nothing is written for it — pick another colour.`;
+  return t('accent.tripletHint', { colors: list });
 }

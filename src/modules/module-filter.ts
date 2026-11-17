@@ -11,8 +11,10 @@ import {
   guardSliderTouch, nameSwitches, prepareSliders,
 } from './module-base.js';
 import { stateKindFor } from '../utils/card-caps.js';
+import { LangController, t } from '../i18n/index.js';
 
 export class FilterModule extends LitElement {
+  protected readonly i18n = new LangController(this);
   @property({ attribute: false }) state: FilterModuleState = { ...DEFAULT_FILTER };
 
   /** False when the card has no binary entity state (e.g. sensor cards). */
@@ -84,7 +86,7 @@ export class FilterModule extends LitElement {
       <div class="module">
         ${renderModuleHeader({
           icon: '🎚️',
-          title: 'Visual Filters',
+          title: t('filter.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),
           overridden: this.overridden,
@@ -104,10 +106,10 @@ export class FilterModule extends LitElement {
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         <!-- Grayscale -->
         <div class="control-row">
-          <span class="control-label">Grayscale</span>
+          <span class="control-label">${t('filter.grayscale')}</span>
           <div class="control-right">
             <ha-switch
-              aria-label="Grayscale"
+              aria-label=${t('filter.grayscale')}
               .checked=${this.state.grayscale}
               @change=${(e: Event) => this._emit(this._grayscaleChanges((e.target as HTMLInputElement).checked))}
             ></ha-switch>
@@ -119,7 +121,7 @@ export class FilterModule extends LitElement {
               value: this.state.grayscaleWhen,
               stateAware: this.stateAware,
               offOnly: stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
-              noun: 'grayscale',
+              noun: 'noun.grayscale',
               allowCustom: true,
               customEntity: this.state.customEntity,
               hass: this.hass,
@@ -131,11 +133,11 @@ export class FilterModule extends LitElement {
 
         <!-- Brightness -->
         <div class="control-row">
-          <span class="control-label">Brightness</span>
+          <span class="control-label">${t('filter.brightness')}</span>
           <div class="control-right">
             <ha-slider
-              label="Brightness"
-              aria-label="Brightness"
+              label=${t('filter.brightness')}
+              aria-label=${t('filter.brightness')}
               min="0"
               max="200"
               step="5"
@@ -154,11 +156,11 @@ export class FilterModule extends LitElement {
 
         <!-- Blur -->
         <div class="control-row">
-          <span class="control-label">Blur</span>
+          <span class="control-label">${t('filter.blur')}</span>
           <div class="control-right">
             <ha-slider
-              label="Blur"
-              aria-label="Blur"
+              label=${t('filter.blur')}
+              aria-label=${t('filter.blur')}
               min="0"
               max="20"
               step="1"
@@ -175,11 +177,11 @@ export class FilterModule extends LitElement {
 
         <!-- Opacity -->
         <div class="control-row">
-          <span class="control-label">Opacity</span>
+          <span class="control-label">${t('filter.opacity')}</span>
           <div class="control-right">
             <ha-slider
-              label="Opacity"
-              aria-label="Opacity"
+              label=${t('filter.opacity')}
+              aria-label=${t('filter.opacity')}
               min="10"
               max="100"
               step="5"
@@ -199,7 +201,7 @@ export class FilterModule extends LitElement {
               condition: this.state.effectsWhen,
               stateAware: this.stateAware,
               offOnly: stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
-              noun: 'effects',
+              noun: 'noun.effects',
               hass: this.hass,
               onChange: (c) => this._emit({ effectsWhen: c }),
             })
@@ -207,11 +209,11 @@ export class FilterModule extends LitElement {
 
         <!-- Transition duration (ms: a larger number is slower) -->
         <div class="control-row">
-          <span class="control-label">Transition duration</span>
+          <span class="control-label">${t('filter.transition')}</span>
           <div class="control-right">
             <ha-slider
-              label="Transition duration"
-              aria-label="Transition duration"
+              label=${t('filter.transition')}
+              aria-label=${t('filter.transition')}
               min="0"
               max="2000"
               step="50"
@@ -227,7 +229,7 @@ export class FilterModule extends LitElement {
             <span class="value-label">${this._transitionMs}ms</span>
           </div>
         </div>
-        <div class="when-hint">Milliseconds — lower is faster.</div>
+        <div class="when-hint">${t('filter.msHint')}</div>
       </div>
     `;
   }

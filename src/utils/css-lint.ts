@@ -12,6 +12,7 @@
  */
 
 import { endOfTag } from './jinja-str.js';
+import { currentLanguage, t, type MessageKey, type MessageParams } from '../i18n/index.js';
 
 export interface CssIssue {
   message: string;
@@ -19,7 +20,6 @@ export interface CssIssue {
   line: number;
 }
 
-const FATAL = ' — the whole card would lose its styling';
 
 /** Blocks that need a closing tag, and what closes them. */
 const END_OF: Record<string, string> = {
@@ -31,6 +31,7 @@ const OPENERS = new Set(['if', 'for', 'macro', 'call', 'filter', 'block', 'with'
 interface Found { issue: CssIssue; rank: number }
 
 let lastText: string | undefined;
+let lastLang: string | undefined;
 let lastIssue: CssIssue | undefined;
 /** Scans actually run — lets a test see that an unchanged text isn't re-linted. */
 export const lintStats = { scans: 0 };
@@ -39,10 +40,11 @@ export const lintStats = { scans: 0 };
  *  The module renders on every state change, so the last result is reused
  *  while the text is the same. */
 export function lintAdvancedCss(text: string): CssIssue | undefined {
-  if (text === lastText) return lastIssue;
+  if (text === lastText && currentLanguage() === lastLang) return lastIssue;
   lintStats.scans++;
   lastIssue = scan(text);
   lastText = text;
+  lastLang = currentLanguage();
   return lastIssue;
 }
 
@@ -59,7 +61,10 @@ function scan(text: string): CssIssue | undefined {
     }
     return lo + 1;
   };
-  const add = (rank: number, line: number, message: string) => found.push({ rank, issue: { line, message: `${message} (line ${line})` } });
+  const add = (rank: number, line: number, key: MessageKey, params?: MessageParams, fatal = false) => {
+    const message = t(key, params) + (fatal ? t('lint.fatal') : '');
+    found.push({ rank, issue: { line, message: t('lint.line', { message, line }) } });
+  };
 
   const tags: Array<{ name: string; line: number; braces: number }> = [];
   const braceLines: number[] = [];
@@ -78,26 +83,26 @@ function scan(text: string): CssIssue | undefined {
 
     if (jinja && two === '{{') {
       const end = endOfTag(text, i + 2, '}}');
-      if (end < 0) { add(0, lineAt(i), `Unterminated {{ — missing }}${FATAL}`); break; }
+      if (end < 0) { add(0, lineAt(i), 'lint.unterminatedExpr', undefined, true); break; }
       i = end;
       continue;
     }
     if (jinja && two === '{#') {
       const end = text.indexOf('#}', i + 2);
-      if (end < 0) { add(0, lineAt(i), `Unterminated {# comment — missing #}${FATAL}`); break; }
+      if (end < 0) { add(0, lineAt(i), 'lint.unterminatedComment', undefined, true); break; }
       i = end + 2;
       continue;
     }
     if (jinja && two === '{%') {
       const end = endOfTag(text, i + 2, '%}');
-      if (end < 0) { add(0, lineAt(i), `Unterminated {% — missing %}${FATAL}`); break; }
+      if (end < 0) { add(0, lineAt(i), 'lint.unterminatedTag', undefined, true); break; }
       const line = lineAt(i);
       const body = text.slice(i + 2, end - 2).replace(/^[-+]/, '').replace(/[-+]$/, '').trim();
       const name = /^\w+/.exec(body)?.[0] ?? '';
       i = end;
       if (name === 'raw') {
         const close = /\{%[-+]?\s*endraw\s*[-+]?%\}/.exec(text.slice(i));
-        if (!close) { add(1, line, `{% raw %} without {% endraw %}${FATAL}`); break; }
+        if (!close) { add(1, line, 'lint.rawWithoutEnd', undefined, true); break; }
         rawEnd = i + close.index;
       } else if (OPENERS.has(name) || (name === 'set' && !/(?:^|[^=!<>])=(?!=)/.test(body.replace(/(["'])(?:\\.|(?!\1).)*\1/g, '')))) {
         // `{% set x %}` without `=` is the block form; `{% set x = 1 %}` is one tag.
@@ -105,7 +110,7 @@ function scan(text: string): CssIssue | undefined {
       } else if (name === 'elif' || name === 'else') {
         const top = tags[tags.length - 1];
         if (!top || (top.name !== 'if' && !(name === 'else' && top.name === 'for'))) {
-          add(1, line, `{% ${name} %} without a matching {% if %}${FATAL}`);
+          add(1, line, 'lint.noMatchingIf', { name }, true);
         } else {
           // Each branch is checked on its own: `{ … }` may open in one
           // branch and close in the next only when the totals agree.
@@ -114,9 +119,9 @@ function scan(text: string): CssIssue | undefined {
       } else if (name in END_OF) {
         const want = END_OF[name];
         const top = tags[tags.length - 1];
-        if (!top) add(1, line, `{% ${name} %} without a matching {% ${want} %}${FATAL}`);
+        if (!top) add(1, line, 'lint.noMatching', { name, want }, true);
         else if (top.name !== want) {
-          add(1, line, `{% ${name} %} closes the wrong block — {% ${top.name} %} from line ${top.line} is still open${FATAL}`);
+          add(1, line, 'lint.wrongBlock', { name, open: top.name, openLine: top.line }, true);
           tags.pop();
         } else tags.pop();
       }
@@ -130,7 +135,7 @@ function scan(text: string): CssIssue | undefined {
       if (ch === '\\') i += text[i + 1] === '\r' && text[i + 2] === '\n' ? 3 : 2; // `\`+CRLF continues the string
       else {
         if (ch === quote) state = 'css';
-        else if (ch === '\n') { add(3, startLine, `Unterminated string — missing closing ${quote}`); state = 'css'; }
+        else if (ch === '\n') { add(3, startLine, 'lint.unterminatedString', { quote }); state = 'css'; }
         i++;
       }
     } else if (two === '/*') {
@@ -148,21 +153,21 @@ function scan(text: string): CssIssue | undefined {
       if (ch === '{') braceLines.push(jinja ? lineAt(i) : -lineAt(i));
       else if (ch === '}') {
         if (braceLines.length) braceLines.pop();
-        else if (jinja) add(4, lineAt(i), 'Unmatched } — there is no { to close');
+        else if (jinja) add(4, lineAt(i), 'lint.unmatchedClose');
       }
       i++;
     }
   }
 
-  if (state === 'comment') add(2, startLine, 'Unterminated /* comment — missing */');
-  if (state === 'string') add(3, startLine, `Unterminated string — missing closing ${quote}`);
+  if (state === 'comment') add(2, startLine, 'lint.unterminatedCssComment');
+  if (state === 'string') add(3, startLine, 'lint.unterminatedString', { quote });
   const open = tags[tags.length - 1];
   if (open) {
     const end = open.name === 'set' ? 'endset' : `end${open.name}`;
-    add(1, open.line, `{% ${open.name} %} without {% ${end} %}${FATAL}`);
+    add(1, open.line, 'lint.withoutEnd', { name: open.name, end }, true);
   }
   const unclosed = braceLines.filter((n) => n > 0); // never one opened inside raw
-  if (unclosed.length) add(4, unclosed[unclosed.length - 1], 'Unclosed { — a rule is missing its closing brace');
+  if (unclosed.length) add(4, unclosed[unclosed.length - 1], 'lint.unclosedBrace');
 
   found.sort((a, b) => a.rank - b.rank || a.issue.line - b.issue.line);
   return found[0]?.issue;

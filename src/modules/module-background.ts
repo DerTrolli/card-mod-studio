@@ -7,6 +7,7 @@ import { moduleStyles, renderWhen,  renderOverrideHint, renderThresholdOwnedHint
 import '../components/cms-color-picker.js';
 import { stateKindFor } from '../utils/card-caps.js';
 import { isValidCssColor } from '../utils/css-color.js';
+import { LangController, t } from '../i18n/index.js';
 
 export class BackgroundModule extends LitElement {
   @property({ attribute: false }) state: BackgroundModuleState = {
@@ -26,6 +27,8 @@ export class BackgroundModule extends LitElement {
   @property({ attribute: false }) overriddenDetail = '';
   /** Threshold Colors is currently writing this module's property. */
   @property({ attribute: false }) thresholdOwned = false;
+
+  protected readonly i18n = new LangController(this);
 
   @state() private _open = false;
   @state() private _angle = DEFAULT_BACKGROUND.angle;
@@ -81,7 +84,7 @@ export class BackgroundModule extends LitElement {
       <div class="module">
         ${renderModuleHeader({
           icon: '🖼️',
-          title: 'Background',
+          title: t('background.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),
           overridden: this.overridden,
@@ -99,9 +102,9 @@ export class BackgroundModule extends LitElement {
     return html`
       <div class="module-body" id="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
-        ${renderThresholdOwnedHint(this.thresholdOwned, 'background', 'Background')}
+        ${renderThresholdOwnedHint(this.thresholdOwned, 'noun.background', 'threshold.prop.background')}
         <div class="control-row">
-          <span class="control-label" id="lbl-type">Type</span>
+          <span class="control-label" id="lbl-type">${t('background.type')}</span>
           <div class="control-right">
             <select
               aria-labelledby="lbl-type"
@@ -109,9 +112,9 @@ export class BackgroundModule extends LitElement {
               @change=${(e: Event) =>
                 this._changeType((e.target as HTMLSelectElement).value as 'solid' | 'gradient')}
             >
-              <option value="solid" ?selected=${this.state.type === 'solid'}>Solid color</option>
+              <option value="solid" ?selected=${this.state.type === 'solid'}>${t('background.solid')}</option>
               <option value="gradient" ?selected=${this.state.type === 'gradient'}>
-                Gradient
+                ${t('background.gradient')}
               </option>
             </select>
           </div>
@@ -119,11 +122,11 @@ export class BackgroundModule extends LitElement {
 
         <div class="control-row">
           <span class="control-label">
-            ${this.state.type === 'gradient' ? 'Color 1' : 'Color'}
+            ${this.state.type === 'gradient' ? t('background.color1') : t('background.color')}
           </span>
           <div class="control-right">
             <cms-color-picker
-              label=${this.state.type === 'gradient' ? 'Gradient color 1' : 'Background color'}
+              label=${this.state.type === 'gradient' ? t('background.gradientColor1') : t('background.backgroundColor')}
               .validation=${this.state.type === 'gradient' ? 'stop' : 'background'}
               .value=${this.state.color1}
               @color-changed=${(e: CustomEvent) =>
@@ -135,10 +138,10 @@ export class BackgroundModule extends LitElement {
         ${this.state.type === 'gradient'
           ? html`
               <div class="control-row">
-                <span class="control-label">Color 2</span>
+                <span class="control-label">${t('background.color2')}</span>
                 <div class="control-right">
                   <cms-color-picker
-                    label="Gradient color 2"
+                    label=${t('background.gradientColor2')}
                     .validation=${'stop'}
                     .value=${this.state.color2}
                     @color-changed=${(e: CustomEvent) =>
@@ -148,11 +151,11 @@ export class BackgroundModule extends LitElement {
               </div>
 
               <div class="control-row">
-                <span class="control-label">Angle</span>
+                <span class="control-label">${t('background.angle')}</span>
                 <div class="control-right">
                   <ha-slider
-                    label="Angle"
-                    aria-label="Angle"
+                    label=${t('background.angle')}
+                    aria-label=${t('background.angle')}
                     min="0"
                     max="360"
                     step="5"
@@ -175,7 +178,7 @@ export class BackgroundModule extends LitElement {
           value: this.state.applyWhen,
           stateAware: this.stateAware,
           offOnly: stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
-          noun: 'background',
+          noun: 'noun.background',
           allowCustom: true,
           customEntity: this.state.customEntity,
           hass: this.hass,

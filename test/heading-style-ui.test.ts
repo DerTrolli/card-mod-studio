@@ -4,7 +4,7 @@
  * returned to "not set".
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { FakeCustomElementRegistry, templateText } from './v010-audit-helpers.js';
+import { FakeCustomElementRegistry, renderedText } from './v010-audit-helpers.js';
 import { DEFAULT_HEADING_STYLE, mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseCardModConfig } from '../src/parser/yaml-parser.js';
 import { generateCss } from '../src/generator/css-generator.js';
@@ -57,17 +57,17 @@ describe('native placeholders', () => {
     expect(headingNative(undefined)).toBe(headingNative('title'));
   });
   it('an unset module renders Default placeholders for the card variant, with no reset buttons', () => {
-    const sub = templateText(make({}, 'subtitle').el._renderBody());
-    expect(sub).toMatch(/\b14<span class="value-label unset"/); // templateText lists values before statics
+    const sub = renderedText(make({}, 'subtitle').el._renderBody());
+    expect(sub).toContain('<span class="value-label unset">Default (14px)</span>');
     expect(sub).toContain('Default (medium)');
     expect(sub).toContain('Default (secondary text)');
     expect(sub).not.toContain('reset-btn');
-    const title = templateText(make({}, 'title').el._renderBody());
-    expect(title).toMatch(/\b16<span class="value-label unset"/);
+    const title = renderedText(make({}, 'title').el._renderBody());
+    expect(title).toContain('<span class="value-label unset">Default (16px)</span>');
     expect(title).toContain('Default (normal)');
   });
   it('select and colour controls have a Default choice and clearable pickers', () => {
-    const t = templateText(make().el._renderBody());
+    const t = renderedText(make().el._renderBody());
     expect(t).toContain('value=""');
     expect(t.match(/clearable/g)?.length).toBe(2);
     expect(t).toContain('aria-label="Text size"');
@@ -79,7 +79,12 @@ describe('native placeholders', () => {
 type Tok = { text: string } | { fn: (e: unknown) => void; attr?: string };
 const tokens = (t: unknown, out: Tok[] = [], prev = ''): Tok[] => {
   if (typeof t === 'function') out.push({ fn: t as (e: unknown) => void, attr: prev.match(/@([\w-]+)=\s*$/)?.[1] });
-  else if (typeof t === 'string') out.push({ text: t });
+  else if (typeof t === 'string') {
+    // A translated attribute value (aria-label=${t('…')}) reads as it renders.
+    const last = out[out.length - 1];
+    if (last && 'text' in last && /[\w-]+=$/.test(last.text)) last.text += `"${t}"`;
+    else out.push({ text: t });
+  }
   else if (Array.isArray(t)) t.forEach((x) => tokens(x, out, prev));
   else {
     const r = t as { strings?: string[]; values?: unknown[] } | null;
@@ -120,7 +125,7 @@ describe('emitting only what the user sets (through the rendered handlers)', () 
   it('the size reset button @click clears only fontSize', () => {
     const { el, emitted } = make(SET);
     el._fontSize = 20; el._iconSize = 30;
-    expect(templateText(el._renderBody())).toContain('reset-btn');
+    expect(renderedText(el._renderBody())).toContain('reset-btn');
     handlerFor(el, 'Reset text size to default', 'click')({});
     expect(emitted).toHaveLength(1);
     expect(emitted[0]).toEqual({ ...full(SET), fontSize: undefined });
@@ -136,14 +141,14 @@ describe('emitting only what the user sets (through the rendered handlers)', () 
   it('a set size shows its value, a reset button, and no Default placeholder', () => {
     const { el } = make({ fontSize: 20 });
     el._fontSize = 20;
-    const t = templateText(el._renderBody());
+    const t = renderedText(el._renderBody());
     expect(t).toContain('reset-btn');
     expect(t).not.toMatch(/Default \(16/);
   });
   it('a stored 0 renders as a set value with a reset button (not "Default") and writes nothing on its own', () => {
     const { el, emitted } = make({ fontSize: 0, iconSize: 0 });
     el._fontSize = 0; el._iconSize = 0;
-    const t = templateText(el._renderBody());
+    const t = renderedText(el._renderBody());
     expect(t.match(/reset-btn/g)?.length ?? 0).toBeGreaterThan(0);
     expect(t).not.toContain('value-label unset');
     expect(emitted).toEqual([]);

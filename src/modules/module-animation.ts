@@ -8,26 +8,28 @@ import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/
 import { stateKindFor } from '../utils/card-caps.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
+import { LangController, t, type MessageKey } from '../i18n/index.js';
 
 type AnimationPreset = AnimationModuleState['preset'];
 type AnimationTrigger = AnimationModuleState['trigger'];
 type ValueOperator = NonNullable<AnimationModuleState['valueOperator']>;
 
-const PRESETS: Array<{ value: AnimationPreset; label: string }> = [
-  { value: 'pulse', label: 'Pulse (gentle scale)' },
-  { value: 'breathe', label: 'Breathe (opacity fade)' },
-  { value: 'gradient-shift', label: 'Gradient Shift (requires gradient bg)' },
-  { value: 'blink', label: 'Blink (alert pulse)' },
-  { value: 'bounce', label: 'Bounce (vertical)' },
-  { value: 'shake', label: 'Shake (horizontal)' },
-  { value: 'spin', label: 'Spin (360° rotation)' },
-  { value: 'glow', label: 'Glow (pulsing shadow)' },
-  { value: 'heartbeat', label: 'Heartbeat (double beat)' },
+const PRESETS: Array<{ value: AnimationPreset; label: MessageKey }> = [
+  { value: 'pulse', label: 'anim.preset.pulse' },
+  { value: 'breathe', label: 'anim.preset.breathe' },
+  { value: 'gradient-shift', label: 'anim.preset.gradientShift' },
+  { value: 'blink', label: 'anim.preset.blink' },
+  { value: 'bounce', label: 'anim.preset.bounce' },
+  { value: 'shake', label: 'anim.preset.shake' },
+  { value: 'spin', label: 'anim.preset.spin' },
+  { value: 'glow', label: 'anim.preset.glow' },
+  { value: 'heartbeat', label: 'anim.preset.heartbeat' },
 ];
 
 const VALUE_OPERATORS: ValueOperator[] = ['<', '<=', '>', '>=', '==', '!='];
 
 export class AnimationModule extends LitElement {
+  protected readonly i18n = new LangController(this);
   @property({ attribute: false }) state: AnimationModuleState = {
     ...DEFAULT_ANIMATION,
   };
@@ -98,7 +100,7 @@ export class AnimationModule extends LitElement {
       <div class="module">
         ${renderModuleHeader({
           icon: '✨',
-          title: 'Animation',
+          title: t('anim.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),
           overridden: this.overridden,
@@ -117,7 +119,7 @@ export class AnimationModule extends LitElement {
       <div class="module-body" id="module-body">
         ${renderOverrideHint(this.overridden, this.overriddenDetail)}
         <div class="control-row">
-          <span class="control-label" id="lbl-preset">Preset</span>
+          <span class="control-label" id="lbl-preset">${t('anim.preset')}</span>
           <div class="control-right">
             <select
               aria-labelledby="lbl-preset"
@@ -130,7 +132,7 @@ export class AnimationModule extends LitElement {
               ${PRESETS.filter((p) => !this.hiddenPresets.includes(p.value) || p.value === this.state.preset).map(
                 (p) => html`
                   <option value=${p.value} ?selected=${this.state.preset === p.value}>
-                    ${p.label}
+                    ${t(p.label)}
                   </option>
                 `,
               )}
@@ -139,11 +141,11 @@ export class AnimationModule extends LitElement {
         </div>
 
         <div class="control-row">
-          <span class="control-label">Duration</span>
+          <span class="control-label">${t('anim.duration')}</span>
           <div class="control-right">
             <ha-slider
-              label="Duration"
-              aria-label="Duration"
+              label=${t('anim.duration')}
+              aria-label=${t('anim.duration')}
               min="0.5"
               max="10"
               step="0.5"
@@ -159,12 +161,12 @@ export class AnimationModule extends LitElement {
             <span class="value-label">${this._speedS}s</span>
           </div>
         </div>
-        <div class="when-hint">Seconds per cycle — lower is faster.</div>
+        <div class="when-hint">${t('anim.durationHint')}</div>
 
         ${this._renderTrigger()}
 
         ${this.state.preset === 'gradient-shift'
-          ? html`<div class="when-hint">⚠️ Gradient Shift requires a gradient background to be set.</div>`
+          ? html`<div class="when-hint">${t('anim.gradientWarn')}</div>`
           : nothing}
       </div>
     `;
@@ -185,16 +187,16 @@ export class AnimationModule extends LitElement {
     );
 
     const opts: Array<{ v: AnimationTrigger; label: string }> = [
-      { v: 'always', label: 'Always' },
+      { v: 'always', label: t('when.always') },
     ];
-    if (showOn) opts.push({ v: 'on', label: 'Only while entity is ON' });
-    if (showOff) opts.push({ v: 'off', label: 'Only while entity is OFF' });
-    opts.push({ v: 'custom', label: 'While another entity is ON…' });
-    opts.push({ v: 'value', label: 'While a value matches…' });
+    if (showOn) opts.push({ v: 'on', label: t('when.onlyOn') });
+    if (showOff) opts.push({ v: 'off', label: t('when.onlyOff') });
+    opts.push({ v: 'custom', label: t('when.otherEntity') });
+    opts.push({ v: 'value', label: t('cond.valueMatches') });
 
     return html`
       <div class="control-row">
-        <span class="control-label" id="lbl-apply-when">Apply when</span>
+        <span class="control-label" id="lbl-apply-when">${t('when.applyWhen')}</span>
         <div class="control-right">
           <select
             aria-labelledby="lbl-apply-when"
@@ -214,14 +216,14 @@ export class AnimationModule extends LitElement {
       ${this.state.trigger === 'custom'
         ? html`
             <div class="control-row">
-              <span class="control-label">Entity</span>
+              <span class="control-label">${t('base.entity')}</span>
               <div class="control-right">
                 <cms-entity-picker
                   .hass=${this.hass}
                   .value=${this.state.customEntity ?? ''}
                   .includeDomains=${TOGGLE_DOMAINS}
                   label=""
-                  accessible-name="Entity to watch"
+                  accessible-name=${t('base.entityToWatch')}
                   placeholder="input_boolean.my_entity"
                   @value-changed=${(e: CustomEvent<{ value: string }>) =>
                     this._emit({ customEntity: e.detail.value.trim() })}
@@ -238,15 +240,17 @@ export class AnimationModule extends LitElement {
   private _triggerHint(): string {
     switch (this.state.trigger) {
       case 'on':
-        return `Applies the animation only while this card's entity is on (removed when off).`;
+        return t('when.hintOn', { noun: t('noun.animation') });
       case 'off':
-        return `Applies the animation only while this card's entity is off (removed when on).`;
+        return t('when.hintOff', { noun: t('noun.animation') });
       case 'custom':
-        return `Applies the animation only while ${this.state.customEntity || 'the chosen entity'} is on.`;
+        return this.state.customEntity
+          ? t('when.hintCustom', { noun: t('noun.animation'), entity: this.state.customEntity })
+          : t('when.hintCustomNone', { noun: t('noun.animation') });
       case 'value':
-        return 'Runs the animation only while the condition matches.';
+        return t('anim.hintValue');
       default:
-        return 'Always applies the animation.';
+        return t('when.hintAlways', { noun: t('noun.animation') });
     }
   }
 
@@ -272,7 +276,7 @@ export class AnimationModule extends LitElement {
     if (options.length === 0 && !this.state.valueAttribute) return nothing;
     return html`
       <div class="control-row">
-        <span class="control-label" id="lbl-value-read-from">Value read from</span>
+        <span class="control-label" id="lbl-value-read-from">${t('cond.valueReadFrom')}</span>
         <div class="control-right">
           <select
             aria-labelledby="lbl-value-read-from"
@@ -280,10 +284,10 @@ export class AnimationModule extends LitElement {
             @change=${(e: Event) =>
               this._emit({ valueAttribute: (e.target as HTMLSelectElement).value })}
           >
-            <option value="" ?selected=${!this.state.valueAttribute}>State (default)</option>
+            <option value="" ?selected=${!this.state.valueAttribute}>${t('anim.stateDefault')}</option>
             ${options.map(
               (name) => html`<option value=${name} ?selected=${this.state.valueAttribute === name}>
-                Attribute: ${name}
+                ${t('cond.attribute', { name })}
               </option>`,
             )}
           </select>
@@ -295,13 +299,13 @@ export class AnimationModule extends LitElement {
   private _renderValueCondition() {
     return html`
       <div class="control-row">
-        <span class="control-label">Entity</span>
+        <span class="control-label">${t('base.entity')}</span>
         <div class="control-right">
           <cms-entity-picker
             .hass=${this.hass}
             .value=${this.state.valueEntity ?? ''}
             label=""
-            accessible-name="Entity to read the value from"
+            accessible-name=${t('cond.valueEntity')}
             placeholder="sensor.temperature"
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
               this._emit({ valueEntity: e.detail.value.trim(), valueAttribute: '' })}
@@ -310,7 +314,7 @@ export class AnimationModule extends LitElement {
       </div>
       ${this._renderAttributeSelect()}
       <div class="control-row">
-        <span class="control-label" id="lbl-condition">Condition</span>
+        <span class="control-label" id="lbl-condition">${t('cond.condition')}</span>
         <div class="control-right">
           <select
             aria-labelledby="lbl-condition"
@@ -323,19 +327,19 @@ export class AnimationModule extends LitElement {
             ${VALUE_OPERATORS.map(
               (op) =>
                 html`<option value=${op} ?selected=${(this.state.valueOperator ?? '>') === op}>
-                  value ${op}
+                  ${t('cond.valueOp', { op })}
                 </option>`,
             )}
           </select>
         </div>
       </div>
       <div class="control-row">
-        <span class="control-label">Threshold</span>
+        <span class="control-label">${t('cond.threshold')}</span>
         <div class="control-right">
           <input
             type="text"
             class="num"
-            aria-label="Threshold value"
+            aria-label=${t('cond.thresholdValue')}
             aria-invalid="false"
             spellcheck="false"
             autocomplete="off"

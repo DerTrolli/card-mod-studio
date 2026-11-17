@@ -3,7 +3,7 @@
  * "Duration" (not "Speed") and says which way is faster.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { FakeCustomElementRegistry, templateText } from './v010-audit-helpers.js';
+import { FakeCustomElementRegistry, renderedText } from './v010-audit-helpers.js';
 import { DEFAULT_ANIMATION } from '../src/parser/state-mapper.js';
 
 const registry = new FakeCustomElementRegistry();
@@ -24,7 +24,7 @@ describe('Animation duration control', () => {
   it('is labelled Duration everywhere and explains the direction', () => {
     const el = new Mod();
     el.state = { ...DEFAULT_ANIMATION, enabled: true, preset: 'pulse' };
-    const t = templateText(el._renderBody());
+    const t = renderedText(el._renderBody());
     expect(t).toContain('<span class="control-label">Duration</span>');
     expect(t).toContain('label="Duration"');
     expect(t).toContain('aria-label="Duration"');
