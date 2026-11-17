@@ -158,8 +158,13 @@ try {
   await openEditor(pb);
   await openStudio(pb);
   await step('another device (empty browser storage): no question, German from the HA user', async () => {
-    await wait(800);
-    need(!(await notice(pb).isVisible().catch(() => false)), 'question shown again');
+    // Watched from the moment the panel opens: not even a brief flash of the
+    // question before Home Assistant's copy arrives (answering it then would
+    // overwrite the stored choice).
+    for (let i = 0; i < 20; i++) {
+      need(!(await notice(pb).isVisible().catch(() => false)), `question shown again (after ${i * 100} ms)`);
+      await wait(100);
+    }
     need(await hasSection(pb, 'Rahmen & Radius'), `sections: ${(await names(pb)).join(' | ')}`);
     return 'Rahmen & Radius';
   });

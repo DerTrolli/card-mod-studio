@@ -6,8 +6,9 @@
  * Language: "Auto-detect" (recommended) follows the language Home Assistant
  * shows for this user; otherwise one of the shipped languages. Stored per
  * Home Assistant user (settings-storage.ts), so it is asked once, not once
- * per device. The notice is inline and takes no focus: nothing is blocked
- * while it is open, and closing it keeps Auto-detect.
+ * per device. The notice waits until Home Assistant's copy has been read (a
+ * choice made on another device must not be asked again), is inline and
+ * takes no focus: nothing is blocked while it is open.
  */
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
@@ -23,7 +24,7 @@ import {
   type LanguageCode,
   type LanguageSetting,
 } from '../i18n/index.js';
-import { getSettings, initSettings, updateSettings, SETTINGS_CHANGED_EVENT } from '../utils/settings-storage.js';
+import { getSettings, initSettings, settingsSettled, updateSettings, SETTINGS_CHANGED_EVENT } from '../utils/settings-storage.js';
 
 /** The language select both views share. */
 function renderLanguageSelect(id: string, value: LanguageSetting, onChange: (v: LanguageSetting) => void) {
@@ -145,7 +146,9 @@ export class CmsLanguageNotice extends SettingsView {
   ];
 
   override render() {
-    if (getSettings().languageChosen) return nothing;
+    // Wait for Home Assistant's copy: a choice made on another device must not
+    // be asked again (and answering would overwrite it).
+    if (getSettings().languageChosen || !settingsSettled(this.hass)) return nothing;
     const pick = this._pick ?? getLanguageSetting();
     return html`<div class="notice" role="region" aria-label=${t('settings.noticeLabel')}>
       <span class="text"><span aria-hidden="true">🌐</span> ${t('settings.noticeText')}</span>

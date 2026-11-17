@@ -19,7 +19,7 @@ import {
   t,
   tParts,
 } from '../src/i18n/index.js';
-import { getSettings, initSettings, resetSettingsForTests, updateSettings } from '../src/utils/settings-storage.js';
+import { getSettings, initSettings, resetSettingsForTests, settingsSettled, updateSettings } from '../src/utils/settings-storage.js';
 
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
@@ -186,6 +186,36 @@ describe('the stored setting', () => {
     await initSettings(hass);
     expect(getSettings().language).toBe('de');
     expect(hass.sent.at(-1)).toMatchObject({ type: 'frontend/set_user_data', value: { language: 'de', updatedAt: 9 } });
+  });
+
+  it("is not settled while Home Assistant's copy is on its way (the question waits)", async () => {
+    let answer!: (v: unknown) => void;
+    const hass = {
+      connection: {
+        sendMessagePromise: (msg: Record<string, unknown>) =>
+          msg.type === 'frontend/get_user_data' ? new Promise((r) => { answer = r; }) : Promise.resolve(null),
+      },
+    };
+    expect(settingsSettled(undefined)).toBe(true); // nothing to wait for
+    const load = initSettings(hass);
+    expect(settingsSettled(hass)).toBe(false);
+    expect(getSettings().languageChosen).toBe(false);
+    answer({ value: { language: 'de', languageChosen: true, updatedAt: 7 } });
+    await load;
+    expect(settingsSettled(hass)).toBe(true);
+    expect(getSettings()).toMatchObject({ language: 'de', languageChosen: true });
+  });
+
+  it('a failed read of Home Assistant settles too (this device decides)', async () => {
+    const hass = { connection: { sendMessagePromise: () => Promise.reject(new Error('offline')) } };
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      await initSettings(hass);
+    } finally {
+      console.warn = warn;
+    }
+    expect(settingsSettled(hass)).toBe(true);
   });
 
   it('nonsense in storage reads as the defaults', () => {

@@ -45,6 +45,8 @@ function sanitize(raw: unknown): StudioSettings {
 let cache: StudioSettings = { ...DEFAULT_SETTINGS };
 let loadedLocal = false;
 let loadedFromHa = false;
+/** The last attempt to read Home Assistant's copy failed (this device's copy is all there is). */
+let haFailed = false;
 let haLoad: Promise<void> | null = null;
 
 function apply(next: StudioSettings, notify = true): void {
@@ -104,12 +106,26 @@ export function initSettings(hass: HassSub | undefined): Promise<void> {
         await conn.sendMessagePromise({ type: 'frontend/set_user_data', key: HA_KEY, value: local });
       }
     } catch (err) {
+      haFailed = true;
       console.warn('[Card-Mod Studio] Settings load from HA failed, using this device:', err);
     } finally {
       haLoad = null;
+      // Settled either way: views waiting on Home Assistant's copy re-render.
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SETTINGS_CHANGED_EVENT));
     }
   })();
   return haLoad;
+}
+
+/**
+ * True once the settings are as good as they get on this page: Home
+ * Assistant's copy was read (or reading it failed), or there is no
+ * connection to read it from. Until then a choice stored on another device
+ * may still arrive — the one-time question waits for it.
+ */
+export function settingsSettled(hass: HassSub | undefined): boolean {
+  if (!hass?.connection?.sendMessagePromise) return true;
+  return loadedFromHa || haFailed;
 }
 
 /** Changes settings: applied at once, saved here and to Home Assistant. */
@@ -131,6 +147,7 @@ export function resetSettingsForTests(): void {
   cache = { ...DEFAULT_SETTINGS };
   loadedLocal = false;
   loadedFromHa = false;
+  haFailed = false;
   haLoad = null;
   setLanguageSetting('auto');
 }
