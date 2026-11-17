@@ -73,6 +73,14 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve, isAbsolute } from 'node:path';
 import { waitForHassReady } from './harness-utils.mjs';
 
+/** The Studio asks once which language to use (v0.12): checks start with
+ *  that answered (Auto-detect), unless CMS_FIRST_RUN=1 wants the question. */
+const SEED_SETTINGS = () => {
+  if (!localStorage.getItem('cms-settings')) {
+    localStorage.setItem('cms-settings', JSON.stringify({ language: 'auto', languageChosen: true, updatedAt: 0 }));
+  }
+};
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HA = process.env.HA_URL || 'http://127.0.0.1:8123';
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
@@ -223,6 +231,7 @@ const run = async () => {
   const page = await browser.newPage({ viewport: { width: 1300, height: 1000 } });
   if (process.env.AUDIT_BUNDLE) await page.route('**/local/card-mod-studio.js*', (r) => r.fulfill({ path: process.env.AUDIT_BUNDLE, contentType: 'application/javascript' }));
   await page.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
+  await page.addInitScript(SEED_SETTINGS);
   await page.goto(`${HA}/lovelace/0`, { waitUntil: 'domcontentloaded' });
   await waitForHassReady(page);
   await page.waitForFunction(() => !!customElements.get('cms-panel') && !!customElements.get('hui-card'), null, { timeout: 30000 });

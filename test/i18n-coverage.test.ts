@@ -41,6 +41,8 @@ afterAll(() => {
 const ALLOWED = new Set([
   'px', 'ms', 'var', 'primary', 'color', 'needle', 'true', 'cards', 'card_mod', 'uix', 'sans', 'serif', 'font',
   'input_boolean', 'my_entity', 'sensor', 'temperature', 'binary_sensor', 'example', 'light', 'rrggbb', 'name',
+  // language names are written in their own language
+  'english', 'deutsch',
 ]);
 
 /** English words outside the ⟦…⟧ wrappers, in text and in labelling attributes. */
@@ -121,6 +123,8 @@ describe('every visible text is translatable', () => {
     ['heading set', 'cms-heading-style-module', { state: { ...BLANK.headingStyle, enabled: true, fontSize: 20, iconSize: 20 }, headingStyle: 'subtitle' }],
     ['advanced', 'cms-advanced-module', { state: { rawCss: 'ha-card {' }, open: true, pierced: [{ key: 'ha-gauge$', value: 'x' }] }],
     ['palette', 'cms-palette-manager', { _open: true }],
+    ['settings', 'cms-settings', { _open: true }],
+    ['language notice', 'cms-language-notice', {}],
   ];
   for (const [name, tag, props] of cases) {
     it(name, () => {

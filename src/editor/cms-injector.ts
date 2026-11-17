@@ -25,6 +25,8 @@
 
 import { HA_DIALOG_ELEMENT, HA_CARD_EDITOR_ELEMENT } from '../utils/dom-helpers.js';
 import type { CardModCardConfig, HomeAssistant } from '../types/index.js';
+import { languageOfHass, setHomeAssistantLanguage } from '../i18n/index.js';
+import { initSettings } from '../utils/settings-storage.js';
 
 const CMS_BUTTON_ATTR = 'data-cms-injected';
 const CMS_PANEL_ID = 'cms-style-panel';
@@ -265,6 +267,9 @@ function injectButton(dialog: HuiDialogEditCard): void {
     return;
   }
 
+  // The Style button is shown before the panel exists: settle its language here.
+  setHomeAssistantLanguage(languageOfHass(dialog.hass));
+  void initSettings(dialog.hass);
   const tabButton = document.createElement('cms-tab-button');
   tabButton.setAttribute(CMS_BUTTON_ATTR, 'true');
   // Must carry slot="secondaryAction" so it appears in the same footer area

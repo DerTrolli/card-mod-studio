@@ -181,6 +181,14 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 import { waitForHassReady, ensureStorageDashboard } from './harness-utils.mjs';
 
+/** The Studio asks once which language to use (v0.12): checks start with
+ *  that answered (Auto-detect), unless CMS_FIRST_RUN=1 wants the question. */
+const SEED_SETTINGS = () => {
+  if (!localStorage.getItem('cms-settings')) {
+    localStorage.setItem('cms-settings', JSON.stringify({ language: 'auto', languageChosen: true, updatedAt: 0 }));
+  }
+};
+
 export { chromium };
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -237,6 +245,7 @@ export async function launch({ rig = 'cm', viewport = { width: 1440, height: 900
   page.on('pageerror', (e) => errors.push('pageerror: ' + String(e.message || e).slice(0, 400)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text().slice(0, 400)); });
   await page.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
+  if (process.env.CMS_FIRST_RUN !== '1') await page.addInitScript(SEED_SETTINGS);
   await page.goto(`${ha}/lovelace/0`, { waitUntil: 'domcontentloaded' });
   await waitForHassReady(page);
   const styleKey = rig === 'uix' ? 'uix' : 'card_mod';

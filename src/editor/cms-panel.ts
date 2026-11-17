@@ -48,6 +48,7 @@ import { ConfigEchoGuard } from '../utils/config-echo.js';
 import { initPaletteCache, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
+import './cms-settings.js';
 import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
 import { cmsTokens } from '../modules/module-base.js';
 import { hasTopLevelJinjaStatement, templateStatementNote, anyModuleOn } from '../utils/css-lint.js';
@@ -64,7 +65,7 @@ import '../modules/module-advanced.js';
 import '../modules/module-heading-style.js';
 import '../modules/module-font.js';
 import '../modules/module-entities-rows.js';
-import { LangController, t, tParts } from '../i18n/index.js';
+import { LangController, languageOfHass, setHomeAssistantLanguage, t, tParts } from '../i18n/index.js';
 
 declare const __APP_VERSION__: string;
 const VERSION = __APP_VERSION__;
@@ -182,6 +183,8 @@ export class CmsPanel extends LitElement {
   override updated(changed: Map<PropertyKey, unknown>) {
     super.updated(changed);
     if (changed.has('hass')) {
+      // "Auto" follows the language Home Assistant shows for this user.
+      setHomeAssistantLanguage(languageOfHass(this.hass));
       // HA's own dark-mode flag (not prefers-color-scheme — a user can run a
       // dark HA theme on a light OS). HA sets no color-scheme on the page,
       // so without this, browser-drawn parts of the panel (scrollbars,
@@ -1106,12 +1109,14 @@ export class CmsPanel extends LitElement {
 
       <div class="panel-body ${hasPreview ? '' : 'no-preview'} ${this._narrow ? 'narrow' : ''}">
         <div class="modules-col">
+          <cms-language-notice .hass=${this.hass}></cms-language-notice>
           ${this._renderCompatBanner()}
 
           ${this._studioState
             ? html`
                 ${this._isLocked || this._nothingToStyle ? nothing : this._renderPresetBar()}
                 <cms-palette-manager .hass=${this.hass}></cms-palette-manager>
+                <cms-settings .hass=${this.hass}></cms-settings>
                 ${this._renderNothingToStyleNote()}
                 ${this._renderUnprofiledNotice()}
                 ${this._renderModuleList(settleEntityless(this._studioState, this.config as unknown as Record<string, unknown>))}

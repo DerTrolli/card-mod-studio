@@ -375,6 +375,8 @@ const run = async () => {
   await page.addInitScript(([t, demoPalette]) => {
     localStorage.setItem('hassTokens', JSON.stringify(t));
     localStorage.setItem('cms-palette', JSON.stringify(demoPalette));
+    // The one-time language question is answered (Auto-detect): not in the shots.
+    localStorage.setItem('cms-settings', JSON.stringify({ language: 'auto', languageChosen: true, updatedAt: 0 }));
   }, [tokens, DEMO_PALETTE]);
 
   await page.goto(`${HA}/lovelace/0`, { waitUntil: 'domcontentloaded' });

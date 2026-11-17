@@ -10,6 +10,14 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, isAbsolute } from 'node:path';
 
+/** The Studio asks once which language to use (v0.12): checks start with
+ *  that answered (Auto-detect), unless CMS_FIRST_RUN=1 wants the question. */
+const SEED_SETTINGS = () => {
+  if (!localStorage.getItem('cms-settings')) {
+    localStorage.setItem('cms-settings', JSON.stringify({ language: 'auto', languageChosen: true, updatedAt: 0 }));
+  }
+};
+
 export const HARNESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -215,6 +223,7 @@ export async function launch(env, tokens) {
   const browser = await chromium.launch({ executablePath: env.CHROME, headless: !env.headed, args: ['--no-sandbox'] });
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, colorScheme: 'light' });
   await ctx.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
+  if (process.env.CMS_FIRST_RUN !== '1') await ctx.addInitScript(SEED_SETTINGS);
   await ctx.addInitScript(INIT);
   const page = await ctx.newPage();
   page.setDefaultTimeout(15000);

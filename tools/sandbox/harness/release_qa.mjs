@@ -34,6 +34,14 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { waitForHassReady, ensureStorageDashboard, resetTheme } from './harness-utils.mjs';
 
+/** The Studio asks once which language to use (v0.12): checks start with
+ *  that answered (Auto-detect), unless CMS_FIRST_RUN=1 wants the question. */
+const SEED_SETTINGS = () => {
+  if (!localStorage.getItem('cms-settings')) {
+    localStorage.setItem('cms-settings', JSON.stringify({ language: 'auto', languageChosen: true, updatedAt: 0 }));
+  }
+};
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HA = process.env.HA_URL || 'http://127.0.0.1:8123';
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
@@ -395,6 +403,7 @@ const run = async () => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     await page.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
+    await page.addInitScript(SEED_SETTINGS);
     await page.goto(`${HA}/lovelace/0`, { waitUntil: 'domcontentloaded' });
     await waitForHassReady(page);
     const resetFrom = await resetTheme(page);
@@ -418,6 +427,7 @@ const run = async () => {
         page.on('pageerror', (e) => rec.errors.push('pageerror: ' + String(e.message || e).slice(0, 300)));
         page.on('console', (m) => { if (m.type() === 'error') rec.errors.push('console: ' + m.text().slice(0, 300)); });
         await page.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
+        await page.addInitScript(SEED_SETTINGS);
         try {
           // fresh dashboard config each time (Save on a previous run mutates it)
           await page.goto(`${HA}/lovelace/0`, { waitUntil: 'domcontentloaded' });

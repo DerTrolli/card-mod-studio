@@ -388,6 +388,16 @@ export const en = {
   'picker.color.yellow': 'Yellow',
   'picker.color.orange': 'Orange',
   'picker.color.grey': 'Grey',
+  // --- settings and the language question -----------------------------------
+  'settings.title': 'Settings',
+  'settings.language': 'Language',
+  'settings.auto': 'Auto-detect (recommended)',
+  'settings.autoWith': 'Auto-detect: {language} (recommended)',
+  'settings.languageHint':
+    'Auto-detect uses the language Home Assistant shows for you, or English if Card-Mod Studio is not available in it. Saved to your Home Assistant profile.',
+  'settings.noticeLabel': 'Card-Mod Studio language',
+  'settings.noticeText': 'Which language should Card-Mod Studio use? You can change it later under Settings.',
+  'settings.ok': 'OK',
 } as const;
 
 export type MessageKey = keyof typeof en;
