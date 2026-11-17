@@ -39,8 +39,9 @@ const OLD_CONTAINER_CARD_TYPES = new Set<string>([
   'grid', 'vertical-stack', 'horizontal-stack', 'sections', 'conditional',
   'entity-filter',
 ]);
+// v0.12: conditional and entity-filter (a single `card:`) joined.
 const OLD_STYLABLE_CHILDREN_CARD_TYPES = new Set<string>([
-  'grid', 'vertical-stack', 'horizontal-stack',
+  'grid', 'vertical-stack', 'horizontal-stack', 'conditional', 'entity-filter',
 ]);
 // v0.11: shrunk after animations were operated with real input on 10 of the
 // listed types (see card-caps.ts). Everything else is the old set verbatim.

@@ -49,6 +49,7 @@ import { initPaletteCache, PALETTE_CHANGED_EVENT } from '../utils/palette-storag
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
 import './cms-settings.js';
+import { childSlots, withChild, type ChildSlot } from '../utils/child-slots.js';
 import './cms-preset-manager.js';
 import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
 import { cmsTokens } from '../modules/module-base.js';
@@ -1597,24 +1598,20 @@ export class CmsPanel extends LitElement {
       : nothing;
   }
 
-  private _onChildConfigChanged(e: CustomEvent<{ index: number; config: CardModCardConfig }>) {
+  private _onChildConfigChanged(e: CustomEvent<{ slot: ChildSlot; config: CardModCardConfig }>) {
     e.stopPropagation();
     if (!this.config) return;
-    const cards = (this.config as unknown as { cards?: CardModCardConfig[] }).cards;
-    if (!Array.isArray(cards) || !cards[e.detail.index]) return;
-    const updatedCards = cards.map((c, i) => (i === e.detail.index ? e.detail.config : c));
-    const newConfig = { ...(this.config as unknown as object), cards: updatedCards } as unknown as CardModCardConfig;
-
-    this._emitConfig(newConfig);
+    // Only this card's own children: a nested container section folds its
+    // children in and re-emits for its own slot (see cms-child-card-section).
+    if (!childSlots(this.config)?.some((c) => c.slot === e.detail.slot)) return;
+    this._emitConfig(withChild(this.config, e.detail.slot, e.detail.config));
   }
 
   private _renderContainerCard(s: StudioState) {
     const cardType = this.config?.type ?? 'layout';
     // Its CSS all lives in Advanced CSS by design — nothing was "unrecognised".
     const loadedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
-    const childCards = this._caps.stylableChildren
-      ? ((this.config as unknown as { cards?: CardModCardConfig[] }).cards ?? [])
-      : null;
+    const childCards = this._caps.stylableChildren ? childSlots(this.config) : null;
 
     return html`
       ${childCards
@@ -1624,9 +1621,10 @@ export class CmsPanel extends LitElement {
               ${t('layout.childrenBody', { type: cardType })}
             </div>
             ${childCards.map(
-              (child, i) => html`<cms-child-card-section
-                .childConfig=${child}
-                .index=${i}
+              (child) => html`<cms-child-card-section
+                .childConfig=${child.config}
+                .childSlot=${child.slot}
+                .implicit=${!!child.implicit}
                 .hass=${this.hass}
                 @child-config-changed=${this._onChildConfigChanged}
               ></cms-child-card-section>`,

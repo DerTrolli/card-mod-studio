@@ -320,7 +320,7 @@ export const de: Record<MessageKey, string> = {
   'lock.rowsStillWork': 'Der Stil pro Zeile unten funktioniert wie gewohnt.',
   'layout.childrenTitle': 'Layout-Karte — gestalte unten jede enthaltene Karte',
   'layout.childrenBody':
-    '„{type}“ ist ein Container: Stile auf dieser Ebene haben keine sichtbare Wirkung, daher bekommt jede enthaltene Karte hier einen eigenen Abschnitt. Änderungen werden in der Konfiguration dieser Karte gespeichert — genau so, als würdest du sie als einzelne Karte gestalten.',
+    '„{type}“ ist ein Container: Stile auf dieser Ebene haben keine sichtbare Wirkung, daher bekommt jede enthaltene Karte hier einen eigenen Abschnitt (auch Karten in einem Container darin). Änderungen werden in der Konfiguration dieser Karte gespeichert — genau so, als würdest du sie als einzelne Karte gestalten.',
   'layout.unsupportedTitle': 'Layout-Karte — Stile für enthaltene Karten werden hier noch nicht unterstützt',
   'layout.unsupportedBody':
     '„{type}“ ist ein Container: card-mod-Stile auf dieser Ebene haben keine sichtbare Wirkung, und dieser Container-Typ hat keine bearbeitbare {cards}-Liste, für die das Studio Abschnitte anbieten könnte. Um eine enthaltene Karte zu gestalten, füge ihr {cardMod} von Hand im YAML hinzu.',
@@ -348,9 +348,13 @@ export const de: Record<MessageKey, string> = {
   'pick.featuresAccent': 'Funktionen / Akzentfarbe',
   'pick.surface': 'Hintergrund & Kartenfläche',
   'pick.rowChip': '{rows} — {row}',
+  'child.innerCard': 'Karte darin: {type}',
+  'child.implicitCard': 'Karte darin: {type} (Standard von Home Assistant)',
+  'child.nestedChildren': 'Diese Karte „{type}“ enthält weitere Karten — jede bekommt unten einen eigenen Abschnitt und wird in diese Karte gespeichert.',
+  'child.noChildren': 'Noch keine Karten darin.',
   'child.hasStyle': 'Diese Karte hat einen Stil',
   'child.nestedContainer':
-    'Diese Karte ist selbst ein Container („{type}“) — öffne sie als eigene Karte (oder bearbeite ihr YAML), um die Karten darin zu gestalten. Verschachtelte Container werden noch nicht unterstützt.',
+    'Diese Karte ist ein Container vom Typ „{type}“, in den das Studio nicht hineinreicht — gestalte die Karten darin in YAML.',
   'child.dictLocked':
     'Der Stil dieser Karte in Wörterbuchform ($ Shadow-Piercing) hat einen {dot}-Eintrag, der kein einfaches CSS ist, daher kann das Studio ihn nicht neu aufbauen — er bleibt genau so erhalten, wie er geschrieben ist.',
   'child.mixedLocked':

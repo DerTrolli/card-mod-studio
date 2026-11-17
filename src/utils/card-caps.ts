@@ -28,11 +28,11 @@ export const CONTAINER_CARD_TYPES = new Set([
   'entity-filter',
 ]);
 
-/** Container types whose children live in a `cards: []` array the panel can
- *  offer per-child styling for (conditional uses a single `card:` instead —
- *  not yet supported; sections aren't edited through this dialog). */
+/** Container types the panel offers per-child styling sections for: a
+ *  `cards: []` list, or a single `card:` (conditional, entity-filter — v0.12;
+ *  see child-slots.ts). Sections aren't edited through this dialog. */
 export const STYLABLE_CHILDREN_CARD_TYPES = new Set([
-  'grid', 'vertical-stack', 'horizontal-stack',
+  'grid', 'vertical-stack', 'horizontal-stack', 'conditional', 'entity-filter',
 ]);
 
 /**

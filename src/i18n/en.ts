@@ -299,7 +299,7 @@ export const en = {
   'lock.rowsStillWork': 'Per-row styling below still works as usual.',
   'layout.childrenTitle': 'Layout card — style each child card below',
   'layout.childrenBody':
-    '"{type}" is a container: styles at this level have no visual effect, so every card inside it gets its own styling section here. Changes are saved into that child\'s own configuration — exactly what you\'d get styling it as a standalone card.',
+    '"{type}" is a container: styles at this level have no visual effect, so every card inside it gets its own styling section here (cards in a container inside it too). Changes are saved into that card\'s own configuration — exactly what you\'d get styling it as a standalone card.',
   'layout.unsupportedTitle': "Layout card — child styling isn't supported here yet",
   'layout.unsupportedBody':
     '"{type}" is a container: card-mod styles applied at this level have no visual effect, and this container type doesn\'t carry an editable {cards} list the Studio can offer per-child sections for yet. To style a card inside it today, add the child\'s {cardMod} in YAML by hand.',
@@ -327,8 +327,12 @@ export const en = {
   'pick.surface': 'Background & card surface',
   'pick.rowChip': '{rows} — {row}',
   'child.hasStyle': 'This card has styling',
+  'child.innerCard': 'Card inside: {type}',
+  'child.implicitCard': 'Card inside: {type} (Home Assistant\'s default)',
+  'child.nestedChildren': 'This "{type}" holds more cards — each gets its own section below, saved into that card.',
+  'child.noChildren': 'No cards inside yet.',
   'child.nestedContainer':
-    'This child is itself a "{type}" container — open it as its own card (or edit its YAML) to style the cards inside it. Nested container styling isn\'t supported yet.',
+    'This child is a "{type}" container, a kind the Studio can\'t reach inside — style the cards in it in YAML.',
   'child.dictLocked':
     "This child's dictionary-form ($ shadow-piercing) style has a {dot} entry that isn't plain CSS, so the Studio can't rebuild it — it is preserved exactly as written.",
   'child.mixedLocked':

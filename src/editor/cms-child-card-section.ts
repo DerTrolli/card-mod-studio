@@ -1,6 +1,7 @@
 /**
  * cms-child-card-section — one collapsible styling section for a child card
- * inside a container (vertical-stack / horizontal-stack / grid).
+ * inside a container (vertical-stack / horizontal-stack / grid: `cards[i]`;
+ * conditional / entity-filter: `card` — see child-slots.ts).
  *
  * A container's config carries every child's FULL card config in `cards: []`
  * — the same shape an entities card's `entities: []` rows have — so child
@@ -15,11 +16,14 @@
  * top-level panel uses — a gauge child gets the gauge treatment, a tile
  * child the tile treatment, etc.
  *
- * Not handled here (v1 scope, noted inline in the UI):
- * - container children (a stack inside a stack) — no recursion yet;
- * - an entities-card child's per-ROW styling (the card-level modules work);
- * - mixed-form child styles (string + dict together) are preserved
- *   untouched, same as everywhere (pure dict-form IS editable — v0.10).
+ * A child that is itself a container (a stack inside a stack, a
+ * conditional inside a grid, …) gets its own child sections, recursively
+ * (v0.12): a nested section's change is caught here, folded into this
+ * child's config and re-emitted for THIS slot — so the panel only ever
+ * receives changes for its own direct children, whatever the depth.
+ * An entities-card child gets per-row styling like a top-level one.
+ * Mixed-form child styles (string + dict together) are preserved untouched,
+ * same as everywhere (pure dict-form IS editable — v0.10).
  */
 import { hasTopLevelJinjaStatement, templateStatementNote, anyModuleOn } from '../utils/css-lint.js';
 import { userEntries, numberSizeKind } from '../utils/owned-entries.js';
@@ -61,6 +65,7 @@ import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
 import { hasDictFormStyle, hasUnsupportedDictRoot } from '../utils/style-compat.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
+import { childSlots, withChild, type ChildSlot } from '../utils/child-slots.js';
 
 import '../modules/module-filter.js';
 import '../modules/module-icon-color.js';
@@ -79,7 +84,20 @@ export class CmsChildCardSection extends LitElement {
   protected readonly i18n = new LangController(this);
   @property({ attribute: false }) childConfig?: CardModCardConfig;
   @property({ attribute: false }) hass?: HomeAssistant;
-  @property({ type: Number }) index = 0;
+  /** Where this child sits in its container: `cards[slot]` or `card`. */
+  @property({ attribute: false }) childSlot: ChildSlot = 0;
+  /** entity-filter without a `card:` (HA's default entities card). */
+  @property({ type: Boolean }) implicit = false;
+  /** How deep in nested containers (indents the section). */
+  @property({ type: Number }) depth = 0;
+
+  /** Older name of `slot` for a `cards[]` child. */
+  set index(i: number) {
+    this.childSlot = i;
+  }
+  get index(): number {
+    return typeof this.childSlot === 'number' ? this.childSlot : 0;
+  }
 
   @state() private _studioState: StudioState | null = null;
   @state() private _entityRowStyles: EntitiesRowStyles = {};
@@ -156,6 +174,11 @@ export class CmsChildCardSection extends LitElement {
         padding: 10px 6px 0;
         border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       }
+      /* A container inside a container: its children, indented. */
+      .child-body.nested {
+        padding: 8px 4px 2px 10px;
+        border-left: 3px solid var(--cms-line-primary);
+      }
       .child-hint {
         font-size: 12px;
         line-height: 1.5;
@@ -229,16 +252,28 @@ export class CmsChildCardSection extends LitElement {
     if (capsFor(profileKeyOf(this.childConfig)).isEntities) {
       newChild = applyEntityRowStyles(newChild, this._entityRowStyles, this.hass);
     }
+    this._send(newChild);
+  }
+
+  private _send(newChild: CardModCardConfig) {
     this._written = newChild;
-    this._studioState = refreshCarrier(this._studioState, newChild, this.hass);
+    if (this._studioState) this._studioState = refreshCarrier(this._studioState, newChild, this.hass);
     this._echoGuard.noteEmitted(JSON.stringify(newChild));
     this.dispatchEvent(
-      new CustomEvent<{ index: number; config: CardModCardConfig }>('child-config-changed', {
-        detail: { index: this.index, config: newChild },
+      new CustomEvent<{ slot: ChildSlot; index: number; config: CardModCardConfig }>('child-config-changed', {
+        detail: { slot: this.childSlot, index: this.index, config: newChild },
         bubbles: true,
         composed: true,
       }),
     );
+  }
+
+  /** A grandchild changed: fold it into this (container) child and pass it up for this slot. */
+  private _onNestedChange(e: CustomEvent<{ slot: ChildSlot; config: CardModCardConfig }>) {
+    e.stopPropagation();
+    const base = this._written ?? this.childConfig;
+    if (!base || !childSlots(base)?.some((c) => c.slot === e.detail.slot)) return;
+    this._send(withChild(base, e.detail.slot, e.detail.config));
   }
 
   private get _isStyled(): boolean {
@@ -248,7 +283,12 @@ export class CmsChildCardSection extends LitElement {
   override render() {
     const c = this.childConfig;
     if (!c) return nothing;
-    const label = `${this.index + 1}. ${childKindLabel(c)}`;
+    const kind = childKindLabel(c);
+    const label = typeof this.childSlot === 'number'
+      ? `${this.childSlot + 1}. ${kind}`
+      : this.implicit
+        ? t('child.implicitCard', { type: kind })
+        : t('child.innerCard', { type: kind });
     const sub = (c.entity as string | undefined) ?? (c.title as string | undefined) ?? (c.name as string | undefined) ?? '';
 
     return html`
@@ -280,7 +320,25 @@ export class CmsChildCardSection extends LitElement {
 
     const caps = capsFor(profileKeyOf(c), c as unknown as Record<string, unknown>);
     if (caps.isContainer) {
-      return html`<div class="child-note">${t('child.nestedContainer', { type: String(c.type) })}</div>`;
+      const inner = this._written ?? c;
+      const kids = childSlots(inner);
+      if (!kids) {
+        return html`<div class="child-note">${t('child.nestedContainer', { type: String(c.type) })}</div>`;
+      }
+      return html`<div class="child-body nested">
+        <div class="child-hint">🗂️ ${t('child.nestedChildren', { type: String(c.type) })}</div>
+        ${kids.map(
+          (k) => html`<cms-child-card-section
+            .childConfig=${k.config}
+            .childSlot=${k.slot}
+            .implicit=${!!k.implicit}
+            .depth=${this.depth + 1}
+            .hass=${this.hass}
+            @child-config-changed=${this._onNestedChange}
+          ></cms-child-card-section>`,
+        )}
+        ${kids.length ? nothing : html`<div class="child-note">${t('child.noChildren')}</div>`}
+      </div>`;
     }
 
     // v0.10: dict-form child styles are editable when the parsed state
