@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card-Mod Studio",
+        "description": "Añade la configuración de Card-Mod Studio a esta página. El Studio en sí se instala como recurso del panel (HACS, el Marketplace o a mano); esta entrada solo guarda su configuración."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card-Mod Studio ya está configurado."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configuración de Card-Mod Studio",
+        "description": "Valores predeterminados para todos en este Home Assistant. La elección propia de cada usuario en el Studio (⚙️ Configuración, Mi paleta de colores) siempre tiene prioridad.",
+        "data": {
+          "language": "Idioma",
+          "ask_language": "Preguntar a cada usuario qué idioma usar",
+          "on_color": "Color ENCENDIDO predeterminado",
+          "off_color": "Color APAGADO predeterminado"
+        },
+        "data_description": {
+          "language": "La detección automática sigue el idioma en que Home Assistant se muestra para cada usuario.",
+          "ask_language": "La primera vez que alguien abre el Studio, una breve pregunta le permite elegir un idioma. Desactivado: todos reciben el idioma de arriba.",
+          "on_color": "El color con el que empiezan un nuevo Color del icono, Color de acento o regla de umbral mientras la entidad está encendida. Predeterminado del Studio: el del Studio.",
+          "off_color": "Lo mismo mientras la entidad está apagada."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Detección automática (recomendado)",
+        "en": "English",
+        "de": "Deutsch"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Predeterminado del Studio",
+        "red": "Rojo",
+        "pink": "Rosa",
+        "purple": "Morado",
+        "blue": "Azul",
+        "cyan": "Cian",
+        "teal": "Verde azulado",
+        "green": "Verde",
+        "yellow": "Amarillo",
+        "orange": "Naranja",
+        "grey": "Gris"
+      }
+    }
+  }
+}

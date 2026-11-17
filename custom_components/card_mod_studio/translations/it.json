@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card-Mod Studio",
+        "description": "Aggiunge le impostazioni di Card-Mod Studio a questa pagina. Lo Studio stesso si installa come risorsa della plancia (HACS, il Marketplace o a mano); questa voce contiene solo le sue impostazioni."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card-Mod Studio è già configurato."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Impostazioni di Card-Mod Studio",
+        "description": "Valori predefiniti per tutti in questo Home Assistant. La scelta di un utente nello Studio (⚙️ Impostazioni, La mia tavolozza) ha sempre la precedenza.",
+        "data": {
+          "language": "Lingua",
+          "ask_language": "Chiedi a ogni utente quale lingua usare",
+          "on_color": "Colore ACCESO predefinito",
+          "off_color": "Colore SPENTO predefinito"
+        },
+        "data_description": {
+          "language": "Il rilevamento automatico segue la lingua in cui Home Assistant viene mostrato a ogni utente.",
+          "ask_language": "La prima volta che qualcuno apre lo Studio, una breve domanda gli permette di scegliere una lingua. Disattivato: tutti ricevono la lingua sopra.",
+          "on_color": "Il colore da cui partono un nuovo Colore dell'icona, Colore di accento o regola di soglia mentre l'entità è accesa. Predefinito dello Studio: quello dello Studio.",
+          "off_color": "Lo stesso mentre l'entità è spenta."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Rilevamento automatico (consigliato)",
+        "en": "English",
+        "de": "Deutsch"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Predefinito dello Studio",
+        "red": "Rosso",
+        "pink": "Rosa",
+        "purple": "Viola",
+        "blue": "Blu",
+        "cyan": "Ciano",
+        "teal": "Verde acqua",
+        "green": "Verde",
+        "yellow": "Giallo",
+        "orange": "Arancione",
+        "grey": "Grigio"
+      }
+    }
+  }
+}
