@@ -142,3 +142,29 @@ describe('the panel (rendered handlers)', () => {
     expect(names(p._presets)).toEqual(['fromB']);
   });
 });
+
+describe('rename, move and an overwrite in place (v0.12)', () => {
+  const p = (name: string) => ({ name, state: {} as never });
+  const names = (l: { name: string }[]) => l.map((x) => x.name);
+  const l = [p('a'), p('b'), p('c')];
+
+  it('an overwrite keeps the place; a new name goes last', () => {
+    expect(names(applyPresetChange(l, { kind: 'save', preset: p('b') }))).toEqual(['a', 'b', 'c']);
+    expect(names(applyPresetChange(l, { kind: 'save', preset: p('d') }))).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('rename keeps the place and replaces a preset that had the new name', () => {
+    expect(names(applyPresetChange(l, { kind: 'rename', from: 'b', to: 'B' }))).toEqual(['a', 'B', 'c']);
+    expect(names(applyPresetChange(l, { kind: 'rename', from: 'a', to: 'c' }))).toEqual(['c', 'b']);
+    expect(applyPresetChange(l, { kind: 'rename', from: 'x', to: 'y' })).toBe(l);
+    expect(applyPresetChange(l, { kind: 'rename', from: 'a', to: '' })).toBe(l);
+  });
+
+  it('move puts a preset at an index, clamped', () => {
+    expect(names(applyPresetChange(l, { kind: 'move', name: 'c', index: 0 }))).toEqual(['c', 'a', 'b']);
+    expect(names(applyPresetChange(l, { kind: 'move', name: 'a', index: 1 }))).toEqual(['b', 'a', 'c']);
+    expect(names(applyPresetChange(l, { kind: 'move', name: 'a', index: 99 }))).toEqual(['b', 'c', 'a']);
+    expect(names(applyPresetChange(l, { kind: 'move', name: 'b', index: -3 }))).toEqual(['b', 'a', 'c']);
+    expect(applyPresetChange(l, { kind: 'move', name: 'x', index: 0 })).toBe(l);
+  });
+});

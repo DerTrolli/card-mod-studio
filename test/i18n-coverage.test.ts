@@ -124,6 +124,8 @@ describe('every visible text is translatable', () => {
     ['advanced', 'cms-advanced-module', { state: { rawCss: 'ha-card {' }, open: true, pierced: [{ key: 'ha-gauge$', value: 'x' }] }],
     ['palette', 'cms-palette-manager', { _open: true }],
     ['settings', 'cms-settings', { _open: true }],
+    ['preset manager', 'cms-preset-manager', { _open: true, presets: [{ name: 'Warm', state: {} }, { name: 'Cool', state: {} }], cardState: {}, _armed: 'Cool', _renameError: 'x', _exportText: '{}', _exportNote: 'x', _pasteNote: 'x' }],
+    ['preset manager empty', 'cms-preset-manager', { _open: true, presets: [] }],
     ['language notice', 'cms-language-notice', {}],
   ];
   for (const [name, tag, props] of cases) {

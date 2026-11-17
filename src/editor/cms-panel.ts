@@ -49,6 +49,7 @@ import { initPaletteCache, PALETTE_CHANGED_EVENT } from '../utils/palette-storag
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
 import './cms-settings.js';
+import './cms-preset-manager.js';
 import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
 import { cmsTokens } from '../modules/module-base.js';
 import { hasTopLevelJinjaStatement, templateStatementNote, anyModuleOn } from '../utils/css-lint.js';
@@ -632,11 +633,17 @@ export class CmsPanel extends LitElement {
     // preset must never carry it (audit v0.10 #8).
     // Nor Number size: its units differ per card and it can sit under a
     // hand-written entry (v0.11) — it stays the card's own setting.
-    const { dictSource: _cardDict, ...cardState } = this._studioState;
-    const presetState = { ...cardState, font: presetFont(cardState.font) };
-    const preset = { name: trimmed, state: presetState };
+    const preset = { name: trimmed, state: this._portableState()! };
     this._selectedPreset = trimmed;
     this._commitPresetChange({ kind: 'save', preset });
+  }
+
+  /** This card's styling as a preset stores it: without the card's own
+   *  pierced entries (dictSource) and Number size. */
+  private _portableState(): StudioState | undefined {
+    if (!this._studioState) return undefined;
+    const { dictSource: _cardDict, ...cardState } = this._studioState;
+    return { ...cardState, font: presetFont(cardState.font) } as StudioState;
   }
 
   /** Shows the change at once, writes it against the STORED list (another
@@ -672,6 +679,27 @@ export class CmsPanel extends LitElement {
     if (!name) return;
     const preset = this._presets.find((p) => p.name === name);
     if (!preset) return;
+    this._applyStyleState(preset.state);
+  }
+
+  /** A pasted style (My Presets → Paste) is applied exactly like a preset. */
+  private _onStylePaste(e: CustomEvent<{ state: StudioState }>) {
+    e.stopPropagation();
+    this._selectedPreset = '';
+    this._applyStyleState(e.detail.state);
+  }
+
+  private _onPresetManagerChange(e: CustomEvent<{ change: PresetChange }>) {
+    e.stopPropagation();
+    const change = e.detail.change;
+    if (change.kind === 'rename' && this._selectedPreset === change.from) this._selectedPreset = change.to;
+    if (change.kind === 'delete' && this._selectedPreset === change.name) this._selectedPreset = '';
+    this._commitPresetChange(change);
+  }
+
+  /** Puts a stored or pasted style on this card. */
+  private _applyStyleState(incoming: StudioState) {
+    const preset = { state: incoming };
     // Keep THIS card's preserved Advanced CSS unless the preset itself
     // carries some — the parser went to lengths to preserve unrecognised
     // hand-authored CSS, and a preset from a different card shouldn't be
@@ -1115,6 +1143,12 @@ export class CmsPanel extends LitElement {
           ${this._studioState
             ? html`
                 ${this._isLocked || this._nothingToStyle ? nothing : this._renderPresetBar()}
+                <cms-preset-manager
+                  .presets=${this._presets}
+                  .cardState=${this._isLocked ? undefined : this._portableState()}
+                  @preset-change=${this._onPresetManagerChange}
+                  @style-paste=${this._onStylePaste}
+                ></cms-preset-manager>
                 <cms-palette-manager .hass=${this.hass}></cms-palette-manager>
                 <cms-settings .hass=${this.hass}></cms-settings>
                 ${this._renderNothingToStyleNote()}

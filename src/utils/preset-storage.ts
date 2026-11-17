@@ -109,6 +109,12 @@ function validChange(c: unknown): PresetChange | null {
   if (c.kind === 'save' && isObj(c.preset) && typeof c.preset.name === 'string' && isObj(c.preset.state)) {
     return { kind: 'save', preset: { name: c.preset.name, state: migrateStudioState(c.preset.state) } };
   }
+  if (c.kind === 'rename' && typeof c.from === 'string' && typeof c.to === 'string') {
+    return { kind: 'rename', from: c.from, to: c.to };
+  }
+  if (c.kind === 'move' && typeof c.name === 'string' && typeof c.index === 'number' && Number.isInteger(c.index)) {
+    return { kind: 'move', name: c.name, index: c.index };
+  }
   return null;
 }
 
@@ -139,12 +145,16 @@ function writeUnsynced(changes: PresetChange[]): boolean {
   }
 }
 
-const nameOf = (c: PresetChange) => (c.kind === 'save' ? c.preset.name : c.name);
+/** The one name a save or delete is about (renames and moves touch order or
+ *  two names, so they never supersede anything). */
+const nameOf = (c: PresetChange) => (c.kind === 'save' ? c.preset.name : c.kind === 'delete' ? c.name : undefined);
 
-/** `list` + `change`; an earlier change to the same name is superseded (each
- *  change removes its name first), so repeated saves don't pile up. */
+/** `list` + `change`; an earlier save/delete of the same name is superseded,
+ *  so repeated saves don't pile up. Renames and moves keep their order. */
 function addUnsynced(list: PresetChange[], change: PresetChange): PresetChange[] {
-  return [...list.filter((c) => nameOf(c) !== nameOf(change)), change];
+  const name = nameOf(change);
+  if (name === undefined) return [...list, change];
+  return [...list.filter((c) => nameOf(c) !== name), change];
 }
 
 /**
@@ -182,16 +192,45 @@ async function saveList(presets: StylePreset[], hass: HassSub | undefined): Prom
   return { local, wrote: true };
 }
 
-/** One change a panel makes to the stored list. */
+/**
+ * One change a panel makes to the stored list. The stored shape stays a plain
+ * `[{ name, state }]` in display order, readable by v0.11 (which ignores the
+ * kinds it doesn't know in a device's unsynced backlog).
+ */
 export type PresetChange =
   | { kind: 'save'; preset: StylePreset }
-  | { kind: 'delete'; name: string };
+  | { kind: 'delete'; name: string }
+  /** Keeps the preset's place; a preset already called `to` is replaced. */
+  | { kind: 'rename'; from: string; to: string }
+  /** To position `index` (clamped). */
+  | { kind: 'move'; name: string; index: number };
 
-/** Pure: the list after one change (save adds, or overwrites by name). */
+/** Pure: the list after one change. A save overwrites in place (a new name is
+ *  added at the end); a change about a name that isn't there changes nothing. */
 export function applyPresetChange(list: StylePreset[], change: PresetChange): StylePreset[] {
-  const name = change.kind === 'save' ? change.preset.name : change.name;
-  const without = list.filter((p) => p.name !== name);
-  return change.kind === 'save' ? [...without, change.preset] : without;
+  switch (change.kind) {
+    case 'save': {
+      const at = list.findIndex((p) => p.name === change.preset.name);
+      if (at < 0) return [...list, change.preset];
+      return list.map((p, i) => (i === at ? change.preset : p));
+    }
+    case 'delete':
+      return list.filter((p) => p.name !== change.name);
+    case 'rename': {
+      const from = list.find((p) => p.name === change.from);
+      if (!from || !change.to || change.to === change.from) return list;
+      return list
+        .filter((p) => p.name !== change.to)
+        .map((p) => (p === from ? { ...p, name: change.to } : p));
+    }
+    case 'move': {
+      const at = list.findIndex((p) => p.name === change.name);
+      if (at < 0) return list;
+      const rest = list.filter((_, i) => i !== at);
+      const to = Math.max(0, Math.min(rest.length, change.index));
+      return [...rest.slice(0, to), list[at], ...rest.slice(to)];
+    }
+  }
 }
 
 // Changes from one page run one after another: two quick ones would each
