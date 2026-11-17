@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card-Mod Studio",
+        "description": "Pridá na túto stránku nastavenia Card-Mod Studio. Samotné Studio sa inštaluje ako zdroj ovládacieho panela (HACS, Marketplace alebo ručne); táto položka obsahuje len jeho nastavenia."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card-Mod Studio je už nastavené."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Nastavenia Card-Mod Studio",
+        "description": "Predvolené hodnoty pre všetkých v tomto Home Assistant. Vlastná voľba používateľa v Studiu (⚙️ Nastavenia, Moja paleta farieb) má vždy prednosť.",
+        "data": {
+          "language": "Jazyk",
+          "ask_language": "Opýtať sa každého používateľa na jazyk",
+          "on_color": "Predvolená farba ZAPNUTÉ",
+          "off_color": "Predvolená farba VYPNUTÉ"
+        },
+        "data_description": {
+          "language": "Automatické rozpoznanie sleduje jazyk, v ktorom sa Home Assistant každému používateľovi zobrazuje.",
+          "ask_language": "Keď niekto prvýkrát otvorí Studio, krátka otázka mu umožní vybrať jazyk. Vypnuté: všetci dostanú jazyk vyššie.",
+          "on_color": "Farba, s ktorou začína nová Farba ikony, Farba zvýraznenia alebo prahové pravidlo, keď je entita zapnutá. Predvolené Studia: farba Studia.",
+          "off_color": "To isté, keď je entita vypnutá."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Rozpoznať automaticky (odporúčané)",
+        "en": "English",
+        "de": "Deutsch"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Predvolené Studia",
+        "red": "Červená",
+        "pink": "Ružová",
+        "purple": "Fialová",
+        "blue": "Modrá",
+        "cyan": "Azúrová",
+        "teal": "Modrozelená",
+        "green": "Zelená",
+        "yellow": "Žltá",
+        "orange": "Oranžová",
+        "grey": "Sivá"
+      }
+    }
+  }
+}
