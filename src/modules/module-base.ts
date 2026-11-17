@@ -190,6 +190,9 @@ export const moduleStyles = [
     color: var(--secondary-text-color, #727272);
     flex: 0 0 var(--cms-label-width, 108px);
     min-width: 0;
+    /* a word longer than the column (some languages): hyphenate, else break */
+    hyphens: auto;
+    overflow-wrap: anywhere;
   }
 
   .control-right {

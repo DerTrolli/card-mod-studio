@@ -155,7 +155,7 @@ async function openEverything(page) {
 
 const h = await D.launch({
   rig: RIG,
-  viewport: PHONE ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+  viewport: PHONE ? { width: 390, height: 844 } : { width: 1440, height: Number(process.env.VH) || 900 }, // VH=6000: the whole panel in one screenshot
   hasTouch: PHONE,
   ...(tokensFile ? { tokensFile } : {}),
 });

@@ -70,7 +70,7 @@ import '../modules/module-advanced.js';
 import '../modules/module-heading-style.js';
 import '../modules/module-font.js';
 import '../modules/module-entities-rows.js';
-import { LangController, languageOfHass, setHomeAssistantLanguage, t, tParts } from '../i18n/index.js';
+import { LangController, currentLanguage, languageOfHass, setHomeAssistantLanguage, t, tParts } from '../i18n/index.js';
 
 declare const __APP_VERSION__: string;
 const VERSION = __APP_VERSION__;
@@ -187,6 +187,10 @@ export class CmsPanel extends LitElement {
 
   override updated(changed: Map<PropertyKey, unknown>) {
     super.updated(changed);
+    // The panel's language, for screen readers and for hyphenating long
+    // words in narrow label columns (Russian "Продолжительность").
+    const lang = currentLanguage();
+    if (this.getAttribute('lang') !== lang) this.setAttribute('lang', lang);
     if (changed.has('hass')) {
       // "Auto" follows the language Home Assistant shows for this user.
       setHomeAssistantLanguage(languageOfHass(this.hass));
