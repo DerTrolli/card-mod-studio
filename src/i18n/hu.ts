@@ -13,7 +13,7 @@ export const hu: Record<MessageKey, string> = {
   'base.enableModule': '{module} bekapcsolása',
   'base.entity': 'Entitás',
   'base.entityToWatch': 'Figyelt entitás',
-  'base.thresholdOwnedTitle': 'A Küszöbszínek már beállítja ezt: {what}',
+  'base.thresholdOwnedTitle': 'A Küszöbszínek már beállítja {what}',
   'base.thresholdOwnedBody': ', ezért az itt választott beállítás nem érvényesül. Vegye ki a pipát a(z) „{option}” elől a Küszöbszínek → Alkalmazás erre részben (vagy kapcsolja ki a Küszöbszíneket), hogy ezt a modult újra használhassa.',
   'base.overrideBadge': 'A Haladó CSS saját CSS-e jelenleg felülírja ezt a beállítást',
   'base.overrideTitle': 'Saját CSS jelenleg felülírja ezt a beállítást',

@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card-Mod Studio",
+        "description": "Lisää Card-Mod Studion asetukset tälle sivulle. Itse Studio asennetaan kojelaudan resurssina (HACS, Marketplace tai käsin); tämä merkintä sisältää vain sen asetukset."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card-Mod Studio on jo määritetty."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Card-Mod Studion asetukset",
+        "description": "Oletukset kaikille tässä Home Assistantissa. Käyttäjän oma valinta Studiossa (⚙️ Asetukset, Oma väripaletti) on aina etusijalla.",
+        "data": {
+          "language": "Kieli",
+          "ask_language": "Kysy jokaiselta käyttäjältä kieltä",
+          "on_color": "PÄÄLLÄ-oletusväri",
+          "off_color": "POIS-oletusväri"
+        },
+        "data_description": {
+          "language": "Automaattinen tunnistus seuraa kieltä, jolla Home Assistant näkyy kullekin käyttäjälle.",
+          "ask_language": "Kun joku avaa Studion ensimmäistä kertaa, lyhyt kysymys antaa hänen valita kielen. Pois: kaikki saavat yllä olevan kielen.",
+          "on_color": "Väri, josta uusi Kuvakkeen väri, Korostusväri tai kynnyssääntö alkaa, kun entiteetti on päällä. Studion oletus: Studion oma.",
+          "off_color": "Sama, kun entiteetti on pois."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Tunnista automaattisesti (suositus)",
+        "en": "English",
+        "de": "Deutsch"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Studion oletus",
+        "red": "Punainen",
+        "pink": "Vaaleanpunainen",
+        "purple": "Violetti",
+        "blue": "Sininen",
+        "cyan": "Syaani",
+        "teal": "Sinivihreä",
+        "green": "Vihreä",
+        "yellow": "Keltainen",
+        "orange": "Oranssi",
+        "grey": "Harmaa"
+      }
+    }
+  }
+}
