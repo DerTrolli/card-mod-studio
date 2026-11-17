@@ -212,7 +212,7 @@ export function hasTopLevelJinjaStatement(css: string): boolean {
  *  off" is only true when none is on — a `uix` key can still supply module
  *  state beside a verbatim `card_mod` style. */
 export function templateStatementNote(modulesOn: boolean): string {
-  return `This style uses template statements ({% … %}), so the Studio keeps all of it as written in Advanced CSS${modulesOn ? '.' : ' and the modules stay off.'}`;
+  return t(modulesOn ? 'panel.templateStatementsOn' : 'panel.templateStatementsOff');
 }
 
 /** True when any styling module of the state is switched on. */

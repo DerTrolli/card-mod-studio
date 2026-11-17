@@ -91,14 +91,15 @@ export function renderedText(t: unknown): string {
   if (typeof t !== 'object') return '';
   if (Array.isArray(t)) return (t as unknown[]).map(renderedText).join('');
   const r = t as { strings?: readonly string[]; values?: unknown[] };
-  if (!r.strings) return '';
+  // A directive result (keyed, repeat, …) carries its arguments as values.
+  if (!r.strings) return (r.values ?? []).map(renderedText).join('');
   let out = '';
   r.strings.forEach((s, i) => {
     out += s;
     if (i >= (r.values ?? []).length) return;
     const v = (r.values ?? [])[i];
     const inner = renderedText(v);
-    out += /[\s][\w-]+=$/.test(s) && (typeof v === 'string' || typeof v === 'number') ? `"${inner}"` : inner;
+    out += /[\s][.?]?[\w-]+=$/.test(s) && (typeof v === 'string' || typeof v === 'number') ? `"${inner}"` : inner;
   });
   return out;
 }

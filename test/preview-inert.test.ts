@@ -5,7 +5,7 @@
  * click-to-edit overlay (a sibling) stays outside it.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { FakeCustomElementRegistry, templateText } from './v010-audit-helpers.js';
+import { FakeCustomElementRegistry, renderedText } from './v010-audit-helpers.js';
 import type { CardModCardConfig } from '../src/types/index.js';
 
 const registry = new FakeCustomElementRegistry();
@@ -31,7 +31,7 @@ const renderText = (config: unknown) => {
   p.config = config as CardModCardConfig;
   p.hass = { states: {}, themes: {} };
   p._initState();
-  return templateText(p.render());
+  return renderedText(p.render());
 };
 
 describe('preview is inert', () => {
@@ -79,6 +79,6 @@ describe('the inert preview is announced to assistive technology', () => {
     const p = new Panel();
     p.config = { type: 'tile', entity: 'light.a' } as CardModCardConfig;
     p._initState(); // no hass → no preview
-    expect(templateText(p.render())).not.toContain('preview-sr-note');
+    expect(renderedText(p.render())).not.toContain('preview-sr-note');
   });
 });

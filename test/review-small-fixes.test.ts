@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import type { CSSResultGroup } from 'lit';
-import { FakeCustomElementRegistry, templateText } from './v010-audit-helpers.js';
+import { FakeCustomElementRegistry, renderedText } from './v010-audit-helpers.js';
 import { fakeInput, tplFind, tplNodes } from './ui-template.js';
 import type { CardModCardConfig } from '../src/types/index.js';
 
@@ -119,12 +119,12 @@ describe('preset bar', () => {
     const sel = nodes.find((n) => n.tag.startsWith('<select'))!;
     expect(sel.tag).toContain('aria-label=Load preset');
     const opt = nodes.find((n) => n.tag.startsWith('<option'))!;
-    expect(templateText(p._renderPresetBar())).toContain('>Load preset…</option>');
+    expect(renderedText(p._renderPresetBar())).toContain('>Load preset…</option>');
     expect(opt.tag).not.toMatch(/📋/u);
   });
 
   it('the Save preset emoji is hidden from assistive technology', () => {
-    const text = templateText(open()._renderPresetBar());
+    const text = renderedText(open()._renderPresetBar());
     expect(text).toContain('<span aria-hidden="true">💾</span> Save preset');
   });
 
@@ -132,7 +132,7 @@ describe('preset bar', () => {
     const p = open();
     p._presetsUnsaved = true;
     p._presetsLocalOnly = true;
-    const text = templateText(p._renderPresetBar());
+    const text = renderedText(p._renderPresetBar());
     expect(text).toContain("this browser's storage is full");
     expect(text).not.toContain('saved on this device only');
   });
@@ -164,7 +164,7 @@ describe('palette manager header', () => {
     await import('../src/editor/cms-palette-manager.js');
     type M = { render(): unknown };
     const m = new (registry.get('cms-palette-manager') as new () => M)();
-    expect(templateText(m.render())).toContain('<span aria-hidden="true">🖌️</span> My Color Palette');
+    expect(renderedText(m.render())).toContain('<span aria-hidden="true">🖌️</span> My Color Palette');
   });
 });
 

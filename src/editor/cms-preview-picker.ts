@@ -23,6 +23,7 @@ import {
 } from '../utils/preview-map.js';
 import { entityRowLabels } from '../modules/module-entities-rows.js';
 import type { EntitiesCardRow, HomeAssistant } from '../types/index.js';
+import { t } from '../i18n/index.js';
 
 interface HighlightBox {
   left: number;
@@ -300,7 +301,7 @@ export class CmsPreviewPicker extends LitElement {
     if (!Array.isArray(rows)) return undefined;
     const hass = (cardEl as unknown as { hass?: HomeAssistant }).hass;
     const label = entityRowLabels(hass, rows as Array<EntitiesCardRow | string>).get(rowIndex);
-    return label ? `Entity Rows — ${label}` : undefined;
+    return label ? t('pick.rowChip', { rows: t('rows.title'), row: label }) : undefined;
   }
 
   // ---------------------------------------------------------------------------

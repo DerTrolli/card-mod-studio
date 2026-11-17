@@ -3,7 +3,7 @@
  * name hint, explicit overwrite, two-step delete, name length cap.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
-import { FakeCustomElementRegistry, templateText } from './v010-audit-helpers.js';
+import { FakeCustomElementRegistry, renderedText } from './v010-audit-helpers.js';
 import { mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseCardModConfig } from '../src/parser/yaml-parser.js';
 import type { CardModCardConfig } from '../src/types/index.js';
@@ -51,7 +51,7 @@ const make = (presets: string[] = ['Warm']) => {
   p._initState();
   p._presets = presets.map((name) => ({ name, state: STATE }));
   const bar = () => p._renderPresetBar();
-  const text = () => templateText(bar());
+  const text = () => renderedText(bar());
   const fire = (attr: string, nth = 0, ev: unknown = {}) => {
     const h = handlers(bar()).filter((x) => x.attr === attr);
     expect(h.length, `${attr} #${nth}`).toBeGreaterThan(nth);

@@ -55,7 +55,7 @@ import {
   capsFor,
   panelStateAware,
 } from '../utils/card-caps.js';
-import { childKindLabel, profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
+import { childKindLabel, profileKeyOf, isUnprofiledCustomCard, unprofiledCardNotice } from '../utils/custom-card-profiles.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
 import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
 import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
@@ -73,8 +73,10 @@ import '../modules/module-advanced.js';
 import '../modules/module-heading-style.js';
 import '../modules/module-font.js';
 import '../modules/module-entities-rows.js';
+import { LangController, t, tParts } from '../i18n/index.js';
 
 export class CmsChildCardSection extends LitElement {
+  protected readonly i18n = new LangController(this);
   @property({ attribute: false }) childConfig?: CardModCardConfig;
   @property({ attribute: false }) hass?: HomeAssistant;
   @property({ type: Number }) index = 0;
@@ -262,7 +264,7 @@ export class CmsChildCardSection extends LitElement {
           <span class="module-chevron" aria-hidden="true">${this._open ? '▼' : '▶'}</span>
           <span class="child-title">${label}</span>
           <span class="child-sub">${sub}</span>
-          ${this._isStyled ? html`<span class="styled-dot" title="This card has styling"></span>` : nothing}
+          ${this._isStyled ? html`<span class="styled-dot" title=${t('child.hasStyle')}></span>` : nothing}
         </div>
         ${this._open ? this._renderBody() : nothing}
       </div>
@@ -278,11 +280,7 @@ export class CmsChildCardSection extends LitElement {
 
     const caps = capsFor(profileKeyOf(c), c as unknown as Record<string, unknown>);
     if (caps.isContainer) {
-      return html`<div class="child-note">
-        This child is itself a "${c.type}" container — open it as its own card
-        (or edit its YAML) to style the cards inside it. Nested container
-        styling isn't supported yet.
-      </div>`;
+      return html`<div class="child-note">${t('child.nestedContainer', { type: String(c.type) })}</div>`;
     }
 
     // v0.10: dict-form child styles are editable when the parsed state
@@ -296,13 +294,8 @@ export class CmsChildCardSection extends LitElement {
       // mixed-form gate (audit v0.10 #17).
       return html`<div class="child-note">
         ${hasUnsupportedDictRoot(c.card_mod?.style) || hasUnsupportedDictRoot(c.uix?.style)
-          ? html`🔒 This child's dictionary-form ($ shadow-piercing) style has a
-              <code>.</code> entry that isn't plain CSS, so the Studio can't
-              rebuild it — it is preserved exactly as written.`
-          : html`🔒 Mixed-form styling — this child has a dictionary-form
-              ($ shadow-piercing) style and a different style on the other
-              engine key. The Studio can't edit that combination, so it is
-              preserved exactly as written.`}
+          ? html`🔒 ${tParts('child.dictLocked', { dot: html`<code>.</code>` })}`
+          : html`🔒 ${t('child.mixedLocked')}`}
       </div>${caps.isEntities
         ? html`<div class="child-body"><cms-entities-rows-module
             .hass=${this.hass}
@@ -329,7 +322,7 @@ export class CmsChildCardSection extends LitElement {
           ? html`<div class="child-hint">ℹ️ ${templateStatementNote(anyModuleOn(s))}</div>`
           : nothing}
         ${isUnprofiledCustomCard(c)
-          ? html`<div class="child-hint">ℹ️ ${UNPROFILED_CARD_NOTICE}</div>`
+          ? html`<div class="child-hint">ℹ️ ${unprofiledCardNotice()}</div>`
           : nothing}
 
         ${showHeading

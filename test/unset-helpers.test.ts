@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { FakeCustomElementRegistry, templateText } from './v010-audit-helpers.js';
+import { FakeCustomElementRegistry, renderedText } from './v010-audit-helpers.js';
 import { renderResetButton, renderDefaultOption } from '../src/modules/module-base.js';
 
 const registry = new FakeCustomElementRegistry();
@@ -13,7 +13,7 @@ registry.define('card-mod', class {});
 
 describe('renderResetButton / renderDefaultOption', () => {
   it('the reset button is a named, keyboard-reachable <button>', () => {
-    const t = templateText(renderResetButton(() => {}));
+    const t = renderedText(renderResetButton(() => {}));
     expect(t).toContain('<button');
     expect(t).toContain('type="button"');
     expect(t).toContain('aria-label=');
@@ -31,10 +31,10 @@ describe('renderResetButton / renderDefaultOption', () => {
     expect(r.values).toContain('Reset text size');
   });
   it('the Default option has the empty value and names the native value', () => {
-    expect(templateText(renderDefaultOption(true))).toContain('Default');
+    expect(renderedText(renderDefaultOption(true))).toContain('Default');
     const r = renderDefaultOption(false, 'medium') as unknown as { values: unknown[] };
     expect(r.values).toContain('Default (medium)');
-    expect(templateText(renderDefaultOption(false))).toContain('value=""');
+    expect(renderedText(renderDefaultOption(false))).toContain('value=""');
   });
 });
 
@@ -54,13 +54,13 @@ describe('cms-color-picker clearable', () => {
   it('a normal picker has no clear button (the 50+ other usages are untouched)', () => {
     const p = new Picker();
     p.value = '#ff0000';
-    expect(templateText(p._renderPickerBody())).not.toContain('class="clear"');
+    expect(renderedText(p._renderPickerBody())).not.toContain('class="clear"');
   });
   it('clearable + set value shows a named clear button', () => {
     const p = new Picker();
     p.clearable = true;
     p.value = '#ff0000';
-    const t = templateText(p._renderPickerBody());
+    const t = renderedText(p._renderPickerBody());
     expect(t).toContain('class="clear"');
     expect(t).toContain('aria-label="Reset color to default"');
   });
@@ -68,9 +68,9 @@ describe('cms-color-picker clearable', () => {
     const p = new Picker();
     p.clearable = true;
     p.value = '';
-    const t = templateText(p._renderPickerBody());
+    const t = renderedText(p._renderPickerBody());
     expect(t).not.toContain('class="clear"');
-    expect(templateText(p._renderPickerBody())).toContain('Default');
+    expect(renderedText(p._renderPickerBody())).toContain('Default');
   });
   it('clearing emits color-changed with an empty value', () => {
     const p = new Picker();

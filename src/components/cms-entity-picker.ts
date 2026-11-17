@@ -15,6 +15,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { HomeAssistant } from '../types/index.js';
+import { t } from '../i18n/index.js';
 
 /**
  * Domains whose entities genuinely carry an on/off state that
@@ -101,7 +102,7 @@ export class CmsEntityPicker extends LitElement {
         class="fallback-input"
         type="text"
         .value=${this.value}
-        aria-label=${this.accessibleName || this.label || 'Entity'}
+        aria-label=${this.accessibleName || this.label || t('base.entity')}
         placeholder=${this.placeholder || 'sensor.example'}
         @change=${(e: Event) => this._emit((e.target as HTMLInputElement).value.trim())}
       />

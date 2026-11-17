@@ -12,6 +12,7 @@
 
 import { capsFor } from './card-caps.js';
 import { getCustomCardProfile, emitKeyOf, type ClickRule, type ProfileModule } from './custom-card-profiles.js';
+import { t } from '../i18n/index.js';
 
 /** Viewport rect (client coordinates). */
 export interface PickRect {
@@ -201,14 +202,14 @@ const RULES: PickRule[] = [
       // walk falls through to the entity-row rule there).
       !capsFor(cardType, config).modules.iconColor
         ? null
-        : { module: 'cms-icon-color-module', label: 'Icon Color' },
+        : { module: 'cms-icon-color-module', label: t('icon.title') },
   },
   {
     // Heading card title (.title wraps the p + ha-icon) → Heading Style.
     test: (_el, i, ctx) => ctx.titleIndex !== -1 && i <= ctx.titleIndex,
     target: (cardType, config) =>
       capsFor(cardType, config).modules.headingStyle
-        ? { module: 'cms-heading-style-module', label: 'Heading Style' }
+        ? { module: 'cms-heading-style-module', label: t('heading.title') }
         : null,
     highlightIndex: (_i, ctx) => ctx.titleIndex,
   },
@@ -221,7 +222,7 @@ const RULES: PickRule[] = [
         ? null
         : {
             module: 'cms-accent-color-module',
-            label: cardType === 'gauge' ? 'Gauge / Accent Color' : 'Accent Color',
+            label: cardType === 'gauge' ? t('threshold.prop.gaugeAccent') : t('accent.title'),
           },
   },
   {
@@ -232,7 +233,7 @@ const RULES: PickRule[] = [
     test: (el) => el.tag === 'ha-control-circular-slider',
     target: (cardType) =>
       cardType === 'thermostat'
-        ? { module: 'cms-accent-color-module', label: 'Accent Color' }
+        ? { module: 'cms-accent-color-module', label: t('accent.title') }
         : null,
   },
   {
@@ -240,7 +241,7 @@ const RULES: PickRule[] = [
     test: (el) => el.tag === 'hui-graph-base' || el.tag === 'hui-graph-header-footer',
     target: (cardType) =>
       cardType === 'sensor'
-        ? { module: 'cms-accent-color-module', label: 'Graph / Accent Color' }
+        ? { module: 'cms-accent-color-module', label: t('pick.graphAccent') }
         : null,
   },
   {
@@ -249,7 +250,7 @@ const RULES: PickRule[] = [
     test: (el) => el.tag === 'hui-card-features' || el.tag === 'hui-card-feature',
     target: (cardType) =>
       cardType === 'tile'
-        ? { module: 'cms-accent-color-module', label: 'Features / Accent Color' }
+        ? { module: 'cms-accent-color-module', label: t('pick.featuresAccent') }
         : null,
   },
   {
@@ -266,7 +267,7 @@ const RULES: PickRule[] = [
       // a profile's `emitAs` borrows the built-in card's text matchers (D4)
       (CARD_TEXT_MATCHERS[emitKeyOf(ctx.cardType)]?.(el) ?? false),
     target: (cardType, config) =>
-      !capsFor(cardType, config).modules.font ? null : { module: 'cms-font-module', label: 'Font' },
+      !capsFor(cardType, config).modules.font ? null : { module: 'cms-font-module', label: t('font.title') },
   },
   {
     // A row element on an entities card → the per-row styling module.
@@ -275,7 +276,7 @@ const RULES: PickRule[] = [
     test: (el) => ENTITY_ROW_TAG_RE.test(el.tag),
     target: (cardType, config) =>
       capsFor(cardType, config).isEntities
-        ? { module: 'cms-entities-rows-module', label: 'Entity Rows' }
+        ? { module: 'cms-entities-rows-module', label: t('rows.title') }
         : null,
   },
 ];
@@ -284,10 +285,10 @@ const RULES: PickRule[] = [
  *  first module that styles the card as a whole and is on screen for it. */
 function fallbackTarget(cardType: string, config?: Record<string, unknown> | null): PickTarget {
   const shown = capsFor(cardType, config).modules;
-  if (shown.background) return { module: 'cms-background-module', label: 'Background & card surface' };
-  if (shown.border) return { module: 'cms-border-module', label: 'Border & Radius' };
-  if (shown.filter) return { module: 'cms-filter-module', label: 'Visual Filters' };
-  return { module: 'cms-advanced-module', label: 'Advanced CSS' };
+  if (shown.background) return { module: 'cms-background-module', label: t('pick.surface') };
+  if (shown.border) return { module: 'cms-border-module', label: t('border.title') };
+  if (shown.filter) return { module: 'cms-filter-module', label: t('filter.title') };
+  return { module: 'cms-advanced-module', label: t('advanced.title') };
 }
 
 function buildContext(
@@ -343,7 +344,7 @@ function resolveMatch(
   if (capsFor(cardType, config).isEntities) {
     for (let i = chain.length - 1; i >= 0; i--) {
       if (ENTITY_ROW_TAG_RE.test(chain[i].tag)) {
-        return { target: { module: 'cms-entities-rows-module', label: 'Entity Rows' }, index: i };
+        return { target: { module: 'cms-entities-rows-module', label: t('rows.title') }, index: i };
       }
     }
   }
@@ -397,7 +398,7 @@ function resolveMatch(
       // off the words: not Font here, and no generic marker (`info`, …) may claim it
       const words = textUnder(el, pointer);
       if (!words || !capsFor(cardType, config).modules.font) continue;
-      return { target: { module: 'cms-font-module', label: 'Font' }, index: i, ...(words !== true ? { rect: words } : {}) };
+      return { target: { module: 'cms-font-module', label: t('font.title') }, index: i, ...(words !== true ? { rect: words } : {}) };
     }
     for (const rule of RULES) {
       if (!rule.test(el, i, ctx)) continue;

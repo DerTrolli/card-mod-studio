@@ -34,7 +34,7 @@ import {
   capsFor,
   panelStateAware,
 } from '../utils/card-caps.js';
-import { profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
+import { profileKeyOf, isUnprofiledCustomCard, unprofiledCardNotice } from '../utils/custom-card-profiles.js';
 import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles, refreshPaletteDefaults, applyStudioState, refreshCarrier } from './studio-state.js';
 import { withCardNumberSize, userEntries, numberSizeKind } from '../utils/owned-entries.js';
 import './cms-child-card-section.js';
@@ -64,6 +64,7 @@ import '../modules/module-advanced.js';
 import '../modules/module-heading-style.js';
 import '../modules/module-font.js';
 import '../modules/module-entities-rows.js';
+import { LangController, t, tParts } from '../i18n/index.js';
 
 declare const __APP_VERSION__: string;
 const VERSION = __APP_VERSION__;
@@ -93,6 +94,7 @@ function isDarkTheme(hass: HomeAssistant | undefined): boolean {
 const LOCKED_PICK_MODULES = ['cms-entities-rows-module'] as const;
 
 export class CmsPanel extends LitElement {
+  protected readonly i18n = new LangController(this);
   @property({ attribute: false }) config?: CardModCardConfig;
   @property({ attribute: false }) hass?: HomeAssistant;
 
@@ -1114,15 +1116,15 @@ export class CmsPanel extends LitElement {
                 ${this._renderUnprofiledNotice()}
                 ${this._renderModuleList(settleEntityless(this._studioState, this.config as unknown as Record<string, unknown>))}
               `
-            : html`<div class="no-config">No card selected.</div>`}
+            : html`<div class="no-config">${t('panel.noCard')}</div>`}
         </div>
 
         ${hasPreview
           ? html`
               <div class="preview-col">
-                <span class="preview-col-label">Preview</span>
+                <span class="preview-col-label">${t('panel.preview')}</span>
                 ${this._pickerActive
-                  ? html`<span class="preview-hint">Click any part of the preview to jump to its control</span>`
+                  ? html`<span class="preview-hint">${t('panel.previewHint')}</span>`
                   : nothing}
                 <div class="preview-card-wrapper">
                   ${this._renderPreviewContent()}
@@ -1152,7 +1154,7 @@ export class CmsPanel extends LitElement {
     if (!this.config || !this.hass) return nothing;
     const hasHuiCard = Boolean(customElements.get('hui-card'));
     if (!hasHuiCard) {
-      return html`<p class="preview-unavailable">Preview unavailable — open a card editor first.</p>`;
+      return html`<p class="preview-unavailable">${t('panel.previewUnavailable')}</p>`;
     }
     const previewConfig = this._previewConfig ?? this.config;
     // The picker re-queries its parent for `hui-card` on every hit-test, so
@@ -1170,7 +1172,7 @@ export class CmsPanel extends LitElement {
     // (outside the inert card) is what tells a screen-reader user it exists.
     return html`
       <div class="preview-stage">
-        <span class="preview-sr-note">Live preview of the card (not interactive)</span>
+        <span class="preview-sr-note">${t('panel.previewSr')}</span>
         ${keyed(
           this._previewKey,
           html`<hui-card inert .hass=${this.hass} .config=${previewConfig}></hui-card>`,
@@ -1248,7 +1250,7 @@ export class CmsPanel extends LitElement {
     // read it either), and hide the fact that nothing renders regardless.
     if (!this._cardModPresent && !this._uixPresent) {
       return html`<div class="warning-banner">
-        ⚠️ card-mod/UIX not detected — install one of them first or styles won't apply.
+        ⚠️ ${t('panel.noEngine')}
       </div>`;
     }
 
@@ -1256,33 +1258,29 @@ export class CmsPanel extends LitElement {
     if (atRisk) {
       if (this._uixOnlyUsesMacros) {
         return html`<div class="warning-banner">
-          ⚠️ This card's styling uses UIX-only features (macros/billets, or $$/&amp; selectors) and UIX
-          isn't detected — it won't apply, and card-mod cannot run these features under any key.
-          Reinstall UIX, or restyle this card manually.
+          ⚠️ ${t('panel.uixOnlyMacros')}
         </div>`;
       }
       const what = this._uixOnlyAtRisk && this._uixOnlyRowsAtRisk
-        ? "This card's styling, and one or more entity rows,"
+        ? t('panel.uixOnlyCardAndRows')
         : this._uixOnlyRowsAtRisk
-          ? 'One or more entity rows on this card'
-          : "This card's styling";
+          ? t('panel.uixOnlyRows')
+          : t('panel.uixOnlyCard');
       return html`<div class="warning-banner">
-        ⚠️ ${what} is only under uix: and UIX isn't detected — it won't apply.
-        <button class="btn-banner-action" @click=${this._copyUixStyleToCardMod}>Copy to card_mod</button>
+        ⚠️ ${what}
+        <button class="btn-banner-action" @click=${this._copyUixStyleToCardMod}>${t('panel.copyToCardMod')}</button>
       </div>`;
     }
 
     if (this._uixMacrosCoexist) {
       return html`<div class="info-banner">
-        ℹ️ This card also has uix: macros/billets — studio edits update card_mod:, but UIX will keep
-        rendering your uix: styling unchanged (macros/billets can't be auto-synced).
+        ℹ️ ${t('panel.uixMacrosCoexist')}
       </div>`;
     }
 
     if (this._uixMacroStyleKept) {
       return html`<div class="info-banner">
-        ℹ️ This card's uix: style uses macros/billets. They are kept as they are — the part of the style
-        that calls them stays in Advanced CSS.
+        ℹ️ ${t('panel.uixMacroKept')}
       </div>`;
     }
 
@@ -1293,13 +1291,13 @@ export class CmsPanel extends LitElement {
    *  hint that some may not reach it. Not shown over the lock banner. */
   private _renderUnprofiledNotice() {
     if (this._isLocked || !isUnprofiledCustomCard(this.config)) return nothing;
-    return html`<div class="info-banner">ℹ️ ${UNPROFILED_CARD_NOTICE}</div>`;
+    return html`<div class="info-banner">ℹ️ ${unprofiledCardNotice()}</div>`;
   }
 
   /** A card that renders nothing: say so instead of an empty preview. */
   private _renderNothingToStyleNote() {
     if (this._isLocked || !this._nothingToStyle) return nothing;
-    return html`<div class="info-banner">ℹ️ This card renders nothing, so there is nothing to style — Advanced CSS still applies.</div>`;
+    return html`<div class="info-banner">ℹ️ ${t('panel.nothingToStyle')}</div>`;
   }
 
   private _renderPresetBar() {
@@ -1307,18 +1305,18 @@ export class CmsPanel extends LitElement {
       const name = this._presetName.trim();
       const exists = !!this._presetNamed(name);
       const hint = !name && (this._presetName.length > 0 || this._presetNameTried)
-        ? 'Type a name to save this preset.'
+        ? t('preset.typeName')
         : exists
-          ? `Replaces the existing preset "${name}".`
+          ? t('preset.replaces', { name })
           : '';
       return html`
         <div class="preset-bar ${hint ? 'has-hint' : ''}">
           <input
             class="preset-name"
             type="text"
-            aria-label="Preset name"
+            aria-label=${t('preset.name')}
             aria-describedby=${hint ? 'preset-hint' : nothing}
-            placeholder="Preset name"
+            placeholder=${t('preset.name')}
             maxlength=${PRESET_NAME_MAX}
             .value=${this._presetName}
             @input=${this._onPresetNameInput}
@@ -1328,17 +1326,17 @@ export class CmsPanel extends LitElement {
             class="btn-preset-save"
             ?disabled=${!name}
             @click=${this._saveCurrentAsPreset}
-          ><span aria-hidden="true">💾</span> ${exists ? 'Overwrite' : 'Save'}</button>
-          <button class="btn-preset-cancel" @click=${this._cancelNamingPreset}>Cancel</button>
+          ><span aria-hidden="true">💾</span> ${exists ? t('preset.overwrite') : t('preset.save')}</button>
+          <button class="btn-preset-cancel" @click=${this._cancelNamingPreset}>${t('preset.cancel')}</button>
           ${hint ? html`<div class="preset-hint" id="preset-hint" role="status">${hint}</div>` : nothing}
         </div>
       `;
     }
-    const armedLabel = `Delete '${this._selectedPreset}'?`;
+    const armedLabel = t('preset.deleteArmed', { name: this._selectedPreset });
     return html`
       <div class="preset-bar ${this._presetsLocalOnly || this._presetsUnsaved ? 'has-hint' : ''}">
-        <select aria-label="Load preset" .value=${this._selectedPreset} @change=${this._onPresetSelect}>
-          <option value="">Load preset…</option>
+        <select aria-label=${t('preset.load')} .value=${this._selectedPreset} @change=${this._onPresetSelect}>
+          <option value="">${t('preset.loadEllipsis')}</option>
           ${this._presets.map(
             (p) => html`<option value=${p.name} ?selected=${p.name === this._selectedPreset}>${p.name}</option>`,
           )}
@@ -1346,18 +1344,18 @@ export class CmsPanel extends LitElement {
         ${this._selectedPreset
           ? html`<button
               class="btn-preset-delete ${this._deleteArmed ? 'armed' : ''}"
-              title=${this._deleteArmed ? armedLabel : 'Delete preset'}
-              aria-label=${this._deleteArmed ? armedLabel : `Delete preset '${this._selectedPreset}'`}
+              title=${this._deleteArmed ? armedLabel : t('preset.delete')}
+              aria-label=${this._deleteArmed ? armedLabel : t('preset.deleteNamed', { name: this._selectedPreset })}
               @click=${this._deleteSelectedPreset}
               @blur=${this._disarmDelete}
               @keydown=${this._onPresetDeleteKeydown}
-            >${this._deleteArmed ? 'Delete?' : '×'}</button>`
+            >${this._deleteArmed ? t('preset.deleteQ') : '×'}</button>`
           : nothing}
-        <button class="btn-preset-save" title="Save the current styling as a preset" @click=${this._startNamingPreset}><span aria-hidden="true">💾</span> Save preset</button>
+        <button class="btn-preset-save" title=${t('preset.saveTitle')} @click=${this._startNamingPreset}><span aria-hidden="true">💾</span> ${t('preset.savePreset')}</button>
         ${this._presetsUnsaved
-          ? html`<div class="preset-hint" role="status">Couldn't save this preset — this browser's storage is full.</div>`
+          ? html`<div class="preset-hint" role="status">${t('preset.storageFull')}</div>`
           : this._presetsLocalOnly
-            ? html`<div class="preset-hint" role="status">Couldn't reach your Home Assistant profile — saved on this device only.</div>`
+            ? html`<div class="preset-hint" role="status">${t('preset.localOnly')}</div>`
             : nothing}
       </div>
     `;
@@ -1380,22 +1378,12 @@ export class CmsPanel extends LitElement {
       return html`
         <div class="container-banner">
           ${hasUnsupportedDictRoot(this.config?.card_mod?.style) || hasUnsupportedDictRoot(this.config?.uix?.style)
-            ? html`<strong>🔒 Dictionary-form styling — preserved as-is</strong>
-                This card's dictionary-form (<code>$</code> shadow-piercing)
-                style has a <code>.</code> entry that isn't plain CSS, so the
-                Studio can't rebuild it faithfully. Nothing here will
-                overwrite it — your styling is preserved exactly as written.
-                Make <code>.</code> a plain CSS string in YAML to edit it
-                visually.`
-            : html`<strong>🔒 Mixed-form styling — preserved as-is</strong>
-                This card carries a hand-written dictionary-form
-                (<code>$</code> shadow-piercing) style alongside a different
-                style on the other engine key. The Studio can't rewrite that
-                combination faithfully, so nothing here will overwrite it —
-                your styling is preserved exactly as written. Consolidate to
-                one key in YAML to edit it visually.`}
+            ? html`<strong>🔒 ${t('lock.dictTitle')}</strong>
+                ${tParts('lock.dictBody', { dollar: html`<code>$</code>`, dot: html`<code>.</code>` })}`
+            : html`<strong>🔒 ${t('lock.mixedTitle')}</strong>
+                ${tParts('lock.mixedBody', { dollar: html`<code>$</code>` })}`}
           ${this._isEntitiesCard
-            ? html`Per-row styling below still works as usual.`
+            ? html`${t('lock.rowsStillWork')}`
             : nothing}
         </div>
         ${this._renderEntityRowsModule()}
@@ -1423,7 +1411,7 @@ export class CmsPanel extends LitElement {
           </div>`
         : hasUnrecognisedCss
           ? html`<div class="info-banner">
-              ℹ️ Some existing styles weren't recognised — preserved in Advanced CSS.
+              ℹ️ ${t('panel.unrecognised')}
             </div>`
           : nothing}
 
@@ -1593,12 +1581,8 @@ export class CmsPanel extends LitElement {
       ${childCards
         ? html`
             <div class="container-banner">
-              <strong>🗂️ Layout card — style each child card below</strong>
-              "${cardType}" is a container: styles at this level have no
-              visual effect, so every card inside it gets its own styling
-              section here. Changes are saved into that child's own
-              configuration — exactly what you'd get styling it as a
-              standalone card.
+              <strong>🗂️ ${t('layout.childrenTitle')}</strong>
+              ${t('layout.childrenBody', { type: cardType })}
             </div>
             ${childCards.map(
               (child, i) => html`<cms-child-card-section
@@ -1611,12 +1595,8 @@ export class CmsPanel extends LitElement {
           `
         : html`
             <div class="container-banner">
-              <strong>🗂️ Layout card — child styling isn't supported here yet</strong>
-              "${cardType}" is a container: card-mod styles applied at this
-              level have no visual effect, and this container type doesn't
-              carry an editable <code>cards:</code> list the Studio can offer
-              per-child sections for yet. To style a card inside it today,
-              add the child's <code>card_mod:</code> in YAML by hand.
+              <strong>🗂️ ${t('layout.unsupportedTitle')}</strong>
+              ${tParts('layout.unsupportedBody', { type: cardType, cards: html`<code>cards:</code>`, cardMod: html`<code>card_mod:</code>` })}
             </div>
           `}
 
