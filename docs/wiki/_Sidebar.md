@@ -3,6 +3,7 @@
 **Setup**
 - [Installation](Installation)
 - [Getting Started](Getting-Started)
+- [Integration (Settings page)](Integration) *(new in 0.12, beta)*
 
 **Style modules**
 - [Icon & Accent Color](Icon-Color-and-Accent-Color)

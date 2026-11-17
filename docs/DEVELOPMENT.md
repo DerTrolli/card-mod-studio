@@ -177,11 +177,36 @@ Since v0.12 every piece of interface text goes through `src/i18n/`:
 - `en.ts` is the source: one key per message (`'font.title': 'Font'`),
   grouped by module. `MessageKey` is derived from it, so `t('font.titel')`
   is a type error.
-- Each other language is a `Record<MessageKey, string>` (`de.ts`): a missing
-  key fails `npm run typecheck`. Register it in `LANGUAGES` in
-  `src/i18n/index.ts` with its own name (`Deutsch`, `Nederlands`, …) and add
-  its code to `supportedLanguage()`; it then appears in the language
-  selector and Auto-detect picks it for that Home Assistant language.
+- Each other language is a `Record<MessageKey, string>` (`de.ts`, `pt-BR.ts`,
+  …), named by **Home Assistant's own language code** (`nb`, `pt-BR`,
+  `zh-Hans`, `zh-Hant`): a missing key fails `npm run typecheck`. 22
+  languages ship (v0.12); German is hand-written, the other 20 are machine
+  translations not yet read by native speakers (each file's header says
+  so). `supportedLanguage()` matches Home Assistant's code exactly (any
+  case, `_` or `-`), then `FALLBACKS` (zh-TW → zh-Hant, pt-PT → pt, no/nn →
+  nb, es-419 → es), then the base language, else English.
+- **Use Home Assistant's own words.** `tools/i18n/ha_glossary.py` reads Home
+  Assistant's frontend translation files (copy them out of a rig, see the
+  script's header) and lists, per language, Home Assistant's most common
+  translation of each short Studio term (*Entity*, *Card*, *Icon*,
+  *Background*, *Opacity*, *Features*, the colour names, …) with evidence
+  keys. A translation uses those words, and Home Assistant's register for
+  that language (informal in nl/es/it/pl/pt-BR/sv/da/nb/fi like Home
+  Assistant, formal in fr/pt/cs/sk/hu/ru/uk, polite in zh/ja/ko).
+- **Adding a language:** copy `en.ts` to `<code>.ts` and translate it;
+  register it in `LANGUAGES` in `src/i18n/index.ts` with its own name; add
+  the lower-case code to `LANGUAGE_OPTIONS` in
+  `custom_components/card_mod_studio/const.py` and the name to
+  `selector.language.options` in `strings.json`, `translations/en.json` and
+  every other `translations/*.json`; add
+  `custom_components/card_mod_studio/translations/<code>.json` (the
+  integration's options dialog, same keys as `strings.json`).
+  `test/integration-files.test.ts` fails until all of that is in step.
+  (Home Assistant only allows lower-case option keys, so the integration
+  sends `pt-br`; `toLanguageSetting()` maps it back to `pt-BR`.)
+- **Correcting a translation:** edit the `.ts` file (and the integration's
+  `translations/<code>.json` for the options dialog); the tests below catch
+  a lost placeholder.
 - `t(key, { name })` fills `{name}` placeholders (Jinja's `{{ }}` / `{% %}`
   are left alone). A sentence with markup inside (`<code>`) uses
   `tParts(key, { name: html\`…\` })`. Translate whole sentences; for a noun
@@ -195,14 +220,35 @@ Since v0.12 every piece of interface text goes through `src/i18n/`:
 - A view re-renders on a language change through
   `protected readonly i18n = new LangController(this);` (not `lang`, which
   is an `HTMLElement` property).
-- All languages are bundled (about 10–15 KB of text each); there is no lazy
-  loading.
+- All languages are bundled (about 20–30 KB of text each; the bundle is
+  1,130 kB, 275 kB gzipped, with 22); there is no lazy loading — HACS
+  installs one file.
 - Live checks: the shared launchers (`click-driver.mjs`, `fui/lib.mjs`,
   `release_qa.mjs`, …) pre-answer the one-time language question with
   Auto-detect; `CMS_FIRST_RUN=1` keeps it. `language_check.mjs` covers the
   question, the Settings selector, the per-user setting and German Home
   Assistant — it changes the rig user's Studio settings (and clears them
-  again), so run it on its own.
+  again), so run it on its own. `languages_sweep_check.mjs` switches
+  through every language with the real Settings selector, with every module
+  on and every section open, and fails on panel text that sticks out
+  sideways or is cut off (`PHONE=1` for 390 px; `ONLY=de,ja` for some).
+
+## The integration
+
+`custom_components/card_mod_studio/` is an optional Home Assistant
+integration (one config entry, options only, no entities): site-wide
+language, whether users are asked, default ON/OFF colours. The Studio reads
+them over the websocket commands `card_mod_studio/config` and
+`card_mod_studio/subscribe` (pushed on every options change), only when
+`hass.config.components` includes `card_mod_studio`. Precedence: the user's
+own choice → the site default → Auto-detect / the Studio's colours.
+`manifest.json`'s version must equal `package.json`'s (a test and the
+release workflow check it); the release attaches it as
+`card_mod_studio.zip`. To try it on a rig, copy the folder into the rig's
+`config/custom_components/` (gitignored in `tools/sandbox/config`), restart
+the container, and run `integration_check.mjs` (`TOKENS_FILE=` for another
+rig): add the entry, change the options in Home Assistant's own dialog, and
+watch the Studio follow.
 
 ---
 

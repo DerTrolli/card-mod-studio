@@ -160,23 +160,35 @@ A raw CSS editor for anything the visual modules don't cover. Your CSS is append
 
 Save the full style configuration of any card as a **named preset** and restore it on any other card in one click. Presets are stored per-user in HA's backend (`frontend/get_user_data`) so they sync automatically across every device and browser logged in as the same HA user. localStorage is also written as an instant local fallback.
 
+**📚 My Presets** *(new in 0.12, beta)* lists them: rename, move up/down, duplicate and delete. It can also **copy a card's style or all your presets as text** and paste them onto another card, for another user or into another Home Assistant (the text carries the Studio's settings, so the other side needs Card-Mod Studio too). See [Presets & My Color Palette](../../wiki/Presets-and-My-Color-Palette).
+
 ### My Color Palette
 
 Define named custom colors once and they appear as extra swatches in **every** color picker — card-level modules, threshold rules, and per-row controls alike. You can also override the built-in default ON/OFF colors that a freshly-enabled Icon Color/Accent Color module (and every new threshold rule) starts from. Stored per HA user, same cross-device sync as presets. Cards keep the colour they were given: changing or removing an entry doesn't restyle cards that already use it. A change made while Home Assistant can't be reached is kept and sent later.
 
 ### Language *(new in 0.12, beta)*
 
-The Studio's own text is in **English** or **German (Deutsch)**. The first time you open it, a short notice asks which language to use — **Auto-detect** (recommended) follows the language Home Assistant shows for you — and you can change it any time under **⚙️ Settings**, right below My Color Palette. The choice is stored per HA user, so it's asked once, not on every device. The generated YAML/CSS is the same in every language. Other languages are welcome as contributions (about 350 short messages); see the [Language & Settings](../../wiki/Language-and-Settings) wiki page.
+The Studio's own text comes in **22 languages**: English, Deutsch, Nederlands, Français, Español, Italiano, Polski, Português, Português (Brasil), Svenska, Dansk, Norsk bokmål, Čeština, Slovenčina, Magyar, Suomi, Русский, Українська, 简体中文, 繁體中文, 日本語 and 한국어. English and German are written by hand; **the other 20 are machine translations, not yet read by native speakers**, that use Home Assistant's own word wherever Home Assistant has one (its translation of *entity*, *card*, *icon*, …), so the Studio reads like the rest of Home Assistant. Corrections are very welcome as issues.
+
+The first time you open it, a short notice asks which language to use — **Auto-detect** (recommended) follows the language Home Assistant shows for you — and you can change it any time under **⚙️ Settings**, right below My Color Palette. The choice is stored per HA user, so it's asked once, not on every device. The generated YAML/CSS is the same in every language. See [Language & Settings](../../wiki/Language-and-Settings).
+
+### Settings page for administrators *(new in 0.12, beta, optional)*
+
+An optional **Card-Mod Studio integration** adds an entry under **Settings → Devices & services** where an administrator sets defaults for everyone: the language, whether users are asked for one, and the default ON/OFF colours. A user's own choice still wins. It's installed by hand from the release's `card_mod_studio.zip` (see [Installation](#optional-the-settings-integration)) and is translated into the same 22 languages.
+
+### Tile Features *(new in 0.12, beta)*
+
+On the tile card, a **Features** module styles the feature rows under it (brightness slider, cover buttons, …): row height, corner radius and colour. Empty colour = Home Assistant's state colour, as before. See [Tile](../../wiki/Tile-Card).
 
 ---
 
 ## Styling the cards inside a stack
 
-Vertical-stack, horizontal-stack, and grid cards show **one styling section per child card**, each with the full module set for that child's card type — a gauge child gets the gauge treatment, a tile child the tile treatment, and an entities-card child even gets its per-row section. Changes are written into that child's own `card_mod:`/`uix:` block inside the stack config — exactly the YAML you'd get styling it standalone — and the live preview shows the whole stack update as you edit.
+Vertical-stack, horizontal-stack, grid, `conditional` and `entity-filter` cards show **one styling section per child card**, each with the full module set for that child's card type — a gauge child gets the gauge treatment, a tile child the tile treatment, and an entities-card child even gets its per-row section. Changes are written into that child's own `card_mod:`/`uix:` block inside the stack config — exactly the YAML you'd get styling it standalone — and the live preview shows the whole stack update as you edit.
 
 <img src="images/08%20Stack%20Children.png" alt="Per-child styling sections on a vertical stack" width="1024">
 
-Not covered yet: containers nested inside containers, and `conditional` cards.
+New in 0.12 (beta): **containers inside containers** (a stack in a stack, a grid in a conditional, …) get nested sections at any depth, and `conditional` / `entity-filter` cards a section for the card inside them. Not covered yet: `sections` view containers and custom containers such as layout-card. See [Containers](../../wiki/Container-Cards).
 
 ---
 
@@ -205,7 +217,7 @@ Both row forms work — `- entity: sensor.x` and the plain-string shorthand `- s
 
 The panel adapts to the card type so you never see irrelevant controls:
 
-- **Container cards** (`grid`, `vertical-stack`, `horizontal-stack`) — per-child styling sections (see above); other containers (`sections`, `conditional`) show an explanatory banner
+- **Container cards** (`grid`, `vertical-stack`, `horizontal-stack`, `conditional`, `entity-filter`, and containers nested in them) — per-child styling sections (see above); other containers show an explanatory banner
 - **Heading cards** — replaces icon/accent controls with the Heading Style module
 - **Light cards** — Icon Color gains an automatic mode that mirrors the light's actual color
 - **Entities cards** — hides card-level Icon Color and Accent Color, and offers Threshold Colors for the card frame only (Background, Text Color, Border Color); icon and text colours per row live in the rows section
@@ -275,6 +287,17 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
    - URL: `/local/card-mod-studio.js?v=0.12.0-beta.1`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
+
+### Optional: the Settings integration
+
+*(new in 0.12, beta)* For the administrator's defaults described [above](#settings-page-for-administrators-new-in-012-beta-optional). HACS and the Marketplace install Card-Mod Studio as a dashboard plugin and can't add an integration from the same repository, so this part is manual:
+
+1. Download `card_mod_studio.zip` from the same release as the Studio
+2. Unzip it into your config folder, so that `config/custom_components/card_mod_studio/manifest.json` exists
+3. Restart Home Assistant
+4. **Settings → Devices & services → + Add integration → Card-Mod Studio → Submit**, then **Configure** on the entry
+
+Details: [Integration](../../wiki/Integration).
 
 > **Cards unstyled after a reload?** If styled cards show up unstyled after a
 > page reload and come right after you navigate away and back, card-mod is
@@ -470,7 +493,10 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 25 | Mushroom (5.2.3) and Bubble Card (3.x: button, slider button, separator, cover) support via per-card profiles, click-to-edit for their parts, entities-card row labels follow HA 2026.11 naming, Alert card gating | ✅ v0.11.0 (beta.2; Mushroom and Bubble Card support stays a beta) |
 | 26 | Release-review round: controls you switch on but don't touch write nothing (Heading Style, Font, Icon Color incl. a "Keep the card's colour" mode); a conditional Background/Border keeps the card's own look while off; no entity-based conditions on entity-less cards or for entities that are never on/off; gauge Number size 50–130 % with 100 % = Home Assistant's size; Animation on nearly every built-in card (presets left out where they can't work), card-level Threshold Colors on the entities card, Icon Color on the statistic card, a per-card maximum icon size; Font reaches more text; a notice on custom cards without a profile; Advanced CSS, colour and number input checks; keyboard, screen-reader and touch work; click-to-edit for more card parts; palette and presets keep changes made while Home Assistant is unreachable; Enter no longer saves the dialog on HA 2025.9–2026.2 | ✅ v0.11.0 (beta.3; verified on four rigs, see Compatibility) |
 | 27 | Read-back fixes found by replaying 217,000 styles of every release since v0.8.1 and by fuzzing: a Font without a size next to Threshold Colors and Threshold rules pointing both ways are read back into their modules; hand-written `!important`, `border-radius: 0px`, `border: 0px solid …` and heading-card selectors on other cards are no longer rewritten on save (cards and entities rows); repeatable checks in `tools/continuity/` | ✅ v0.11.0 |
-| 28 | The Studio in German: every text through one dictionary (English and German, about 350 messages), a one-time language question (Auto-detect recommended, follows Home Assistant's language), a ⚙️ Settings section with the language selector that switches the open panel at once, stored per HA user | 🧪 v0.12.0 (beta.1) |
+| 28 | The Studio in 22 languages: every text through one dictionary (about 390 messages; English and German by hand, 20 more machine-translated with Home Assistant's own terms), a one-time language question (Auto-detect recommended, follows Home Assistant's language), a ⚙️ Settings section with the language selector that switches the open panel at once, stored per HA user | 🧪 v0.12.0 (beta.1) |
+| 29 | Optional integration (Settings → Devices & services): site-wide language, language question on/off, default ON/OFF colours, pushed live to open Studios; translated into the same 22 languages | 🧪 v0.12.0 (beta.1) |
+| 30 | Structure: `conditional` and `entity-filter` cards, containers nested inside containers (any depth, entities rows and tile Features inside), tile **Features** module (height, corner radius, colour) | 🧪 v0.12.0 (beta.1) |
+| 31 | 📚 My Presets: rename, reorder, duplicate, delete; copy/paste a card's style or all presets as text | 🧪 v0.12.0 (beta.1) |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

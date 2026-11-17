@@ -32,6 +32,33 @@ and sent to Home Assistant when it is reachable again (the bar tells you it
 was "saved on this device only"). If this browser's storage is full too, it
 says the change can't be saved.
 
+### 📚 My Presets *(new in 0.12, beta)*
+
+A section below the preset bar that lists your presets in their order:
+
+- **Rename** — click the name, type, Enter (a name that's taken is refused
+  and the field says why).
+- **↑ / ↓** — move a preset up or down; the bar's list follows.
+- **⧉** — duplicate it, right below, as "… (copy)".
+- **×** — delete it (press twice).
+
+### Share a style or your presets *(new in 0.12, beta)*
+
+Also in 📚 My Presets:
+
+- **Copy this card's style** or **Copy all presets** puts a short text on
+  the clipboard (where the browser doesn't allow that — Home Assistant
+  without https — the text is shown selected, ready for Ctrl+C / ⌘C).
+- **Paste** text copied that way into the field and press **Apply**: a
+  style is applied to the open card (save the card to keep it), presets are
+  added to your list (a name that's already taken gets a number).
+
+The text carries the Studio's settings, not CSS, so the place you paste it
+into needs Card-Mod Studio too — another card, another user, another Home
+Assistant. It doesn't carry the card's own hand-written entries or number
+sizes. Anything that isn't a Studio text is refused with an explanation and
+changes nothing.
+
 Loading a preset keeps the current card's hand-written Advanced CSS unless
 the preset itself carries Advanced CSS — a preset from a different card
 won't silently wipe your custom rules.

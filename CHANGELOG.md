@@ -7,68 +7,121 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.12.0-beta.1] — 2026-11-17
 
-The Studio in German. Every text in the panel now comes from one dictionary,
-in English and German, and the Studio asks once which language you want.
-A pre-release because the German text still needs a native speaker's read.
+The Studio in 22 languages, an optional Settings page for administrators,
+and the structure items planned for v1.0: `conditional` and `entity-filter`
+cards, containers inside containers, tile Features, and a preset manager
+with copy/paste. A pre-release because 20 of the languages are machine
+translations nobody has read yet, and the new features want real-world use.
 
 ### Added
 
-- **German (Deutsch).** Every module, label, hint, warning, notice and the
-  CSS checks in Advanced CSS; Home Assistant's own terms (Entität, Karte,
-  Symbol), informal "du". The generated YAML/CSS is the same in every
-  language.
+- **22 languages.** Every module, label, hint, warning, notice and the CSS
+  checks in Advanced CSS: English, Deutsch, Nederlands, Français, Español,
+  Italiano, Polski, Português, Português (Brasil), Svenska, Dansk, Norsk
+  bokmål, Čeština, Slovenčina, Magyar, Suomi, Русский, Українська, 简体中文,
+  繁體中文, 日本語, 한국어. English and German are written by hand. **The
+  other 20 are machine translations, not yet read by native speakers**;
+  each uses Home Assistant's own word wherever Home Assistant has one (its
+  translation of *entity*, *card*, *icon*, *background*, *opacity*,
+  *features*, the colour names, …, taken from Home Assistant's translation
+  files) and Home Assistant's register for that language. The generated
+  YAML/CSS is the same in every language.
 - **A one-time language question.** The first time the Studio opens, a
   notice at the top of the panel asks which language to use, with
   **Auto-detect (recommended)** preselected: it follows the language Home
-  Assistant shows for you (German for any German variant, otherwise
-  English) and names what it picked. The notice takes no focus and blocks
-  nothing; until it is answered the Studio uses Auto-detect.
-- **⚙️ Settings**, a new section right below My Color Palette, with the **Language** selector: Auto-detect, English, Deutsch.
-  A change applies to the open panel at once; open sections stay open.
-- The choice is stored **per Home Assistant user** (like presets and the
-  palette), so it is asked once, not on every device; a copy in the browser
-  covers the moments Home Assistant can't be reached, and a choice made then
-  is sent up later. On another device the question waits until Home
-  Assistant's copy has been read, so it isn't asked again there.
+  Assistant shows for you, including regional variants (de-CH → Deutsch,
+  zh-TW → 繁體中文, pt-PT → Português, es-419 → Español, no/nn → Norsk
+  bokmål), else English, and names what it picked. The notice takes no
+  focus and blocks nothing; until it is answered the Studio uses
+  Auto-detect.
+- **⚙️ Settings**, a new section right below My Color Palette, with the
+  **Language** selector. A change applies to the open panel at once; open
+  sections stay open. The choice is stored **per Home Assistant user**
+  (like presets and the palette), so it is asked once, not on every device;
+  a copy in the browser covers the moments Home Assistant can't be reached,
+  and a choice made then is sent up later. On another device the question
+  waits until Home Assistant's copy has been read, so it isn't asked again.
+- **An optional integration** — a Card-Mod Studio entry under **Settings →
+  Devices & services** where an administrator sets defaults for everyone:
+  the language, whether users are asked for one, and the default ON/OFF
+  colours (one of Home Assistant's named colours, or the Studio's own). A
+  user's own choice still wins. Changes reach every open Studio at once.
+  The options dialog is translated into the same 22 languages. Installed by
+  hand from `card_mod_studio.zip`, attached to the release (HACS and the
+  Marketplace install the Studio as a dashboard plugin and can't add an
+  integration from the same repository).
+- **`conditional` and `entity-filter` cards** get a styling section for the
+  card inside them, saved into that card. An `entity-filter` without its
+  own `card:` shows Home Assistant's default entities card, and styling it
+  writes that `card:` so the style has somewhere to live.
+- **Containers inside containers** — a stack in a stack, a grid in a
+  conditional, … — get nested sections at any depth, each saved into
+  exactly its card; entities rows and tile Features work inside them too.
+- **Tile Features**: a Features module on the tile card styles the feature
+  rows under it (brightness slider, cover buttons, …) — height (24–96 px),
+  corner radius (0–40 px) and colour (empty = Home Assistant's state colour,
+  as before). Measured on card-mod and UIX on Home Assistant 2026.11 and
+  on 2025.9 before it was built.
+- **📚 My Presets**: a list of your presets with rename, move up/down,
+  duplicate and delete (press twice).
+- **Copy / paste styles**: copy a card's style or all your presets as text
+  and paste it onto another card, for another user or into another Home
+  Assistant. The text carries the Studio's settings (not CSS), so the other
+  side needs Card-Mod Studio; it doesn't carry the card's own hand-written
+  entries or number sizes. Where the browser doesn't allow copying (Home
+  Assistant without https), the text is shown selected for Ctrl+C / ⌘C.
+  Anything that isn't a Studio text is refused with an explanation.
 
 ### Changed
 
-- The bundle is 56 kB larger (553 → 609 kB, 133 → 146 kB gzipped): the
-  dictionary layer and both languages (about 350 messages, around 1,500
-  words each).
-- English text is unchanged.
+- Overwriting a preset keeps its place in the list (it used to move to the
+  end).
+- The Default ON/OFF rows of My Color Palette show the administrator's
+  default when one is set ("for everyone: …").
+- The bundle doubles with the languages: 553 → 1,130 kB (133 → 275 kB
+  gzipped). All languages are in the one file, as HACS installs one file.
+- English text is unchanged apart from the new features.
 
 ### Known limits
 
-- Only English and German. Other languages (Dutch, …) are welcome as
-  contributions — see "Translations" in `docs/DEVELOPMENT.md`.
-- With Home Assistant in German on a phone, Home Assistant's own dialog
-  footer labels wrap; that is Home Assistant's text, not the Studio's.
+- The 20 machine translations may read awkwardly in places; corrections
+  are welcome as issues or pull requests.
+- `sections` view containers and custom containers (layout-card, …) still
+  show a banner instead of per-card sections.
+- With Home Assistant in a language with long words, on a phone, Home
+  Assistant's own dialog footer labels can wrap; that is Home Assistant's
+  text, not the Studio's.
 
 ### Verified
 
 With the release build (the same file on every rig):
 
-- A new language check (`tools/sandbox/harness/language_check.mjs`, real
-  mouse, keyboard and touch input in the real card editor): the question on
-  first run with Auto-detect preselected and named; a module opens while it
-  is shown; Deutsch + OK switches at once and is stored for the HA user;
-  Settings → English and → Auto-detect switch the open panel live, the
-  open section stays open; on a second browser with empty storage the
-  question never shows and the panel is German; with Home Assistant in
-  German at 390 px the panel is German before answering, Auto-detect names
-  Deutsch and the question fits the width. 13 of 13 on Home Assistant
-  2026.11.0 with card-mod 4.2.1 and with UIX 9.0.0, on 2026.2.3 (card-mod
-  4.2.1) and on 2025.9.4 (card-mod 3.4.5). Console errors of Home
-  Assistant's and the engines' own (listed in the check) are not counted.
-- The read-back check: 6 of 6 on HA 2026.11.0 with card-mod and with UIX.
-- In English on HA 2026.11.0, with the build of `2bd5788` (before the
-  version number and the second-device fix; nothing else changed since): the check suite 21 of 21 (card-mod) and 19 of 19 (UIX),
-  the functional check of every control 489 of 489 and 491 of 491.
-- Unit tests 3,228 of 3,228, including a scan that renders the panel, every
-  module and the pickers in a pseudo-language and fails on any English text
-  outside the dictionary, and a check that both languages have every
-  message with the same placeholders.
+- **Every language, live:** a new check
+  (`tools/sandbox/harness/languages_sweep_check.mjs`) switches through all
+  22 languages with the real Settings selector, on a vertical stack holding
+  a tile with a feature row and an entities card, with every module on and
+  every one of the 26 sections open, and fails on panel text that sticks
+  out sideways or is cut off: 23 of 23 at 1440 px and at 390 px on Home
+  Assistant 2026.11.0 with card-mod 4.2.1, 23 of 23 at 1440 px with UIX
+  9.0.0.
+- **The integration** (`integration_check.mjs`, Home Assistant's own UI with
+  real input): add it, a second add is refused, Configure → Português
+  (Brasil) / ON colour Green / ask off → the Studio follows (Portuguese, no
+  question, Icon Color starts green): 7 of 7 on Home Assistant 2026.11.0
+  and on 2025.9.4. Home Assistant serves the options dialog's own
+  translations (checked in Japanese and Korean, all 23 language options).
+- **The one-time question and Settings** (`language_check.mjs`): 13 of 13
+  with card-mod and with UIX on 2026.11.0.
+- **Presets** (`presets_check.mjs`) 11 of 11, **containers**
+  (`containers_check.mjs`) 6 of 6, **tile Features**
+  (`features_check.mjs`) 5 of 5 — each with card-mod and with UIX on
+  2026.11.0.
+- In English: SUITE_PLACEHOLDER
+- Unit tests 3,277 of 3,277, including every language's completeness and
+  placeholders, a scan that renders the panel, every module and the pickers
+  in a pseudo-language and fails on any English text outside the
+  dictionary, and the integration's files in step with the Studio
+  (version, languages, translation keys).
 
 ## [0.11.0] — 2026-11-12
 

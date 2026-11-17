@@ -62,22 +62,29 @@ effects, icon size).
 - Glance icon color stays out: even shadow-piercing styles don't reach it
   ([why](Glance-Card#why-no-icon-color)).
 
-## v0.12 (beta) — the Studio in German
+## v0.12 (beta) — languages, a Settings page, and the v1.0 structure items
 
-- **English and German**, with a one-time language question (Auto-detect
-  recommended) and a **⚙️ Settings** section to change it; see
-  [Language & Settings](Language-and-Settings) (v0.12.0-beta.1).
-- More languages (Dutch, …) when a native speaker contributes and reviews
-  them.
+- **22 languages**, with a one-time language question (Auto-detect
+  recommended) and a **⚙️ Settings** section to change it; English and German
+  by hand, the other 20 machine-translated with Home Assistant's own terms
+  and not yet read by native speakers — see
+  [Language & Settings](Language-and-Settings).
+- **An optional integration** (Settings → Devices & services) for site-wide
+  defaults: language, whether users are asked, default ON/OFF colours — see
+  [Integration](Integration).
+- **`conditional` and `entity-filter` cards, and containers nested inside
+  containers** — see [Containers](Container-Cards).
+- **Tile Features** — height, corner radius and colour of the feature rows;
+  see [Tile](Tile-Card#features-new-in-012-beta).
+- **📚 My Presets** — rename, reorder, duplicate, delete; and **copy / paste**
+  a card's style or all presets as text — see
+  [Presets](Presets-and-My-Color-Palette).
 
-## v1.0 — structural completeness
+## v1.0 — confidence
 
-- `conditional` cards and containers nested inside containers
-  ([current status](Container-Cards#not-covered-yet))
-- Tile **feature-row** styling (trend graph, bar gauge, controls) with
-  dedicated controls
-- Preset management UX (rename/duplicate/reorder) and style
-  **import/export** (copy a card's style to the clipboard, paste elsewhere)
+With the structure items in v0.12, v1.0 is about confidence rather than new
+features: native speakers' corrections to the translations, real-world
+reports on the v0.12 betas, and `sections` view containers.
 
 ## Post-1.0 stretch
 

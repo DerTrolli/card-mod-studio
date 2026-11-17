@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-11-17 · **In progress:** v0.12.0-beta.1 — the Studio in German (English + German, a one-time language question with Auto-detect, a ⚙️ Settings section with the language selector; see "Recently shipped (v0.12.0-beta.1)") · **Current stable:** v0.11.0 (2026-11-12) — "Reach": Mushroom and Bubble Card support (beta), Font → Number size on the gauge and the thermostat, controls that write only what you set, a conditional Background/Border that keeps the card's own look while off, Animation on nearly every built-in card, a notice on custom cards without a profile, keyboard / screen-reader / touch work, input checks, and seven read-back fixes found by replaying the styles of every release since v0.8.1 — on top of v0.10.2 (the HA 2026.11 maintenance release). Three pre-releases led up to it (beta.1 2026-10-27, beta.2 2026-11-10, beta.3 2026-11-11). Open GitHub issues: none. Next: **v1.0** — see "Path to v1.0" and "Open after v0.11.0" below. Plans of finished cycles (historical): [`docs/V0.11_PLAN.md`](V0.11_PLAN.md), [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
+**Last updated:** 2026-11-17 · **In progress:** v0.12.0-beta.1 — 22 languages (a one-time language question with Auto-detect, a ⚙️ Settings section), an optional integration for site-wide defaults (Settings → Devices & services), and the v1.0 structure items: `conditional`/`entity-filter` cards, containers nested in containers, tile Features, 📚 My Presets with copy/paste; see "Recently shipped (v0.12.0-beta.1)" · **Current stable:** v0.11.0 (2026-11-12) — "Reach": Mushroom and Bubble Card support (beta), Font → Number size on the gauge and the thermostat, controls that write only what you set, a conditional Background/Border that keeps the card's own look while off, Animation on nearly every built-in card, a notice on custom cards without a profile, keyboard / screen-reader / touch work, input checks, and seven read-back fixes found by replaying the styles of every release since v0.8.1 — on top of v0.10.2 (the HA 2026.11 maintenance release). Three pre-releases led up to it (beta.1 2026-10-27, beta.2 2026-11-10, beta.3 2026-11-11). Open GitHub issues: none. Next: **v1.0** — see "Path to v1.0" and "Open after v0.11.0" below. Plan of this cycle: [`docs/V0.12_PLAN.md`](V0.12_PLAN.md). Plans of finished cycles (historical): [`docs/V0.11_PLAN.md`](V0.11_PLAN.md), [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -27,8 +27,8 @@ dashboard layouts. Rough shape (effort, not calendar time):
 | v0.9 ✅ | Discoverability + state-aware depth | **Shipped** — click-to-edit preview picker (hover names the owning control, click jumps to it; per-card coverage across all 17 supported types); 4 new animation presets; value-conditional animations; the shared "Reacts to" condition on border width / filter effects (+ new opacity) / icon size (+ new control, probed-safe cards only); duplicate-row + rgb()-threshold + filter-flattening fixes; UIX Forge key preservation. Dict-form/`$`-pierce (item #1) deliberately moved out to v0.10. |
 | v0.10 ✅ | Piercing + polish | **Shipped (2026-10-04)** — see below. Dict-form/`$`-pierce styles are editable (the `.` entry runs through every module; every other entry is preserved byte-identically and shown read-only in Advanced CSS; cards, stack children and entities rows — items #1/#23); Heading Style rebuilt on HA's own `--ha-heading-card-*` variables so it works on HA 2026.10 (+ Subtitle headings); a 20-bug audit of how hand-written CSS survives an edit; light/dark/phone overhaul and keyboard access for the editor UI; re-verified on HA 2026.9.4 and 2026.10.0b0 with card-mod 4.2.1 and UIX 8.3.1. Plan (historical, incl. live feasibility probes): [`docs/V0.10_PLAN.md`](V0.10_PLAN.md). The planned Font size unlocks moved to v0.11. Glance icon color was probed and is NOT achievable (inline per-state style) — stays a documented limitation. |
 | v0.11 ✅ | Reach — Font size unlocks + Mushroom/Bubble | **Shipped (2026-11-12)** — see below. Font → Number size on the gauge value and the thermostat big number; Mushroom (5.2.3, all 18 types) and Bubble Card (3.x: button, slider button, separator, cover) through per-card profiles, in beta, with click-to-edit for their parts; a notice on custom cards without a profile; controls you switch on but don't touch write nothing; a conditional Background/Border keeps the card's look while off; Animation on 19 more built-in cards, card-level Threshold Colors on the entities card, Icon Color on the statistic card; keyboard, screen-reader and touch work; HA 2026.10/2026.11 fixes; read-back fixes from a replay of every release's styles. Plan: [`docs/V0.11_PLAN.md`](V0.11_PLAN.md), evidence in [`docs/research/2026-10-v0.11.md`](research/2026-10-v0.11.md) and [`docs/research/2026-11-v0.11.0-release-qa.md`](research/2026-11-v0.11.0-release-qa.md). |
-| v0.12 🧪 | Language | **In beta (0.12.0-beta.1, 2026-11-17)** — see below. Every interface text through one dictionary; English and German; a one-time language question (Auto-detect recommended) and a ⚙️ Settings section, stored per HA user. More languages need a native-speaker contributor. |
-| v1.0 | Structural completeness | The remaining container gaps (item #7 — `conditional` cards, containers nested in containers, per-row styling of nested entities cards) + tile feature-row styling (item #9) + preset/import-export polish (items #12/#13). |
+| v0.12 🧪 | Language + structure | **In beta (0.12.0-beta.1, 2026-11-17)** — see below. Every interface text through one dictionary, in 22 languages (English and German by hand, 20 machine-translated with Home Assistant's own terms, unreviewed); a one-time language question and a ⚙️ Settings section, stored per HA user; an optional integration for site-wide defaults. Also the structure items planned for v1.0: `conditional` and `entity-filter` cards, containers nested in containers with entities rows inside (item #7), tile Features (item #9), 📚 My Presets with rename/reorder/duplicate and style copy/paste (items #12/#13). |
+| v1.0 | Confidence | The structure items moved into v0.12. What's left: native speakers' corrections to the 20 machine translations, real-world reports on the v0.12 betas, `sections` view containers. |
 | Post-1.0 | Stretch | Further custom cards beyond Mushroom/Bubble (now v0.11), Bubble pop-ups, UIX Forge/sparks support (item #28 — new in the 2026-08 engine audit), a multi-entity AND/OR condition builder, a visual animation builder, bulk dashboard key migration (item #22). |
 
 ## Recently shipped (v0.11.0)
@@ -147,26 +147,57 @@ live on HA 2026.10.4 with card-mod 4.2.1 and UIX 8.4.0.
 
 ## Recently shipped (v0.12.0-beta.1)
 
-The Studio in German (pre-release 2026-11-17, see [`CHANGELOG.md`](../CHANGELOG.md)).
+Pre-release 2026-11-17, see [`CHANGELOG.md`](../CHANGELOG.md); plan and
+inspiration notes (UIX, browser_mod, Mushroom) in
+[`docs/V0.12_PLAN.md`](V0.12_PLAN.md).
 
-- `src/i18n/`: `en.ts` (about 350 messages, the typed source), `de.ts`
-  (typed against it, so a missing key fails the build), `t()` / `tParts()`,
-  live switching through `LangController`. How to add a language:
-  "Translations" in [`DEVELOPMENT.md`](DEVELOPMENT.md#translations).
-- A one-time language question in the panel (Auto-detect preselected,
-  following Home Assistant's language) and a ⚙️ Settings section with the
-  language selector; stored per HA user (`frontend/set_user_data`,
-  key `cms_settings`, newer copy wins like the palette).
-- Checks: placeholder parity across languages, a pseudo-language scan that
-  fails on English left outside the dictionary, and `language_check.mjs`
-  on the rigs.
+- **Languages.** `src/i18n/`: `en.ts` (about 390 messages, the typed
+  source) and 21 translations typed against it, so a missing key fails the
+  build; `t()` / `tParts()`, live switching through `LangController`;
+  Home Assistant's language codes matched exactly, then through fallbacks
+  (zh-TW → zh-Hant, pt-PT → pt, no/nn → nb, es-419 → es), then the base
+  language. German by hand; nl fr es it pl pt pt-BR sv da nb cs sk hu fi
+  ru uk zh-Hans zh-Hant ja ko machine-translated against a glossary of
+  Home Assistant's own translations (`tools/i18n/ha_glossary.py`), in Home
+  Assistant's register per language. A one-time language question
+  (Auto-detect preselected) and a ⚙️ Settings section; stored per HA user
+  (`frontend/set_user_data`, key `cms_settings`).
+- **Integration** (`custom_components/card_mod_studio`, optional, one
+  entry): options for language, the language question and default ON/OFF
+  colours; websocket commands `card_mod_studio/config` and
+  `card_mod_studio/subscribe` (pushes changes to open Studios, the pattern
+  UIX uses); translated into the same 22 languages; brand icons; shipped as
+  `card_mod_studio.zip` on the release (the workflow checks its version
+  matches `package.json`). Precedence: the user's choice → the site
+  default → Auto-detect / the Studio's colours.
+- **Containers** (item #7): `conditional` and `entity-filter` (Home
+  Assistant's implicit entities card is written as `card:` once styled),
+  containers nested in containers at any depth, entities rows and tile
+  Features inside them (`src/utils/child-slots.ts`).
+- **Tile Features** (item #9): height, corner radius, colour on
+  `hui-card-features` (`--feature-height`, `--feature-border-radius`,
+  `--feature-color !important`), measured on both engines on HA 2026.11 and
+  on HA 2025.9 before building. `--feature-button-spacing` showed no
+  measurable effect and is not offered.
+- **📚 My Presets** (items #12/#13): rename, reorder, duplicate, delete;
+  copy/paste a card's style or all presets as JSON text
+  (`src/utils/style-transfer.ts`, 512 KB cap, migrated on import).
+- Checks: placeholder parity for every language, a pseudo-language scan that
+  fails on English left outside the dictionary, the integration's files in
+  step with the Studio (version, languages, translation keys), and on the
+  rigs `language_check`, `languages_sweep_check` (all 22 languages at
+  1440 px and 390 px), `integration_check`, `presets_check`,
+  `containers_check`, `features_check`.
 
 **Open in this cycle:**
-- The German text needs a native speaker's read before 0.12.0 final.
-- Dutch and other languages: only with a contributor who reviews them (a
-  machine translation nobody has read is not shipped).
-- More settings can go into the Settings section (candidates: the default
-  ON/OFF colours now under My Color Palette).
+- The 20 machine translations need native speakers' reads (and the German
+  text one more read) before 0.12.0 final.
+- Distribution of the integration through HACS would need its own
+  repository (HACS installs one category per repository); the owner
+  decides. Until then it's a manual install from the release zip.
+- The bundle doubled with the languages (609 → 1,130 kB, 146 → 275 kB
+  gzipped). Loading only the active language would need more than one file,
+  which HACS's single-file plugin install doesn't do; left as is.
 
 ## Open after v0.11.0
 
@@ -606,9 +637,9 @@ from the audit.
 
 | # | Item | Description | Effort |
 |---|---|---|---|
-| 7 ✅* | **Container child-card editing** | **Mostly done (v0.8.0-beta.1)** for vertical-stack/horizontal-stack/grid: per-child styling sections write into `cards[i]`'s own `card_mod:`/`uix:` — no embedded-editor hooking needed (a container's `cards:[]` is the same shape as entities rows; approach proposed by the project owner). Remaining: `conditional` cards (single `card:` key), containers nested inside containers (no recursion yet), per-row styling of a nested entities card. The originally-sketched embedded-editor binding is now unnecessary and retired. | M |
+| 7 ✅ | **Container child-card editing** | **Done:** `conditional`, `entity-filter` and containers nested in containers (any depth, entities rows and tile Features inside) in v0.12.0-beta.1 (`src/utils/child-slots.ts`); before that, **mostly done (v0.8.0-beta.1)** for vertical-stack/horizontal-stack/grid: per-child styling sections write into `cards[i]`'s own `card_mod:`/`uix:` — no embedded-editor hooking needed (a container's `cards:[]` is the same shape as entities rows; approach proposed by the project owner). Remaining: `conditional` cards (single `card:` key), containers nested inside containers (no recursion yet), per-row styling of a nested entities card. The originally-sketched embedded-editor binding is now unnecessary and retired. | M |
 | 8 | **Modern card coverage: `sections` / `heading` / `area`** | **Verified (v0.5.0):** the heading module's selectors matched HA then, and `sections` views work in production. **Superseded (v0.10.0):** HA 2026.10 changed the heading title to `<h2 class="heading">`, so `.title p` no longer matches there; the module now uses HA's `--ha-heading-card-*` variables (+ `.content p, .content .heading` for the font family, `.content ha-icon` for the icon), verified on 2026.9 and 2026.10. **Remaining:** the `area` card and styling hooks for section **heading badges**. | M |
-| 9 | **Tile card feature styling** | The tile card gained features (trend graph, bar gauge, media/fan/valve controls, inline vs bottom position, `state_content`). Sandbox confirms features render in `hui-card-features` — **recommended next build**: targeted controls/selectors for feature rows rather than Advanced CSS. | M |
+| 9 ✅ | **Tile card feature styling** | **Done (v0.12.0-beta.1)** — a Features module on the tile: height, corner radius, colour via `hui-card-features { --feature-height; --feature-border-radius; --feature-color !important }`, measured on card-mod and UIX (HA 2026.11) and HA 2025.9 before building; `--feature-button-spacing` had no measurable effect and is not offered. | M |
 | 10 | **Custom-card support: Mushroom & Bubble** | **Planned for v0.11** ([`docs/V0.11_PLAN.md`](V0.11_PLAN.md) WS2/WS3). Measured 2026-10-27: Mushroom classic cards take `ha-card { --card-primary-* }` (or `:host { --mush-* }`), the v5 template card takes the tile variables, Bubble takes direct class selectors — on both engines; today's Studio has 24 dead controls on them. The earlier "most-requested" label has no traceable source (no issue or forum request found), hence a checkpoint after the first v0.11 beta. | L |
 
 ---
@@ -618,8 +649,8 @@ from the audit.
 | # | Item | Description | Effort |
 |---|---|---|---|
 | 11 ✅ | **Smooth/gradient thresholds** | **Done (v0.7.0)** — "Fade" value mode, approximated as ~32 dense step rules with the real anchor points recovered on reopen via a marker property. | M |
-| 12 | **Import / export styles** | Copy a card's full style config to clipboard / paste onto another card (complements presets). | S |
-| 13 | **Preset management UX** | Rename, reorder, duplicate, and export presets; today it's load/save/delete only. | S |
+| 12 ✅ | **Import / export styles** | **Done (v0.12.0-beta.1)** — 📚 My Presets copies a card's style or all presets as JSON text and pastes it onto another card / into another HA (`style-transfer.ts`). | S |
+| 13 ✅ | **Preset management UX** | **Done (v0.12.0-beta.1)** — rename, reorder (↑/↓), duplicate, delete, export/import (see #12). | S |
 | 14 ✅ | **Mobile-friendly panel** | **Done (v0.5.0)** — a ResizeObserver stacks the preview below the controls below ~600px instead of starving them. v0.10.0 raised the breakpoint to 720px panel width and reworked the phone layout (wrapping rows, icon-only Style button below 500px viewport, larger touch targets). | M |
 | 15 | **Animation builder** | Visual keyframe editor beyond the built-in presets. | L |
 | 16 | **More threshold sources** | Allow thresholds on an entity **attribute** (e.g. `battery_level`) and on `state_attr(...)`, not just the state value. | M |

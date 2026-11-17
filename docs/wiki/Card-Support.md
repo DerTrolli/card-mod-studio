@@ -45,7 +45,8 @@ Exceptions and specials:
 | area | Icon Color hidden (the area icon doesn't take it); everything card-box-level works |
 | date (new in HA 2026.11) | Icon Color, Accent Color, Font size and Font text color hidden (and their Threshold targets) — measured on HA 2026.11.0; Font weight/family, Background, Border, Filters and Animation work |
 | alert (new in HA 2026.11) | Accent Color and Font text color are hidden, and so are Threshold's Accent and Text color targets — measured on HA 2026.11.0; the rest works |
-| entity-filter | Treated as a container: a style on the filter reaches nothing — Advanced CSS only; style its inner `card:` in YAML |
+| conditional / entity-filter | Containers (v0.12, beta): one section for the card inside (`card:`; entity-filter without one gets Home Assistant's default entities card, written as `card:` once styled) — see [Containers](Container-Cards) |
+| tile features | **Features** module (v0.12, beta): height, corner radius and colour of the feature rows — see [Tile](Tile-Card#features-new-in-012-beta) |
 | Mushroom (5.2.3, beta — [guide](Mushroom-Cards)) | The 14 state cards: Font → primary/secondary text, icon size, Accent → the card's active colour (hidden when the card sets its own `icon_color`; Icon Color, Accent and Font are also hidden where the card's options such as `icon_type: none` remove their target), Threshold, Background, Border. Template card is styled like a tile. Chips: chip text/icon size, chip background and border (no Accent, no text colour). Title card: title text only (no Background/Border/Icon/Accent). Empty card: nothing to style. |
 | Bubble Card (3.x, measured on 3.4.3, beta — [guide](Bubble-Card)) | button (incl. slider button), separator, cover: Font → name/state, icon colour and size, Background and Border on the card's visible box. Threshold is hidden, and so is Accent except on slider buttons, where Accent colours the slider fill. Icon Color/Icon size are hidden with `show_icon: false`, Font when neither name nor state line is shown. The card's own `styles:` is preserved untouched. Other Bubble card types keep all modules for now |
 | light | Icon Color gains "Match the light's color" mode |
@@ -53,7 +54,7 @@ Exceptions and specials:
 | media-control | **Background is hidden** (and Threshold's Background target and Gradient Shift): the card paints its own colour block over its whole face in every player state; Border & Radius work. A stored Background is kept |
 | iframe / webpage / map | Only border/radius/filter apply (cross-origin / map-library content) |
 
-## Known limitations (v0.11)
+## Known limitations (v0.12)
 
 - **Glance icons** can't be recolored (nested shadow root + inline state
   color — probed with shadow-piercing styles on both engines too: they don't
@@ -69,8 +70,9 @@ Exceptions and specials:
 - **ON / OFF conditions** are offered only when the card has an entity of its
   own and that entity can be on or off; see
   [Icon Color & Accent Color](Icon-Color-and-Accent-Color).
-- **Nested containers / `conditional` cards** — see
-  [Cards Inside Stacks](Styling-Cards-Inside-Stacks#not-covered-yet).
+- **`sections` view containers and custom containers** (layout-card, …) —
+  see [Containers](Container-Cards#not-covered-yet). Containers inside
+  containers and `conditional` cards are covered since v0.12 (beta).
 - **Deep energy-card SVG styling** — Advanced CSS only.
 
 Most of the "can't reach it" entries share one root cause: the target lives

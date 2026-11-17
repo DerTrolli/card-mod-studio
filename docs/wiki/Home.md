@@ -3,7 +3,7 @@ Welcome to the **Card-Mod Studio** wiki — the detailed manual. The
 project is and how to install it; these pages cover how everything works,
 module by module, plus recipes, troubleshooting, and exact per-card support.
 
-**Current version:** v0.12.0-beta.1 (pre-release; the stable release is v0.11.0). The [Language & Settings](Language-and-Settings) page describes 0.12; everything else applies to both.
+**Current version:** v0.12.0-beta.1 (pre-release; the stable release is v0.11.0). New in 0.12: [22 languages](Language-and-Settings), an optional [Settings integration](Integration), [conditional, entity-filter and nested containers](Container-Cards), [tile Features](Tile-Card#features-new-in-012-beta) and [📚 My Presets with copy/paste](Presets-and-My-Color-Palette). Everything else applies to both.
 
 ## What is Card-Mod Studio?
 
@@ -19,6 +19,7 @@ through HA's normal save flow.
 **Setup**
 - [Installation](Installation) — Marketplace, HACS, manual, requirements
 - [Getting Started](Getting-Started) — the panel, saving, how the YAML works
+- [Integration (Settings page)](Integration) — optional site-wide defaults, *new in 0.12 (beta)*
 
 **Style modules**
 - [Icon Color & Accent Color](Icon-Color-and-Accent-Color)
@@ -34,7 +35,7 @@ through HA's normal save flow.
 **Workflow**
 - [Recipes](Recipes) — practical walkthroughs (battery rows, fading gauges, pulse-while-running, …)
 - [Presets & My Color Palette](Presets-and-My-Color-Palette)
-- [Language & Settings](Language-and-Settings) — English or German, *new in 0.12 (beta)*
+- [Language & Settings](Language-and-Settings) — 22 languages, *new in 0.12 (beta)*
 
 **Per-card guides** — exactly what's styleable on each card and why
 - [Tile](Tile-Card) · [Gauge](Gauge-Card) · [Thermostat & Humidifier](Thermostat-and-Humidifier-Cards) · [Light](Light-Card) · [Button](Button-Card)

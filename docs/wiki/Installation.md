@@ -68,6 +68,14 @@ to opt in. Betas are testing builds — the changelog marks them clearly.
 When updating manually, bump the `?v=` query string so browsers don't serve
 the cached old bundle.
 
+## Optional: the Settings integration *(new in 0.12, beta)*
+
+An optional integration adds a **Card-Mod Studio** entry under **Settings →
+Devices & services**, where an administrator sets the language, whether
+users are asked for one, and the default ON/OFF colours for everyone. It's
+installed by hand from the release's `card_mod_studio.zip` — see
+[Integration](Integration).
+
 ## Loading card-mod reliably (recommended)
 
 card-mod's own installation advice is to load it through Home Assistant's

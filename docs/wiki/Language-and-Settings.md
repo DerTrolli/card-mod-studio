@@ -3,8 +3,25 @@
 *New in 0.12 (beta).*
 
 Card-Mod Studio's own text — module names, labels, hints, warnings, the
-CSS checks in Advanced CSS — is available in **English** and **German
-(Deutsch)**.
+CSS checks in Advanced CSS — comes in **22 languages**:
+
+| | | | |
+|---|---|---|---|
+| English | Deutsch | Nederlands | Français |
+| Español | Italiano | Polski | Português |
+| Português (Brasil) | Svenska | Dansk | Norsk bokmål |
+| Čeština | Slovenčina | Magyar | Suomi |
+| Русский | Українська | 简体中文 | 繁體中文 |
+| 日本語 | 한국어 | | |
+
+English and German are written by hand. **The other 20 are machine
+translations that no native speaker has read yet.** Each one uses Home
+Assistant's own words wherever Home Assistant already has one (its own
+translation of *entity*, *card*, *icon*, *background*, *opacity*, *features*
+and so on, taken from Home Assistant's translation files), so the Studio
+reads like the rest of Home Assistant in that language. If something reads
+wrong, please [open an issue](https://github.com/DerTrolli/card-mod-studio/issues)
+with the better wording.
 
 ## The one-time question
 
@@ -12,11 +29,12 @@ The first time you open the Studio, a short notice at the top of the panel
 asks which language it should use:
 
 - **Auto-detect (recommended)** is preselected. It follows the language Home
-  Assistant shows for you (your profile's language): German if Home
-  Assistant is in German (any variant, such as de-CH), otherwise English. The
-  option names the language it picked, for example
-  *Auto-detect: English (recommended)*.
-- **English** or **Deutsch** keeps the Studio in that language whatever Home
+  Assistant shows for you (your profile's language). Regional variants find
+  their language (de-CH → Deutsch, zh-TW → 繁體中文, pt-PT → Português,
+  es-419 → Español, no/nn → Norsk bokmål); a language the Studio doesn't
+  have falls back to English. The option names the language it picked,
+  for example *Auto-detect: English (recommended)*.
+- Any language in the list keeps the Studio in that language whatever Home
   Assistant uses.
 
 Pick one and press **OK**. The notice doesn't block anything: you can style
@@ -24,8 +42,9 @@ the card while it's shown, and until you answer the Studio uses Auto-detect.
 
 ## Changing it later
 
-Open the **⚙️ Settings** section (right below My Color Palette) and choose a different **Language**. The panel switches at once;
-open sections stay open and nothing you were editing is lost.
+Open the **⚙️ Settings** section (right below My Color Palette) and choose a
+different **Language**. The panel switches at once; open sections stay open
+and nothing you were editing is lost.
 
 ## Where the choice is stored
 
@@ -33,6 +52,13 @@ Like presets and My Color Palette, the setting is stored **per Home
 Assistant user**, so you're asked once, not once per phone, tablet or
 browser. A copy is kept in the browser as well; if Home Assistant couldn't
 be reached when you chose, the choice is sent to it later.
+
+## Defaults for everyone (optional integration)
+
+An administrator can set the language, whether users are asked, and the
+default ON/OFF colours for the whole Home Assistant on **Settings → Devices &
+services**, with the optional [Card-Mod Studio integration](Integration).
+A user's own choice still wins.
 
 ## What isn't translated
 
@@ -42,15 +68,13 @@ be reached when you chose, the choice is sent to it later.
   names, theme variable names, your preset and palette names — appear as
   they are.
 - The Style button's footer neighbours (Save, Cancel, …) are Home
-  Assistant's own. On a phone with Home Assistant in German, Home
-  Assistant's own footer labels are long enough to wrap; that's the same
+  Assistant's own. On a phone with Home Assistant in a language with long
+  words, Home Assistant's own footer labels can wrap; that's the same
   without the Studio.
 
-## Other languages
+## Better wording, or a new language
 
-Only English and German ship today. Dutch and other languages are welcome
-as contributions: the whole Studio is about 350 short messages (around
-1,500 words, 10–15 KB of text per language). See
+Corrections are welcome as issues or pull requests. A new language is
+about 390 short messages; see
 [`docs/DEVELOPMENT.md`](https://github.com/DerTrolli/card-mod-studio/blob/main/docs/DEVELOPMENT.md#translations)
-for how a language is added. A language is only shipped once a native
-speaker has read it.
+for how a language is added and checked.
