@@ -76,6 +76,20 @@ const overflow = (page) => page.evaluate(() => {
   const out = [];
   const cut = [];
   const spill = [];
+  // Where the element's own text is drawn, against its box (scrollWidth also
+  // counts invisible touch targets such as a ::before inset -4px).
+  const textOutside = (el) => {
+    const r = el.getBoundingClientRect();
+    for (const n of el.childNodes) {
+      if (n.nodeType !== 3 || !n.textContent.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      for (const tr of range.getClientRects()) {
+        if (tr.width > 0 && (tr.right > r.right + 1 || tr.left < r.left - 1)) return true;
+      }
+    }
+    return false;
+  };
   const inPreview = (el) => {
     for (let p = el; p && p !== panel; p = p.parentElement || p.getRootNode().host) {
       if (p.classList && (p.classList.contains('preview-card-wrapper') || p.classList.contains('preview-stage'))) return true;
@@ -115,8 +129,8 @@ const overflow = (page) => page.evaluate(() => {
           && !inPreview(el)
           && !/^[a-z_]+\.[\w]+$/.test(el.textContent.trim())
           && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
-          && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'visible') {
-        spill.push(`${el.tagName.toLowerCase()}${el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : ''} "${el.textContent.trim().slice(0, 50)}" ${el.scrollWidth}>${el.clientWidth}`);
+          && getComputedStyle(el).overflowX === 'visible' && textOutside(el)) {
+        spill.push(`${el.tagName.toLowerCase()}${el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : ''} "${el.textContent.trim().slice(0, 50)}" box ${Math.round(el.getBoundingClientRect().width)}px`);
       }
       if (el.shadowRoot) walk(el.shadowRoot);
     }
