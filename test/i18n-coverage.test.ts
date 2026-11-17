@@ -129,9 +129,15 @@ describe('every visible text is translatable', () => {
   for (const [name, tag, props] of cases) {
     it(name, () => {
       const el = make(tag, { _open: true, ...props });
-      expect(untranslated(body(el))).toEqual([]);
+      const text = body(el);
+      expect(text.trim(), 'rendered nothing').not.toBe('');
+      expect(untranslated(text)).toEqual([]);
     });
   }
+
+  it('the language question is rendered (not skipped) in the scan', () => {
+    expect(body(make('cms-language-notice', {}))).toContain(`⟦${en['settings.noticeText']}⟧`);
+  });
 
   it('entities rows (static, threshold, font, while-on, frozen, override)', () => {
     const rows = [{ entity: 'light.a' }, { entity: 'sensor.t' }, { entity: 'light.a' }, { type: 'section', label: 'x' }];

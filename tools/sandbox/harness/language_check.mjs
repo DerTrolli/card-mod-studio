@@ -173,9 +173,9 @@ try {
   await openEditor(pb);
   await openStudio(pb);
   await step('another device (empty browser storage): no question, German from the HA user', async () => {
-    // Watched from the moment the panel opens: not even a brief flash of the
-    // question before Home Assistant's copy arrives (answering it then would
-    // overwrite the stored choice).
+    // Watched for 2 s once the panel has opened (the unit tests cover the wait
+    // itself): the question must not appear on a second device (answering it
+    // would overwrite the stored choice).
     for (let i = 0; i < 20; i++) {
       need(!(await notice(pb).isVisible().catch(() => false)), `question shown again (after ${i * 100} ms)`);
       await wait(100);

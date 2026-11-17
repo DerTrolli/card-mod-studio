@@ -199,6 +199,7 @@ describe('the stored setting', () => {
     expect(settingsSettled(undefined)).toBe(true); // nothing to wait for
     const load = initSettings(hass);
     expect(settingsSettled(hass)).toBe(false);
+    expect(settingsSettled(undefined)).toBe(false); // a view without hass yet waits too
     expect(getSettings().languageChosen).toBe(false);
     answer({ value: { language: 'de', languageChosen: true, updatedAt: 7 } });
     await load;

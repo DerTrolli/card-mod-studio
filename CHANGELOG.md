@@ -65,7 +65,7 @@ With the release build (the same file on every rig):
 - In English on HA 2026.11.0, with the build of `2bd5788` (before the
   version number and the second-device fix; nothing else changed since): the check suite 21 of 21 (card-mod) and 19 of 19 (UIX),
   the functional check of every control 489 of 489 and 491 of 491.
-- Unit tests 3,227 of 3,227, including a scan that renders the panel, every
+- Unit tests 3,228 of 3,228, including a scan that renders the panel, every
   module and the pickers in a pseudo-language and fails on any English text
   outside the dictionary, and a check that both languages have every
   message with the same placeholders.

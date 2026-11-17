@@ -124,6 +124,7 @@ export function initSettings(hass: HassSub | undefined): Promise<void> {
  * may still arrive — the one-time question waits for it.
  */
 export function settingsSettled(hass: HassSub | undefined): boolean {
+  if (haLoad) return false; // a read started elsewhere is still on its way
   if (!hass?.connection?.sendMessagePromise) return true;
   return loadedFromHa || haFailed;
 }
