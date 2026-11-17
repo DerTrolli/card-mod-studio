@@ -5,6 +5,50 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0-beta.1] — 2026-11-17
+
+The Studio in German. Every text in the panel now comes from one dictionary,
+in English and German, and the Studio asks once which language you want.
+A pre-release because the German text still needs a native speaker's read.
+
+### Added
+
+- **German (Deutsch).** Every module, label, hint, warning, notice and the
+  CSS checks in Advanced CSS; Home Assistant's own terms (Entität, Karte,
+  Symbol), informal "du". The generated YAML/CSS is the same in every
+  language.
+- **A one-time language question.** The first time the Studio opens, a
+  notice at the top of the panel asks which language to use, with
+  **Auto-detect (recommended)** preselected: it follows the language Home
+  Assistant shows for you (German for any German variant, otherwise
+  English) and names what it picked. The notice takes no focus and blocks
+  nothing; until it is answered the Studio uses Auto-detect.
+- **⚙️ Settings**, a new section at the bottom of the panel (below My Color
+  Palette), with the **Language** selector: Auto-detect, English, Deutsch.
+  A change applies to the open panel at once; open sections stay open.
+- The choice is stored **per Home Assistant user** (like presets and the
+  palette), so it is asked once, not on every device; a copy in the browser
+  covers the moments Home Assistant can't be reached, and a choice made then
+  is sent up later.
+
+### Changed
+
+- The bundle is 56 kB larger (553 → 609 kB, 133 → 146 kB gzipped): the
+  dictionary layer and both languages (about 350 messages, around 1,500
+  words each).
+- English text is unchanged.
+
+### Known limits
+
+- Only English and German. Other languages (Dutch, …) are welcome as
+  contributions — see "Translations" in `docs/DEVELOPMENT.md`.
+- With Home Assistant in German on a phone, Home Assistant's own dialog
+  footer labels wrap; that is Home Assistant's text, not the Studio's.
+
+### Verified
+
+VERIFIED_TBD
+
 ## [0.11.0] — 2026-11-12
 
 The "Reach" release: the v0.11 cycle consolidated (three betas, in use since
@@ -1750,6 +1794,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[0.12.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.12.0-beta.1
 [0.11.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0
 [0.11.0-beta.3]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.3
 [0.11.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.2

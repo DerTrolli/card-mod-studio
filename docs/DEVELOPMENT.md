@@ -170,6 +170,42 @@ clipping and touch targets (details in the sandbox README).
 
 ---
 
+## Translations
+
+Since v0.12 every piece of interface text goes through `src/i18n/`:
+
+- `en.ts` is the source: one key per message (`'font.title': 'Font'`),
+  grouped by module. `MessageKey` is derived from it, so `t('font.titel')`
+  is a type error.
+- Each other language is a `Record<MessageKey, string>` (`de.ts`): a missing
+  key fails `npm run typecheck`. Register it in `LANGUAGES` in
+  `src/i18n/index.ts` with its own name (`Deutsch`, `Nederlands`, …) and add
+  its code to `supportedLanguage()`; it then appears in the language
+  selector and Auto-detect picks it for that Home Assistant language.
+- `t(key, { name })` fills `{name}` placeholders (Jinja's `{{ }}` / `{% %}`
+  are left alone). A sentence with markup inside (`<code>`) uses
+  `tParts(key, { name: html\`…\` })`. Translate whole sentences; for a noun
+  inserted into a sentence, use the `noun.*` keys (they carry the article).
+- `test/i18n.test.ts` checks every language has every key, nothing empty,
+  and the same placeholders as English (a deliberate omission goes in its
+  `OMITTED` list). `test/i18n-coverage.test.ts` renders the panel, every
+  module and the pickers with a pseudo language that wraps every message in
+  ⟦…⟧ and fails on any English left outside — new UI text that bypasses
+  `t()` is caught there.
+- A view re-renders on a language change through
+  `protected readonly i18n = new LangController(this);` (not `lang`, which
+  is an `HTMLElement` property).
+- All languages are bundled (about 10–15 KB of text each); there is no lazy
+  loading.
+- Live checks: the shared launchers (`click-driver.mjs`, `fui/lib.mjs`,
+  `release_qa.mjs`, …) pre-answer the one-time language question with
+  Auto-detect; `CMS_FIRST_RUN=1` keeps it. `language_check.mjs` covers the
+  question, the Settings selector, the per-user setting and German Home
+  Assistant — it changes the rig user's Studio settings (and clears them
+  again), so run it on its own.
+
+---
+
 ## Releasing
 
 - **Release from the branch that carries the version.** Beta tags come from

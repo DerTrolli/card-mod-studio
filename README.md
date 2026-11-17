@@ -164,6 +164,10 @@ Save the full style configuration of any card as a **named preset** and restore 
 
 Define named custom colors once and they appear as extra swatches in **every** color picker — card-level modules, threshold rules, and per-row controls alike. You can also override the built-in default ON/OFF colors that a freshly-enabled Icon Color/Accent Color module (and every new threshold rule) starts from. Stored per HA user, same cross-device sync as presets. Cards keep the colour they were given: changing or removing an entry doesn't restyle cards that already use it. A change made while Home Assistant can't be reached is kept and sent later.
 
+### Language *(new in 0.12, beta)*
+
+The Studio's own text is in **English** or **German (Deutsch)**. The first time you open it, a short notice asks which language to use — **Auto-detect** (recommended) follows the language Home Assistant shows for you — and you can change it any time under **⚙️ Settings** at the bottom of the panel. The choice is stored per HA user, so it's asked once, not on every device. The generated YAML/CSS is the same in every language. Other languages are welcome as contributions (about 350 short messages); see the [Language & Settings](../../wiki/Language-and-Settings) wiki page.
+
 ---
 
 ## Styling the cards inside a stack
@@ -268,7 +272,7 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.11.0`
+   - URL: `/local/card-mod-studio.js?v=0.12.0-beta.1`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
@@ -466,6 +470,7 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 25 | Mushroom (5.2.3) and Bubble Card (3.x: button, slider button, separator, cover) support via per-card profiles, click-to-edit for their parts, entities-card row labels follow HA 2026.11 naming, Alert card gating | ✅ v0.11.0 (beta.2; Mushroom and Bubble Card support stays a beta) |
 | 26 | Release-review round: controls you switch on but don't touch write nothing (Heading Style, Font, Icon Color incl. a "Keep the card's colour" mode); a conditional Background/Border keeps the card's own look while off; no entity-based conditions on entity-less cards or for entities that are never on/off; gauge Number size 50–130 % with 100 % = Home Assistant's size; Animation on nearly every built-in card (presets left out where they can't work), card-level Threshold Colors on the entities card, Icon Color on the statistic card, a per-card maximum icon size; Font reaches more text; a notice on custom cards without a profile; Advanced CSS, colour and number input checks; keyboard, screen-reader and touch work; click-to-edit for more card parts; palette and presets keep changes made while Home Assistant is unreachable; Enter no longer saves the dialog on HA 2025.9–2026.2 | ✅ v0.11.0 (beta.3; verified on four rigs, see Compatibility) |
 | 27 | Read-back fixes found by replaying 217,000 styles of every release since v0.8.1 and by fuzzing: a Font without a size next to Threshold Colors and Threshold rules pointing both ways are read back into their modules; hand-written `!important`, `border-radius: 0px`, `border: 0px solid …` and heading-card selectors on other cards are no longer rewritten on save (cards and entities rows); repeatable checks in `tools/continuity/` | ✅ v0.11.0 |
+| 28 | The Studio in German: every text through one dictionary (English and German, about 350 messages), a one-time language question (Auto-detect recommended, follows Home Assistant's language), a ⚙️ Settings section with the language selector that switches the open panel at once, stored per HA user | 🧪 v0.12.0 (beta.1) |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

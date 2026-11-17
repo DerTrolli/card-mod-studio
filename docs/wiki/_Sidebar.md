@@ -18,6 +18,7 @@
 **Workflow**
 - [Recipes](Recipes)
 - [Presets & My Color Palette](Presets-and-My-Color-Palette)
+- [Language & Settings](Language-and-Settings) *(new in 0.12, beta)*
 
 **Per-card guides**
 - [Tile](Tile-Card)

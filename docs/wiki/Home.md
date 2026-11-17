@@ -3,7 +3,7 @@ Welcome to the **Card-Mod Studio** wiki — the detailed manual. The
 project is and how to install it; these pages cover how everything works,
 module by module, plus recipes, troubleshooting, and exact per-card support.
 
-**Current version:** v0.11.0.
+**Current version:** v0.12.0-beta.1 (pre-release; the stable release is v0.11.0). The [Language & Settings](Language-and-Settings) page describes 0.12; everything else applies to both.
 
 ## What is Card-Mod Studio?
 
@@ -34,6 +34,7 @@ through HA's normal save flow.
 **Workflow**
 - [Recipes](Recipes) — practical walkthroughs (battery rows, fading gauges, pulse-while-running, …)
 - [Presets & My Color Palette](Presets-and-My-Color-Palette)
+- [Language & Settings](Language-and-Settings) — English or German, *new in 0.12 (beta)*
 
 **Per-card guides** — exactly what's styleable on each card and why
 - [Tile](Tile-Card) · [Gauge](Gauge-Card) · [Thermostat & Humidifier](Thermostat-and-Humidifier-Cards) · [Light](Light-Card) · [Button](Button-Card)

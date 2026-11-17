@@ -62,6 +62,14 @@ effects, icon size).
 - Glance icon color stays out: even shadow-piercing styles don't reach it
   ([why](Glance-Card#why-no-icon-color)).
 
+## v0.12 (beta) — the Studio in German
+
+- **English and German**, with a one-time language question (Auto-detect
+  recommended) and a **⚙️ Settings** section to change it; see
+  [Language & Settings](Language-and-Settings) (v0.12.0-beta.1).
+- More languages (Dutch, …) when a native speaker contributes and reviews
+  them.
+
 ## v1.0 — structural completeness
 
 - `conditional` cards and containers nested inside containers
