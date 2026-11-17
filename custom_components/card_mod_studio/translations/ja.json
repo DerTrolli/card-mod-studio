@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card-Mod Studio",
+        "description": "このページに Card-Mod Studio の設定を追加します。Studio 本体はダッシュボードのリソースとしてインストールします（HACS、Marketplace、または手動）。このエントリには設定だけが保存されます。"
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card-Mod Studio はすでに設定されています。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Card-Mod Studio の設定",
+        "description": "この Home Assistant の全員に適用されるデフォルトです。Studio でのユーザー自身の選択（⚙️ 設定、マイカラーパレット）が常に優先されます。",
+        "data": {
+          "language": "言語",
+          "ask_language": "各ユーザーに使用する言語を尋ねる",
+          "on_color": "オンのデフォルトの色",
+          "off_color": "オフのデフォルトの色"
+        },
+        "data_description": {
+          "language": "自動検出は、Home Assistant が各ユーザーに表示している言語に従います。",
+          "ask_language": "初めて Studio を開いたとき、短い質問で言語を選べます。オフ: 全員に上の言語が使われます。",
+          "on_color": "エンティティがオンの間、新しいアイコンの色、アクセントカラー、しきい値ルールが最初に使う色です。Studio のデフォルト: Studio 自身の色。",
+          "off_color": "エンティティがオフの間も同様です。"
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "自動検出（推奨）",
+        "en": "English",
+        "de": "Deutsch"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Studio のデフォルト",
+        "red": "赤",
+        "pink": "ピンク",
+        "purple": "紫",
+        "blue": "青",
+        "cyan": "シアン",
+        "teal": "ティール",
+        "green": "緑",
+        "yellow": "黄",
+        "orange": "オレンジ",
+        "grey": "グレー"
+      }
+    }
+  }
+}
