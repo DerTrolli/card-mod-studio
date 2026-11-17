@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card-Mod Studio",
+        "description": "Dodaje ustawienia Card-Mod Studio do tej strony. Samo Studio instaluje się jako zasób dashboardu (HACS, Marketplace lub ręcznie); ten wpis przechowuje tylko jego ustawienia."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card-Mod Studio jest już skonfigurowane."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ustawienia Card-Mod Studio",
+        "description": "Ustawienia domyślne dla wszystkich w tym Home Assistant. Własny wybór użytkownika w Studio (⚙️ Ustawienia, Moja paleta kolorów) zawsze ma pierwszeństwo.",
+        "data": {
+          "language": "Język",
+          "ask_language": "Pytaj każdego użytkownika o język",
+          "on_color": "Domyślny kolor WŁĄCZONY",
+          "off_color": "Domyślny kolor WYŁĄCZONY"
+        },
+        "data_description": {
+          "language": "Wykrywanie automatyczne podąża za językiem, w którym Home Assistant jest wyświetlany każdemu użytkownikowi.",
+          "ask_language": "Gdy ktoś po raz pierwszy otwiera Studio, krótkie pytanie pozwala mu wybrać język. Wyłączone: wszyscy dostają język ustawiony powyżej.",
+          "on_color": "Kolor, od którego zaczyna nowy Kolor ikony, Kolor akcentu lub reguła progowa, gdy encja jest włączona. Domyślny Studio: własny kolor Studio.",
+          "off_color": "To samo, gdy encja jest wyłączona."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Wykryj automatycznie (zalecane)",
+        "en": "English",
+        "de": "Deutsch"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Domyślny Studio",
+        "red": "Czerwony",
+        "pink": "Różowy",
+        "purple": "Fioletowy",
+        "blue": "Niebieski",
+        "cyan": "Cyjan",
+        "teal": "Morski",
+        "green": "Zielony",
+        "yellow": "Żółty",
+        "orange": "Pomarańczowy",
+        "grey": "Szary"
+      }
+    }
+  }
+}

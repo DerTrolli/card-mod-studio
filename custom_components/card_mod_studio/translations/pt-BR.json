@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card-Mod Studio",
+        "description": "Adiciona as configurações do Card-Mod Studio a esta página. O Studio em si é instalado como recurso do painel (HACS, Marketplace ou à mão); esta entrada guarda só as configurações dele."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "O Card-Mod Studio já está configurado."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configurações do Card-Mod Studio",
+        "description": "Padrões para todos neste Home Assistant. A escolha própria de um usuário no Studio (⚙️ Configurações, Minha paleta de cores) sempre tem prioridade.",
+        "data": {
+          "language": "Idioma",
+          "ask_language": "Perguntar a cada usuário qual idioma usar",
+          "on_color": "Cor LIGADO padrão",
+          "off_color": "Cor DESLIGADO padrão"
+        },
+        "data_description": {
+          "language": "Detectar automaticamente segue o idioma em que o Home Assistant aparece para cada usuário.",
+          "ask_language": "Na primeira vez que alguém abre o Studio, uma pergunta curta permite escolher um idioma. Desligado: todos recebem o idioma acima.",
+          "on_color": "A cor com que começam uma nova Cor do ícone, Cor de destaque ou regra de limiar enquanto a entidade está ligada. Padrão do Studio: a do próprio Studio.",
+          "off_color": "O mesmo enquanto a entidade está desligada."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Detectar automaticamente (recomendado)",
+        "en": "English",
+        "de": "Deutsch"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Padrão do Studio",
+        "red": "Vermelho",
+        "pink": "Rosa",
+        "purple": "Roxo",
+        "blue": "Azul",
+        "cyan": "Ciano",
+        "teal": "Azul-petróleo",
+        "green": "Verde",
+        "yellow": "Amarelo",
+        "orange": "Laranja",
+        "grey": "Cinza"
+      }
+    }
+  }
+}
