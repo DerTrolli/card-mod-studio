@@ -6,8 +6,10 @@
  * - All languages are bundled into the one `card-mod-studio.js` (no dynamic
  *   import: the release attaches a single file, and HACS installs one file).
  * - The language follows the Studio's own setting: "auto" (the default) uses
- *   the language Home Assistant shows its interface in for this user, mapped
- *   to its base language (`de-CH` → `de`), else English.
+ *   the language Home Assistant shows its interface in for this user —
+ *   Home Assistant's own codes (`pt-BR`, `zh-Hant`, `nb`), matched exactly,
+ *   then through FALLBACKS and the base language (`de-CH` → `de`), else
+ *   English.
  * - Text is looked up at render time with `t()`. Elements that render text
  *   add a `LangController`, so an open panel re-renders when the language
  *   changes. Lists of labels must be built inside render, not at import time.
@@ -41,13 +43,46 @@ export function isLanguageSetting(v: unknown): v is LanguageSetting {
   return v === 'auto' || isLanguageCode(v);
 }
 
-/** `de-CH` / `de_AT` / `DE` → `de` when shipped; `en` otherwise. */
+/** Lower-case code → the shipped code (`pt-br` → `pt-BR`). */
+function shippedCode(lower: string): LanguageCode | undefined {
+  return (Object.keys(LANGUAGES) as LanguageCode[]).find((c) => c.toLowerCase() === lower);
+}
+
+/**
+ * Codes Home Assistant or a browser may report that aren't a shipped code
+ * themselves (lower case). Checked after an exact match and before the base
+ * language, so `zh-TW` goes to Traditional, not to `zh`.
+ */
+const FALLBACKS: Record<string, string> = {
+  zh: 'zh-Hans',
+  'zh-cn': 'zh-Hans',
+  'zh-sg': 'zh-Hans',
+  'zh-my': 'zh-Hans',
+  'zh-tw': 'zh-Hant',
+  'zh-hk': 'zh-Hant',
+  'zh-mo': 'zh-Hant',
+  'pt-pt': 'pt',
+  'pt-ao': 'pt',
+  'pt-mz': 'pt',
+  no: 'nb',
+  nn: 'nb',
+  'es-419': 'es',
+};
+
+/**
+ * Home Assistant's language tag → a shipped language: exact (any case, `_`
+ * or `-`), then FALLBACKS, then ever shorter prefixes (`zh-Hant-TW` →
+ * `zh-Hant`, `de-CH` → `de`), else English.
+ */
 export function supportedLanguage(tag: string | undefined | null): LanguageCode {
   if (!tag) return 'en';
-  const lower = String(tag).trim().toLowerCase().replace('_', '-');
-  if (isLanguageCode(lower)) return lower;
-  const base = lower.split('-')[0];
-  return isLanguageCode(base) ? base : 'en';
+  const parts = String(tag).trim().toLowerCase().replace(/_/g, '-').split('-').filter(Boolean);
+  for (let n = parts.length; n > 0; n--) {
+    const lower = parts.slice(0, n).join('-');
+    const hit = shippedCode(lower) ?? (FALLBACKS[lower] ? shippedCode(FALLBACKS[lower].toLowerCase()) : undefined);
+    if (hit) return hit;
+  }
+  return 'en';
 }
 
 /** The language a setting resolves to, given Home Assistant's language. */

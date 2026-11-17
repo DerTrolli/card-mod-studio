@@ -31,6 +31,7 @@ import {
 } from '../src/utils/settings-storage.js';
 import { colorDefaults } from '../src/utils/palette-storage.js';
 
+const LANGUAGES_HAVE = (code: string) => Object.prototype.hasOwnProperty.call(LANGUAGES, code);
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
 afterEach(() => resetLanguageForTests());
@@ -43,11 +44,32 @@ describe('which language', () => {
     expect(supportedLanguage('DE')).toBe('de');
     expect(supportedLanguage('en-GB')).toBe('en');
     expect(supportedLanguage('nl')).toBe('en');
-    expect(supportedLanguage('zh-Hans')).toBe('en');
+    expect(supportedLanguage('zh-Hans')).toBe(LANGUAGES_HAVE('zh-Hans') ? 'zh-Hans' : 'en');
     expect(supportedLanguage(undefined)).toBe('en');
     expect(resolveLanguage('auto', 'de')).toBe('de');
     expect(resolveLanguage('en', 'de')).toBe('en');
     expect(resolveLanguage('de', 'fr')).toBe('de');
+  });
+
+  it("Home Assistant's own codes: exact first, then fallbacks, then the base language", () => {
+    // Whatever is shipped: an exact code always wins, in any case or with _.
+    for (const code of Object.keys(LANGUAGES)) {
+      expect(supportedLanguage(code)).toBe(code);
+      expect(supportedLanguage(code.toUpperCase().replace('-', '_'))).toBe(code);
+    }
+    const expectIfShipped = (tag: string, code: string) =>
+      expect(supportedLanguage(tag)).toBe(LANGUAGES_HAVE(code) ? code : supportedLanguage(code.split('-')[0]));
+    expectIfShipped('zh-TW', 'zh-Hant');
+    expectIfShipped('zh-HK', 'zh-Hant');
+    expectIfShipped('zh-Hant-TW', 'zh-Hant');
+    expectIfShipped('zh-CN', 'zh-Hans');
+    expectIfShipped('zh', 'zh-Hans');
+    expectIfShipped('pt-PT', 'pt');
+    expectIfShipped('pt-BR', 'pt-BR');
+    expectIfShipped('nn', 'nb');
+    expectIfShipped('no', 'nb');
+    expectIfShipped('es-419', 'es');
+    expect(supportedLanguage('sr-Latn')).toBe(LANGUAGES_HAVE('sr-Latn') ? 'sr-Latn' : LANGUAGES_HAVE('sr') ? 'sr' : 'en');
   });
 
   it('reads the language from hass.locale, then hass.language', () => {
