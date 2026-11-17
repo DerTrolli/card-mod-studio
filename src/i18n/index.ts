@@ -21,6 +21,26 @@
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import { en, type MessageKey } from './en.js';
 import { de } from './de.js';
+import { nl } from './nl.js';
+import { fr } from './fr.js';
+import { es } from './es.js';
+import { it } from './it.js';
+import { pl } from './pl.js';
+import { pt } from './pt.js';
+import { ptBR } from './pt-BR.js';
+import { sv } from './sv.js';
+import { da } from './da.js';
+import { nb } from './nb.js';
+import { cs } from './cs.js';
+import { sk } from './sk.js';
+import { hu } from './hu.js';
+import { fi } from './fi.js';
+import { ru } from './ru.js';
+import { uk } from './uk.js';
+import { zhHans } from './zh-Hans.js';
+import { zhHant } from './zh-Hant.js';
+import { ja } from './ja.js';
+import { ko } from './ko.js';
 
 export type { MessageKey } from './en.js';
 
@@ -28,6 +48,26 @@ export type { MessageKey } from './en.js';
 export const LANGUAGES = {
   en: { name: 'English', messages: en as Record<MessageKey, string> },
   de: { name: 'Deutsch', messages: de as Record<MessageKey, string> },
+  nl: { name: 'Nederlands', messages: nl as Record<MessageKey, string> },
+  fr: { name: 'Français', messages: fr as Record<MessageKey, string> },
+  es: { name: 'Español', messages: es as Record<MessageKey, string> },
+  it: { name: 'Italiano', messages: it as Record<MessageKey, string> },
+  pl: { name: 'Polski', messages: pl as Record<MessageKey, string> },
+  pt: { name: 'Português', messages: pt as Record<MessageKey, string> },
+  'pt-BR': { name: 'Português (Brasil)', messages: ptBR as Record<MessageKey, string> },
+  sv: { name: 'Svenska', messages: sv as Record<MessageKey, string> },
+  da: { name: 'Dansk', messages: da as Record<MessageKey, string> },
+  nb: { name: 'Norsk bokmål', messages: nb as Record<MessageKey, string> },
+  cs: { name: 'Čeština', messages: cs as Record<MessageKey, string> },
+  sk: { name: 'Slovenčina', messages: sk as Record<MessageKey, string> },
+  hu: { name: 'Magyar', messages: hu as Record<MessageKey, string> },
+  fi: { name: 'Suomi', messages: fi as Record<MessageKey, string> },
+  ru: { name: 'Русский', messages: ru as Record<MessageKey, string> },
+  uk: { name: 'Українська', messages: uk as Record<MessageKey, string> },
+  'zh-Hans': { name: '简体中文', messages: zhHans as Record<MessageKey, string> },
+  'zh-Hant': { name: '繁體中文', messages: zhHant as Record<MessageKey, string> },
+  ja: { name: '日本語', messages: ja as Record<MessageKey, string> },
+  ko: { name: '한국어', messages: ko as Record<MessageKey, string> },
 } as const;
 
 export type LanguageCode = keyof typeof LANGUAGES;
@@ -41,6 +81,17 @@ export function isLanguageCode(v: unknown): v is LanguageCode {
 
 export function isLanguageSetting(v: unknown): v is LanguageSetting {
   return v === 'auto' || isLanguageCode(v);
+}
+
+/**
+ * A language setting from outside, in any case — the integration sends
+ * lower-case codes (`pt-br`), since Home Assistant only allows lower-case
+ * option keys. Unknown → undefined.
+ */
+export function toLanguageSetting(v: unknown): LanguageSetting | undefined {
+  if (typeof v !== 'string') return undefined;
+  if (v === 'auto') return 'auto';
+  return shippedCode(v.toLowerCase());
 }
 
 /** Lower-case code → the shipped code (`pt-br` → `pt-BR`). */

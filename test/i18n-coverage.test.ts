@@ -41,9 +41,10 @@ afterAll(() => {
 const ALLOWED = new Set([
   'px', 'ms', 'var', 'primary', 'color', 'needle', 'true', 'cards', 'card_mod', 'uix', 'sans', 'serif', 'font',
   'input_boolean', 'my_entity', 'sensor', 'temperature', 'binary_sensor', 'example', 'light', 'rrggbb', 'name',
-  // language names are written in their own language
-  'english', 'deutsch',
 ]);
+
+/** Language names are written in their own language, not translated. */
+const LANGUAGE_NAMES = Object.values(LANGUAGES).map((l) => l.name).sort((a, b) => b.length - a.length); // longest first: "Português (Brasil)" before "Português"
 
 /** English words outside the ⟦…⟧ wrappers, in text and in labelling attributes. */
 function untranslated(t: string): string[] {
@@ -52,6 +53,7 @@ function untranslated(t: string): string[] {
     let left = s;
     // Messages nest (a translated noun inside a translated sentence): innermost first.
     for (let prev = ''; prev !== left; ) { prev = left; left = left.replace(/⟦[^⟦⟧]*⟧/g, ' '); }
+    for (const n of LANGUAGE_NAMES) left = left.split(n).join(' ');
     left = left.replace(/var\(--[\w-]+\)/g, ' ').replace(/[#.]?[\w-]+\.[\w-]+/g, ' ');
     left = left.replace(/#[0-9a-fA-F]{3,8}\b/g, ' ');
     for (const raw of left.match(/[A-Za-z][A-Za-z']{2,}/g) ?? []) {

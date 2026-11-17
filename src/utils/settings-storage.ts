@@ -18,7 +18,7 @@
  * integration as loaded. Precedence: the user's own choice → the site
  * default → Auto-detect.
  */
-import { isLanguageSetting, setLanguageSetting, type LanguageSetting } from '../i18n/index.js';
+import { isLanguageSetting, setLanguageSetting, toLanguageSetting, type LanguageSetting } from '../i18n/index.js';
 import { PALETTE_CHANGED_EVENT, setSiteColorDefaults } from './palette-storage.js';
 
 export interface StudioSettings {
@@ -97,7 +97,7 @@ function sanitizeSite(raw: unknown): SiteDefaults | null {
   if (o.configured !== true) return null;
   const color = (v: unknown) => (typeof v === 'string' && /^var\(--[a-z-]+-color\)$/.test(v) ? v : undefined);
   return {
-    language: isLanguageSetting(o.language) ? o.language : 'auto',
+    language: toLanguageSetting(o.language) ?? 'auto',
     askLanguage: o.ask_language !== false,
     onColor: color(o.on_color),
     offColor: color(o.off_color),

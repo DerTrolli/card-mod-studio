@@ -17,6 +17,7 @@ import {
   setLanguageSetting,
   supportedLanguage,
   t,
+  toLanguageSetting,
   tParts,
 } from '../src/i18n/index.js';
 import {
@@ -43,7 +44,7 @@ describe('which language', () => {
     expect(supportedLanguage('de_AT')).toBe('de');
     expect(supportedLanguage('DE')).toBe('de');
     expect(supportedLanguage('en-GB')).toBe('en');
-    expect(supportedLanguage('nl')).toBe('en');
+    expect(supportedLanguage('tr')).toBe('en');
     expect(supportedLanguage('zh-Hans')).toBe(LANGUAGES_HAVE('zh-Hans') ? 'zh-Hans' : 'en');
     expect(supportedLanguage(undefined)).toBe('en');
     expect(resolveLanguage('auto', 'de')).toBe('de');
@@ -95,18 +96,37 @@ describe('messages', () => {
   const OMITTED: Partial<Record<MessageKey, string[]>> = {
     'base.thresholdOwnedBody': ['what'], // "…, daher wird die hier gewählte Einstellung nicht verwendet"
   };
-  it('German has every key, nothing empty, and the same placeholders as English', () => {
-    for (const key of Object.keys(en) as MessageKey[]) {
-      expect(de[key], key).toBeTruthy();
-      const want = placeholders(en[key]).filter((p) => !(OMITTED[key] ?? []).includes(p));
-      expect(placeholders(de[key]), key).toEqual(want);
-    }
-    expect(Object.keys(de).sort()).toEqual(Object.keys(en).sort());
-  });
+  for (const [code, lang] of Object.entries(LANGUAGES)) {
+    if (code === 'en') continue;
+    it(`${code} has every key, nothing empty, and the same placeholders as English`, () => {
+      const msgs = lang.messages;
+      for (const key of Object.keys(en) as MessageKey[]) {
+        expect(msgs[key], `${code} ${key}`).toBeTruthy();
+        const want = placeholders(en[key]).filter((p) => !(OMITTED[key] ?? []).includes(p));
+        const got = placeholders(msgs[key]);
+        // a language may still keep an omittable placeholder
+        expect(got.filter((p) => want.includes(p)), `${code} ${key}`).toEqual(want);
+        expect(got.every((p) => placeholders(en[key]).includes(p)), `${code} ${key}: unknown placeholder`).toBe(true);
+      }
+      expect(Object.keys(msgs).sort()).toEqual(Object.keys(en).sort());
+    });
+  }
 
   it('every shipped language is registered with its own name', () => {
+    expect(Object.keys(LANGUAGES)).toHaveLength(22);
     expect(LANGUAGES.en.name).toBe('English');
     expect(LANGUAGES.de.name).toBe('Deutsch');
+    expect(LANGUAGES['pt-BR'].name).toBe('Português (Brasil)');
+    expect(LANGUAGES['zh-Hant'].name).toBe('繁體中文');
+    expect(LANGUAGES.ja.name).toBe('日本語');
+  });
+
+  it('a lower-case code from the integration maps to the shipped one', () => {
+    expect(toLanguageSetting('pt-br')).toBe('pt-BR');
+    expect(toLanguageSetting('zh-hant')).toBe('zh-Hant');
+    expect(toLanguageSetting('auto')).toBe('auto');
+    expect(toLanguageSetting('xx')).toBeUndefined();
+    expect(toLanguageSetting(3)).toBeUndefined();
   });
 
   it('fills placeholders; an unknown one stays visible', () => {

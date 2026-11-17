@@ -8,11 +8,32 @@ CONF_ON_COLOR = "on_color"
 CONF_OFF_COLOR = "off_color"
 
 #: "auto" follows the language Home Assistant shows each user. Keep in step
-#: with LANGUAGES in src/i18n/index.ts.
+#: with LANGUAGES in src/i18n/index.ts (lower case: Home Assistant only allows
+#: lower-case option keys; the Studio maps them back, pt-br → pt-BR).
 LANGUAGE_OPTIONS = [
     "auto",
     "en",
     "de",
+    "nl",
+    "fr",
+    "es",
+    "it",
+    "pl",
+    "pt",
+    "pt-br",
+    "sv",
+    "da",
+    "nb",
+    "cs",
+    "sk",
+    "hu",
+    "fi",
+    "ru",
+    "uk",
+    "zh-hans",
+    "zh-hant",
+    "ja",
+    "ko",
 ]
 
 #: Home Assistant's named theme colours, as the Studio's colour picker offers

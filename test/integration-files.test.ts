@@ -24,7 +24,8 @@ describe('the integration', () => {
   it('offers exactly the Studio\'s languages', () => {
     const py = readFileSync(resolve(dir, 'const.py'), 'utf8');
     const list = /LANGUAGE_OPTIONS = \[([^\]]*)\]/s.exec(py)![1].match(/"([^"]+)"/g)!.map((s) => s.slice(1, -1));
-    expect(list).toEqual(['auto', ...Object.keys(LANGUAGES)]);
+    // lower case: Home Assistant only allows lower-case option keys
+    expect(list).toEqual(['auto', ...Object.keys(LANGUAGES).map((c) => c.toLowerCase())]);
     expect(Object.keys(json('strings.json').selector.language.options)).toEqual(list);
   });
 
@@ -36,7 +37,7 @@ describe('the integration', () => {
       expect(existsSync(resolve(dir, f)), f).toBe(true);
       expect(keys(json(f)).sort(), f).toEqual(want);
       // the language names are each language's own, the same in every file
-      expect(json(f).selector.language.options[code], f).toBe(LANGUAGES[code as keyof typeof LANGUAGES].name);
+      expect(json(f).selector.language.options[code.toLowerCase()], f).toBe(LANGUAGES[code as keyof typeof LANGUAGES].name);
     }
   });
 });
