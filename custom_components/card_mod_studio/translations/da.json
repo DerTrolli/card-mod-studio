@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card-Mod Studio",
+        "description": "Tilføjer Card-Mod Studios indstillinger til denne side. Selve Studio installeres som en dashboardressource (HACS, Marketplace eller manuelt); denne post indeholder kun dets indstillinger."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card-Mod Studio er allerede konfigureret."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Card-Mod Studios indstillinger",
+        "description": "Standarder for alle i denne Home Assistant. En brugers eget valg i Studio (⚙️ Indstillinger, Min farvepalet) vinder altid.",
+        "data": {
+          "language": "Sprog",
+          "ask_language": "Spørg hver bruger, hvilket sprog de vil bruge",
+          "on_color": "Standardfarve for TIL",
+          "off_color": "Standardfarve for FRA"
+        },
+        "data_description": {
+          "language": "Automatisk registrering følger det sprog, Home Assistant vises på for hver bruger.",
+          "ask_language": "Første gang nogen åbner Studio, lader et kort spørgsmål dem vælge sprog. Fra: alle får sproget ovenfor.",
+          "on_color": "Den farve, en ny Ikonfarve, Accentfarve eller tærskelregel starter med, mens entiteten er tændt. Studio-standard: Studios egen.",
+          "off_color": "Det samme, mens entiteten er slukket."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Registrér automatisk (anbefales)",
+        "en": "English",
+        "de": "Deutsch"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Studio-standard",
+        "red": "Rød",
+        "pink": "Lyserød",
+        "purple": "Lilla",
+        "blue": "Blå",
+        "cyan": "Cyan",
+        "teal": "Blågrøn",
+        "green": "Grøn",
+        "yellow": "Gul",
+        "orange": "Orange",
+        "grey": "Grå"
+      }
+    }
+  }
+}

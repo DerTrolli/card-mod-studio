@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card-Mod Studio",
+        "description": "Lägger till Card-Mod Studios inställningar på den här sidan. Själva Studio installeras som en instrumentpanelsresurs (HACS, Marketplace eller för hand); den här posten innehåller bara dess inställningar."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card-Mod Studio är redan konfigurerat."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Card-Mod Studios inställningar",
+        "description": "Standarder för alla i den här Home Assistant. En användares eget val i Studio (⚙️ Inställningar, Min färgpalett) vinner alltid.",
+        "data": {
+          "language": "Språk",
+          "ask_language": "Fråga varje användare vilket språk de vill ha",
+          "on_color": "Standardfärg för PÅ",
+          "off_color": "Standardfärg för AV"
+        },
+        "data_description": {
+          "language": "Automatisk identifiering följer språket som Home Assistant visas på för varje användare.",
+          "ask_language": "Första gången någon öppnar Studio låter en kort fråga dem välja språk. Av: alla får språket ovan.",
+          "on_color": "Färgen som en ny Ikonfärg, Accentfärg eller tröskelregel börjar med när entiteten är på. Studio-standard: Studios egen.",
+          "off_color": "Samma sak när entiteten är av."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Identifiera automatiskt (rekommenderas)",
+        "en": "English",
+        "de": "Deutsch"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Studio-standard",
+        "red": "Röd",
+        "pink": "Rosa",
+        "purple": "Lila",
+        "blue": "Blå",
+        "cyan": "Cyanblå",
+        "teal": "Grönblå",
+        "green": "Grön",
+        "yellow": "Gul",
+        "orange": "Orange",
+        "grey": "Grå"
+      }
+    }
+  }
+}
