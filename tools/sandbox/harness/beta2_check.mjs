@@ -40,6 +40,20 @@ const cardStyle = (tag, prop, n = 0) => page.evaluate(({ tag, prop, n }) => {
   const ha = card && (card.shadowRoot ?? card).querySelector('ha-card');
   return ha ? getComputedStyle(ha)[prop] : null;
 }, { tag, prop, n });
+/** The colour of the first text node equal to `text` inside the n-th card of a tag. */
+const textColor = (tag, text, n = 0) => page.evaluate(({ tag, text, n }) => {
+  const walk = (root, acc) => { for (const el of root.querySelectorAll('*')) { acc.push(el); if (el.shadowRoot) walk(el.shadowRoot, acc); } return acc; };
+  const card = walk(document, []).filter((e) => e.tagName === tag)[n];
+  if (!card) return null;
+  const el = walk(card.shadowRoot ?? card, []).find((e) => [...e.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim() === text));
+  return el ? getComputedStyle(el).color : null;
+}, { tag, text, n });
+const RED = 'rgb(244, 67, 54)'; // var(--red-color)
+const waitText = async (tag, text, want, n = 0) => {
+  let v;
+  for (let i = 0; i < 30; i++) { v = await textColor(tag, text, n); if (v === want) return v; await wait(400); }
+  throw new Error(`${tag} "${text}" colour ${v}, want ${want}`);
+};
 const waitStyle = async (tag, prop, want, n = 0) => {
   let v;
   for (let i = 0; i < 30; i++) { v = await cardStyle(tag, prop, n); if (v === want) return v; await wait(400); }
@@ -49,7 +63,10 @@ const waitStyle = async (tag, prop, want, n = 0) => {
 try {
   await D.seedDashboard(page, URLPATH, [
     { type: 'tile', entity: 'light.ceiling_lights' },
-  ]);
+    { type: 'alarm-panel', entity: 'alarm_control_panel.security', name: 'QA alarm' },
+    { type: 'picture-elements', image: '/static/icons/favicon-192x192.png', elements: [{ type: 'state-label', entity: 'light.ceiling_lights', style: { top: '50%', left: '50%' } }] },
+    { type: 'heading', heading: 'QA heading' },
+  ], { view: { type: 'masonry' } });
   await D.gotoDashboard(page, URLPATH, { engine: false });
   const before = await cardStyle('HUI-TILE-CARD', 'borderTopLeftRadius');
   await D.enterEditMode(page);
@@ -88,8 +105,51 @@ try {
     return await waitStyle('HUI-TILE-CARD', 'borderTopLeftRadius', before);
   });
 
+  // ------------------------------------------------- #2 unhidden controls
+  await step('alarm panel: Font → Text color Red reaches the title; Threshold offers Text color', async () => {
+    await D.enterEditMode(page);
+    await D.openCardEditor(page, 1);
+    await D.openStudio(page);
+    await D.setSectionEnabled(page, 'Font', true);
+    await D.pickSwatch(await D.findControl(page, 'Font', 'Text color'), 'Red');
+    await D.setSectionEnabled(page, 'Threshold Colors', true);
+    const applyTo = await page.locator('cms-threshold-module .property-check').allInnerTexts();
+    need(applyTo.some((t) => /Text Color/i.test(t)), `Apply to: ${applyTo.join(' | ')}`);
+    await D.setSectionEnabled(page, 'Threshold Colors', false);
+    await D.saveCard(page);
+    await D.exitEditMode(page).catch(() => {});
+    return `title ${await waitText('HUI-ALARM-PANEL-CARD', 'QA alarm', RED)}; Apply to: ${applyTo.join(', ')}`;
+  });
+
+  await step('picture-elements: Font → Text color Red reaches the state label', async () => {
+    await D.enterEditMode(page);
+    await D.openCardEditor(page, 2);
+    await D.openStudio(page);
+    await D.setSectionEnabled(page, 'Font', true);
+    await D.pickSwatch(await D.findControl(page, 'Font', 'Text color'), 'Red');
+    await D.saveCard(page);
+    await D.exitEditMode(page).catch(() => {});
+    const label = await page.evaluate(() => document.querySelector('home-assistant').hass.formatEntityState(document.querySelector('home-assistant').hass.states['light.ceiling_lights']));
+    return `label "${label}" ${await waitText('HUI-PICTURE-ELEMENTS-CARD', label, RED)}`;
+  });
+
+  await step('heading: Animation offered without Glow / Spin / Gradient Shift; Bounce runs on the dashboard', async () => {
+    await D.enterEditMode(page);
+    await D.openCardEditor(page, 3);
+    await D.openStudio(page);
+    await D.setSectionEnabled(page, 'Animation', true);
+    const sel = await D.findControl(page, 'Animation', 'Preset');
+    const names = await page.locator('cms-animation-module select').first().evaluate((e) => [...e.options].map((o) => o.textContent.trim()));
+    need(!names.some((n) => /^(Glow|Spin|Gradient Shift)/.test(n)), names.join(' | '));
+    await D.chooseOption(sel, 'Bounce (vertical)');
+    await D.saveCard(page);
+    await D.exitEditMode(page).catch(() => {});
+    return `${await waitStyle('HUI-HEADING-CARD', 'animationName', 'cms-bounce')}; presets: ${names.join(', ')}`;
+  });
+
   await step('no console errors', async () => {
-    const errs = h.errors.filter((e) => !/themesReady: Timeout/.test(e) && !/status of 502/.test(e));
+    // Home Assistant's own (see language_check.mjs): HA 2025.9's media proxy 500s, the engines' theme wait
+    const errs = h.errors.filter((e) => !/themesReady: Timeout|status of 50[02]|Error getting Image Colors|Transition was skipped/.test(e));
     need(errs.length === 0, errs.join(' || '));
   });
 } catch (e) {

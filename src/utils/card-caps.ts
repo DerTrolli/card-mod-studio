@@ -54,18 +54,24 @@ export const STYLABLE_CHILDREN_CARD_TYPES = new Set([
  *    picture, picture-entity, picture-glance, picture-elements, map …): it
  *    moves a `background-position` those cards cannot show.
  *
- * Still hidden altogether, with the measured reason:
- *  - heading: no painted box, the glow outlines bare text.
+ *  - Glow and Spin on heading (v1.0, measured HA 2026.11): the heading has no
+ *    painted box, so Glow outlines a full-width pill around bare text and
+ *    Spin swings the whole row across the view. Pulse, Breathe, Blink,
+ *    Bounce, Shake and Heartbeat move the text as on any card.
+ *
+ * Still hidden altogether:
  *  - never measured: energy cards, activity, webpage, shopping-list.
  */
 export const NO_ANIMATION_TYPES = new Set([
-  'heading',
   'energy-distribution', 'energy-usage-graph', 'activity', 'webpage', 'shopping-list',
 ]);
 
 /** Cards where Spin breaks the pointer: the dial handle (thermostat,
  *  humidifier, light) and the map's pan drift away from it. */
-export const NO_SPIN_TYPES = new Set(['thermostat', 'humidifier', 'light', 'map']);
+export const NO_SPIN_TYPES = new Set(['thermostat', 'humidifier', 'light', 'map', 'heading']);
+
+/** Cards with no painted box, where Glow outlines bare text (heading). */
+export const NO_GLOW_TYPES = new Set(['heading']);
 
 export const NO_BACKGROUND_TYPES = new Set([
   'picture', 'picture-entity', 'picture-glance', 'picture-elements',
@@ -175,10 +181,10 @@ export const NO_FONT_WEIGHT_TYPES = new Set([
  * graph labels are canvas-drawn, but the colour reaches the card title.)
  */
 export const NO_TEXT_COLOR_TYPES = new Set([
-  // alarm-panel: the title and Arm buttons DO follow a colour (measured 2026.11),
-  // but this set also gates Threshold's Text Color target, which was not
-  // verified there — left hidden until it is.
-  'alarm-panel', 'area', 'media-control', 'picture-elements', 'picture-entity',
+  // (v1.0, measured HA 2026.11: alarm-panel's title and picture-elements'
+  // state labels take the colour — Font's and Threshold's Text Color — so
+  // they are no longer listed.)
+  'area', 'media-control', 'picture-entity',
   'picture-glance',
   // HA 2026.11 date card (module-effect audit, UIX 9)
   'date',
@@ -343,6 +349,7 @@ function buildCaps(
     // also a profile that paints it where the animation runs (ha-card).
     noAnimationPresets: [
       ...(!custom && NO_SPIN_TYPES.has(key) ? ['spin'] : []),
+      ...(!custom && NO_GLOW_TYPES.has(key) ? ['glow'] : []),
       ...(!m.background || noGradientShift ? ['gradient-shift'] : []),
     ],
     ...flags,

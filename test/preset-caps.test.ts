@@ -38,9 +38,9 @@ function tilePresetState(): StudioState {
 }
 
 describe('filterPresetStateForCardType', () => {
-  it('tile preset onto heading: animation/background/border reset to disabled defaults', () => {
+  it('tile preset onto heading: background/border reset; a Pulse animation is kept (v1.0)', () => {
     const filtered = filterPresetStateForCardType(tilePresetState(), 'heading');
-    expect(filtered.animation.enabled).toBe(false);
+    expect(filtered.animation).toMatchObject({ enabled: true, preset: 'pulse' });
     expect(filtered.background.enabled).toBe(false);
     expect(filtered.border.enabled).toBe(false);
   });
@@ -118,7 +118,7 @@ describe('filterPresetStateForCardType', () => {
     expect(filtered.threshold.colorStops[0]).not.toBe(DEFAULT_THRESHOLD.colorStops[0]);
   });
 
-  it('end to end: the filtered heading state generates no animation/background/border CSS', () => {
+  it('end to end: the filtered heading state generates no background/border CSS', () => {
     const unfiltered = tilePresetState();
     // Sanity: WITHOUT the filter these undisableable blocks were emitted
     const buggyCss = generateCss(unfiltered, 'heading');
@@ -127,7 +127,7 @@ describe('filterPresetStateForCardType', () => {
     expect(buggyCss).toContain('border:');
 
     const fixedCss = generateCss(filterPresetStateForCardType(unfiltered, 'heading'), 'heading');
-    expect(fixedCss).not.toContain('@keyframes');
+    expect(fixedCss).toContain('@keyframes cms-pulse'); // v1.0: Animation is offered on heading
     expect(fixedCss).not.toContain('background:');
     expect(fixedCss).not.toContain('border:');
   });

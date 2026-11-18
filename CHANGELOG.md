@@ -19,6 +19,22 @@ Work in progress; not published yet.
   of 0 without the switch still means the card's own rounding, so presets
   and copied styles from earlier versions read unchanged. When no radius
   is set, the slider says "Card default" instead of "0px".
+- **Controls that were hidden although they work** (each measured on Home
+  Assistant 2026.11 with card-mod and UIX, and on 2025.9):
+  - alarm panel: Font → Text color and Threshold → Text Color (they colour
+    the card's title);
+  - picture-elements: Font → Text color and Threshold → Text Color (they
+    colour the state labels);
+  - heading: Animation, without Glow (it outlined a full-width pill around
+    the bare text), Spin (it swung the whole row across the view) and
+    Gradient Shift (nothing to move). A preset with one of those, loaded
+    onto a heading, leaves Animation off.
+
+  Still hidden, on purpose: Accent and Threshold → Accent on the entities
+  card (they only recolour row icons that have no state colour of their
+  own — the per-row Icon color does that properly), and Font / Font family
+  on the heading card (Heading Style already sets size, weight, family and
+  colour there; two controls for one property would fight).
 
 ## [1.0.0-beta.1] — 2026-11-18
 

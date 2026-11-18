@@ -32,7 +32,9 @@ describe('per-card gating', () => {
     expect(thresholdPropertyAllowed('accent-color', 'gauge')).toBe(true);
     expect(thresholdPropertyAllowed('accent-color', 'markdown')).toBe(false);
     expect(thresholdPropertyAllowed('text-color', 'tile')).toBe(true);
-    expect(thresholdPropertyAllowed('text-color', 'alarm-panel')).toBe(false);
+    expect(thresholdPropertyAllowed('text-color', 'alarm-panel')).toBe(true); // v1.0: the title takes it
+    expect(thresholdPropertyAllowed('text-color', 'picture-elements')).toBe(true); // v1.0: the state labels take it
+    expect(thresholdPropertyAllowed('text-color', 'area')).toBe(false);
     expect(thresholdPropertyAllowed('text-color', 'todo-list')).toBe(true); // reaches the card title
     expect(thresholdPropertyAllowed('background', 'picture')).toBe(false);
     expect(thresholdPropertyAllowed('icon-color', 'area')).toBe(false);
