@@ -35,6 +35,7 @@ import {
 } from '../utils/custom-card-profiles.js';
 import { toRgbTriplet } from '../utils/rgb-triplet.js';
 import { jinjaStr } from '../utils/jinja-str.js';
+import { animationName, GRADIENT_MARKER_PROPERTY } from '../utils/studio-names.js';
 
 /**
  * Renders the entity reference used inside an `is_state(...)`/`state_attr(...)`
@@ -53,41 +54,41 @@ function entityRef(entityId?: string): string {
 // ---------------------------------------------------------------------------
 
 const KEYFRAMES: Record<string, string> = {
-  pulse: `@keyframes cms-pulse {
+  pulse: `@keyframes ${animationName('pulse')} {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
 }`,
-  breathe: `@keyframes cms-breathe {
+  breathe: `@keyframes ${animationName('breathe')} {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
 }`,
-  'gradient-shift': `@keyframes cms-gradient-shift {
+  'gradient-shift': `@keyframes ${animationName('gradient-shift')} {
   0% { background-position: 0% center; }
   50% { background-position: 100% center; }
   100% { background-position: 0% center; }
 }`,
-  blink: `@keyframes cms-blink {
+  blink: `@keyframes ${animationName('blink')} {
   0%, 49%, 100% { opacity: 1; }
   50%, 99% { opacity: 0.3; }
 }`,
-  bounce: `@keyframes cms-bounce {
+  bounce: `@keyframes ${animationName('bounce')} {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
 }`,
-  shake: `@keyframes cms-shake {
+  shake: `@keyframes ${animationName('shake')} {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-4px); }
   75% { transform: translateX(4px); }
 }`,
-  spin: `@keyframes cms-spin {
+  spin: `@keyframes ${animationName('spin')} {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }`,
-  glow: `@keyframes cms-glow {
+  glow: `@keyframes ${animationName('glow')} {
   0%, 100% { box-shadow: 0 0 2px 0 currentColor; }
   50% { box-shadow: 0 0 12px 2px currentColor; }
 }`,
-  heartbeat: `@keyframes cms-heartbeat {
+  heartbeat: `@keyframes ${animationName('heartbeat')} {
   0%, 28%, 70%, 100% { transform: scale(1); }
   14%, 42% { transform: scale(1.12); }
 }`,
@@ -551,7 +552,7 @@ function animationKeyframes(s: AnimationModuleState): string {
 function animationDecls(s: AnimationModuleState): string[] {
   if (!s.enabled) return [];
 
-  const animValue = `cms-${s.preset} ${s.speedS}s ${ANIMATION_TIMING[s.preset]} infinite`;
+  const animValue = `${animationName(s.preset)} ${s.speedS}s ${ANIMATION_TIMING[s.preset]} infinite`;
   const decls: string[] = [];
 
   if (s.preset === 'gradient-shift') decls.push('background-size: 200% auto;');
@@ -1051,8 +1052,10 @@ export function buildThresholdJinja(
 
 const GRADIENT_STEPS = 32;
 /** Custom property carrying the real anchor points, so re-opening the editor
- *  recovers your actual stops instead of GRADIENT_STEPS generated rules. */
-export const GRADIENT_MARKER_PROPERTY = '--cms-gradient-stops';
+ *  recovers your actual stops instead of GRADIENT_STEPS generated rules
+ *  (`--cstudio-gradient-stops`; `--cms-gradient-stops` before v1.0.0-beta.2 —
+ *  see studio-names.ts). */
+export { GRADIENT_MARKER_PROPERTY };
 
 function normalizeHex(value: string): string {
   if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
@@ -1345,7 +1348,7 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // A hand-written block of the same name already sits in Advanced CSS (kept
   // because an unadopted `animation:` names it): writing the preset's too
   // would define it twice.
-  if (kf && new RegExp(`@keyframes\\s+cms-${state.animation.preset}\\s*\\{`).test(state.advanced.rawCss)) kf = '';
+  if (kf && new RegExp(`@keyframes\\s+${animationName(state.animation.preset)}\\s*\\{`).test(state.advanced.rawCss)) kf = '';
   if (kf) parts.push(kf);
 
   // A property the Threshold module already drives is skipped in the

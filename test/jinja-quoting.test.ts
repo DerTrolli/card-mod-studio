@@ -210,21 +210,21 @@ const SITES: Site[] = [
     name: 'Animation: custom entity',
     build: (v) => ({ animation: { ...E.animation, enabled: true, trigger: 'custom', customEntity: v } }),
     skeleton: ['{{ S if is_state(S, S) else S }}'],
-    literals: [['cms-pulse 2s ease-in-out infinite', 'V', 'on', 'none']],
+    literals: [['cstudio-pulse 2s ease-in-out infinite', 'V', 'on', 'none']],
     read: (s) => s.animation.customEntity,
   },
   {
     name: 'Animation: value entity',
     build: (v) => ({ animation: { ...E.animation, enabled: true, trigger: 'value', valueEntity: v, valueOperator: '>', valueThreshold: 3 } }),
     skeleton: ['{{ S if states(S) | float(0) > 3 else S }}'],
-    literals: [['cms-pulse 2s ease-in-out infinite', 'V', 'none']],
+    literals: [['cstudio-pulse 2s ease-in-out infinite', 'V', 'none']],
     read: (s) => s.animation.valueEntity,
   },
   {
     name: 'Animation: value attribute',
     build: (v) => ({ animation: { ...E.animation, enabled: true, trigger: 'value', valueEntity: 'sensor.x', valueAttribute: v, valueOperator: '>', valueThreshold: 3 } }),
     skeleton: ['{{ S if state_attr(S, S) | float(0) > 3 else S }}'],
-    literals: [['cms-pulse 2s ease-in-out infinite', 'sensor.x', 'V', 'none']],
+    literals: [['cstudio-pulse 2s ease-in-out infinite', 'sensor.x', 'V', 'none']],
     read: (s) => s.animation.valueAttribute,
   },
   {
@@ -245,7 +245,7 @@ const SITES: Site[] = [
     name: 'Animation: value entity (attribute form)',
     build: (v) => ({ animation: { ...E.animation, enabled: true, trigger: 'value', valueEntity: v, valueAttribute: 'a', valueOperator: '>', valueThreshold: 3 } }),
     skeleton: ['{{ S if state_attr(S, S) | float(0) > 3 else S }}'],
-    literals: [['cms-pulse 2s ease-in-out infinite', 'V', 'a', 'none']],
+    literals: [['cstudio-pulse 2s ease-in-out infinite', 'V', 'a', 'none']],
     read: (s) => s.animation.valueEntity,
   },
   {
@@ -400,12 +400,12 @@ describe('ordinary values are written exactly as before', () => {
     );
   });
   it('Animation', () => {
-    const kf = '@keyframes cms-pulse {\n  0%, 100% { transform: scale(1); }\n  50% { transform: scale(1.05); }\n}\n\n';
+    const kf = '@keyframes cstudio-pulse {\n  0%, 100% { transform: scale(1); }\n  50% { transform: scale(1.05); }\n}\n\n';
     expect(gen({ animation: { ...E.animation, enabled: true, trigger: 'custom', customEntity: 'switch.x' } })).toBe(
-      kf + "ha-card {\n  animation: {{ 'cms-pulse 2s ease-in-out infinite' if is_state('switch.x', 'on') else 'none' }};\n}",
+      kf + "ha-card {\n  animation: {{ 'cstudio-pulse 2s ease-in-out infinite' if is_state('switch.x', 'on') else 'none' }};\n}",
     );
     expect(gen({ animation: { ...E.animation, enabled: true, trigger: 'value', valueEntity: 'sensor.x', valueAttribute: 'a', valueOperator: '>', valueThreshold: 3 } })).toBe(
-      kf + "ha-card {\n  animation: {{ 'cms-pulse 2s ease-in-out infinite' if state_attr('sensor.x', 'a') | float(0) > 3 else 'none' }};\n}",
+      kf + "ha-card {\n  animation: {{ 'cstudio-pulse 2s ease-in-out infinite' if state_attr('sensor.x', 'a') | float(0) > 3 else 'none' }};\n}",
     );
   });
   it('Threshold', () => {

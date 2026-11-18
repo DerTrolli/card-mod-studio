@@ -62,10 +62,10 @@ describe('parseCondTernary guard', () => {
 describe('animation value reader guard', () => {
   it('a value trigger on a sensor with \\n keeps the animation hand-written and its keyframes', () => {
     const kf = gen({ animation: { ...E.animation, enabled: true, trigger: 'always' } }).split('\n\n')[0];
-    expect(kf.startsWith('@keyframes cms-pulse')).toBe(true);
-    const css = `${kf}\n\nha-card {\n  animation: {{ 'cms-pulse 2s ease-in-out infinite' if states('sensor.${NL}') | float(0) > 3 else 'none' }};\n}`;
+    expect(kf.startsWith('@keyframes cstudio-pulse')).toBe(true);
+    const css = `${kf}\n\nha-card {\n  animation: {{ 'cstudio-pulse 2s ease-in-out infinite' if states('sensor.${NL}') | float(0) > 3 else 'none' }};\n}`;
     expectLeftAlone(css, (s) => !s.animation.enabled, NL);
-    expect(generateCss(parse(css), 'tile').split('@keyframes cms-pulse').length - 1).toBe(1);
+    expect(generateCss(parse(css), 'tile').split('@keyframes cstudio-pulse').length - 1).toBe(1);
   });
 });
 

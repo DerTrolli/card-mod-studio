@@ -127,7 +127,7 @@ describe('filterPresetStateForCardType', () => {
     expect(buggyCss).toContain('border:');
 
     const fixedCss = generateCss(filterPresetStateForCardType(unfiltered, 'heading'), 'heading');
-    expect(fixedCss).toContain('@keyframes cms-pulse'); // v1.0: Animation is offered on heading
+    expect(fixedCss).toContain('@keyframes cstudio-pulse'); // v1.0: Animation is offered on heading
     expect(fixedCss).not.toContain('background:');
     expect(fixedCss).not.toContain('border:');
   });

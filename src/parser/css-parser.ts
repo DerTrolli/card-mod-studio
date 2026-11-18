@@ -30,6 +30,7 @@
  */
 
 import type { CssTarget, CssProperty } from '../types/index.js';
+import { ANY_PREFIX_SRC } from '../utils/studio-names.js';
 import { JINJA_STR_BODY, JINJA_STR_BODY_1, endOfTag, hasForeignEscape, unescapeJinjaStr } from '../utils/jinja-str.js';
 
 // ---------------------------------------------------------------------------
@@ -495,10 +496,12 @@ export function parseCssDetailed(css: string): { targets: CssTarget[]; passthrou
   return { targets: coalesceBySelector(targets), passthroughCss, tailCss };
 }
 
-const CMS_KEYFRAMES_RE = /^@keyframes\s+cms-/;
+// The Studio's own keyframes: `cstudio-*`, or `cms-*` written before
+// v1.0.0-beta.2 (see studio-names.ts).
+const CMS_KEYFRAMES_RE = new RegExp(`^@keyframes\\s+${ANY_PREFIX_SRC}`);
 
 /**
- * The studio-named `@keyframes cms-*` blocks of the claimable head, verbatim,
+ * The studio-named `@keyframes cstudio-*` (or legacy `cms-*`) blocks of the claimable head, verbatim,
  * in source order — the ones parseCssDetailed leaves out of `passthroughCss`
  * because the Animation module regenerates them. When the module does NOT
  * adopt the `animation:` declaration that uses one, the declaration stays
@@ -513,7 +516,7 @@ export function cmsKeyframesOf(css: string): { name: string; text: string }[] {
   const out: { name: string; text: string }[] = [];
   for (const block of keyframes) {
     const text = restoreJinja(block, map);
-    const m = /^@keyframes\s+(cms-[^\s{]+)/.exec(text);
+    const m = new RegExp(`^@keyframes\\s+(${ANY_PREFIX_SRC}[^\\s{]+)`).exec(text);
     if (m) out.push({ name: m[1], text });
   }
   return out;

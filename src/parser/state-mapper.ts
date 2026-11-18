@@ -36,8 +36,8 @@ import type {
   DictSource,
 } from '../types/index.js';
 import { parseCss, parseCssDetailed, isBareDeclarations, keptCmsKeyframes } from './css-parser.js';
+import { ANY_PREFIX_SRC, GRADIENT_MARKER_PROPERTIES, animationName } from '../utils/studio-names.js';
 import {
-  GRADIENT_MARKER_PROPERTY,
   ANIMATION_TIMING,
   decodeGradientStops,
   headerFontSize,
@@ -399,9 +399,11 @@ function parseCondTernary(
 // Animation module
 // ---------------------------------------------------------------------------
 
-/** Pattern: cms-{preset} {speed}s {timing} infinite (see animationDecls). */
-const ANIM_PATTERN =
-  /^cms-(pulse|breathe|gradient-shift|blink|bounce|shake|spin|glow|heartbeat)\s+([\d.]+)s\s+(ease-in-out|linear)\s+infinite$/;
+/** Pattern: cstudio-{preset} {speed}s {timing} infinite (see animationDecls;
+ *  `cms-{preset}` before v1.0.0-beta.2 is read the same — studio-names.ts). */
+const ANIM_PATTERN = new RegExp(
+  String.raw`^${ANY_PREFIX_SRC}(pulse|breathe|gradient-shift|blink|bounce|shake|spin|glow|heartbeat)\s+([\d.]+)s\s+(ease-in-out|linear)\s+infinite$`,
+);
 
 /**
  * The value-conditional animation form (trigger === 'value'):
@@ -720,7 +722,7 @@ function mapView(fullParsed: CardModStyleState, parsed: CardModStyleState, cardT
   return {
     ...state,
     // The generator writes the enabled preset's keyframes itself.
-    advanced: mapAdvanced(fullParsed, claimed, state.animation.enabled ? `cms-${state.animation.preset}` : undefined),
+    advanced: mapAdvanced(fullParsed, claimed, state.animation.enabled ? animationName(state.animation.preset) : undefined),
   };
 }
 
@@ -2867,13 +2869,16 @@ function mapThreshold(
     // thresholdPropertyBlock) — claim the marker on each claimed target,
     // not just the first: the unclaimed copies accreted as orphan blocks
     // in Advanced CSS on every save (audit W3).
-    const markerProp = findProp(target, GRADIENT_MARKER_PROPERTY);
-    if (markerProp) {
+    // The marker's old name (`--cms-gradient-stops`, before v1.0.0-beta.2)
+    // is read and claimed the same: the save writes the new one.
+    for (const markerName of GRADIENT_MARKER_PROPERTIES) {
+      const markerProp = findProp(target, markerName);
+      if (!markerProp) continue;
       const unquoted = markerProp.value.trim().replace(/^'|'$/g, '');
       const decoded = decodeGradientStops(unquoted);
       if (decoded) {
         gradientStops ??= decoded;
-        claimed.add(claimKey(target.selector, GRADIENT_MARKER_PROPERTY));
+        claimed.add(claimKey(target.selector, markerName));
       }
     }
   }
