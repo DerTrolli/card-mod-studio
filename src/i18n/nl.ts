@@ -1,7 +1,7 @@
 /**
  * Nederlands. Typed against the English keys: a missing key fails `tsc`.
  *
- * Machine-translated (v0.12, not yet read by a native speaker), using Home
+ * Machine-translated (v1.0, not yet read by a native speaker), using Home
  * Assistant's own words for its terms (tools/i18n/ha_glossary.py).
  */
 import type { MessageKey } from './en.js';

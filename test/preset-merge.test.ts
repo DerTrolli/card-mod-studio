@@ -143,7 +143,7 @@ describe('the panel (rendered handlers)', () => {
   });
 });
 
-describe('rename, move and an overwrite in place (v0.12)', () => {
+describe('rename, move and an overwrite in place (v1.0)', () => {
   const p = (name: string) => ({ name, state: {} as never });
   const names = (l: { name: string }[]) => l.map((x) => x.name);
   const l = [p('a'), p('b'), p('c')];

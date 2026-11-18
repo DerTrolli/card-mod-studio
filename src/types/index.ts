@@ -427,7 +427,7 @@ export interface EntitiesCardRow {
 }
 
 /**
- * Tile card features (v0.12): the feature rows under a tile (brightness
+ * Tile card features (v1.0): the feature rows under a tile (brightness
  * slider, toggles, …), styled through the variables HA's `hui-card-features`
  * reads. Measured on HA 2025.9–2026.11 with card-mod and UIX: height and
  * corner radius take a plain declaration there, the colour only with
@@ -453,7 +453,7 @@ export interface StudioState {
   animation: AnimationModuleState;
   border: BorderModuleState;
   headingStyle: HeadingStyleModuleState;
-  /** Tile feature rows (v0.12). Optional: states written before it have none. */
+  /** Tile feature rows (v1.0). Optional: states written before it have none. */
   features?: FeaturesModuleState;
   font: FontModuleState;
   threshold: ThresholdModuleState;

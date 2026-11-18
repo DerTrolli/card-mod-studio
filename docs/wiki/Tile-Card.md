@@ -12,7 +12,7 @@
 | Background | ✅ | |
 | Animation | ✅ | |
 | Border & Radius | ✅ | |
-| Features | ✅ *(0.12, beta)* | The feature rows under the tile: height, corner radius, colour — see below |
+| Features | ✅ *(1.0, beta)* | The feature rows under the tile: height, corner radius, colour — see below |
 | Advanced CSS | ✅ | |
 
 ## Card-specific behavior
@@ -27,7 +27,7 @@
 - **State awareness** follows the tile's entity: toggleable domains get the
   ON/OFF modes directly; sensors etc. can still use "Controlled by".
 
-## Features *(new in 0.12, beta)*
+## Features *(new in 1.0, beta)*
 
 The **Features** module styles the feature rows under the tile (brightness
 slider, cover buttons, climate modes, …) — all rows of the card at once:

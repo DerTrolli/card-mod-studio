@@ -1,4 +1,4 @@
-// The optional Card-Mod Studio integration (v0.12), through Home Assistant's
+// The optional Card-Mod Studio integration (v1.0), through Home Assistant's
 // own UI with real input: Settings → Devices & services → Add integration →
 // Card-Mod Studio → Submit; then Configure (the options dialog) → change the
 // language → Submit; the Studio's websocket command returns the options.

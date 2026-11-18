@@ -604,7 +604,7 @@ export const HEADING_FAMILY_SELECTOR = '.content p,\n.content .heading';
 export const HEADING_ICON_SELECTOR = '.content ha-icon';
 
 /**
- * Features (v0.12, tile): HA's `hui-card-features` declares these variables
+ * Features (v1.0, tile): HA's `hui-card-features` declares these variables
  * on itself, so they're set there (a value on ha-card doesn't reach it); the
  * colour needs `!important` over the tile's own. Only what was set is written.
  */

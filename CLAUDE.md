@@ -5,8 +5,10 @@ for them by name.
 
 ## Versioning & release rules
 
-This project is pre-1.0: still actively adding features, not yet confident
-it's complete. SemVer applies within that constraint.
+This project is in its 1.0 betas (`1.0.0-beta.N`, chosen by the owner on
+2026-11-18). SemVer applies: from 1.0 on, the generated `card_mod:`/`uix:`
+YAML, the stored preset/palette/settings formats, the copy/paste text and
+the integration's options only change backward-compatibly within 1.x.
 
 **Bump size:**
 - **Patch** (`x.x.PATCH`) — bug fixes, small correctness fixes, minor UX
@@ -14,8 +16,9 @@ it's complete. SemVer applies within that constraint.
 - **Minor** (`x.MINOR.x`) — new features, new settings/modules, meaningfully
   expanded capability — even if the change itself is a small diff.
 - **Major** (`MAJOR.x.x`) — **never bump this without an explicit go-ahead**,
-  regardless of how large a change feels. Stay in `0.x.x` until told
-  otherwise (see `docs/ROADMAP.md`'s "Path to v1.0" for the actual plan).
+  regardless of how large a change feels. Stay in `1.x.x` until told
+  otherwise; a change that would break one of the formats above needs that
+  go-ahead.
 
 When a change is genuinely ambiguous between patch/minor, say which one was
 picked and why, so it's easy to correct.

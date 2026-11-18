@@ -1,5 +1,5 @@
 /**
- * Tile Features (v0.12): what is written, that it reads back into the module,
+ * Tile Features (v1.0): what is written, that it reads back into the module,
  * and what stays the user's.
  */
 import { describe, it, expect } from 'vitest';

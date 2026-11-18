@@ -88,7 +88,7 @@ describe('presets changed during an outage', () => {
     box.stored = [preset('same', 'elsewhere-newer'), preset('other')];
     box.failRead = false;
     const out = await loadPresets(hass);
-    // v0.12: an overwrite keeps the preset's place in the (user-ordered) list
+    // v1.0: an overwrite keeps the preset's place in the (user-ordered) list
     expect(names(out)).toEqual(['same', 'other']);
     expect(out.find((p) => p.name === 'same')!.state.advanced.rawCss).toBe('here');
     expect(names(box.stored)).toEqual(['same', 'other']);

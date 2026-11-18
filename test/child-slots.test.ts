@@ -1,5 +1,5 @@
 /**
- * Containers at any depth (v0.12): which children a container has, and that
+ * Containers at any depth (v1.0): which children a container has, and that
  * a change deep inside lands in exactly that card.
  */
 import { describe, it, expect } from 'vitest';

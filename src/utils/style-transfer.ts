@@ -2,8 +2,8 @@
  * style-transfer.ts — a card's style or a set of presets as text, to copy to
  * another card, another Home Assistant or a forum post, and back.
  *
- *   { "cardModStudio": "0.12.0", "type": "style",   "state": { … } }
- *   { "cardModStudio": "0.12.0", "type": "presets", "presets": [{ "name": …, "state": { … } }] }
+ *   { "cardModStudio": "1.0.0", "type": "style",   "state": { … } }
+ *   { "cardModStudio": "1.0.0", "type": "presets", "presets": [{ "name": …, "state": { … } }] }
  *
  * The state is the Studio's own (what a preset stores), not the generated
  * CSS: it carries the module settings, so the receiving Studio can show and

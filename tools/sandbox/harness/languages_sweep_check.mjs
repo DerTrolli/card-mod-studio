@@ -1,4 +1,4 @@
-// Every shipped language (v0.12), through the real Settings selector: the
+// Every shipped language (v1.0), through the real Settings selector: the
 // panel follows it, and nothing in it runs out of the panel sideways.
 //   node languages_sweep_check.mjs                  (card-mod rig, desktop 1440×900)
 //   PHONE=1 node languages_sweep_check.mjs          (390×844, touch)

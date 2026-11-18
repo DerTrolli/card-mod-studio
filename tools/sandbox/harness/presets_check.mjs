@@ -1,4 +1,4 @@
-// My Presets (v0.12) through the real card editor with real input: rename,
+// My Presets (v1.0) through the real card editor with real input: rename,
 // reorder, duplicate and delete presets; copy one card's style and paste it
 // onto another card; copy all presets and paste them back.
 //   node presets_check.mjs                    (card-mod rig)

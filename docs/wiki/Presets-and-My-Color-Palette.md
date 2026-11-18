@@ -32,7 +32,7 @@ and sent to Home Assistant when it is reachable again (the bar tells you it
 was "saved on this device only"). If this browser's storage is full too, it
 says the change can't be saved.
 
-### 📚 My Presets *(new in 0.12, beta)*
+### 📚 My Presets *(new in 1.0, beta)*
 
 A section below the preset bar that lists your presets in their order:
 
@@ -42,7 +42,7 @@ A section below the preset bar that lists your presets in their order:
 - **⧉** — duplicate it, right below, as "… (copy)".
 - **×** — delete it (press twice).
 
-### Share a style or your presets *(new in 0.12, beta)*
+### Share a style or your presets *(new in 1.0, beta)*
 
 Also in 📚 My Presets:
 

@@ -246,7 +246,7 @@ const RULES: PickRule[] = [
   },
   {
     // Tile feature rows (sliders/toggles below the info block): the Features
-    // module (v0.12) styles them — height, corner radius, colour.
+    // module (v1.0) styles them — height, corner radius, colour.
     test: (el) => el.tag === 'hui-card-features' || el.tag === 'hui-card-feature',
     target: (cardType, config) =>
       capsFor(cardType, config).features

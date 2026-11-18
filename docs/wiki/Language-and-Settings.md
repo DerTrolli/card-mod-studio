@@ -1,6 +1,6 @@
 # Language & Settings
 
-*New in 0.12 (beta).*
+*New in 1.0 (beta).*
 
 Card-Mod Studio's own text — module names, labels, hints, warnings, the
 CSS checks in Advanced CSS — comes in **22 languages**:

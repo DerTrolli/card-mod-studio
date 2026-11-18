@@ -18,7 +18,7 @@
  *
  * A child that is itself a container (a stack inside a stack, a
  * conditional inside a grid, …) gets its own child sections, recursively
- * (v0.12): a nested section's change is caught here, folded into this
+ * (v1.0): a nested section's change is caught here, folded into this
  * child's config and re-emitted for THIS slot — so the panel only ever
  * receives changes for its own direct children, whatever the depth.
  * An entities-card child gets per-row styling like a top-level one.

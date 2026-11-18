@@ -1,5 +1,5 @@
 /**
- * Features (v0.12) — the feature rows of a tile card (brightness slider,
+ * Features (v1.0) — the feature rows of a tile card (brightness slider,
  * toggles, presets, …): their height, corner radius and colour, written to
  * HA's `hui-card-features` (see featuresBlock). Shown on tile cards only,
  * where it was measured. Each control writes only once touched; ↺ goes back

@@ -101,10 +101,10 @@ Font hidden on `picture`, Threshold's options following the matching
 module (`thresholdPropertyAllowed`), `entity-filter` treated as a container,
 and Threshold Text Color gained the tile/title colour companions.
 
-## Changes in v0.12.0-beta.1
+## Changes in v1.0.0-beta.1
 
 The container rows above (`entity-filter`, `vertical-stack`, `grid`) stay
-empty at the container level. Since v0.12 the Studio styles the cards
+empty at the container level. Since v1.0 the Studio styles the cards
 *inside* `conditional` and `entity-filter` cards and inside containers
 nested in containers (`src/utils/child-slots.ts`), each with its own card
 type's row of this table. The tile card gained a **Features** module

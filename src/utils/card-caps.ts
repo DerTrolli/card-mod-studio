@@ -29,7 +29,7 @@ export const CONTAINER_CARD_TYPES = new Set([
 ]);
 
 /** Container types the panel offers per-child styling sections for: a
- *  `cards: []` list, or a single `card:` (conditional, entity-filter — v0.12;
+ *  `cards: []` list, or a single `card:` (conditional, entity-filter — v1.0;
  *  see child-slots.ts). Sections aren't edited through this dialog. */
 export const STYLABLE_CHILDREN_CARD_TYPES = new Set([
   'grid', 'vertical-stack', 'horizontal-stack', 'conditional', 'entity-filter',
@@ -271,7 +271,7 @@ export interface CardCaps {
   isContainer: boolean;
   /** Container with a `cards: []` list the panel offers child sections for. */
   stylableChildren: boolean;
-  /** Features module (tile feature rows, v0.12 — measured on tile only). */
+  /** Features module (tile feature rows, v1.0 — measured on tile only). */
   features: boolean;
   /** Which panel modules show. */
   modules: Record<ProfileModule, boolean>;

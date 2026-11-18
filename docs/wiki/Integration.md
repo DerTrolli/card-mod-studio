@@ -1,6 +1,6 @@
 # Integration (Settings page)
 
-*New in 0.12 (beta). Optional.*
+*New in 1.0 (beta). Optional.*
 
 Card-Mod Studio itself is a dashboard resource and needs nothing else. The
 small **Card-Mod Studio integration** adds an entry under **Settings →

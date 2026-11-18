@@ -1828,7 +1828,7 @@ function mapBackground(
 // ---------------------------------------------------------------------------
 
 /**
- * Features (v0.12): `hui-card-features { --feature-height: Npx;
+ * Features (v1.0): `hui-card-features { --feature-height: Npx;
  * --feature-border-radius: Npx; --feature-color: C !important }` — exactly
  * what featuresBlock writes. A colour without `!important` does nothing on
  * the card (the tile sets its own), so it isn't taken over: it stays the

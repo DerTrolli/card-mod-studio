@@ -1,4 +1,4 @@
-// Tile Features (v0.12) through the real card editor with real input: switch
+// Tile Features (v1.0) through the real card editor with real input: switch
 // Features on, drag Height and Corner radius, pick a colour, save; measure the
 // brightness slider on the dashboard; reopen and see the module read back.
 //   node features_check.mjs                  (card-mod rig)

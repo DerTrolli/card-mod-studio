@@ -3,7 +3,7 @@
 **Setup**
 - [Installation](Installation)
 - [Getting Started](Getting-Started)
-- [Integration (Settings page)](Integration) *(new in 0.12, beta)*
+- [Integration (Settings page)](Integration) *(new in 1.0, beta)*
 
 **Style modules**
 - [Icon & Accent Color](Icon-Color-and-Accent-Color)
@@ -19,7 +19,7 @@
 **Workflow**
 - [Recipes](Recipes)
 - [Presets & My Color Palette](Presets-and-My-Color-Palette)
-- [Language & Settings](Language-and-Settings) *(new in 0.12, beta)*
+- [Language & Settings](Language-and-Settings) *(new in 1.0, beta)*
 
 **Per-card guides**
 - [Tile](Tile-Card)

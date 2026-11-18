@@ -198,7 +198,7 @@ describe('mapElementToTarget', () => {
     });
   });
 
-  it('maps tile feature rows to the Features module (v0.12)', () => {
+  it('maps tile feature rows to the Features module (v1.0)', () => {
     const chain = [
       el('div', ['slider-track-bar', 'start']),
       el('ha-control-slider'),

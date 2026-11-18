@@ -62,7 +62,7 @@ effects, icon size).
 - Glance icon color stays out: even shadow-piercing styles don't reach it
   ([why](Glance-Card#why-no-icon-color)).
 
-## v0.12 (beta) — languages, a Settings page, and the v1.0 structure items
+## v1.0 (beta) — languages, a Settings page, and structural completeness
 
 - **22 languages**, with a one-time language question (Auto-detect
   recommended) and a **⚙️ Settings** section to change it; English and German
@@ -75,17 +75,13 @@ effects, icon size).
 - **`conditional` and `entity-filter` cards, and containers nested inside
   containers** — see [Containers](Container-Cards).
 - **Tile Features** — height, corner radius and colour of the feature rows;
-  see [Tile](Tile-Card#features-new-in-012-beta).
+  see [Tile](Tile-Card#features-new-in-10-beta).
 - **📚 My Presets** — rename, reorder, duplicate, delete; and **copy / paste**
   a card's style or all presets as text — see
   [Presets](Presets-and-My-Color-Palette).
 
-## v1.0 — to be decided
-
-The structure items once planned for v1.0 shipped in v0.12. A proposal for
-what v1.0 then needs (not decided yet): native speakers' corrections to the
-translations, real-world reports on the v0.12 betas, and `sections` view
-containers.
+Ships as **1.0.0-beta.1**. What's left before 1.0.0 final: real-world
+reports on the betas, and corrections to the machine translations.
 
 ## Post-1.0 stretch
 

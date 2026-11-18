@@ -1,4 +1,4 @@
-// Language (v0.12): the one-time question, the Settings selector, live
+// Language (v1.0): the one-time question, the Settings selector, live
 // switching, the per-user setting, and German Home Assistant with Auto-detect.
 //   node language_check.mjs                       (card-mod rig, tokens.json)
 //   RIG=uix UIX_TOKENS_FILE=/path/tokens.json node language_check.mjs

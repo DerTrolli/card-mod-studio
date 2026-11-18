@@ -10,7 +10,7 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, isAbsolute } from 'node:path';
 
-/** The Studio asks once which language to use (v0.12): checks start with
+/** The Studio asks once which language to use (v1.0): checks start with
  *  that answered (Auto-detect), unless CMS_FIRST_RUN=1 wants the question. */
 const SEED_SETTINGS = () => {
   if (!localStorage.getItem('cms-settings')) {

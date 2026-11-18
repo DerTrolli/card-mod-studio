@@ -1,6 +1,6 @@
 /**
  * cms-preset-manager — "My Presets": rename, reorder, duplicate and delete
- * the stored presets, and share styles as text (v0.12).
+ * the stored presets, and share styles as text (v1.0).
  *
  * Share: "Copy this card's style" / "Copy all presets" put a small JSON text
  * (style-transfer.ts) on the clipboard — or, where the browser doesn't allow

@@ -1,5 +1,5 @@
 /**
- * Sharing styles and presets as text (v0.12): what is written, what a paste
+ * Sharing styles and presets as text (v1.0): what is written, what a paste
  * accepts, and that pasted text can't carry a card's own entries or break
  * the panel.
  */

@@ -1,5 +1,5 @@
 /**
- * child-slots.ts — where a container keeps the cards inside it (v0.12).
+ * child-slots.ts — where a container keeps the cards inside it (v1.0).
  *
  * - vertical-stack / horizontal-stack / grid: `cards: [ … ]`, one slot per
  *   entry (its index);

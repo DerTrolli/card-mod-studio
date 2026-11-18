@@ -39,7 +39,7 @@ const OLD_CONTAINER_CARD_TYPES = new Set<string>([
   'grid', 'vertical-stack', 'horizontal-stack', 'sections', 'conditional',
   'entity-filter',
 ]);
-// v0.12: conditional and entity-filter (a single `card:`) joined.
+// v1.0: conditional and entity-filter (a single `card:`) joined.
 const OLD_STYLABLE_CHILDREN_CARD_TYPES = new Set<string>([
   'grid', 'vertical-stack', 'horizontal-stack', 'conditional', 'entity-filter',
 ]);

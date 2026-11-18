@@ -1,4 +1,4 @@
-// Containers (v0.12) through the real card editor with real input: the card
+// Containers (v1.0) through the real card editor with real input: the card
 // inside a conditional, the default entities card of an entity-filter, and a
 // tile inside a horizontal-stack inside a vertical-stack. Each is styled from
 // the outer card's editor (Animation on — a style that writes at once), saved,

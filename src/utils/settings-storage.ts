@@ -10,7 +10,7 @@
  * Applying the settings is immediate: the cache updates, the language layer
  * switches, and SETTINGS_CHANGED_EVENT tells open views.
  *
- * Site defaults (v0.12): the optional Card-Mod Studio integration (Settings →
+ * Site defaults (v1.0): the optional Card-Mod Studio integration (Settings →
  * Devices & services) holds defaults for everyone on this Home Assistant —
  * the language, whether each user is asked, the default ON/OFF colours. They
  * arrive over the websocket subscription `card_mod_studio/subscribe` (pushed

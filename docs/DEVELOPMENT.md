@@ -172,7 +172,7 @@ clipping and touch targets (details in the sandbox README).
 
 ## Translations
 
-Since v0.12 every piece of interface text goes through `src/i18n/`:
+Since v1.0 every piece of interface text goes through `src/i18n/`:
 
 - `en.ts` is the source: one key per message (`'font.title': 'Font'`),
   grouped by module. `MessageKey` is derived from it, so `t('font.titel')`
