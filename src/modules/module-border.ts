@@ -101,7 +101,8 @@ export class BorderModule extends LitElement {
               min="0"
               max="50"
               step="1"
-              .value=${String(this._radiusPx)}
+              ?disabled=${!!this.state.squareCorners}
+              .value=${String(this.state.squareCorners ? 0 : this._radiusPx)}
               @input=${(e: Event) => {
                 this._radiusPx = parseFloat((e.target as HTMLInputElement).value);
               }}
@@ -110,7 +111,23 @@ export class BorderModule extends LitElement {
                   radiusPx: parseFloat((e.target as HTMLInputElement).value),
                 })}
             ></ha-slider>
-            <span class="value-label">${this._radiusPx}px</span>
+            ${this.state.squareCorners || this._radiusPx > 0
+              ? html`<span class="value-label">${this.state.squareCorners ? 0 : this._radiusPx}px</span>`
+              : html`<span class="value-label unset">${t('border.cardDefaultLabel')}</span>`}
+          </div>
+        </div>
+
+        <div class="control-row">
+          <span class="control-label">${t('border.square')}</span>
+          <div class="control-right">
+            <ha-switch
+              aria-label=${t('border.square')}
+              .checked=${!!this.state.squareCorners}
+              @change=${(e: Event) => {
+                const on = (e.target as HTMLInputElement).checked;
+                this._emit(on ? { squareCorners: true, radiusPx: 0 } : { squareCorners: undefined });
+              }}
+            ></ha-switch>
           </div>
         </div>
 

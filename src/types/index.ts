@@ -275,7 +275,10 @@ export interface AnimationModuleState {
 
 export interface BorderModuleState {
   enabled: boolean;
-  radiusPx: number;         // 0–50
+  radiusPx: number;         // 0–50; 0 = not set (the card's own rounding)
+  /** v1.0: square corners — writes `border-radius: 0px` (radiusPx is then
+   *  ignored). Optional, so older presets and pasted text read unchanged. */
+  squareCorners?: boolean;
   borderWidth: number;      // 0 = no border
   borderColor: string;
   /** Condition the border reacts to; undefined / when:'always' = static. */

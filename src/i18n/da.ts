@@ -69,6 +69,8 @@ export const da: Record<MessageKey, string> = {
   'border.color': 'Kantfarve',
   'border.widthOtherwise': 'Bredde ellers',
   'border.cardDefault': 'kortets standard',
+  'border.cardDefaultLabel': 'Kortets standard',
+  'border.square': 'Skarpe hjørner',
   'threshold.prop.iconColor': 'Ikonfarve',
   'threshold.prop.accentColor': 'Accentfarve',
   'threshold.prop.background': 'Baggrund',

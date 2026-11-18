@@ -69,6 +69,8 @@ export const nb: Record<MessageKey, string> = {
   'border.color': 'Kantlinjefarge',
   'border.widthOtherwise': 'Bredde ellers',
   'border.cardDefault': 'kortets standard',
+  'border.cardDefaultLabel': 'Kortets standard',
+  'border.square': 'Skarpe hjørner',
   'threshold.prop.iconColor': 'Ikonfarge',
   'threshold.prop.accentColor': 'Aksentfarge',
   'threshold.prop.background': 'Bakgrunn',

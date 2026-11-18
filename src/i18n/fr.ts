@@ -69,6 +69,8 @@ export const fr: Record<MessageKey, string> = {
   'border.color': 'Couleur de bordure',
   'border.widthOtherwise': 'Épaisseur sinon',
   'border.cardDefault': 'valeur de la carte',
+  'border.cardDefaultLabel': 'Valeur de la carte',
+  'border.square': 'Coins carrés',
   'threshold.prop.iconColor': 'Couleur de l\'icône',
   'threshold.prop.accentColor': 'Couleur d\'accentuation',
   'threshold.prop.background': 'Arrière-plan',

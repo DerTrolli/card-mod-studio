@@ -83,6 +83,8 @@ export const en = {
   'border.color': 'Border color',
   'border.widthOtherwise': 'Width otherwise',
   'border.cardDefault': 'card default',
+  'border.cardDefaultLabel': 'Card default',
+  'border.square': 'Square corners',
 
   // --- Threshold Colors: "Apply to" options --------------------------------
   'threshold.prop.iconColor': 'Icon Color',

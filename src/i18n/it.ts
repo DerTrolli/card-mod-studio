@@ -69,6 +69,8 @@ export const it: Record<MessageKey, string> = {
   'border.color': 'Colore del bordo',
   'border.widthOtherwise': 'Spessore altrimenti',
   'border.cardDefault': 'valore della scheda',
+  'border.cardDefaultLabel': 'Valore della scheda',
+  'border.square': 'Angoli squadrati',
   'threshold.prop.iconColor': 'Colore dell\'icona',
   'threshold.prop.accentColor': 'Colore secondario',
   'threshold.prop.background': 'Sfondo',

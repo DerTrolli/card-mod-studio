@@ -222,6 +222,14 @@ function migrateFeatures(raw: unknown): FeaturesModuleState {
   };
 }
 
+/** Border from storage: `squareCorners` is kept only as a real `true`. */
+function migrateBorder(raw: unknown): BorderModuleState {
+  const b = { ...DEFAULT_BORDER, ...((raw && typeof raw === 'object' ? raw : {}) as Partial<BorderModuleState>) };
+  if (b.squareCorners === true) return { ...b, radiusPx: 0 };
+  delete b.squareCorners;
+  return b;
+}
+
 export function migrateStudioState(raw: unknown): StudioState {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, Record<string, unknown> | undefined>;
 
@@ -253,7 +261,7 @@ export function migrateStudioState(raw: unknown): StudioState {
     accentColor,
     background: { ...DEFAULT_BACKGROUND, ...(r.background ?? {}) } as BackgroundModuleState,
     animation: { ...DEFAULT_ANIMATION, ...(r.animation ?? {}) } as AnimationModuleState,
-    border: { ...DEFAULT_BORDER, ...(r.border ?? {}) } as BorderModuleState,
+    border: migrateBorder(r.border),
     headingStyle: { ...DEFAULT_HEADING_STYLE, ...(r.headingStyle ?? {}) } as HeadingStyleModuleState,
     features: migrateFeatures(r.features),
     font: { ...DEFAULT_FONT, ...(r.font ?? {}) } as FontModuleState,
@@ -1081,10 +1089,11 @@ function mapBorderProfile(pc: ProfileClaims, claimed: Set<string>): BorderModule
 
   const radius = plain('borderRadius');
   const radiusMatch = radius?.value.trim().match(/^(\d+(?:\.\d+)?)px$/);
-  const radiusAdopted = !!radius && !!radiusMatch && parseFloat(radiusMatch[1]) > 0;
-  if (radius && radiusAdopted) {
+  const radiusAdopted = !!radius && !!radiusMatch;
+  if (radius && radiusMatch) {
     state.enabled = true;
-    state.radiusPx = parseFloat(radiusMatch[1]);
+    if (parseFloat(radiusMatch[1]) > 0) state.radiusPx = parseFloat(radiusMatch[1]);
+    else { state.squareCorners = true; state.radiusPx = 0; }
     pc.claimEqual('borderRadius', radius.value, claimed);
   }
 
@@ -1875,12 +1884,12 @@ function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModule
 
   if (radiusProp && !radiusProp.hasCondition) {
     const match = radiusProp.value.match(/^(\d+(?:\.\d+)?)px$/);
-    // The module writes a radius only above 0 (0 is its "not set"), so a
-    // hand-written `border-radius: 0px` (square corners) is not ours: claiming
-    // it dropped it on the next save and the theme's rounding came back.
-    if (match && parseFloat(match[1]) > 0) {
+    // `0px` is square corners (v1.0: the module's own setting; before, 0 was
+    // only "not set", so a hand-written 0px was left in Advanced CSS).
+    if (match) {
       state.enabled = true;
-      state.radiusPx = parseFloat(match[1]);
+      if (parseFloat(match[1]) > 0) state.radiusPx = parseFloat(match[1]);
+      else { state.squareCorners = true; state.radiusPx = 0; }
       radiusAdopted = true;
       claimed.add(claimKey(haCard.selector, 'border-radius'));
     }

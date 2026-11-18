@@ -128,6 +128,9 @@ function isWritten(state: StudioState, module: ConflictableModule, prop: string,
     if (/font-family$/.test(prop)) return !!f.fontFamily?.trim();
     if (prop === 'color' || /-color$|^--primary-text-color$/.test(prop)) return !!f.color;
   }
+  if (module === 'border' && prop === 'border-radius') {
+    return !!state.border.squareCorners || state.border.radiusPx > 0;
+  }
   if (module === 'features') {
     const f = state.features;
     if (prop === '--feature-height') return (f?.heightPx ?? 0) > 0;

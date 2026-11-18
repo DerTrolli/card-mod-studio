@@ -69,6 +69,8 @@ export const nl: Record<MessageKey, string> = {
   'border.color': 'Randkleur',
   'border.widthOtherwise': 'Breedte anders',
   'border.cardDefault': 'standaard van de kaart',
+  'border.cardDefaultLabel': 'Standaard van de kaart',
+  'border.square': 'Vierkante hoeken',
   'threshold.prop.iconColor': 'Icoonkleur',
   'threshold.prop.accentColor': 'Accentkleur',
   'threshold.prop.background': 'Achtergrond',

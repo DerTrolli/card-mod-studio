@@ -69,6 +69,8 @@ export const ja: Record<MessageKey, string> = {
   'border.color': 'ボーダーの色',
   'border.widthOtherwise': 'それ以外の幅',
   'border.cardDefault': 'カードのデフォルト',
+  'border.cardDefaultLabel': 'カードのデフォルト',
+  'border.square': '角を丸めない',
   'threshold.prop.iconColor': 'アイコンの色',
   'threshold.prop.accentColor': 'アクセントの色',
   'threshold.prop.background': 'バックグラウンド',

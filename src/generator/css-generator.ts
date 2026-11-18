@@ -380,7 +380,8 @@ function borderDirectDecls(s: BorderModuleState, e: BorderEmitter, thresholdOwns
 function borderVarDecls(s: BorderModuleState, e: BorderEmitter, skipColor = false): string[] {
   if (!s.enabled) return [];
   const decls: string[] = [];
-  if (s.radiusPx > 0) for (const v of e.radius ?? []) decls.push(`${v}: ${s.radiusPx}px;`);
+  const radius = borderRadiusValue(s);
+  if (radius) for (const v of e.radius ?? []) decls.push(`${v}: ${radius};`);
   if (!skipColor && s.borderWidth > 0) {
     const cond = conditionExpr(s.widthWhen);
     // Variables take `inherit` (see ownLookBranch); with no "otherwise" width
@@ -512,10 +513,18 @@ function backgroundValueDecls(s: BackgroundModuleState, otherwise = ''): string[
  *   the two modules don't emit conflicting `border` declarations in the
  *   same `ha-card` block (border-radius still applies either way).
  */
+/** The radius the Border module writes: square corners (0px), a set radius,
+ *  or nothing (0 = the card's own rounding). */
+function borderRadiusValue(s: BorderModuleState): string | null {
+  if (s.squareCorners) return '0px';
+  return s.radiusPx > 0 ? `${s.radiusPx}px` : null;
+}
+
 function borderDecls(s: BorderModuleState, skipColor = false, important = false): string[] {
   if (!s.enabled) return [];
   const decls: string[] = [];
-  if (s.radiusPx > 0) decls.push(`border-radius: ${s.radiusPx}px;`);
+  const radius = borderRadiusValue(s);
+  if (radius) decls.push(`border-radius: ${radius};`);
   if (!skipColor && s.borderWidth > 0) {
     const cond = conditionExpr(s.widthWhen);
     if (cond) {

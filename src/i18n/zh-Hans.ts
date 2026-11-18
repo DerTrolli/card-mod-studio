@@ -69,6 +69,8 @@ export const zhHans: Record<MessageKey, string> = {
   'border.color': '边框颜色',
   'border.widthOtherwise': '其他情况宽度',
   'border.cardDefault': '卡片默认',
+  'border.cardDefaultLabel': '卡片默认',
+  'border.square': '直角',
   'threshold.prop.iconColor': '图标颜色',
   'threshold.prop.accentColor': '强调色',
   'threshold.prop.background': '背景',

@@ -69,6 +69,8 @@ export const sv: Record<MessageKey, string> = {
   'border.color': 'Kantlinjefärg',
   'border.widthOtherwise': 'Bredd annars',
   'border.cardDefault': 'kortets standard',
+  'border.cardDefaultLabel': 'Kortets standard',
+  'border.square': 'Raka hörn',
   'threshold.prop.iconColor': 'Ikonfärg',
   'threshold.prop.accentColor': 'Komplementfärg',
   'threshold.prop.background': 'Bakgrund',

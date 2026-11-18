@@ -83,6 +83,8 @@ export const de: Record<MessageKey, string> = {
   'border.color': 'Rahmenfarbe',
   'border.widthOtherwise': 'Breite sonst',
   'border.cardDefault': 'Kartenstandard',
+  'border.cardDefaultLabel': 'Kartenstandard',
+  'border.square': 'Keine Eckenrundung',
 
   // --- Threshold Colors ---------------------------------------------------------
   'threshold.prop.iconColor': 'Symbolfarbe',

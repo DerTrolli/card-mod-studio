@@ -69,6 +69,8 @@ export const es: Record<MessageKey, string> = {
   'border.color': 'Color del borde',
   'border.widthOtherwise': 'Grosor en otro caso',
   'border.cardDefault': 'valor de la tarjeta',
+  'border.cardDefaultLabel': 'Valor de la tarjeta',
+  'border.square': 'Esquinas rectas',
   'threshold.prop.iconColor': 'Color del icono',
   'threshold.prop.accentColor': 'Color de acento',
   'threshold.prop.background': 'Fondo',

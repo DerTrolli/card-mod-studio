@@ -69,6 +69,8 @@ export const ko: Record<MessageKey, string> = {
   'border.color': '테두리 색상',
   'border.widthOtherwise': '그 외의 두께',
   'border.cardDefault': '카드 기본값',
+  'border.cardDefaultLabel': '카드 기본값',
+  'border.square': '직각 모서리',
   'threshold.prop.iconColor': '아이콘 색상',
   'threshold.prop.accentColor': '강조 색상',
   'threshold.prop.background': '배경',

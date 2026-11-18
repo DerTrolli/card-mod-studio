@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Work in progress; not published yet.
 
+### Added
+
+- **Square corners** in Border & Radius: a switch that writes
+  `border-radius: 0px` (before, the radius slider's 0 meant "not set", so
+  sharp corners were only possible by hand). A hand-written
+  `border-radius: 0px` is now read into the module as Square corners
+  instead of being kept in Advanced CSS; the card looks the same. A radius
+  of 0 without the switch still means the card's own rounding, so presets
+  and copied styles from earlier versions read unchanged. When no radius
+  is set, the slider says "Card default" instead of "0px".
+
 ## [1.0.0-beta.1] — 2026-11-18
 
 The first 1.0 pre-release: it completes the roadmap's "Path to v1.0" —

@@ -69,6 +69,8 @@ export const cs: Record<MessageKey, string> = {
   'border.color': 'Barva ohraničení',
   'border.widthOtherwise': 'Šířka jinak',
   'border.cardDefault': 'výchozí karty',
+  'border.cardDefaultLabel': 'Výchozí karty',
+  'border.square': 'Ostré rohy',
   'threshold.prop.iconColor': 'Barva ikony',
   'threshold.prop.accentColor': 'Doplňková barva',
   'threshold.prop.background': 'Pozadí',

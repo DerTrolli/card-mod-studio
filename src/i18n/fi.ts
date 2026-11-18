@@ -69,6 +69,8 @@ export const fi: Record<MessageKey, string> = {
   'border.color': 'Kehyksen väri',
   'border.widthOtherwise': 'Leveys muuten',
   'border.cardDefault': 'kortin oletus',
+  'border.cardDefaultLabel': 'Kortin oletus',
+  'border.square': 'Terävät kulmat',
   'threshold.prop.iconColor': 'Kuvakkeen väri',
   'threshold.prop.accentColor': 'Korostusväri',
   'threshold.prop.background': 'Tausta',

@@ -69,6 +69,8 @@ export const ptBR: Record<MessageKey, string> = {
   'border.color': 'Cor da borda',
   'border.widthOtherwise': 'Espessura caso contrário',
   'border.cardDefault': 'padrão do cartão',
+  'border.cardDefaultLabel': 'Padrão do cartão',
+  'border.square': 'Cantos retos',
   'threshold.prop.iconColor': 'Cor do ícone',
   'threshold.prop.accentColor': 'Cor de destaque',
   'threshold.prop.background': 'Plano de fundo',

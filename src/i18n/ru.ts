@@ -69,6 +69,8 @@ export const ru: Record<MessageKey, string> = {
   'border.color': 'Цвет границы',
   'border.widthOtherwise': 'Толщина в остальных случаях',
   'border.cardDefault': 'по умолчанию карточки',
+  'border.cardDefaultLabel': 'По умолчанию карточки',
+  'border.square': 'Прямые углы',
   'threshold.prop.iconColor': 'Цвет иконки',
   'threshold.prop.accentColor': 'Цвет акцента',
   'threshold.prop.background': 'Фон',

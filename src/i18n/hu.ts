@@ -69,6 +69,8 @@ export const hu: Record<MessageKey, string> = {
   'border.color': 'Keretszín',
   'border.widthOtherwise': 'Vastagság egyébként',
   'border.cardDefault': 'a kártya alapértéke',
+  'border.cardDefaultLabel': 'A kártya alapértéke',
+  'border.square': 'Szögletes sarkok',
   'threshold.prop.iconColor': 'Ikonszín',
   'threshold.prop.accentColor': 'Kiemelő szín',
   'threshold.prop.background': 'Háttér',

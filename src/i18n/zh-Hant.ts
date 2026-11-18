@@ -69,6 +69,8 @@ export const zhHant: Record<MessageKey, string> = {
   'border.color': '邊框顏色',
   'border.widthOtherwise': '其他情況寬度',
   'border.cardDefault': '面板預設',
+  'border.cardDefaultLabel': '面板預設',
+  'border.square': '直角',
   'threshold.prop.iconColor': '圖示顏色',
   'threshold.prop.accentColor': '加重顏色',
   'threshold.prop.background': '背景',

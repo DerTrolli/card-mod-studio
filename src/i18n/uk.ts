@@ -69,6 +69,8 @@ export const uk: Record<MessageKey, string> = {
   'border.color': 'Колір рамки',
   'border.widthOtherwise': 'Товщина в інших випадках',
   'border.cardDefault': 'типова картки',
+  'border.cardDefaultLabel': 'Типово для картки',
+  'border.square': 'Прямі кути',
   'threshold.prop.iconColor': 'Колір значка',
   'threshold.prop.accentColor': 'Колір акценту',
   'threshold.prop.background': 'Фон',

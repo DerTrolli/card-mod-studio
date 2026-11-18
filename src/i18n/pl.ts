@@ -69,6 +69,8 @@ export const pl: Record<MessageKey, string> = {
   'border.color': 'Kolor obramowania',
   'border.widthOtherwise': 'Grubość w innym przypadku',
   'border.cardDefault': 'domyślna karty',
+  'border.cardDefaultLabel': 'Domyślne karty',
+  'border.square': 'Ostre narożniki',
   'threshold.prop.iconColor': 'Kolor ikony',
   'threshold.prop.accentColor': 'Kolor akcentu',
   'threshold.prop.background': 'Tło',

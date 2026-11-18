@@ -1,0 +1,103 @@
+// 1.0.0-beta.2 features through the real card editor with real input:
+// Square corners (Border & Radius), … — each saved, measured on the dashboard
+// and read back on reopen.
+//   node beta2_check.mjs                  (card-mod rig)
+//   RIG=uix UIX_TOKENS_FILE=/path/tokens.json node beta2_check.mjs
+// Prints PASS/FAIL per step and "N/M checks passed".
+import * as D from './click-driver.mjs';
+
+const RIG = process.env.RIG === 'uix' ? 'uix' : 'cm';
+const URLPATH = 'qa-beta2';
+const results = [];
+const need = (cond, msg) => { if (!cond) throw new Error(msg); };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const h = await D.launch({ rig: RIG, ...(process.env.TOKENS_FILE ? { tokensFile: process.env.TOKENS_FILE } : {}) });
+const { page } = h;
+const KEY = h.styleKey;
+const step = async (name, fn) => {
+  try {
+    const detail = await fn();
+    results.push(true);
+    console.log('PASS', name, detail ?? '');
+  } catch (e) {
+    results.push(false);
+    console.log('FAIL', name, '-', String(e.message || e).split('\n')[0]);
+    if (process.env.SHOTS_DIR) await page.screenshot({ path: `${process.env.SHOTS_DIR}/beta2-fail-${results.length}.png` }).catch(() => {});
+    await D.cancelCard(page).catch(() => {});
+  }
+};
+
+/** The panel's state (read only). */
+const studioState = () => page.evaluate(() => {
+  const find = (root) => { for (const el of root.querySelectorAll('*')) { if (el.tagName === 'CMS-PANEL') return el; if (el.shadowRoot) { const f = find(el.shadowRoot); if (f) return f; } } return null; };
+  return find(document)?._studioState ?? null;
+});
+/** A computed style on the n-th card of the given tag on the dashboard. */
+const cardStyle = (tag, prop, n = 0) => page.evaluate(({ tag, prop, n }) => {
+  const walk = (root, acc) => { for (const el of root.querySelectorAll('*')) { acc.push(el); if (el.shadowRoot) walk(el.shadowRoot, acc); } return acc; };
+  const card = walk(document, []).filter((e) => e.tagName === tag)[n];
+  const ha = card && (card.shadowRoot ?? card).querySelector('ha-card');
+  return ha ? getComputedStyle(ha)[prop] : null;
+}, { tag, prop, n });
+const waitStyle = async (tag, prop, want, n = 0) => {
+  let v;
+  for (let i = 0; i < 30; i++) { v = await cardStyle(tag, prop, n); if (v === want) return v; await wait(400); }
+  throw new Error(`${tag} ${prop} = ${v}, want ${want}`);
+};
+
+try {
+  await D.seedDashboard(page, URLPATH, [
+    { type: 'tile', entity: 'light.ceiling_lights' },
+  ]);
+  await D.gotoDashboard(page, URLPATH, { engine: false });
+  const before = await cardStyle('HUI-TILE-CARD', 'borderTopLeftRadius');
+  await D.enterEditMode(page);
+
+  // ------------------------------------------------------------ #1 square
+  await step('Square corners: switch on → saved as border-radius: 0px', async () => {
+    await D.openCardEditor(page, 0);
+    await D.openStudio(page);
+    await D.setSectionEnabled(page, 'Border & Radius', true);
+    await D.toggle(await D.findControl(page, 'Border & Radius', 'Square corners'), true);
+    const slider = page.locator('cms-border-module ha-slider').first();
+    need(await slider.evaluate((e) => e.hasAttribute('disabled') || e.disabled === true), 'radius slider still enabled');
+    await D.saveCard(page);
+    const css = (await D.savedCards(page, URLPATH))[0]?.[KEY]?.style ?? '';
+    need(/ha-card \{[^}]*border-radius: 0px;/.test(css), css);
+    return `${css.replace(/\n/g, ' ')} (card was ${before})`;
+  });
+
+  await step('on the dashboard the tile has square corners', async () => {
+    await D.exitEditMode(page).catch(() => {});
+    return await waitStyle('HUI-TILE-CARD', 'borderTopLeftRadius', '0px');
+  });
+
+  await step('reopened: Square corners is on, nothing in Advanced CSS; off again → the card’s own rounding', async () => {
+    await D.enterEditMode(page);
+    await D.openCardEditor(page, 0);
+    await D.openStudio(page);
+    const st = await studioState();
+    need(st?.border?.enabled && st.border.squareCorners === true && !st.advanced?.rawCss?.trim(), JSON.stringify({ b: st?.border, adv: st?.advanced }));
+    await D.expandSection(page, 'Border & Radius');
+    await D.toggle(await D.findControl(page, 'Border & Radius', 'Square corners'), false);
+    await D.saveCard(page);
+    const css = (await D.savedCards(page, URLPATH))[0]?.[KEY]?.style ?? '';
+    need(!/border-radius/.test(css), css);
+    await D.exitEditMode(page).catch(() => {});
+    return await waitStyle('HUI-TILE-CARD', 'borderTopLeftRadius', before);
+  });
+
+  await step('no console errors', async () => {
+    const errs = h.errors.filter((e) => !/themesReady: Timeout/.test(e) && !/status of 502/.test(e));
+    need(errs.length === 0, errs.join(' || '));
+  });
+} catch (e) {
+  results.push(false);
+  console.log('FAIL setup -', String(e.stack || e).split('\n').slice(0, 3).join(' | '));
+} finally {
+  await h.close().catch(() => {});
+}
+const passed = results.filter(Boolean).length;
+console.log(`${passed}/${results.length} checks passed`);
+process.exit(passed === results.length ? 0 : 1);
