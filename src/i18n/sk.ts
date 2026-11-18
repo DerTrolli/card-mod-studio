@@ -267,6 +267,8 @@ export const sk: Record<MessageKey, string> = {
   'panel.unrecognised': 'Niektoré existujúce štýly neboli rozpoznané — zachované v Pokročilom CSS.',
   'panel.noCard': 'Nie je vybraná žiadna karta.',
   'panel.preview': 'Náhľad',
+  'panel.previewHide': 'Skryť',
+  'panel.previewShow': 'Zobraziť',
   'panel.previewHint': 'Kliknite na ľubovoľnú časť náhľadu a prejdite k jej nastaveniu',
   'panel.previewUnavailable': 'Náhľad nie je k dispozícii — najprv otvorte editor karty.',
   'panel.previewSr': 'Živý náhľad karty (neinteraktívny)',

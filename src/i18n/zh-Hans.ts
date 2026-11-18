@@ -267,6 +267,8 @@ export const zhHans: Record<MessageKey, string> = {
   'panel.unrecognised': '部分现有样式未被识别——已保留在高级 CSS 中。',
   'panel.noCard': '未选择卡片。',
   'panel.preview': '预览',
+  'panel.previewHide': '隐藏',
+  'panel.previewShow': '显示',
   'panel.previewHint': '点击预览的任意部分可跳转到对应设置',
   'panel.previewUnavailable': '预览不可用——请先打开卡片编辑器。',
   'panel.previewSr': '卡片实时预览（不可交互）',

@@ -267,6 +267,8 @@ export const ko: Record<MessageKey, string> = {
   'panel.unrecognised': '기존 스타일의 일부를 인식하지 못했습니다 — 고급 CSS에 유지되어 있습니다.',
   'panel.noCard': '선택된 카드가 없습니다.',
   'panel.preview': '미리 보기',
+  'panel.previewHide': '숨기기',
+  'panel.previewShow': '표시',
   'panel.previewHint': '미리 보기의 아무 부분이나 클릭하면 해당 설정으로 이동합니다',
   'panel.previewUnavailable': '미리 보기를 사용할 수 없습니다 — 먼저 카드 편집기를 여세요.',
   'panel.previewSr': '카드 실시간 미리 보기(조작 불가)',

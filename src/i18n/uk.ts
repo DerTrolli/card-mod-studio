@@ -267,6 +267,8 @@ export const uk: Record<MessageKey, string> = {
   'panel.unrecognised': 'Деякі наявні стилі не розпізнано — їх збережено в Розширеному CSS.',
   'panel.noCard': 'Картку не вибрано.',
   'panel.preview': 'Попередній перегляд',
+  'panel.previewHide': 'Приховати',
+  'panel.previewShow': 'Показати',
   'panel.previewHint': 'Натисніть будь-яку частину попереднього перегляду, щоб перейти до її налаштування',
   'panel.previewUnavailable': 'Попередній перегляд недоступний — спершу відкрийте редактор картки.',
   'panel.previewSr': 'Живий попередній перегляд картки (неінтерактивний)',

@@ -267,6 +267,8 @@ export const nb: Record<MessageKey, string> = {
   'panel.unrecognised': 'Noen eksisterende stiler ble ikke gjenkjent — de er bevart i Avansert CSS.',
   'panel.noCard': 'Ingen kort valgt.',
   'panel.preview': 'Forhåndsvisning',
+  'panel.previewHide': 'Skjul',
+  'panel.previewShow': 'Vis',
   'panel.previewHint': 'Klikk på en del av forhåndsvisningen for å gå til innstillingen for den',
   'panel.previewUnavailable': 'Forhåndsvisning utilgjengelig — åpne en kortredigerer først.',
   'panel.previewSr': 'Direkte forhåndsvisning av kortet (ikke interaktiv)',

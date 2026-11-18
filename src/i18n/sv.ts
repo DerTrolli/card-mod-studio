@@ -267,6 +267,8 @@ export const sv: Record<MessageKey, string> = {
   'panel.unrecognised': 'Vissa befintliga stilar kändes inte igen — de bevaras i Avancerad CSS.',
   'panel.noCard': 'Inget kort valt.',
   'panel.preview': 'Förhandsvisning',
+  'panel.previewHide': 'Dölj',
+  'panel.previewShow': 'Visa',
   'panel.previewHint': 'Klicka på valfri del av förhandsvisningen för att gå till dess inställning',
   'panel.previewUnavailable': 'Förhandsvisning inte tillgänglig — öppna en kortredigerare först.',
   'panel.previewSr': 'Liveförhandsvisning av kortet (inte interaktiv)',

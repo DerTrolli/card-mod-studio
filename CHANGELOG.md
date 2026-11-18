@@ -58,6 +58,11 @@ Work in progress; not published yet.
   Assistant (checked: 2025.9, 2026.2) the section dialog is the small
   "Edit section" one without a preview, and the Style button isn't offered
   there; the cards in a section still each have their own Style button.
+- **A pinned preview on phones**: on a narrow panel the live preview now
+  comes first and stays at the top while the modules scroll under it (a
+  strip of at most about a quarter of the screen; a tall card scrolls
+  inside it), so a change is visible as it is made. **Hide** folds it away
+  — remembered on that device — and **Show** brings it back.
 
 ## [1.0.0-beta.1] — 2026-11-18
 

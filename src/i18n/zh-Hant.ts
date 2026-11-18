@@ -267,6 +267,8 @@ export const zhHant: Record<MessageKey, string> = {
   'panel.unrecognised': '部分現有樣式未被識別——已保留在進階 CSS 中。',
   'panel.noCard': '未選擇面板。',
   'panel.preview': '預覽',
+  'panel.previewHide': '隱藏',
+  'panel.previewShow': '顯示',
   'panel.previewHint': '點選預覽的任意部分可跳轉到對應設定',
   'panel.previewUnavailable': '預覽不可用——請先開啟面板編輯器。',
   'panel.previewSr': '面板實時預覽（不可互動）',

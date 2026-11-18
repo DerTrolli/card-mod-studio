@@ -267,6 +267,8 @@ export const fi: Record<MessageKey, string> = {
   'panel.unrecognised': 'Joitakin olemassa olevia tyylejä ei tunnistettu — ne säilytetään Lisä-CSS:ssä.',
   'panel.noCard': 'Korttia ei ole valittu.',
   'panel.preview': 'Esikatselu',
+  'panel.previewHide': 'Piilota',
+  'panel.previewShow': 'Näytä',
   'panel.previewHint': 'Napsauta mitä tahansa esikatselun osaa siirtyäksesi sen asetukseen',
   'panel.previewUnavailable': 'Esikatselu ei ole käytettävissä — avaa ensin korttieditori.',
   'panel.previewSr': 'Kortin reaaliaikainen esikatselu (ei vuorovaikutteinen)',

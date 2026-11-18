@@ -267,6 +267,8 @@ export const it: Record<MessageKey, string> = {
   'panel.unrecognised': 'Alcuni stili esistenti non sono stati riconosciuti — conservati in CSS avanzato.',
   'panel.noCard': 'Nessuna scheda selezionata.',
   'panel.preview': 'Anteprima',
+  'panel.previewHide': 'Nascondi',
+  'panel.previewShow': 'Mostra',
   'panel.previewHint': 'Fai clic su una parte dell\'anteprima per andare alla sua impostazione',
   'panel.previewUnavailable': 'Anteprima non disponibile — apri prima un editor di scheda.',
   'panel.previewSr': 'Anteprima dal vivo della scheda (non interattiva)',

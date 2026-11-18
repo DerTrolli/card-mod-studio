@@ -267,6 +267,8 @@ export const hu: Record<MessageKey, string> = {
   'panel.unrecognised': 'Néhány meglévő stílust nem sikerült felismerni — a Haladó CSS-ben maradtak meg.',
   'panel.noCard': 'Nincs kártya kiválasztva.',
   'panel.preview': 'Előnézet',
+  'panel.previewHide': 'Elrejtés',
+  'panel.previewShow': 'Megjelenítés',
   'panel.previewHint': 'Kattintson az előnézet bármely részére a hozzá tartozó beállításhoz',
   'panel.previewUnavailable': 'Az előnézet nem érhető el — előbb nyisson meg egy kártyaszerkesztőt.',
   'panel.previewSr': 'A kártya élő előnézete (nem interaktív)',

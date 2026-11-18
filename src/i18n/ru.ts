@@ -267,6 +267,8 @@ export const ru: Record<MessageKey, string> = {
   'panel.unrecognised': 'Некоторые существующие стили не распознаны — они сохранены в Расширенном CSS.',
   'panel.noCard': 'Карточка не выбрана.',
   'panel.preview': 'Предварительный просмотр',
+  'panel.previewHide': 'Скрыть',
+  'panel.previewShow': 'Показать',
   'panel.previewHint': 'Нажмите на любую часть предпросмотра, чтобы перейти к её настройке',
   'panel.previewUnavailable': 'Предпросмотр недоступен — сначала откройте редактор карточки.',
   'panel.previewSr': 'Живой предпросмотр карточки (неинтерактивный)',

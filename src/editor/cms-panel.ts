@@ -99,6 +99,16 @@ function isDarkTheme(hass: HomeAssistant | undefined): boolean {
 /** A locked card renders only the entity rows module, so only it can be picked. */
 const LOCKED_PICK_MODULES = ['cms-entities-rows-module'] as const;
 
+/** Per-device convenience: the phone preview's folded state. */
+const PREVIEW_FOLD_KEY = 'cms-preview-folded';
+function readPreviewFolded(): boolean {
+  try {
+    return localStorage.getItem(PREVIEW_FOLD_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export class CmsPanel extends LitElement {
   protected readonly i18n = new LangController(this);
   @property({ attribute: false }) config?: CardModCardConfig;
@@ -142,6 +152,17 @@ export class CmsPanel extends LitElement {
   @state() private _loadedWholeStyleKept = false;
   /** True when the panel is too narrow for the side-by-side preview. */
   @state() private _narrow = false;
+  /** Narrow layout: the pinned preview folded away (remembered on this device). */
+  @state() private _previewFolded = readPreviewFolded();
+
+  private _togglePreviewFold = () => {
+    this._previewFolded = !this._previewFolded;
+    try {
+      localStorage.setItem(PREVIEW_FOLD_KEY, this._previewFolded ? '1' : '0');
+    } catch {
+      // storage blocked: the choice lasts for this panel only
+    }
+  };
 
   /** Own-echo guard: skips state rebuilds for configs we ourselves just
    *  emitted, while advancing its baseline on every genuine external
@@ -865,13 +886,47 @@ export class CmsPanel extends LitElement {
     .panel-body.narrow .modules-col {
       overflow: visible;
     }
+    /* v1.0: on a narrow panel (phones) the preview comes FIRST and stays
+       pinned while the modules scroll under it, so a change can be seen as
+       it is made. It is capped to a strip (the card scrolls inside) and can
+       be folded away (remembered on this device). */
     .panel-body.narrow .preview-col {
+      order: -1;
+      position: sticky;
+      top: 0;
+      z-index: 3;
       border-left: none;
-      border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      background: var(--card-background-color, var(--ha-card-background, #fff));
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+      padding: 6px 10px 8px;
+      gap: 6px;
       overflow: visible;
     }
     .panel-body.narrow .preview-card-wrapper {
       min-height: 72px;
+      max-height: 26vh;
+    }
+    .panel-body.narrow.preview-folded .preview-card-wrapper,
+    .panel-body.narrow.preview-folded .preview-hint {
+      display: none;
+    }
+    .preview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .preview-toggle {
+      font: inherit;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      background: transparent;
+      color: var(--primary-color, #03a9f4);
+      cursor: pointer;
     }
 
     /* ---- Left column: modules ---- */
@@ -1164,7 +1219,7 @@ export class CmsPanel extends LitElement {
         <span class="version">v${VERSION}</span>
       </div>
 
-      <div class="panel-body ${hasPreview ? '' : 'no-preview'} ${this._narrow ? 'narrow' : ''}">
+      <div class="panel-body ${hasPreview ? '' : 'no-preview'} ${this._narrow ? 'narrow' : ''} ${this._narrow && this._previewFolded ? 'preview-folded' : ''}">
         <div class="modules-col">
           <cms-language-notice .hass=${this.hass}></cms-language-notice>
           ${this._renderCompatBanner()}
@@ -1190,7 +1245,17 @@ export class CmsPanel extends LitElement {
         ${hasPreview
           ? html`
               <div class="preview-col">
-                <span class="preview-col-label">${t('panel.preview')}</span>
+                <div class="preview-head">
+                  <span class="preview-col-label">${t('panel.preview')}</span>
+                  ${this._narrow
+                    ? html`<button
+                        type="button"
+                        class="preview-toggle"
+                        aria-expanded=${this._previewFolded ? 'false' : 'true'}
+                        @click=${this._togglePreviewFold}
+                      >${t(this._previewFolded ? 'panel.previewShow' : 'panel.previewHide')}</button>`
+                    : nothing}
+                </div>
                 ${this._pickerActive
                   ? html`<span class="preview-hint">${t('panel.previewHint')}</span>`
                   : nothing}

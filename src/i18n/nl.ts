@@ -267,6 +267,8 @@ export const nl: Record<MessageKey, string> = {
   'panel.unrecognised': 'Sommige bestaande stijlen werden niet herkend — ze zijn bewaard in Geavanceerde CSS.',
   'panel.noCard': 'Geen kaart geselecteerd.',
   'panel.preview': 'Voorbeeld',
+  'panel.previewHide': 'Verbergen',
+  'panel.previewShow': 'Tonen',
   'panel.previewHint': 'Klik op een deel van het voorbeeld om naar de bijbehorende instelling te gaan',
   'panel.previewUnavailable': 'Voorbeeld niet beschikbaar — open eerst een kaarteditor.',
   'panel.previewSr': 'Live voorbeeld van de kaart (niet interactief)',

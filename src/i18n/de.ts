@@ -314,6 +314,8 @@ export const de: Record<MessageKey, string> = {
   'panel.unrecognised': 'Einige vorhandene Stile wurden nicht erkannt — sie bleiben in „Erweitertes CSS“ erhalten.',
   'panel.noCard': 'Keine Karte ausgewählt.',
   'panel.preview': 'Vorschau',
+  'panel.previewHide': 'Ausblenden',
+  'panel.previewShow': 'Anzeigen',
   'panel.previewHint': 'Klicke auf einen Teil der Vorschau, um zu seiner Einstellung zu springen',
   'panel.previewUnavailable': 'Vorschau nicht verfügbar — öffne zuerst einen Karteneditor.',
   'panel.previewSr': 'Live-Vorschau der Karte (nicht bedienbar)',

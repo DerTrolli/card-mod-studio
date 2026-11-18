@@ -293,6 +293,8 @@ export const en = {
   'panel.unrecognised': "Some existing styles weren't recognised — preserved in Advanced CSS.",
   'panel.noCard': 'No card selected.',
   'panel.preview': 'Preview',
+  'panel.previewHide': 'Hide',
+  'panel.previewShow': 'Show',
   'panel.previewHint': 'Click any part of the preview to jump to its control',
   'panel.previewUnavailable': 'Preview unavailable — open a card editor first.',
   'panel.previewSr': 'Live preview of the card (not interactive)',

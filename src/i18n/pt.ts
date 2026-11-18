@@ -267,6 +267,8 @@ export const pt: Record<MessageKey, string> = {
   'panel.unrecognised': 'Alguns estilos existentes não foram reconhecidos — mantidos em CSS avançado.',
   'panel.noCard': 'Nenhum cartão selecionado.',
   'panel.preview': 'Pré-visualização',
+  'panel.previewHide': 'Ocultar',
+  'panel.previewShow': 'Mostrar',
   'panel.previewHint': 'Clique em qualquer parte da pré-visualização para ir até a definição respetiva',
   'panel.previewUnavailable': 'Pré-visualização indisponível — abra primeiro um editor de cartão.',
   'panel.previewSr': 'Pré-visualização em direto do cartão (não interativa)',

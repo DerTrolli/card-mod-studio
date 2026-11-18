@@ -267,6 +267,8 @@ export const es: Record<MessageKey, string> = {
   'panel.unrecognised': 'Algunos estilos existentes no se reconocieron — se conservan en CSS avanzado.',
   'panel.noCard': 'Ninguna tarjeta seleccionada.',
   'panel.preview': 'Vista previa',
+  'panel.previewHide': 'Ocultar',
+  'panel.previewShow': 'Mostrar',
   'panel.previewHint': 'Haz clic en cualquier parte de la vista previa para ir a su ajuste',
   'panel.previewUnavailable': 'Vista previa no disponible — abre primero un editor de tarjeta.',
   'panel.previewSr': 'Vista previa en directo de la tarjeta (no interactiva)',

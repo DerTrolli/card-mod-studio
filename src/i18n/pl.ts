@@ -267,6 +267,8 @@ export const pl: Record<MessageKey, string> = {
   'panel.unrecognised': 'Niektóre istniejące style nie zostały rozpoznane — zachowano je w Zaawansowanym CSS.',
   'panel.noCard': 'Nie wybrano karty.',
   'panel.preview': 'Podgląd',
+  'panel.previewHide': 'Ukryj',
+  'panel.previewShow': 'Pokaż',
   'panel.previewHint': 'Kliknij dowolną część podglądu, aby przejść do jej ustawienia',
   'panel.previewUnavailable': 'Podgląd niedostępny — najpierw otwórz edytor karty.',
   'panel.previewSr': 'Podgląd karty na żywo (nieinteraktywny)',

@@ -267,6 +267,8 @@ export const fr: Record<MessageKey, string> = {
   'panel.unrecognised': 'Certains styles existants n\'ont pas été reconnus — conservés dans CSS avancé.',
   'panel.noCard': 'Aucune carte sélectionnée.',
   'panel.preview': 'Aperçu',
+  'panel.previewHide': 'Masquer',
+  'panel.previewShow': 'Afficher',
   'panel.previewHint': 'Cliquez sur une partie de l\'aperçu pour aller à son réglage',
   'panel.previewUnavailable': 'Aperçu indisponible — ouvrez d\'abord un éditeur de carte.',
   'panel.previewSr': 'Aperçu en direct de la carte (non interactif)',

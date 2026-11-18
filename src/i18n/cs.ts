@@ -267,6 +267,8 @@ export const cs: Record<MessageKey, string> = {
   'panel.unrecognised': 'Některé existující styly nebyly rozpoznány — zachovány v Pokročilém CSS.',
   'panel.noCard': 'Není vybrána žádná karta.',
   'panel.preview': 'Náhled',
+  'panel.previewHide': 'Skrýt',
+  'panel.previewShow': 'Zobrazit',
   'panel.previewHint': 'Klikněte na libovolnou část náhledu a přejděte k jejímu nastavení',
   'panel.previewUnavailable': 'Náhled není k dispozici — nejprve otevřete editor karty.',
   'panel.previewSr': 'Živý náhled karty (neinteraktivní)',

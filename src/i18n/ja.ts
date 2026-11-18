@@ -267,6 +267,8 @@ export const ja: Record<MessageKey, string> = {
   'panel.unrecognised': '既存のスタイルの一部を認識できませんでした — 高度な CSS に保持されています。',
   'panel.noCard': 'カードが選択されていません。',
   'panel.preview': 'プレビュー',
+  'panel.previewHide': '非表示',
+  'panel.previewShow': '表示',
   'panel.previewHint': 'プレビューの任意の部分をクリックすると、その設定に移動します',
   'panel.previewUnavailable': 'プレビューを表示できません — 先にカードエディターを開いてください。',
   'panel.previewSr': 'カードのライブプレビュー（操作不可）',
