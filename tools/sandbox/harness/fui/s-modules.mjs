@@ -653,8 +653,8 @@ async function animationSection(T) {
   T.check('9 presets offered', presets.length === 9, JSON.stringify(presets));
   for (const p of presets) {
     await choose(preset, p);
-    await expectCfg(T, `preset ${p} → @keyframes cms-${p} + animation`, has(T, `@keyframes cms-${p}`, `animation: cms-${p} 2s ${p === 'spin' ? 'linear' : 'ease-in-out'} infinite;`));
-    await expectPage(T, `preview: animation-name cms-${p}`, P_CARD, 0, (v) => v?.anim === `cms-${p}`);
+    await expectCfg(T, `preset ${p} → @keyframes cstudio-${p} + animation`, has(T, `@keyframes cstudio-${p}`, `animation: cstudio-${p} 2s ${p === 'spin' ? 'linear' : 'ease-in-out'} infinite;`));
+    await expectPage(T, `preview: animation-name cstudio-${p}`, P_CARD, 0, (v) => v?.anim === `cstudio-${p}`);
     if (p === 'gradient-shift') {
       T.check('gradient-shift shows the "requires gradient bg" warning', (await m.locator('.when-hint').allTextContents()).some((t) => t.includes('Gradient Shift requires a gradient background')));
       await expectCfg(T, 'gradient-shift adds background-size: 200% auto', has(T, 'background-size: 200% auto;'));
