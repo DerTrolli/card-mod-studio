@@ -35,6 +35,12 @@ Work in progress; not published yet.
   own — the per-row Icon color does that properly), and Font / Font family
   on the heading card (Heading Style already sets size, weight, family and
   colour there; two controls for one property would fight).
+- **⚙️ Settings shows which key styles are written under** — `uix:` when
+  UIX is installed (UIX's own key; a card styled under `card_mod:` moves to
+  `uix:` the next time it is saved), else `card_mod:` (read by card-mod and
+  by UIX) — and whether the optional integration is installed: with it,
+  that an administrator sets the defaults; without it, for administrators,
+  a link to how to install it (HACS / the Marketplace don't install it).
 
 ## [1.0.0-beta.1] — 2026-11-18
 

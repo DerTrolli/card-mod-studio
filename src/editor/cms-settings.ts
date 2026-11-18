@@ -24,7 +24,20 @@ import {
   type LanguageCode,
   type LanguageSetting,
 } from '../i18n/index.js';
-import { askLanguage, getSettings, initSettings, settingsSettled, updateSettings, SETTINGS_CHANGED_EVENT } from '../utils/settings-storage.js';
+import {
+  askLanguage,
+  getSettings,
+  getSiteDefaults,
+  initSettings,
+  settingsSettled,
+  updateSettings,
+  SETTINGS_CHANGED_EVENT,
+} from '../utils/settings-storage.js';
+import { pickOutputKey } from '../generator/yaml-generator.js';
+import { tParts } from '../i18n/index.js';
+
+/** Where the integration's install steps are documented. */
+const INTEGRATION_DOCS = 'https://github.com/DerTrolli/card-mod-studio/wiki/Integration';
 
 /** The language select both views share. */
 function renderLanguageSelect(id: string, value: LanguageSetting, onChange: (v: LanguageSetting) => void) {
@@ -79,8 +92,28 @@ export class CmsSettings extends SettingsView {
       .module-body select {
         width: 100%;
       }
+      .site-note {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+      .module-body code {
+        font-size: 12px;
+      }
+      .site-note a {
+        color: var(--primary-color, #03a9f4);
+      }
     `,
   ];
+
+  /** The integration's status: managed by an admin, installable (admins), or nothing. */
+  private _renderSiteNote() {
+    const loaded = !!this.hass?.config?.components?.includes('card_mod_studio');
+    if (loaded && getSiteDefaults()) return html`<div class="when-hint site-note">${t('settings.siteManaged')}</div>`;
+    if (loaded || !this.hass?.user?.is_admin) return nothing;
+    const link = html`<a href=${INTEGRATION_DOCS} target="_blank" rel="noopener noreferrer">${t('settings.integrationLink')}</a>`;
+    return html`<div class="when-hint site-note">${tParts('settings.integrationHint', { link })}</div>`;
+  }
 
   override render() {
     return html`
@@ -107,6 +140,14 @@ export class CmsSettings extends SettingsView {
                 </div>
               </div>
               <div class="when-hint">${t('settings.languageHint')}</div>
+              <div class="control-row">
+                <span class="control-label">${t('settings.writesUnder')}</span>
+                <div class="control-right"><code>${pickOutputKey(this.hass)}:</code></div>
+              </div>
+              <div class="when-hint">
+                ${t(pickOutputKey(this.hass) === 'uix' ? 'settings.writesUixHint' : 'settings.writesCardModHint')}
+              </div>
+              ${this._renderSiteNote()}
             </div>`
           : nothing}
       </div>

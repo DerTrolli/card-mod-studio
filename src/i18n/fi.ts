@@ -400,4 +400,10 @@ export const fi: Record<MessageKey, string> = {
   'settings.noticeLabel': 'Card-Mod Studion kieli',
   'settings.noticeText': 'Mitä kieltä Card-Mod Studion pitäisi käyttää? Voit vaihtaa sen myöhemmin Asetuksista.',
   'settings.ok': 'OK',
+  'settings.writesUnder': 'Tyylit kirjoitetaan kohtaan',
+  'settings.writesUixHint': 'UIX on asennettu, joten Studio kirjoittaa UIX:n oman avaimen. card_mod:-avaimella tyylitelty kortti siirtyy uix:-avaimeen, kun tallennat sen seuraavan kerran täällä.',
+  'settings.writesCardModHint': 'card-mod lukee vain card_mod:-avainta, ja UIX lukee sitä myös. UIX:n kanssa (ilman card-modia) Studio kirjoittaa sen sijaan uix:.',
+  'settings.siteManaged': 'Ylläpitäjäsi asettaa oletukset kaikille (Asetukset → Laitteet ja palvelut → Card-Mod Studio). Omat valintasi tässä menevät edelle.',
+  'settings.integrationHint': 'Kaikkien oletukset (kieli, kysymys, PÄÄLLÄ/POIS-värit) voi asettaa Home Assistantin asetussivulla valinnaisella Card-Mod Studio -integraatiolla — {link}.',
+  'settings.integrationLink': 'näin asennat sen',
 };

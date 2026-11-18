@@ -400,4 +400,10 @@ export const zhHant: Record<MessageKey, string> = {
   'settings.noticeLabel': 'Card-Mod Studio 語言',
   'settings.noticeText': 'Card-Mod Studio 應使用哪種語言？以後可以在“設定”中變更。',
   'settings.ok': '好',
+  'settings.writesUnder': '樣式寫入',
+  'settings.writesUixHint': '已安裝 UIX，因此 Studio 會寫入 UIX 自己的鍵。使用 card_mod: 的面板會在您下次於此儲存時改為 uix:。',
+  'settings.writesCardModHint': 'card-mod 只讀取 card_mod:，UIX 也會讀取它。安裝了 UIX（且沒有 card-mod）時，Studio 會改為寫入 uix:。',
+  'settings.siteManaged': '管理員為所有人設定了預設值（設定 → 裝置與服務 → Card-Mod Studio）。您在此處的選擇優先。',
+  'settings.integrationHint': '可透過選用的 Card-Mod Studio 整合，在 Home Assistant 的設定頁面為所有人設定預設值（語言、詢問、開/關顏色）— {link}。',
+  'settings.integrationLink': '安裝方式',
 };

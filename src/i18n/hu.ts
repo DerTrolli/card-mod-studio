@@ -400,4 +400,10 @@ export const hu: Record<MessageKey, string> = {
   'settings.noticeLabel': 'A Card-Mod Studio nyelve',
   'settings.noticeText': 'Milyen nyelvet használjon a Card-Mod Studio? Később a Beállításokban módosíthatja.',
   'settings.ok': 'OK',
+  'settings.writesUnder': 'A stílusok helye',
+  'settings.writesUixHint': 'A UIX telepítve van, ezért a Studio a UIX saját kulcsát írja. A card_mod: alatti kártya a következő itteni mentéskor átkerül a uix: alá.',
+  'settings.writesCardModHint': 'A card-mod csak a card_mod:-ot olvassa, a UIX is olvassa. UIX-szal (card-mod nélkül) a Studio helyette uix:-ot ír.',
+  'settings.siteManaged': 'A rendszergazda alapértékeket állít be mindenkinek (Beállítások → Eszközök és szolgáltatások → Card-Mod Studio). Az itteni saját választásai elsőbbséget élveznek.',
+  'settings.integrationHint': 'Mindenkire vonatkozó alapértékek (nyelv, a kérdés, BE/KI színek) a Home Assistant beállításai között adhatók meg a választható Card-Mod Studio integrációval — {link}.',
+  'settings.integrationLink': 'telepítés módja',
 };

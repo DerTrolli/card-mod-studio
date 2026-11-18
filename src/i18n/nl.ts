@@ -400,4 +400,10 @@ export const nl: Record<MessageKey, string> = {
   'settings.noticeLabel': 'Taal van Card-Mod Studio',
   'settings.noticeText': 'Welke taal moet Card-Mod Studio gebruiken? Je kunt dit later wijzigen onder Instellingen.',
   'settings.ok': 'OK',
+  'settings.writesUnder': 'Stijlen worden geschreven onder',
+  'settings.writesUixHint': 'UIX is geïnstalleerd, dus de Studio schrijft de eigen sleutel van UIX. Een kaart met card_mod: gaat naar uix: zodra je hem hier opnieuw opslaat.',
+  'settings.writesCardModHint': 'card-mod leest alleen card_mod:, en UIX leest het ook. Met UIX (en zonder card-mod) schrijft de Studio in plaats daarvan uix:.',
+  'settings.siteManaged': 'Je beheerder stelt standaarden voor iedereen in (Instellingen → Apparaten & diensten → Card-Mod Studio). Je eigen keuzes hier gaan voor.',
+  'settings.integrationHint': 'Standaarden voor iedereen (taal, de vraag, AAN/UIT-kleuren) kun je instellen op de instellingenpagina van Home Assistant met de optionele Card-Mod Studio-integratie — {link}.',
+  'settings.integrationLink': 'zo installeer je die',
 };

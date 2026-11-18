@@ -400,4 +400,10 @@ export const cs: Record<MessageKey, string> = {
   'settings.noticeLabel': 'Jazyk Card-Mod Studio',
   'settings.noticeText': 'Jaký jazyk má Card-Mod Studio používat? Později jej můžete změnit v Nastavení.',
   'settings.ok': 'OK',
+  'settings.writesUnder': 'Styly se zapisují pod',
+  'settings.writesUixHint': 'UIX je nainstalován, takže Studio zapisuje vlastní klíč UIX. Karta s card_mod: přejde na uix:, až ji zde příště uložíte.',
+  'settings.writesCardModHint': 'card-mod čte jen card_mod: a UIX ho čte také. S UIX (a bez card-mod) Studio místo toho zapisuje uix:.',
+  'settings.siteManaged': 'Váš správce nastavuje výchozí hodnoty pro všechny (Nastavení → Zařízení a služby → Card-Mod Studio). Vaše vlastní volby zde mají přednost.',
+  'settings.integrationHint': 'Výchozí hodnoty pro všechny (jazyk, otázka, barvy ZAP/VYP) lze nastavit na stránce nastavení Home Assistantu pomocí volitelné integrace Card-Mod Studio — {link}.',
+  'settings.integrationLink': 'jak ji nainstalovat',
 };

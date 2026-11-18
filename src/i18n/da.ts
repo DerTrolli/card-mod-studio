@@ -400,4 +400,10 @@ export const da: Record<MessageKey, string> = {
   'settings.noticeLabel': 'Card-Mod Studios sprog',
   'settings.noticeText': 'Hvilket sprog skal Card-Mod Studio bruge? Du kan ændre det senere under Indstillinger.',
   'settings.ok': 'OK',
+  'settings.writesUnder': 'Stilarter skrives under',
+  'settings.writesUixHint': 'UIX er installeret, så Studio skriver UIX\' egen nøgle. Et kort med card_mod: flytter til uix:, næste gang du gemmer det her.',
+  'settings.writesCardModHint': 'card-mod læser kun card_mod:, og UIX læser den også. Med UIX (og uden card-mod) skriver Studio uix: i stedet.',
+  'settings.siteManaged': 'Din administrator angiver standarder for alle (Indstillinger → Enheder og tjenester → Card-Mod Studio). Dine egne valg her går forud.',
+  'settings.integrationHint': 'Standarder for alle (sprog, spørgsmålet, TIL/FRA-farver) kan angives på Home Assistants indstillingsside med den valgfri Card-Mod Studio-integration — {link}.',
+  'settings.integrationLink': 'sådan installerer du den',
 };

@@ -400,4 +400,10 @@ export const ko: Record<MessageKey, string> = {
   'settings.noticeLabel': 'Card-Mod Studio 언어',
   'settings.noticeText': 'Card-Mod Studio에서 어떤 언어를 사용할까요? 나중에 설정에서 바꿀 수 있습니다.',
   'settings.ok': '확인',
+  'settings.writesUnder': '스타일 저장 위치',
+  'settings.writesUixHint': 'UIX가 설치되어 있으므로 Studio는 UIX 고유의 키에 씁니다. card_mod:로 스타일을 지정한 카드는 다음에 여기서 저장할 때 uix:로 옮겨집니다.',
+  'settings.writesCardModHint': 'card-mod는 card_mod:만 읽고 UIX도 이를 읽습니다. UIX가 있고 card-mod가 없으면 Studio는 대신 uix:에 씁니다.',
+  'settings.siteManaged': '관리자가 모든 사용자의 기본값을 설정합니다(설정 → 기기 및 서비스 → Card-Mod Studio). 여기에서 직접 고른 설정이 우선합니다.',
+  'settings.integrationHint': '모든 사용자의 기본값(언어, 질문, 켜짐/꺼짐 색상)은 선택 사항인 Card-Mod Studio 통합 구성요소로 Home Assistant 설정 페이지에서 지정할 수 있습니다 — {link}.',
+  'settings.integrationLink': '설치 방법',
 };

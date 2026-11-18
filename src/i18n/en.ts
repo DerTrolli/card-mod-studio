@@ -445,6 +445,12 @@ export const en = {
   'settings.noticeLabel': 'Card-Mod Studio language',
   'settings.noticeText': 'Which language should Card-Mod Studio use? You can change it later under Settings.',
   'settings.ok': 'OK',
+  'settings.writesUnder': 'Styles are written under',
+  'settings.writesUixHint': 'UIX is installed, so the Studio writes UIX\'s own key. A card styled under card_mod: moves to uix: the next time you save it here.',
+  'settings.writesCardModHint': 'card-mod reads only card_mod:, and UIX reads it too. With UIX installed (and card-mod not), the Studio writes uix: instead.',
+  'settings.siteManaged': 'Your administrator sets defaults for everyone (Settings → Devices & services → Card-Mod Studio). Your own choices here come first.',
+  'settings.integrationHint': 'Defaults for everyone (language, the question, ON/OFF colours) can be set on Home Assistant\'s Settings page with the optional Card-Mod Studio integration — {link}.',
+  'settings.integrationLink': 'how to install it',
 } as const;
 
 export type MessageKey = keyof typeof en;

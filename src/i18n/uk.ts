@@ -400,4 +400,10 @@ export const uk: Record<MessageKey, string> = {
   'settings.noticeLabel': 'Мова Card-Mod Studio',
   'settings.noticeText': 'Яку мову має використовувати Card-Mod Studio? Пізніше її можна змінити в Налаштуваннях.',
   'settings.ok': 'OK',
+  'settings.writesUnder': 'Стилі записуються в',
+  'settings.writesUixHint': 'UIX встановлено, тож Studio записує власний ключ UIX. Картка з card_mod: перейде на uix: під час наступного збереження тут.',
+  'settings.writesCardModHint': 'card-mod читає лише card_mod:, UIX теж його читає. З UIX (і без card-mod) Studio натомість записує uix:.',
+  'settings.siteManaged': 'Адміністратор задає типові значення для всіх (Налаштування → Пристрої та служби → Card-Mod Studio). Ваш власний вибір тут має перевагу.',
+  'settings.integrationHint': 'Типові значення для всіх (мова, запитання, кольори УВІМК./ВИМК.) можна задати на сторінці налаштувань Home Assistant за допомогою необов\'язкової інтеграції Card-Mod Studio — {link}.',
+  'settings.integrationLink': 'як її встановити',
 };

@@ -470,4 +470,10 @@ export const de: Record<MessageKey, string> = {
   'settings.noticeLabel': 'Sprache von Card-Mod Studio',
   'settings.noticeText': 'In welcher Sprache soll Card-Mod Studio angezeigt werden? Du kannst sie später unter Einstellungen ändern.',
   'settings.ok': 'OK',
+  'settings.writesUnder': 'Stile werden geschrieben unter',
+  'settings.writesUixHint': 'UIX ist installiert, daher schreibt das Studio den eigenen Schlüssel von UIX. Eine Karte mit card_mod: wechselt zu uix:, wenn du sie das nächste Mal hier speicherst.',
+  'settings.writesCardModHint': 'card-mod liest nur card_mod:, UIX liest es ebenfalls. Mit UIX (und ohne card-mod) schreibt das Studio stattdessen uix:.',
+  'settings.siteManaged': 'Dein Administrator legt Standards für alle fest (Einstellungen → Geräte & Dienste → Card-Mod Studio). Deine eigene Wahl hier hat Vorrang.',
+  'settings.integrationHint': 'Standards für alle (Sprache, die Frage, EIN/AUS-Farben) lassen sich mit der optionalen Card-Mod Studio-Integration auf der Einstellungsseite von Home Assistant festlegen — {link}.',
+  'settings.integrationLink': 'so wird sie installiert',
 };

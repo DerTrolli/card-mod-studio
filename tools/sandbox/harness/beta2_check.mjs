@@ -63,7 +63,8 @@ const waitStyle = async (tag, prop, want, n = 0) => {
 try {
   await D.seedDashboard(page, URLPATH, [
     { type: 'tile', entity: 'light.ceiling_lights' },
-    { type: 'alarm-panel', entity: 'alarm_control_panel.security', name: 'QA alarm' },
+    // no name: — HA 2025.9's alarm panel logs "Invalid configuration" for it (its own)
+    { type: 'alarm-panel', entity: 'alarm_control_panel.security' },
     { type: 'picture-elements', image: '/static/icons/favicon-192x192.png', elements: [{ type: 'state-label', entity: 'light.ceiling_lights', style: { top: '50%', left: '50%' } }] },
     { type: 'heading', heading: 'QA heading' },
   ], { view: { type: 'masonry' } });
@@ -118,7 +119,8 @@ try {
     await D.setSectionEnabled(page, 'Threshold Colors', false);
     await D.saveCard(page);
     await D.exitEditMode(page).catch(() => {});
-    return `title ${await waitText('HUI-ALARM-PANEL-CARD', 'QA alarm', RED)}; Apply to: ${applyTo.join(', ')}`;
+    const title = await page.evaluate(() => document.querySelector('home-assistant').hass.states['alarm_control_panel.security'].attributes.friendly_name);
+    return `title "${title}" ${await waitText('HUI-ALARM-PANEL-CARD', title, RED)}; Apply to: ${applyTo.join(', ')}`;
   });
 
   await step('picture-elements: Font → Text color Red reaches the state label', async () => {
@@ -145,6 +147,25 @@ try {
     await D.saveCard(page);
     await D.exitEditMode(page).catch(() => {});
     return `${await waitStyle('HUI-HEADING-CARD', 'animationName', 'cms-bounce')}; presets: ${names.join(', ')}`;
+  });
+
+  // ------------------------------------- Settings: key + integration note
+  await step('⚙️ Settings names the key styles are written under, and the integration', async () => {
+    await D.enterEditMode(page);
+    await D.openCardEditor(page, 0);
+    await D.openStudio(page);
+    await D.expandSection(page, 'Settings');
+    const body = await page.locator('cms-settings .module-body').innerText();
+    const key = await page.locator('cms-settings .module-body code').first().innerText();
+    need(key === `${KEY}:`, `shows ${key}, the rig writes ${KEY}:`);
+    const loaded = await page.evaluate(() => document.querySelector('home-assistant').hass.config.components.includes('card_mod_studio'));
+    if (loaded) need(/administrator sets defaults/i.test(body), body);
+    else {
+      const href = await page.locator('cms-settings .site-note a').getAttribute('href');
+      need(/wiki\/Integration$/.test(href ?? ''), `link ${href}`);
+    }
+    await D.cancelCard(page);
+    return `${key} — integration ${loaded ? 'installed: administrator note' : 'missing: install link'}`;
   });
 
   await step('no console errors', async () => {

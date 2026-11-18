@@ -400,4 +400,10 @@ export const ja: Record<MessageKey, string> = {
   'settings.noticeLabel': 'Card-Mod Studio の言語',
   'settings.noticeText': 'Card-Mod Studio でどの言語を使いますか？あとで「設定」から変更できます。',
   'settings.ok': 'OK',
+  'settings.writesUnder': 'スタイルの書き込み先',
+  'settings.writesUixHint': 'UIX がインストールされているため、Studio は UIX 独自のキーに書き込みます。card_mod: のカードは、次にここで保存したときに uix: へ移ります。',
+  'settings.writesCardModHint': 'card-mod は card_mod: のみを読み取り、UIX もそれを読み取ります。UIX があり card-mod がない場合、Studio は代わりに uix: に書き込みます。',
+  'settings.siteManaged': '管理者が全員のデフォルトを設定しています（設定 → デバイスとサービス → Card-Mod Studio）。ここでのあなた自身の選択が優先されます。',
+  'settings.integrationHint': '全員のデフォルト（言語、質問、オン/オフの色）は、オプションの Card-Mod Studio 統合を使って Home Assistant の設定ページで設定できます — {link}。',
+  'settings.integrationLink': 'インストール方法',
 };
