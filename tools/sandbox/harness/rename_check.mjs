@@ -18,7 +18,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const h = await D.launch({ rig: RIG, ...(process.env.TOKENS_FILE ? { tokensFile: process.env.TOKENS_FILE } : {}) });
 const { page } = h;
 const KEY = h.styleKey;
+let errSeen = 0;
 const step = async (name, fn) => {
+  if (process.env.DEBUG_ERRS) { const n = h.errors.length; if (n > errSeen) console.log('ERRS before', name, h.errors.slice(errSeen)); errSeen = n; }
   try {
     const detail = await fn();
     results.push(true);
@@ -131,7 +133,10 @@ try {
   });
 
   await step('no console errors', async () => {
-    const errs = h.errors.filter((e) => !/themesReady: Timeout|status of 50[02]|Error getting Image Colors|Transition was skipped/.test(e));
+    // HA 2026.2 logs "Cannot parse given Error object" when it fails to report
+    // the skipped view transition (same with v1.0.0-beta.1 and on a dashboard
+    // without the Studio's edits; HA's own logger).
+    const errs = h.errors.filter((e) => !/themesReady: Timeout|status of 50[02]|Error getting Image Colors|Transition was skipped|Failure writing unhandled promise rejection to system log: Error: Cannot parse given Error object/.test(e));
     need(errs.length === 0, errs.slice(0, 3).join(' || '));
   });
 } catch (e) {

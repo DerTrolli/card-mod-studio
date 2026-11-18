@@ -112,10 +112,23 @@ const h = await D.launch({
   ...(tokensFile ? { tokensFile } : {}),
 });
 const { page } = h;
+/** HA stores the profile language as user data `language`; switching back to
+ *  English would leave {language: 'en'} there, which then overrides a
+ *  browser's own language choice in later checks (language_check). Put back
+ *  exactly what was stored before. */
+const userLanguage = (value) => page.evaluate(async (v) => {
+  const hass = document.querySelector('home-assistant')?.hass;
+  if (!hass) return undefined;
+  if (v === undefined) return (await hass.callWS({ type: 'frontend/get_user_data', key: 'language' }))?.value ?? null;
+  await hass.callWS({ type: 'frontend/set_user_data', key: 'language', value: v });
+  return v;
+}, value);
+let storedLanguage;
 try {
   await clearSettings(page);
   await D.seedDashboard(page, URLPATH, [{ type: 'tile', entity: 'light.ceiling_lights' }]);
   await D.gotoDashboard(page, URLPATH, { engine: false });
+  storedLanguage = await userLanguage();
   await D.enterEditMode(page);
   await D.openCardEditor(page, 0);
   await D.openStudio(page);
@@ -158,6 +171,9 @@ try {
   console.log('FAIL setup -', String(e.stack || e).split('\n').slice(0, 3).join(' | '));
 } finally {
   try { await selectHaLanguage(page, 'en'); } catch (e) { console.log('WARN could not switch Home Assistant back to English:', String(e.message || e)); }
+  if (storedLanguage !== undefined) {
+    try { await userLanguage(storedLanguage); } catch (e) { console.log('WARN could not restore the stored profile language:', String(e.message || e)); }
+  }
   try { await clearSettings(page); } catch { /* closed */ }
   await h.close().catch(() => {});
 }
