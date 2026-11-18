@@ -31,6 +31,8 @@ export class FeaturesModule extends LitElement {
   @property({ type: Boolean }) noFeatures = false;
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** v1.0: offer "Let this module take over" (plain Advanced CSS only). */
+  @property({ attribute: false }) takeOver = false;
 
   protected readonly i18n = new LangController(this);
 
@@ -85,7 +87,7 @@ export class FeaturesModule extends LitElement {
     const radius = this._radius >= 0 ? this._radius : HA_FEATURE_RADIUS;
     return html`
       <div class="module-body" id="module-body">
-        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'features' : undefined)}
         ${this.noFeatures ? html`<div class="when-hint">${t('features.none')}</div>` : nothing}
         <div class="control-row">
           <span class="control-label">${t('features.height')}</span>

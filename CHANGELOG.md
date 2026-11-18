@@ -41,6 +41,13 @@ Work in progress; not published yet.
   by UIX) — and whether the optional integration is installed: with it,
   that an administrator sets the defaults; without it, for administrators,
   a link to how to install it (HACS / the Marketplace don't install it).
+- **"Let this module take over"**: when hand-written CSS in Advanced CSS
+  overrides a module (the ⚠️ "Custom CSS is overriding this setting" note),
+  a button in that note removes exactly the overriding declarations — it
+  first shows what it will remove, and only Remove removes it. A rule (or
+  `@media` block) left empty goes with them; the rest of Advanced CSS stays
+  byte for byte. Not offered on styles with Jinja statements (`{% … %}`) or
+  CSS it can't follow safely. Cancel the card editor to undo.
 
 ## [1.0.0-beta.1] — 2026-11-18
 

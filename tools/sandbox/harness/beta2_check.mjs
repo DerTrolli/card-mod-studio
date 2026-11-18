@@ -67,6 +67,7 @@ try {
     { type: 'alarm-panel', entity: 'alarm_control_panel.security' },
     { type: 'picture-elements', image: '/static/icons/favicon-192x192.png', elements: [{ type: 'state-label', entity: 'light.ceiling_lights', style: { top: '50%', left: '50%' } }] },
     { type: 'heading', heading: 'QA heading' },
+    { type: 'tile', entity: 'light.bed_light', [KEY]: { style: 'ha-card {\n  background: #ff0000;\n}\n\n@media (min-width: 0px) {\n  .keep { color: red; }\n}\n\nha-card {\n  background: #0000ff;\n}\n' } },
   ], { view: { type: 'masonry' } });
   await D.gotoDashboard(page, URLPATH, { engine: false });
   const before = await cardStyle('HUI-TILE-CARD', 'borderTopLeftRadius');
@@ -147,6 +148,28 @@ try {
     await D.saveCard(page);
     await D.exitEditMode(page).catch(() => {});
     return `${await waitStyle('HUI-HEADING-CARD', 'animationName', 'cms-bounce')}; presets: ${names.join(', ')}`;
+  });
+
+  // ------------------------------------------------------- #3 take over
+  await step('take over: the override warning offers it, shows what goes, Remove applies the module', async () => {
+    await D.enterEditMode(page);
+    await D.openCardEditor(page, 4);
+    await D.openStudio(page);
+    await D.expandSection(page, 'Background');
+    const hint = page.locator('cms-background-module .override-hint');
+    await hint.waitFor({ state: 'visible', timeout: 10000 });
+    await hint.locator('cms-take-over button').click();
+    const confirm = await hint.locator('cms-take-over .confirm').innerText();
+    need(/ha-card \{ background \}/.test(confirm), confirm);
+    await hint.locator('cms-take-over button.go').click();
+    await hint.waitFor({ state: 'hidden', timeout: 5000 });
+    const st = await studioState();
+    need(st.advanced.rawCss.trim() === '@media (min-width: 0px) {\n  .keep { color: red; }\n}', JSON.stringify(st.advanced.rawCss));
+    await D.saveCard(page);
+    const css = (await D.savedCards(page, URLPATH))[4]?.[KEY]?.style ?? '';
+    need(!/#0000ff/.test(css) && /background: #ff0000;/.test(css) && /\.keep \{ color: red; \}/.test(css), css);
+    await D.exitEditMode(page).catch(() => {});
+    return `${await waitStyle('HUI-TILE-CARD', 'backgroundColor', 'rgb(255, 0, 0)', 1)}; confirm: ${confirm.slice(0, 80)}`;
   });
 
   // ------------------------------------- Settings: key + integration note

@@ -30,6 +30,8 @@ export class AccentColorModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** v1.0: offer "Let this module take over" (plain Advanced CSS only). */
+  @property({ attribute: false }) takeOver = false;
   /** Threshold Colors is currently writing this module's property. */
   @property({ attribute: false }) thresholdOwned = false;
   /** The card writes Accent as `R, G, B` (Mushroom) — unconvertible colours get a hint. */
@@ -88,7 +90,7 @@ export class AccentColorModule extends LitElement {
 
     return html`
       <div class="module-body" id="module-body">
-        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'accentColor' : undefined)}
         ${renderThresholdOwnedHint(this.thresholdOwned, 'noun.accentColor', 'threshold.prop.accentColor')}
         <div class="control-row">
           <span class="control-label" id="lbl-color-mode">${t('accent.colorMode')}</span>

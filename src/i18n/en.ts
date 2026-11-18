@@ -21,6 +21,9 @@ export const en = {
     ", so the {what} chosen here isn't used. Untick “{option}” under Threshold Colors → Apply to (or turn Threshold Colors off) to use this module again.",
   'base.overrideBadge': 'Custom CSS in Advanced CSS is currently overriding this control',
   'base.overrideTitle': 'Custom CSS is currently overriding this control',
+  'base.takeOver': 'Let this module take over',
+  'base.takeOverConfirm': 'This removes {what} from Advanced CSS, so this module\'s setting applies. The rest of Advanced CSS stays as it is.',
+  'base.takeOverRemove': 'Remove',
   'base.overrideBody':
     'Advanced CSS is applied after these settings (hand-written styles always win), so changes here may not be visible on the card. Edit or remove those lines in Advanced CSS to hand control back to this module.',
 

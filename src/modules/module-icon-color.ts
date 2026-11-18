@@ -79,6 +79,8 @@ export class IconColorModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** v1.0: offer "Let this module take over" (plain Advanced CSS only). */
+  @property({ attribute: false }) takeOver = false;
   /** Threshold Colors is currently writing this module's property. */
   @property({ attribute: false }) thresholdOwned = false;
 
@@ -148,7 +150,7 @@ export class IconColorModule extends LitElement {
     if (!this.allowColor) {
       return html`
         <div class="module-body" id="module-body">
-          ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+          ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'iconColor' : undefined)}
           <div class="when-hint">${t('icon.sizeOnly')}</div>
           ${this.allowSize ? this._renderSize() : nothing}
         </div>
@@ -167,7 +169,7 @@ export class IconColorModule extends LitElement {
 
     return html`
       <div class="module-body" id="module-body">
-        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'iconColor' : undefined)}
         ${renderThresholdOwnedHint(this.thresholdOwned, 'noun.iconColor', 'threshold.prop.iconColor')}
         <div class="control-row">
           <span class="control-label" id="lbl-color-mode">${t('accent.colorMode')}</span>

@@ -129,6 +129,8 @@ describe('every visible text is translatable', () => {
     ['preset manager', 'cms-preset-manager', { _open: true, presets: [{ name: 'Warm', state: {} }, { name: 'Cool', state: {} }], cardState: {}, _armed: 'Cool', _renameError: 'x', _exportText: '{}', _exportNote: 'x', _pasteNote: 'x' }],
     ['preset manager empty', 'cms-preset-manager', { _open: true, presets: [] }],
     ['language notice', 'cms-language-notice', {}],
+    ['take over', 'cms-take-over', { module: 'background', detail: 'ha-card { background }' }],
+    ['take over armed', 'cms-take-over', { module: 'background', detail: 'ha-card { background }', _armed: true }],
   ];
   for (const [name, tag, props] of cases) {
     it(name, () => {

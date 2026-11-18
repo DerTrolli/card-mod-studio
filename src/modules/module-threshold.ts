@@ -48,6 +48,8 @@ export class ThresholdModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** v1.0: offer "Let this module take over" (plain Advanced CSS only). */
+  @property({ attribute: false }) takeOver = false;
 
   @state() private _open = false;
 
@@ -358,7 +360,7 @@ export class ThresholdModule extends LitElement {
   private _renderBody() {
     return html`
       <div class="module-body" id="module-body">
-        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'threshold' : undefined)}
         ${this.tripletAccent && thresholdColorsWithoutTriplet(this.state).length
           ? html`<div class="when-hint warn">${tripletHint(thresholdColorsWithoutTriplet(this.state))}</div>`
           : nothing}

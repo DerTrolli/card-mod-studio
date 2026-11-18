@@ -33,6 +33,8 @@ export class HeadingStyleModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** v1.0: offer "Let this module take over" (plain Advanced CSS only). */
+  @property({ attribute: false }) takeOver = false;
 
   /** The heading card's `heading_style` (`title` | `subtitle`), so the
    *  "Default (…)" placeholders match what that variant really looks like. */
@@ -112,7 +114,7 @@ export class HeadingStyleModule extends LitElement {
 
     return html`
       <div class="module-body" id="module-body">
-        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'headingStyle' : undefined)}
         <div class="control-row">
           <span class="control-label">${t('font.textSize')}</span>
           <div class="control-right">

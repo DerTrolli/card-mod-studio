@@ -20,6 +20,9 @@ export const de: Record<MessageKey, string> = {
     ', daher wird die hier gewählte Einstellung nicht verwendet. Entferne den Haken bei „{option}“ unter Schwellenwertfarben → Anwenden auf (oder schalte Schwellenwertfarben aus), um dieses Modul wieder zu verwenden.',
   'base.overrideBadge': 'Eigenes CSS in „Erweitertes CSS“ überschreibt gerade diese Einstellung',
   'base.overrideTitle': 'Eigenes CSS überschreibt gerade diese Einstellung',
+  'base.takeOver': 'Dieses Modul übernehmen lassen',
+  'base.takeOverConfirm': 'Das entfernt {what} aus dem erweiterten CSS, damit die Einstellung dieses Moduls gilt. Der Rest des erweiterten CSS bleibt, wie er ist.',
+  'base.takeOverRemove': 'Entfernen',
   'base.overrideBody':
     'Erweitertes CSS wird nach diesen Einstellungen angewendet (selbst geschriebene Stile gewinnen immer), daher sind Änderungen hier auf der Karte eventuell nicht zu sehen. Bearbeite oder entferne diese Zeilen in „Erweitertes CSS“, um die Steuerung wieder diesem Modul zu überlassen.',
 

@@ -47,6 +47,8 @@ export class AnimationModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** v1.0: offer "Let this module take over" (plain Advanced CSS only). */
+  @property({ attribute: false }) takeOver = false;
 
   @state() private _open = false;
   @state() private _speedS = DEFAULT_ANIMATION.speedS;
@@ -117,7 +119,7 @@ export class AnimationModule extends LitElement {
   private _renderBody() {
     return html`
       <div class="module-body" id="module-body">
-        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'animation' : undefined)}
         <div class="control-row">
           <span class="control-label" id="lbl-preset">${t('anim.preset')}</span>
           <div class="control-right">

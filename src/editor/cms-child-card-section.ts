@@ -62,7 +62,7 @@ import {
 } from '../utils/card-caps.js';
 import { childKindLabel, profileKeyOf, isUnprofiledCustomCard, unprofiledCardNotice } from '../utils/custom-card-profiles.js';
 import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
-import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
+import { canTakeOver, findAdvancedCssConflicts, removeAdvancedCssConflicts, type ConflictableModule } from '../utils/style-conflicts.js';
 import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
 import { hasDictFormStyle, hasUnsupportedDictRoot } from '../utils/style-compat.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
@@ -204,11 +204,22 @@ export class CmsChildCardSection extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
     window.addEventListener(PALETTE_CHANGED_EVENT, this._onPaletteChanged);
+    this.addEventListener('take-over', this._onTakeOver as EventListener);
   }
+
+  /** "Let this module take over" from one of this card's modules (cms-take-over). */
+  private _onTakeOver = (e: CustomEvent<{ module: ConflictableModule }>) => {
+    e.stopPropagation(); // this card's, not the panel's (or an outer section's)
+    const s = this._studioState;
+    if (!s || !this.childConfig) return;
+    const r = removeAdvancedCssConflicts(s.advanced.rawCss, s, e.detail.module, profileKeyOf(this.childConfig));
+    if (r) this._emitChanged({ advanced: { ...s.advanced, rawCss: r.css } });
+  };
 
   override disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener(PALETTE_CHANGED_EVENT, this._onPaletteChanged);
+    this.removeEventListener('take-over', this._onTakeOver as EventListener);
   }
 
   /** See CmsPanel._onPaletteChanged. */
@@ -375,6 +386,7 @@ export class CmsChildCardSection extends LitElement {
     const isEntities = caps.isEntities;
     const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
     const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s, cardType);
+    const takeOver = canTakeOver(s.advanced.rawCss);
     const thresholdOwned = cardThresholdOwned(s.threshold, caps);
 
     return html`
@@ -390,6 +402,7 @@ export class CmsChildCardSection extends LitElement {
           ? html`<cms-heading-style-module
               .headingStyle=${(c as unknown as Record<string, unknown>).heading_style as string | undefined}
               .overridden=${!!conflicts.headingStyle}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.headingStyle ?? []).join(", ")}
               .state=${s.headingStyle}
               @state-changed=${(e: CustomEvent<HeadingStyleModuleState>) =>
@@ -405,6 +418,7 @@ export class CmsChildCardSection extends LitElement {
               .numberSize=${numberSizeKind(cardType)}
               .cardType=${cardType}
               .overridden=${!!conflicts.font}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.font ?? []).join(", ")}
               .state=${s.font}
               @state-changed=${(e: CustomEvent<FontModuleState>) => this._emitChanged({ font: e.detail })}
@@ -415,6 +429,7 @@ export class CmsChildCardSection extends LitElement {
           ? html`<cms-filter-module
               .cardEntity=${entity}
               .overridden=${!!conflicts.filter}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
               .state=${s.filter}
               .stateAware=${stateAware}
@@ -426,6 +441,7 @@ export class CmsChildCardSection extends LitElement {
         ${mods.accentColor
           ? html`<cms-accent-color-module
               .overridden=${!!conflicts.accentColor}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.accentColor ?? []).join(", ")}
               .thresholdOwned=${thresholdOwned.has('accent-color')}
               .state=${s.accentColor}
@@ -442,6 +458,7 @@ export class CmsChildCardSection extends LitElement {
         ${mods.iconColor
           ? html`<cms-icon-color-module
               .overridden=${!!conflicts.iconColor}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.iconColor ?? []).join(", ")}
               .thresholdOwned=${thresholdOwned.has('icon-color')}
               .state=${s.iconColor}
@@ -460,6 +477,7 @@ export class CmsChildCardSection extends LitElement {
         ${mods.threshold
           ? html`<cms-threshold-module
               .overridden=${!!conflicts.threshold}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.threshold ?? []).join(", ")}
               .state=${s.threshold}
               .cardEntity=${entity}
@@ -476,6 +494,7 @@ export class CmsChildCardSection extends LitElement {
           ? html`<cms-background-module
               .cardEntity=${entity}
               .overridden=${!!conflicts.background}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.background ?? []).join(", ")}
               .thresholdOwned=${thresholdOwned.has('background')}
               .state=${s.background}
@@ -490,6 +509,7 @@ export class CmsChildCardSection extends LitElement {
           ? html`<cms-animation-module
               .cardEntity=${entity}
               .overridden=${!!conflicts.animation}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.animation ?? []).join(", ")}
               .state=${s.animation}
               .hiddenPresets=${caps.noAnimationPresets}
@@ -504,6 +524,7 @@ export class CmsChildCardSection extends LitElement {
           ? html`<cms-border-module
               .cardEntity=${entity}
               .overridden=${!!conflicts.border}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.border ?? []).join(", ")}
               .thresholdOwned=${thresholdOwned.has('border-color')}
               .state=${s.border}
@@ -518,6 +539,7 @@ export class CmsChildCardSection extends LitElement {
               .state=${s.features ?? DEFAULT_FEATURES}
               .noFeatures=${!Array.isArray((c as unknown as { features?: unknown[] }).features) || !(c as unknown as { features: unknown[] }).features.length}
               .overridden=${!!conflicts.features}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.features ?? []).join(", ")}
               @state-changed=${(e: CustomEvent<FeaturesModuleState>) => this._emitChanged({ features: e.detail })}
             ></cms-features-module>`

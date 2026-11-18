@@ -6,6 +6,7 @@ import { css, html, nothing } from 'lit';
 import type { TemplateResult } from 'lit';
 import type { HomeAssistant, StyleCondition } from '../types/index.js';
 import '../components/cms-entity-picker.js';
+import '../components/cms-take-over.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
 import type { OwnStateKind } from '../utils/card-caps.js';
 import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
@@ -998,12 +999,15 @@ export function renderOverrideBadge(overridden: boolean): TemplateResult | typeo
 export function renderOverrideHint(
   overridden: boolean,
   detail?: string,
+  /** v1.0: the module that may take over (offers the button); omitted = no button. */
+  takeOver?: string,
 ): TemplateResult | typeof nothing {
   if (!overridden) return nothing;
   return html`<div class="override-hint">
     ⚠️ <strong>${t('base.overrideTitle')}</strong>${detail
       ? html` — <code>${detail}</code>`
       : nothing}. ${t('base.overrideBody')}
+    ${takeOver && detail ? html`<cms-take-over .module=${takeOver} .detail=${detail}></cms-take-over>` : nothing}
   </div>`;
 }
 

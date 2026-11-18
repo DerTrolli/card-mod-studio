@@ -47,6 +47,8 @@ export class FontModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** v1.0: offer "Let this module take over" (plain Advanced CSS only). */
+  @property({ attribute: false }) takeOver = false;
   /** False on cards whose text carries its own colour (NO_TEXT_COLOR_TYPES)
    *  — the colour picker would be a dead control there. */
   @property({ attribute: false }) allowColor = true;
@@ -167,7 +169,7 @@ export class FontModule extends LitElement {
 
     return html`
       <div class="module-body" id="module-body">
-        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'font' : undefined)}
         ${this.allowSize || this.state.fontSize !== undefined ? html`<div class="control-row">
           <span class="control-label">${t('font.textSize')}</span>
           <div class="control-right">

@@ -25,6 +25,8 @@ export class BorderModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** v1.0: offer "Let this module take over" (plain Advanced CSS only). */
+  @property({ attribute: false }) takeOver = false;
   /** Threshold Colors is currently writing this module's property. */
   @property({ attribute: false }) thresholdOwned = false;
 
@@ -90,7 +92,7 @@ export class BorderModule extends LitElement {
   private _renderBody() {
     return html`
       <div class="module-body" id="module-body">
-        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'border' : undefined)}
         ${renderThresholdOwnedHint(this.thresholdOwned, 'noun.borderColor', 'threshold.prop.borderColor')}
         <div class="control-row">
           <span class="control-label">${t('border.radius')}</span>

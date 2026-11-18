@@ -47,7 +47,7 @@ import { ArmGuard } from '../utils/arm-guard.js';
 import { filterPresetStateForCardType, presetFont } from '../utils/preset-caps.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
 import { initPaletteCache, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
-import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
+import { canTakeOver, findAdvancedCssConflicts, removeAdvancedCssConflicts, type ConflictableModule } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
 import './cms-settings.js';
 import { childSlots, withChild, type ChildSlot } from '../utils/child-slots.js';
@@ -152,6 +152,7 @@ export class CmsPanel extends LitElement {
     // One place for every field the Studio renders (modules, stack children,
     // palette manager and preset bar all live in this subtree).
     this.addEventListener('keydown', keepEnterInStudio);
+    this.addEventListener('take-over', this._onTakeOver as EventListener);
     this._cardModPresent = isCardModInstalled();
     this._uixPresent = isUixInstalled();
     // Load from localStorage immediately (sync); HA sync happens when hass arrives
@@ -179,6 +180,7 @@ export class CmsPanel extends LitElement {
   override disconnectedCallback() {
     super.disconnectedCallback();
     this.removeEventListener('keydown', keepEnterInStudio);
+    this.removeEventListener('take-over', this._onTakeOver as EventListener);
     window.removeEventListener(PALETTE_CHANGED_EVENT, this._onPaletteChanged);
     this._deleteGuard.stop(); // an armed panel leaving the page keeps no window listener
     this._resizeObserver?.disconnect();
@@ -474,6 +476,17 @@ export class CmsPanel extends LitElement {
     this._studioState = { ...this._studioState, features: e.detail };
     this._emitConfigChanged();
   }
+
+  /** "Let this module take over" (cms-take-over): remove exactly the
+   *  overriding declarations from Advanced CSS (child sections handle their own). */
+  private _onTakeOver = (e: CustomEvent<{ module: ConflictableModule }>) => {
+    const s = this._studioState;
+    if (!s) return;
+    const r = removeAdvancedCssConflicts(s.advanced.rawCss, s, e.detail.module, this._profileKey);
+    if (!r) return;
+    this._studioState = { ...s, advanced: { ...s.advanced, rawCss: r.css } };
+    this._emitConfigChanged();
+  };
 
   private _onAdvancedChanged(e: CustomEvent<AdvancedModuleState>) {
     if (!this._studioState) return;
@@ -1455,6 +1468,7 @@ export class CmsPanel extends LitElement {
     const hasUnrecognisedCss = loadedCss && !this._nothingToStyle;
     // "Custom CSS is overriding this control" warnings (style-conflicts.ts)
     const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s, this._profileKey);
+    const takeOver = canTakeOver(s.advanced.rawCss);
     const thresholdOwned = cardThresholdOwned(s.threshold, this._caps);
 
     return html`
@@ -1472,6 +1486,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-heading-style-module
             .headingStyle=${(this.config as unknown as Record<string, unknown> | undefined)?.heading_style as string | undefined}
             .overridden=${!!conflicts.headingStyle}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.headingStyle ?? []).join(", ")}
             .state=${s.headingStyle}
             @state-changed=${this._onHeadingStyleChanged}
@@ -1486,6 +1501,7 @@ export class CmsPanel extends LitElement {
             .numberSize=${numberSizeKind(this._profileKey)}
             .cardType=${this._profileKey}
             .overridden=${!!conflicts.font}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.font ?? []).join(", ")}
             .state=${s.font}
             @state-changed=${this._onFontChanged}
@@ -1496,6 +1512,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-filter-module
             .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.filter}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
             .state=${s.filter}
             .stateAware=${stateAware}
@@ -1507,6 +1524,7 @@ export class CmsPanel extends LitElement {
       ${this._caps.modules.accentColor
         ? html`<cms-accent-color-module
             .overridden=${!!conflicts.accentColor}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.accentColor ?? []).join(", ")}
             .thresholdOwned=${thresholdOwned.has('accent-color')}
             .state=${s.accentColor}
@@ -1522,6 +1540,7 @@ export class CmsPanel extends LitElement {
       ${showIconColor
         ? html`<cms-icon-color-module
             .overridden=${!!conflicts.iconColor}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.iconColor ?? []).join(", ")}
             .thresholdOwned=${thresholdOwned.has('icon-color')}
             .state=${s.iconColor}
@@ -1539,6 +1558,7 @@ export class CmsPanel extends LitElement {
       ${this._caps.modules.threshold
         ? html`<cms-threshold-module
               .overridden=${!!conflicts.threshold}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.threshold ?? []).join(", ")}
               .state=${s.threshold}
               .cardEntity=${this.config?.entity ?? ''}
@@ -1554,6 +1574,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-background-module
             .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.background}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.background ?? []).join(", ")}
             .thresholdOwned=${thresholdOwned.has('background')}
             .state=${s.background}
@@ -1567,6 +1588,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-animation-module
             .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.animation}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.animation ?? []).join(", ")}
             .state=${s.animation}
             .hiddenPresets=${this._caps.noAnimationPresets}
@@ -1580,6 +1602,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-border-module
             .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.border}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.border ?? []).join(", ")}
             .thresholdOwned=${thresholdOwned.has('border-color')}
             .state=${s.border}
@@ -1594,6 +1617,7 @@ export class CmsPanel extends LitElement {
             .state=${s.features ?? DEFAULT_FEATURES}
             .noFeatures=${!Array.isArray((this.config as unknown as { features?: unknown[] })?.features) || !(this.config as unknown as { features: unknown[] }).features.length}
             .overridden=${!!conflicts.features}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.features ?? []).join(", ")}
             @state-changed=${this._onFeaturesChanged}
           ></cms-features-module>`
