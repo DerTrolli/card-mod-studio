@@ -67,8 +67,9 @@ A looping animation on the card:
 | Glow | Pulsing glow around the card |
 | Heartbeat | Double-beat scale, like a heartbeat |
 
-Animation is offered on every built-in card except heading, the energy
-cards, activity, webpage and shopping list (v0.11.0-beta.3 added alarm panel,
+Animation is offered on every built-in card except the energy cards,
+activity, webpage and shopping list (the heading card since
+v1.0.0-beta.2, without Glow, Spin and Gradient Shift — it has no box) (v0.11.0-beta.3 added alarm panel,
 calendar, gauge, history graph, humidifier, iframe, light, logbook, map, media
 control, picture, picture elements, picture entity, picture glance, statistic,
 statistics graph, thermostat, to-do list and weather forecast). A preset that
@@ -89,7 +90,10 @@ while the condition holds. The classic attention-indicator: *glow while
 
 ## Border & Radius
 
-- **Border radius** — round the card's corners (0–50px)
+- **Border radius** — round the card's corners (1–50px; 0 = the card's own
+  rounding, shown as "Card default")
+- **Square corners** *(v1.0.0-beta.2)* — sharp corners (`border-radius: 0px`);
+  the radius slider is off while it's on
 - **Border width** (0–8px) and **border color** — the color picker appears
   once width > 0
 - **"Reacts to"** *(since v0.9.0)* — the border can appear only

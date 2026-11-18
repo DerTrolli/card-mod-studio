@@ -63,7 +63,7 @@ exactly that card. See [Containers](Container-Cards) for the details.
 
 ## Not covered yet
 
-- `sections` view containers.
+- (Sections are covered since 1.0.0-beta.2 — see [Containers](Container-Cards#sections-new-in-100-beta2).)
 - Custom containers such as layout-card.
 
 See the [roadmap](https://github.com/DerTrolli/card-mod-studio/blob/main/docs/ROADMAP.md).

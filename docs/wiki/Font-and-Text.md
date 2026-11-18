@@ -82,8 +82,9 @@ size.
 
 **Text color** is hidden (size/weight/family stay) where the card colours
 its own text and a colour set here would never show: media-control, area,
-picture-entity, picture-glance, picture-elements, date and alert (the last
-two new in HA 2026.11) and, in the Threshold list, alarm-panel.
+picture-entity, picture-glance, date and alert (the last two new in HA
+2026.11). Since v1.0.0-beta.2 it is offered on alarm-panel (it colours the
+title) and picture-elements (it colours the state labels).
 **Text size** is hidden where the card sizes its own text: area, humidifier,
 picture-entity, picture-glance, weather-forecast, date and alert (measured
 with the module-effect audit on HA 2026.6, 2026.10 and 2026.11).

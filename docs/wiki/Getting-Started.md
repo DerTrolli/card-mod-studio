@@ -15,7 +15,9 @@ The layout:
 - **Right column** — a live preview of the real card that re-renders on every
   change, shown on your theme's own dashboard background. When the panel is
   narrower than about 720px (phones, small windows, tablet split view) the
-  preview stacks below the controls instead.
+  preview moves to the top and stays pinned there while the controls scroll
+  under it *(v1.0.0-beta.2)*; **Hide** folds it away (remembered on that
+  device), **Show** brings it back.
 
 The panel follows your theme in light and dark mode. Each module has a
 **toggle** (enables its output) and a collapsible body. A module that's off

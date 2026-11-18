@@ -146,6 +146,13 @@ declaration that's winning — so "I changed the picker and nothing
 happened" is never a mystery. Remove or edit the named lines to hand
 control back to the module.
 
+**Let this module take over** *(v1.0.0-beta.2)*: the warning has a button
+that does exactly that for you. The first click lists the declarations it
+would remove; **Remove** removes those (and a rule or `@media` block they
+leave empty) and nothing else — the rest of Advanced CSS stays byte for
+byte. It isn't offered on a style with Jinja statements (`{% … %}`) or CSS
+it can't follow safely. Cancel the card editor to undo.
+
 ## Equivalent phrasings get adopted (v0.8.1)
 
 A few well-known hand-written equivalents of what the modules generate are
@@ -158,8 +165,9 @@ card types where the two forms are verifiably equivalent, and only for
 values the control can express exactly; anything else stays verbatim here.
 Examples: only `solid` borders are adopted (a hand-written `dashed` or
 `dotted` border stays as written), and only with a width above zero
-(`border: 0px solid …` and `border-radius: 0px` stay as written, since Border
-& Radius has no setting for a zero; v0.11.0); rules on the heading
+(`border: 0px solid …` stays as written, since Border & Radius has no
+setting for a zero width; v0.11.0 — a `border-radius: 0px` is read as
+Border & Radius → Square corners since v1.0.0-beta.2); rules on the heading
 card's selectors (`.title p`, `.container`, `.content ha-icon`) are read as
 Heading Style on the heading card only; only a plain `transition: filter <duration>`
 is adopted (lists, custom easing and delays are kept); a threshold color

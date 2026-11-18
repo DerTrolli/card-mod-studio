@@ -35,10 +35,10 @@ Exceptions and specials:
 | glance | Icon Color hidden: the icon lives in a nested shadow root, colored inline from state — no reachable selector (measured) |
 | gauge / thermostat / humidifier / weather / graphs | Icon Color hidden (no `ha-state-icon` to color); Accent works on the meaningful target where there is one (gauge dial, thermostat slider, history-graph lines, statistic card) and is hidden on humidifier, weather and statistics-graph (see below) |
 | statistic | Icon Color (colour and a size of 12–64px) works on its one icon, as well as Accent (v0.11.0-beta.3) |
-| Animation | Offered on every built-in card except heading, the energy cards, activity, webpage and shopping-list. Presets that cannot work are left out per card: **Spin** on thermostat, humidifier, light and map; **Gradient Shift** wherever Background is hidden (picture, picture-entity, picture-glance, picture-elements, iframe, map, media-control) and on Bubble Card and the Mushroom title card (v0.11.0-beta.3) |
+| Animation | Offered on every built-in card except the energy cards, activity, webpage and shopping-list. Presets that cannot work are left out per card: **Spin** on thermostat, humidifier, light, map and heading; **Glow** on heading (v1.0.0-beta.2: heading offers Animation, it has no box); **Gradient Shift** wherever Background is hidden (picture, picture-entity, picture-glance, picture-elements, iframe, map, media-control) and on Bubble Card and the Mushroom title card (v0.11.0-beta.3) |
 | Icon size limit | The Icon size slider stops where the card still fits the icon: tile 36px, picture-glance 40px, Mushroom 56px, Bubble Card 50px (56px in the large layout; separator 40/33px), everything else 64px |
 | Accent Color | Hidden wherever nothing on the card reads the accent colour: button, light, glance, markdown, humidifier, alarm-panel, area, picture cards, map, iframe, todo-list, logbook, statistics-graph, weather-forecast, date and alert (the last two new in HA 2026.11) |
-| Font text color | Hidden where the card colours its own text (media-control, area, picture-entity, picture-glance, picture-elements, date, alert) — size/weight/family still offered. On chart cards it colours the title (graph labels are drawn by the chart). On alarm-panel the title takes it, but Threshold's Text Color target is hidden there |
+| Font text color | Hidden where the card colours its own text (media-control, area, picture-entity, picture-glance, date, alert) — size/weight/family still offered. On chart cards it colours the title (graph labels are drawn by the chart). Offered since v1.0.0-beta.2 on alarm-panel (its title) and picture-elements (its state labels), with Threshold's Text Color |
 | Font text size | Hidden where the card sizes its own text: area, humidifier, picture-entity, picture-glance, weather-forecast, date and alert (weight, family and colour stay where they work) |
 | Font weight | Hidden on area, date and alert (it changed nothing there). On calendar, logbook, alarm-panel and other header-title cards it reaches the title and also other text drawn with Home Assistant's normal weight — see [Font & Text](Font-and-Text) |
 | Threshold Colors | Its "Apply to" list only offers the colours the matching module offers on that card |
@@ -70,9 +70,11 @@ Exceptions and specials:
 - **ON / OFF conditions** are offered only when the card has an entity of its
   own and that entity can be on or off; see
   [Icon Color & Accent Color](Icon-Color-and-Accent-Color).
-- **`sections` view containers and custom containers** (layout-card, …) —
-  see [Containers](Container-Cards#not-covered-yet). Containers inside
-  containers and `conditional` cards are covered since v1.0 (beta).
+- **Custom containers** (layout-card, …) — see
+  [Containers](Container-Cards#not-covered-yet). Containers inside
+  containers and `conditional` cards are covered since v1.0 (beta), and
+  sections (Home Assistant 2026.11's Section configuration dialog) since
+  v1.0.0-beta.2.
 - **Deep energy-card SVG styling** — Advanced CSS only.
 
 Most of the "can't reach it" entries share one root cause: the target lives

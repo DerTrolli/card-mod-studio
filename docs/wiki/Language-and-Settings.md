@@ -46,6 +46,16 @@ Open the **⚙️ Settings** section (right below My Color Palette) and choose a
 different **Language**. The panel switches at once; open sections stay open
 and nothing you were editing is lost.
 
+## Also in ⚙️ Settings *(v1.0.0-beta.2)*
+
+- **Styles are written under** — which key the Studio writes: `uix:` when
+  UIX is installed (UIX's own key; a card styled under `card_mod:` moves to
+  `uix:` the next time you save it in the Studio), otherwise `card_mod:`
+  (read by card-mod and by UIX).
+- Whether the optional [integration](Integration) is installed: with it,
+  that your administrator sets defaults for everyone; without it, for
+  administrators, a link to how to install it.
+
 ## Where the choice is stored
 
 Like presets and My Color Palette, the setting is stored **per Home

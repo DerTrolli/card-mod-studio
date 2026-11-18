@@ -1,6 +1,6 @@
 # Card-Mod Studio — Roadmap
 
-**Last updated:** 2026-11-18 · **In progress:** v1.0.0-beta.1 — completes the "Path to v1.0": 22 languages (a one-time language question with Auto-detect, a ⚙️ Settings section), an optional integration for site-wide defaults (Settings → Devices & services), and the v1.0 structure items: `conditional`/`entity-filter` cards, containers nested in containers, tile Features, 📚 My Presets with copy/paste; see "Recently shipped (v1.0.0-beta.1)" · **Current stable:** v0.11.0 (2026-11-12) — "Reach": Mushroom and Bubble Card support (beta), Font → Number size on the gauge and the thermostat, controls that write only what you set, a conditional Background/Border that keeps the card's own look while off, Animation on nearly every built-in card, a notice on custom cards without a profile, keyboard / screen-reader / touch work, input checks, and seven read-back fixes found by replaying the styles of every release since v0.8.1 — on top of v0.10.2 (the HA 2026.11 maintenance release). Three pre-releases led up to it (beta.1 2026-10-27, beta.2 2026-11-10, beta.3 2026-11-11). Open GitHub issues: none. Next: **v1.0.0 final** — see "Open in this cycle" under "Recently shipped (v1.0.0-beta.1)" and "Open after v0.11.0" below. Plan of this cycle: [`docs/V1.0_PLAN.md`](V1.0_PLAN.md). Plans of finished cycles (historical): [`docs/V0.11_PLAN.md`](V0.11_PLAN.md), [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
+**Last updated:** 2026-11-18 · **In progress:** v1.0.0-beta.2 (unreleased) — Square corners, five more controls, "Let this module take over", the Studio in the Section configuration dialog, a pinned preview on phones, fast reading of large Jinja styles; the rebrand (issue #40) waits on the owner's name choice; see "Recently shipped (v1.0.0-beta.2)" · **Pre-release:** v1.0.0-beta.1 (2026-11-18) — completes the "Path to v1.0": 22 languages (a one-time language question with Auto-detect, a ⚙️ Settings section), an optional integration for site-wide defaults (Settings → Devices & services), and the v1.0 structure items: `conditional`/`entity-filter` cards, containers nested in containers, tile Features, 📚 My Presets with copy/paste; see "Recently shipped (v1.0.0-beta.1)" · **Current stable:** v0.11.0 (2026-11-12) — "Reach": Mushroom and Bubble Card support (beta), Font → Number size on the gauge and the thermostat, controls that write only what you set, a conditional Background/Border that keeps the card's own look while off, Animation on nearly every built-in card, a notice on custom cards without a profile, keyboard / screen-reader / touch work, input checks, and seven read-back fixes found by replaying the styles of every release since v0.8.1 — on top of v0.10.2 (the HA 2026.11 maintenance release). Three pre-releases led up to it (beta.1 2026-10-27, beta.2 2026-11-10, beta.3 2026-11-11). Open GitHub issues: none. Next: **v1.0.0 final** — see "Open in this cycle" under "Recently shipped (v1.0.0-beta.1)" and "Open after v0.11.0" below. Plan of this cycle: [`docs/V1.0_PLAN.md`](V1.0_PLAN.md). Plans of finished cycles (historical): [`docs/V0.11_PLAN.md`](V0.11_PLAN.md), [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -148,6 +148,30 @@ live on HA 2026.10.4 with card-mod 4.2.1 and UIX 8.4.0.
 - **Controls that do nothing are hidden:** Font's text-size slider on cards
   that size their own text.
 
+## Recently shipped (v1.0.0-beta.2) — in progress, unreleased
+
+Folded into one pre-release with the rebrand (issue #40), at the owner's
+request. See the 1.0.0-beta.2 section of [`CHANGELOG.md`](../CHANGELOG.md).
+
+- Square corners (`squareCorners`, optional — `radiusPx: 0` keeps meaning
+  "not set"); five measured controls offered (`card-caps.ts`); "Let this
+  module take over" (`removeAdvancedCssConflicts` in `style-conflicts.ts`,
+  `cms-take-over`); the Studio in `hui-dialog-edit-section`
+  (`cms-section-injector.ts`, HA 2026.11's dialog only); the pinned phone
+  preview; ⚙️ Settings shows the written key and the integration's status;
+  `restoreJinja` linear.
+- Dropped after measuring: a "write `uix:` whenever UIX is installed" switch
+  — UIX's installer refuses to run next to card-mod, and on a UIX install the
+  Studio already writes `uix:`, so it would never change anything.
+- Checks: `beta2_check.mjs`, `sections_check.mjs`, `phone_preview_check.mjs`,
+  `first_run_languages_check.mjs` (the first-run question in all 22
+  languages); the continuity replay now includes v0.11.0 and v1.0.0-beta.1.
+
+**Open:** the rebrand — the display name (UI in 22 languages, `hacs.json`,
+the integration's title, docs) and the Studio-written `cms-` names (read
+both, write the new prefix on save). Stays: storage keys, the integration
+domain, the file name, the repository (see issue #40).
+
 ## Recently shipped (v1.0.0-beta.1)
 
 Pre-release 2026-11-17, see [`CHANGELOG.md`](../CHANGELOG.md); plan and
@@ -223,26 +247,27 @@ release). The chunk-level record of the cycle, with commit hashes, is in
 | Accent on shopping-list and energy-* cards not gated and unmeasured; Bubble climate card only DOM-dumped | card gating / Bubble | Open; the energy cards can't be exercised on the test rig (no `energy:` configuration) |
 | Media control: Background and its Threshold target changed no pixels | media-control | **Fixed:** measured in every player state (the card's own colour block covers the face); Background, Threshold's Background target and Gradient Shift are no longer offered there |
 | Intermittent, UIX: the first style saved on a freshly seeded card was not applied until a reload (3 of ~16 runs, only under heavy machine load) | engine timing | Open, not reproduced otherwise |
-| The live preview is the last block on a phone, so the effect can't be seen while editing | panel layout | Open (idea: a sticky mini preview) |
+| The live preview is the last block on a phone, so the effect can't be seen while editing | panel layout | **Done (v1.0.0-beta.2):** pinned at the top on narrow panels, foldable |
 | A hand-written `else 'none'` in a Background/Border is read as the Studio's own and saved as the card's own look | parser | Accepted, noted in the CHANGELOG |
 
 **Candidates for a later release:**
-- Nine controls that are hidden today would work — candidates for a later
-  release: alarm-panel Font colour and Threshold text colour; entities card
-  Accent and Threshold accent; heading card Font (size/weight), Font family
-  and Animation; picture-elements Font colour and Threshold text colour.
+- ~~Nine controls that are hidden today would work~~ — **v1.0.0-beta.2**:
+  five offered after measuring (alarm-panel and picture-elements Font colour
+  and Threshold text colour, heading Animation without Glow/Spin/Gradient
+  Shift); entities Accent / Threshold accent (only recolours rows without a
+  state colour — the per-row Icon color does it properly) and heading Font /
+  Font family (Heading Style covers them) stay hidden on purpose.
 - History-graph line colour arrives late (it is read only when the chart
   draws; see the Graph wiki page); statistics-graph was not measured for the
   same timing.
 - The limits already listed in the wiki pages and the follow-ups above that
   are still open.
-- Border & Radius has no setting for square corners (the radius slider's 0
-  means "not set"); a hand-written `border-radius: 0px` is kept as written.
-- Reading and writing a style grows quadratically with its size (0.4 s for
-  1,000 rules, about 10 s for 5,000).
-- A button that lets a module take over a hand-written rule it is held back
-  from today (a declaration with `!important`, or the line an override
-  warning names). Discussed 2026-11-12, deliberately not part of v0.11.0.
+- ~~Square corners~~ — **v1.0.0-beta.2** (Border & Radius → Square corners).
+- ~~Quadratic reading~~ — **v1.0.0-beta.2**: the cause was the Jinja
+  placeholder restore (O(templates²)); plain styles were never slow.
+- ~~A take-over button~~ — **v1.0.0-beta.2** ("Let this module take over" in
+  the override warning). Declarations with `!important` that a module holds
+  back from are not covered by it yet.
 
 **Release workflow guard** (since beta.3): `.github/workflows/release.yml`
 fails a release when the tag differs from `"v" + package.json version`, and

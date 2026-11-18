@@ -12,7 +12,7 @@ which reshapes what's offered.
 | Background | — hidden | No painted box — verified to have zero visual effect |
 | Border & Radius | — hidden | Same reason |
 | Icon Color / Accent | — hidden | Heading Style's icon color replaces them |
-| Animation | — hidden | |
+| Animation | ✅ *(v1.0.0-beta.2)* | Pulse, Breathe, Blink, Bounce, Shake, Heartbeat. Glow, Spin and Gradient Shift are left out: the heading has no box (Glow outlined a full-width pill around the text, Spin swung the whole row) |
 | Advanced CSS | ✅ | |
 
 Everything text-related lives in **[Heading Style](Font-and-Text#the-heading-style-module)** —
