@@ -1,5 +1,5 @@
 // Functional UI check (v0.10.0 release gate) — drives EVERY control of EVERY
-// Card-Mod Studio module through real user input inside HA's REAL card-edit
+// Card Style Studio module through real user input inside HA's REAL card-edit
 // dialog, and verifies both the emitted config (`hui-dialog-edit-card.
 // _cardConfig`, under the rig's engine key) and the rendered result (computed
 // styles of the panel's live preview, and of the real dashboard after Save).

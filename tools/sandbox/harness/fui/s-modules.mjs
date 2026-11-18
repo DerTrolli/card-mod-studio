@@ -453,7 +453,7 @@ function fadeExpected(stops, x) {
   return `rgb(${c.join(', ')})`;
 }
 function decodeMarker(style) {
-  const m = style.match(/--cms-gradient-stops: '([^']+)'/);
+  const m = style.match(/--(?:cstudio|cms)-gradient-stops: '([^']+)'/);
   if (!m) return null;
   return m[1].split(',').map((p) => { const [v, c] = p.split(':'); return { value: Number(v), color: c }; });
 }
@@ -549,7 +549,7 @@ async function thresholdSection(T) {
 
   // Fade mode
   await choose(rowOf(T, m, 'Value mode').locator('select'), 'gradient');
-  await expectCfg(T, 'Fade mode → 32-step rules + stops marker', has(T, "--cms-gradient-stops: '0:#9e9e9e,100:#f44336';"));
+  await expectCfg(T, 'Fade mode → 32-step rules + stops marker', has(T, "--cstudio-gradient-stops: '0:#9e9e9e,100:#f44336';"));
   let stops = decodeMarker(S(T, await getCfg(T)));
   await expectPage(T, `preview: fade colour at ${hum}`, P_CARD, 0, (v) => sameRgb(v?.iconColor, fadeExpected(stops, hum)));
   T.check('gradient preview bar + min/max labels', (await m.locator('.gradient-bar').count()) === 1 && (await m.locator('.gradient-labels').textContent()).replace(/\s+/g, ' ').trim() === '0 100');
@@ -646,8 +646,8 @@ async function animationSection(T) {
   await openStudio(T);
   const m = mod(T, 'cms-animation-module');
   await enable(m);
-  await expectCfg(T, 'enable → pulse 2s always + keyframes', has(T, '@keyframes cms-pulse', 'animation: cms-pulse 2s ease-in-out infinite;'));
-  await expectPage(T, 'preview: animation cms-pulse 2s', P_CARD, 0, (v) => v?.anim === 'cms-pulse' && v.animDur === '2s');
+  await expectCfg(T, 'enable → pulse 2s always + keyframes', has(T, '@keyframes cstudio-pulse', 'animation: cstudio-pulse 2s ease-in-out infinite;'));
+  await expectPage(T, 'preview: animation cstudio-pulse 2s', P_CARD, 0, (v) => v?.anim === 'cstudio-pulse' && v.animDur === '2s');
   const preset = rowOf(T, m, 'Preset').locator('select');
   const presets = await preset.locator('option').evaluateAll((os) => os.map((o) => o.value));
   T.check('9 presets offered', presets.length === 9, JSON.stringify(presets));
@@ -663,29 +663,29 @@ async function animationSection(T) {
   await choose(preset, 'breathe');
   T.check('the speed slider is named "Duration" with the hint "Seconds per cycle — lower is faster."', ((await m.locator('.when-hint').allTextContents()).join(' ')).includes('Seconds per cycle — lower is faster.') && (await rowOf(T, m, 'Speed').count()) === 0);
   await setSlider(T, rowOf(T, m, 'Duration').locator('ha-slider'), 4);
-  await expectCfg(T, 'Speed 4s', has(T, 'animation: cms-breathe 4s ease-in-out infinite;'));
+  await expectCfg(T, 'Speed 4s', has(T, 'animation: cstudio-breathe 4s ease-in-out infinite;'));
   await expectPage(T, 'preview: animation-duration 4s', P_CARD, 0, (v) => v?.animDur === '4s');
   const lightOn = await isOn(T, 'light.ceiling_lights');
   const trig = rowOf(T, m, 'Apply when').locator('select');
   await choose(trig, 'on');
-  await expectCfg(T, 'trigger ON', has(T, `animation: {{ 'cms-breathe 4s ease-in-out infinite' if is_state(config.entity, 'on') else 'none' }};`));
-  await expectPage(T, `preview: ON → ${lightOn ? 'animating' : 'none'}`, P_CARD, 0, (v) => v?.anim === (lightOn ? 'cms-breathe' : 'none'));
+  await expectCfg(T, 'trigger ON', has(T, `animation: {{ 'cstudio-breathe 4s ease-in-out infinite' if is_state(config.entity, 'on') else 'none' }};`));
+  await expectPage(T, `preview: ON → ${lightOn ? 'animating' : 'none'}`, P_CARD, 0, (v) => v?.anim === (lightOn ? 'cstudio-breathe' : 'none'));
   await choose(trig, 'off');
-  await expectPage(T, `preview: OFF → ${lightOn ? 'none' : 'animating'}`, P_CARD, 0, (v) => v?.anim === (!lightOn ? 'cms-breathe' : 'none'));
+  await expectPage(T, `preview: OFF → ${lightOn ? 'none' : 'animating'}`, P_CARD, 0, (v) => v?.anim === (!lightOn ? 'cstudio-breathe' : 'none'));
   await choose(trig, 'custom');
   await pickEntity(T, rowOf(T, m, 'Entity').locator('cms-entity-picker'), 'switch.ac');
   await expectCfg(T, 'trigger another entity (switch.ac)', has(T, `if is_state('switch.ac', 'on') else 'none'`));
   const acOn = await isOn(T, 'switch.ac');
-  await expectPage(T, 'preview: follows switch.ac', P_CARD, 0, (v) => v?.anim === (acOn ? 'cms-breathe' : 'none'));
+  await expectPage(T, 'preview: follows switch.ac', P_CARD, 0, (v) => v?.anim === (acOn ? 'cstudio-breathe' : 'none'));
   await choose(trig, 'value');
-  await expectCfg(T, 'value trigger without an entity → unconditional (W8)', has(T, 'animation: cms-breathe 4s ease-in-out infinite;'));
+  await expectCfg(T, 'value trigger without an entity → unconditional (W8)', has(T, 'animation: cstudio-breathe 4s ease-in-out infinite;'));
   await pickEntity(T, rowOf(T, m, 'Entity').locator('cms-entity-picker'), 'sensor.outside_humidity');
   T.check('sensor without numeric attributes → no "Value read from" select', (await rowOf(T, m, 'Value read from').count()) === 0);
   await choose(rowOf(T, m, 'Condition').locator('select'), '<');
   await typeInto(rowOf(T, m, 'Threshold').locator('input'), '60');
   await expectCfg(T, 'value condition states(sensor.outside_humidity) < 60', has(T, `if states('sensor.outside_humidity') | float(0) < 60 else 'none'`));
   const hum = Number((await entityState(T, 'sensor.outside_humidity')).state);
-  await expectPage(T, `preview: ${hum} < 60 → ${hum < 60 ? 'animating' : 'none'}`, P_CARD, 0, (v) => v?.anim === (hum < 60 ? 'cms-breathe' : 'none'));
+  await expectPage(T, `preview: ${hum} < 60 → ${hum < 60 ? 'animating' : 'none'}`, P_CARD, 0, (v) => v?.anim === (hum < 60 ? 'cstudio-breathe' : 'none'));
   await pickEntity(T, rowOf(T, m, 'Entity').locator('cms-entity-picker'), 'light.ceiling_lights');
   await choose(rowOf(T, m, 'Value read from').locator('select'), 'brightness');
   await choose(rowOf(T, m, 'Condition').locator('select'), '>=');
@@ -760,12 +760,13 @@ async function headingSection(T) {
   await openEditor(T, 'fui-heading', cards, 0);
   await openStudio(T);
   const pv = await T.page.evaluate(P_PANEL);
-  const want = ['cms-heading-style-module', 'cms-filter-module', 'cms-advanced-module'];
+  // Animation is offered on the heading since v1.0.0-beta.2 (measured).
+  const want = ['cms-heading-style-module', 'cms-filter-module', 'cms-animation-module', 'cms-advanced-module'];
   // Threshold is hidden too (v0.10.0): none of its colours reaches a heading
   // (measured on a real dashboard — no box for background/border, and the
   // title has its own colour variable).
-  const hidden = ['cms-font-module', 'cms-background-module', 'cms-border-module', 'cms-animation-module', 'cms-icon-color-module', 'cms-accent-color-module', 'cms-threshold-module'];
-  T.check('heading: Heading Style shown; Font/Background/Border/Animation/Icon/Accent/Threshold hidden', want.every((t) => pv.modules.includes(t)) && hidden.every((t) => !pv.modules.includes(t)), JSON.stringify(pv.modules));
+  const hidden = ['cms-font-module', 'cms-background-module', 'cms-border-module', 'cms-icon-color-module', 'cms-accent-color-module', 'cms-threshold-module'];
+  T.check('heading: Heading Style and Animation shown; Font/Background/Border/Icon/Accent/Threshold hidden', want.every((t) => pv.modules.includes(t)) && hidden.every((t) => !pv.modules.includes(t)), JSON.stringify(pv.modules));
   const base = await T.page.evaluate(P_HEADING);
   const m = mod(T, 'cms-heading-style-module');
   await enable(m);

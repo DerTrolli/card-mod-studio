@@ -1,6 +1,6 @@
-// The optional Card-Mod Studio integration (v1.0), through Home Assistant's
+// The optional Card Style Studio integration (v1.0), through Home Assistant's
 // own UI with real input: Settings → Devices & services → Add integration →
-// Card-Mod Studio → Submit; then Configure (the options dialog) → change the
+// Card Style Studio → Submit; then Configure (the options dialog) → change the
 // language → Submit; the Studio's websocket command returns the options.
 //   node integration_check.mjs                  (card-mod rig, tokens.json)
 //   TOKENS_FILE=/path/tokens.json node integration_check.mjs
@@ -43,13 +43,13 @@ try {
       D.haFetch(h, 'DELETE', `/api/config/config_entries/entry/${e.entry_id}`));
   }
 
-  await step('Add integration → Card-Mod Studio → Submit creates the entry', async () => {
+  await step('Add integration → Card Style Studio → Submit creates the entry', async () => {
     await page.goto(`${ha}/config/integrations/dashboard`, { waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: /add integration/i }).first().click();
     const search = page.getByRole('textbox', { name: /search/i }).last();
     await search.waitFor({ state: 'visible', timeout: 15000 });
-    await search.pressSequentially('Card-Mod Studio', { delay: 20 });
-    await page.getByText('Card-Mod Studio', { exact: true }).last().click();
+    await search.pressSequentially('Card Style Studio', { delay: 20 });
+    await page.getByText('Card Style Studio', { exact: true }).last().click();
     const submit = page.getByRole('button', { name: /^submit$/i });
     await submit.waitFor({ state: 'visible', timeout: 15000 });
     await submit.click();
@@ -108,7 +108,7 @@ try {
       throw e;
     }
     const dialog = page.locator('dialog-data-entry-flow');
-    await dialog.getByText('Card-Mod Studio settings').first().waitFor({ state: 'visible', timeout: 15000 });
+    await dialog.getByText('Card Style Studio settings').first().waitFor({ state: 'visible', timeout: 15000 });
     // HA's dropdowns: click the field, then the option in the list that opens
     const choose = async (label, option) => {
       const field = dialog.locator('ha-select').filter({ hasText: label }).first();

@@ -15,7 +15,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const h = await D.launch({ rig: RIG, ...(process.env.TOKENS_FILE ? { tokensFile: process.env.TOKENS_FILE } : {}) });
 const { page } = h;
 const KEY = h.styleKey;
+let errSeen = 0;
 const step = async (name, fn) => {
+  if (process.env.DEBUG_ERRS) { const n = h.errors.length; if (n > errSeen) console.log('ERRS before', name, h.errors.slice(errSeen)); errSeen = n; }
   try {
     const detail = await fn();
     results.push(true);
@@ -147,7 +149,7 @@ try {
     await D.chooseOption(sel, 'Bounce (vertical)');
     await D.saveCard(page);
     await D.exitEditMode(page).catch(() => {});
-    return `${await waitStyle('HUI-HEADING-CARD', 'animationName', 'cms-bounce')}; presets: ${names.join(', ')}`;
+    return `${await waitStyle('HUI-HEADING-CARD', 'animationName', 'cstudio-bounce')}; presets: ${names.join(', ')}`;
   });
 
   // ------------------------------------------------------- #3 take over

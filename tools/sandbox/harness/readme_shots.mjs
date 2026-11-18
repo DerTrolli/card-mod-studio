@@ -424,7 +424,7 @@ const run = async () => {
   await openEditDialog(page, 'hui-tile-card', 'sensor.outside_temperature');
   {
     const ann = await annotate(page, [
-      { find: { global: 'cms-tab-button' }, label: 'Opens the Card-Mod Studio panel', side: 'top', shiftX: 280 },
+      { find: { global: 'cms-tab-button' }, label: 'Opens the Card Style Studio panel', side: 'top', shiftX: 280 },
     ]);
     const d = await dialogRect(page);
     // Crop to the lower part of the dialog — the button is the story here.

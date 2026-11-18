@@ -119,7 +119,7 @@ const run = async () => {
 
   record('cms-panel built real gradient state for "Card A"', outcome.afterCardA.studioStateExists && outcome.afterCardA.valueMode === 'gradient' && outcome.afterCardA.colorStopsCount === 3, JSON.stringify(outcome.afterCardA));
   record('Reused panel still has a valid studioState after "Card B" (byte-identical config) is assigned', outcome.afterCardB_beforePreset.studioStateExists, JSON.stringify(outcome.afterCardB_beforePreset));
-  record('Loading the preset onto "Card B" emits a regenerated gradient style', !!outcome.emittedStyleAfterPresetLoad?.includes('--cms-gradient-stops'), outcome.emittedStyleAfterPresetLoad?.slice(0, 150));
+  record('Loading the preset onto "Card B" emits a regenerated gradient style', !!outcome.emittedStyleAfterPresetLoad?.includes('--cstudio-gradient-stops'), outcome.emittedStyleAfterPresetLoad?.slice(0, 150));
 
   // Now the actually important check: mount "Card B"'s FINAL config on a
   // genuine <hui-card> (not the Studio) and verify it renders the REAL

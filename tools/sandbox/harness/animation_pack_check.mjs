@@ -157,12 +157,12 @@ ha-card {
     const emittedStyle = emitted?.uix?.style ?? emitted?.card_mod?.style ?? '';
     return {
       preset: a?.preset, trigger: a?.trigger,
-      keyframesEmitted: emittedStyle.includes('@keyframes cms-shake'),
+      keyframesEmitted: emittedStyle.includes('@keyframes cstudio-shake') && !emittedStyle.includes('cms-shake'),
       shakeTransform: emittedStyle.includes('translateX(-4px)'),
     };
   }, { entity: ENTITY, style: SHAKE_STYLE, styleKey: STYLE_KEY });
   record(
-    'shake preset round-trips through the panel and re-emits its @keyframes cms-shake block',
+    'an old cms-shake style round-trips through the panel and is re-emitted as @keyframes cstudio-shake',
     shake.preset === 'shake' && shake.trigger === 'always' && shake.keyframesEmitted && shake.shakeTransform,
     JSON.stringify(shake),
   );

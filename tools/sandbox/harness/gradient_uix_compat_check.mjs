@@ -7,7 +7,7 @@
 // "did the config get accepted without throwing."
 //
 // This exists because of a real, confirmed bug: the original gradient
-// marker was JSON (`--cms-gradient-stops: '[{"v":0,...}]'`), and real
+// marker was JSON (`--cstudio-gradient-stops: '[{"v":0,...}]'`), and real
 // card-mod's own style-string parsing — not this project's — silently
 // fails to apply ANY declaration in the block the instant a `{`/`}`
 // character appears in a custom property's value, even safely inside a
@@ -91,7 +91,7 @@ const run = async () => {
   }, ENTITY);
 
   record('Studio UI generated a gradient style for 5 points', !!generated, generated?.slice(0, 150));
-  record('Generated marker line contains no braces', !generated?.split('\n').find((l) => l.includes('--cms-gradient-stops'))?.match(/[{}]/), 'checked');
+  record('Generated marker line contains no braces', !generated?.split('\n').find((l) => l.includes('--cstudio-gradient-stops'))?.match(/[{}]/), 'checked');
 
   const entityValue = await page.evaluate((entity) => {
     const hass = document.querySelector('home-assistant').hass;

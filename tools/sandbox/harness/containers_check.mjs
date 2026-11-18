@@ -36,7 +36,7 @@ const pulsing = () => page.evaluate(() => {
   const out = [];
   const walk = (root) => {
     for (const el of root.querySelectorAll('*')) {
-      if (el.tagName === 'HA-CARD' && getComputedStyle(el).animationName.includes('cms-pulse')) {
+      if (el.tagName === 'HA-CARD' && getComputedStyle(el).animationName.includes('cstudio-pulse')) {
         let host = el.getRootNode()?.host;
         out.push(host ? host.tagName.toLowerCase() : 'ha-card');
       }
@@ -72,7 +72,7 @@ try {
     await D.setSectionEnabled(page, { title: 'Animation', within: 'Card inside: tile' }, true);
     await D.saveCard(page);
     const cards = await D.savedCards(page, URLPATH);
-    need(styleAt(cards[0], ['card']).includes('cms-pulse'), JSON.stringify(cards[0]));
+    need(styleAt(cards[0], ['card']).includes('cstudio-pulse'), JSON.stringify(cards[0]));
     need(!cards[0][KEY], 'the conditional itself got a style');
     return 'card.' + KEY + '.style has the pulse';
   });
@@ -87,7 +87,7 @@ try {
     await D.setSectionEnabled(page, { title: 'Animation', within: title }, true);
     await D.saveCard(page);
     const cards = await D.savedCards(page, URLPATH);
-    need(cards[1].card?.type === 'entities' && styleAt(cards[1], ['card']).includes('cms-pulse'), JSON.stringify(cards[1]));
+    need(cards[1].card?.type === 'entities' && styleAt(cards[1], ['card']).includes('cstudio-pulse'), JSON.stringify(cards[1]));
     need(JSON.stringify(cards[1].entities) === JSON.stringify(['light.ceiling_lights', 'light.bed_light']), 'entities changed');
     return title;
   });
@@ -102,7 +102,7 @@ try {
     await D.setSectionEnabled(page, { title: 'Animation', within: '2. horizontal-stack' }, true);
     await D.saveCard(page);
     const cards = await D.savedCards(page, URLPATH);
-    need(styleAt(cards[2], ['cards', 1, 'cards', 0]).includes('cms-pulse'), JSON.stringify(cards[2]));
+    need(styleAt(cards[2], ['cards', 1, 'cards', 0]).includes('cstudio-pulse'), JSON.stringify(cards[2]));
     need(!cards[2].cards[0][KEY] && !cards[2].cards[1][KEY] && !cards[2].cards[1].cards[1][KEY] && !cards[2][KEY], 'another card got a style');
     return 'cards[1].cards[0]';
   });

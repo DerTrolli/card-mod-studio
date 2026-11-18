@@ -1,6 +1,6 @@
 // Functional UI check — shared library (see ../functional_ui_check.mjs).
 //
-// Everything here drives Card-Mod Studio the way a user does: Playwright
+// Everything here drives Card Style Studio the way a user does: Playwright
 // locators (which pierce open shadow roots) + real mouse clicks, keyboard
 // input and <select> choices on the REAL controls inside HA's REAL
 // card-edit dialog. State is only ever READ directly (the dialog's

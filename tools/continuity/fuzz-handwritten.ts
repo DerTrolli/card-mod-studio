@@ -111,9 +111,11 @@ for (let i = 0; i < N; i++) {
     const b = B.get(k);
     if (b === undefined) {
       l = true;
-      const kf = k.match(/^@keyframes (cms-[\w-]+) \|/);
-      // a kept block must stay while an animation still names it
-      const referenced = kf && new RegExp(`animation[^;{}]*\\b${kf[1]}\\b`, 'i').test(css.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, ''));
+      const kf = k.match(/^@keyframes ((?:cstudio|cms)-[\w-]+) \|/);
+      // a kept block must stay while an animation in the SAVED style still
+      // names it (v1.0.0-beta.2: an adopted `animation: cms-…` is rewritten
+      // to `cstudio-…` with its own block, so the old one is rightly gone)
+      const referenced = kf && new RegExp(`animation[^;{}]*\\b${kf[1]}\\b`, 'i').test(css1.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, ''));
       bump(kf ? (referenced && !new RegExp(`@keyframes ${kf[1]}\\b`).test(css1) ? `LOST-REFERENCED-KEYFRAMES | ${kf[1]}` : 'LOST | unreferenced or regenerated cms keyframes') : `LOST | ${k.replace(/^.* \| /, '… | ')}`, { type, k, v, css, css1 });
     }
     else if (b !== v) { c = true; bump(`CHANGED | ${k.split(' :: ')[1]} | ${v.includes('{{') ? 'template' : 'plain'}`, { type, k, old: v, neu: b, css, css1 }); }

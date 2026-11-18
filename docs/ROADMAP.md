@@ -174,7 +174,7 @@ request. See the 1.0.0-beta.2 section of [`CHANGELOG.md`](../CHANGELOG.md).
   "Card-Mod Studio" is renamed at setup — README, wiki) and the
   Studio-written names, `cms-` → `cstudio-` (`src/utils/studio-names.ts`:
   both read, the new one written on save; hand-written CSS never rewritten;
-  `studio-prefix.test.ts`). Stays: storage keys, the integration domain, the
+  `studio-prefix.test.ts`, live: `rename_check.mjs`). Stays: storage keys, the integration domain, the
   file name, the repository, the copy/paste key.
 - Left to the owner: the GitHub repository description and topics (HACS
   and the Marketplace show the repository's description), and posting the

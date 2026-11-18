@@ -178,8 +178,8 @@ async function stackSection(T) {
   await child(0).locator('.child-header').click();
   const anim = mod(T, 'cms-animation-module', child(0));
   await enable(anim);
-  await expectCfg(T, 'grid child 0 animation → cards[0]', (c) => rowStyle(T, c.cards?.[0]).includes('animation: cms-pulse 2s ease-in-out infinite;') && !c.cards[1][T.KEY], { show: (c) => JSON.stringify(c) });
-  await expectPage(T, 'preview: first grid child pulses', P_CARD, 0, (v) => v?.anim === 'cms-pulse');
+  await expectCfg(T, 'grid child 0 animation → cards[0]', (c) => rowStyle(T, c.cards?.[0]).includes('animation: cstudio-pulse 2s ease-in-out infinite;') && !c.cards[1][T.KEY], { show: (c) => JSON.stringify(c) });
+  await expectPage(T, 'preview: first grid child pulses', P_CARD, 0, (v) => v?.anim === 'cstudio-pulse');
 }
 
 // ---------------------------------------------------------------------------
@@ -202,7 +202,7 @@ async function presetsSection(T) {
   const border = mod(T, 'cms-border-module');
   await enable(border);
   await setSlider(T, rowOf(T, border, 'Border radius').locator('ha-slider'), 20);
-  await expectCfg(T, 'source card styled (bg, animation, icon, radius)', has(T, 'background: var(--red-color);', 'cms-pulse', 'color: var(--pink-color) !important;', 'border-radius: 20px;'));
+  await expectCfg(T, 'source card styled (bg, animation, icon, radius)', has(T, 'background: var(--red-color);', 'cstudio-pulse', 'color: var(--pink-color) !important;', 'border-radius: 20px;'));
 
   const presetSel = panelLoc(T).locator('.preset-bar select');
   // "Save preset" swaps the bar for an inline name field (no window.prompt —
@@ -237,17 +237,19 @@ async function presetsSection(T) {
   await sleep(800);
   const hc = await getCfg(T);
   const hs = S(T, hc);
-  T.check('preset loaded onto a HEADING: no hidden-module styling leaks (bg/animation/icon/border)', !/background|animation|ha-state-icon|border-radius|@keyframes/.test(hs), hs.slice(0, 300) || '(no style — correct)');
+  // Pulse is offered on the heading since v1.0.0-beta.2: the preset's
+  // animation comes along; the hidden modules' styling must not.
+  T.check('preset loaded onto a HEADING: its Pulse comes along, no hidden-module styling leaks (bg/icon/border)', !/background|ha-state-icon|border-radius/.test(hs) && hs.includes('animation: cstudio-pulse'), hs.slice(0, 300) || '(no style)');
   await cancelDialog(T);
 
   // load onto another tile
   await clickEditOn(T, 2);
   await openStudio(T);
   await choose(panelLoc(T).locator('.preset-bar select'), NAME);
-  await expectCfg(T, 'preset loaded onto another tile reproduces the styling', has(T, 'background: var(--red-color);', 'animation: cms-pulse', 'color: var(--pink-color) !important;', 'border-radius: 20px;'));
+  await expectCfg(T, 'preset loaded onto another tile reproduces the styling', has(T, 'background: var(--red-color);', 'animation: cstudio-pulse', 'color: var(--pink-color) !important;', 'border-radius: 20px;'));
   const red = await resolveRgb(T, 'var(--red-color)');
   const pink = await resolveRgb(T, 'var(--pink-color)');
-  await expectPage(T, 'preview: preset look (red bg, pulse, pink icon, 20px radius)', P_CARD, 0, (v) => sameRgb(v?.bg, red) && v.anim === 'cms-pulse' && sameRgb(v.iconColor, pink) && v.radius === '20px');
+  await expectPage(T, 'preview: preset look (red bg, pulse, pink icon, 20px radius)', P_CARD, 0, (v) => sameRgb(v?.bg, red) && v.anim === 'cstudio-pulse' && sameRgb(v.iconColor, pink) && v.radius === '20px');
   T.check('modules reflect the loaded preset (Background switch on)', await mod(T, 'cms-background-module').locator('.module-header ha-switch').evaluate((e) => e.checked));
 
   // delete: two steps — the first click arms the button, the second one deletes

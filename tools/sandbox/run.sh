@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-shot setup + run for the Card-Mod Studio sandbox.
+# One-shot setup + run for the Card Style Studio sandbox.
 # Builds the plugin, fetches card-mod, starts a real Home Assistant in Docker,
 # completes onboarding headlessly, then runs the support-matrix harness.
 #
