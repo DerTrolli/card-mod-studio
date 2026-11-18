@@ -64,6 +64,15 @@ Work in progress; not published yet.
   inside it), so a change is visible as it is made. **Hide** folds it away
   — remembered on that device — and **Show** brings it back.
 
+### Fixed
+
+- **Large styles with many Jinja templates open fast again.** Reading a
+  style back restored every `{{ … }}` placeholder by walking all of them
+  for every value — 4,000 templated rules took about 5 seconds to open
+  (and as long again for the "overridden" check). It is one pass now:
+  39 ms for the same style. Plain styles were never slow (5,000 rules
+  read in ~60 ms).
+
 ## [1.0.0-beta.1] — 2026-11-18
 
 The first 1.0 pre-release: it completes the roadmap's "Path to v1.0" —

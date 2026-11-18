@@ -9,7 +9,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 WORK="${CONT_WORK:-$HERE/.work}"
-VERS="${VERS:-v0.8.1,v0.9.1,v0.10.0,v0.10.1,v0.10.2,v0.11.0-beta.1,v0.11.0-beta.2,v0.11.0-beta.3}"
+VERS="${VERS:-v0.8.1,v0.9.1,v0.10.0,v0.10.1,v0.10.2,v0.11.0-beta.1,v0.11.0-beta.2,v0.11.0-beta.3,v0.11.0,v1.0.0-beta.1}"
 export CONT_WORK="$WORK" VERS
 mkdir -p "$WORK"
 cd "$ROOT"

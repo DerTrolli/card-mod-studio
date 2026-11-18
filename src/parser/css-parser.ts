@@ -99,14 +99,15 @@ export function isBareDeclarations(css: string): boolean {
   return cleaned.trim() !== '' && !/[{}]/.test(cleaned) && !STATEMENT_OR_COMMENT_RE.test(cleaned);
 }
 
-/** Restores placeholder tokens to their original Jinja2 strings. */
+/** Every placeholder token extractJinja writes (`__CMS_J3__`, `__CMS_S0__`, `__CMS_C1__`). */
+const ANY_PLACEHOLDER_RE = /__CMS_[JSC]\d+__/g;
+
+/** Restores placeholder tokens to their original Jinja2 strings — one pass
+ *  over the value (v1.0: it used to walk the whole map for every value,
+ *  O(templates²): ~5 s to open a style with 4,000 Jinja templates). */
 function restoreJinja(value: string, map: Map<string, string>): string {
-  let result = value;
-  for (const [key, original] of map) {
-    // A value might reference the same placeholder multiple times in theory.
-    result = result.split(key).join(original);
-  }
-  return result;
+  if (!map.size || !value.includes('__CMS_')) return value;
+  return value.replace(ANY_PLACEHOLDER_RE, (token) => map.get(token) ?? token);
 }
 
 // ---------------------------------------------------------------------------

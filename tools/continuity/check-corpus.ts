@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { extract } from './extract.js';
 
 const WORK = process.env.CONT_WORK || new URL('./.work', import.meta.url).pathname;
-const VERSIONS = (process.env.VERS || 'v0.8.1,v0.9.1,v0.10.0,v0.10.1,v0.10.2,v0.11.0-beta.1,v0.11.0-beta.2,v0.11.0-beta.3').split(',');
+const VERSIONS = (process.env.VERS || 'v0.8.1,v0.9.1,v0.10.0,v0.10.1,v0.10.2,v0.11.0-beta.1,v0.11.0-beta.2,v0.11.0-beta.3,v0.11.0,v1.0.0-beta.1').split(',');
 
 type G = { n: number; versions: Set<string>; types: Set<string>; ex: any };
 const groups = new Map<string, G>();

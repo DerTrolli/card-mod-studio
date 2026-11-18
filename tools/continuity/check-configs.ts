@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 const WORK = process.env.CONT_WORK || new URL('./.work', import.meta.url).pathname;
 const clone = <T,>(o: T): T => JSON.parse(JSON.stringify(o));
 let n = 0, same = 0, threw = 0, unstable = 0; const seen = new Map<string, { n: number; ex: any }>();
-for (const v of (process.env.VERS || 'v0.10.2,v0.11.0-beta.1,v0.11.0-beta.2,v0.11.0-beta.3').split(',')) {
+for (const v of (process.env.VERS || 'v0.10.2,v0.11.0-beta.1,v0.11.0-beta.2,v0.11.0-beta.3,v0.11.0,v1.0.0-beta.1').split(',')) {
   for (const c of JSON.parse(readFileSync(`${WORK}/${v}/configs.json`, 'utf8'))) {
     n++;
     try {
