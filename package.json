@@ -1,7 +1,7 @@
 {
   "name": "card-mod-studio",
   "version": "1.0.0-beta.2",
-  "description": "Card Style Studio: the visual style editor for UIX and card-mod in Home Assistant. Style any dashboard card without writing CSS.",
+  "description": "Card Style Studio: the visual style editor for UIX and card-mod in Home Assistant. Style any dashboard card without writing CSS. Formerly known as Card-Mod Studio.",
   "author": "Trolli / Troll-IT",
   "license": "MIT",
   "main": "dist/card-mod-studio.js",
