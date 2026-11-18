@@ -176,6 +176,14 @@ request. See the 1.0.0-beta.2 section of [`CHANGELOG.md`](../CHANGELOG.md).
   both read, the new one written on save; hand-written CSS never rewritten;
   `studio-prefix.test.ts`, live: `rename_check.mjs`). Stays: storage keys, the integration domain, the
   file name, the repository, the copy/paste key.
+- Known, console only, both also with v1.0.0-beta.1 and only with the
+  Studio loaded (measured with its file blocked: never): on HA 2026.2, HA's
+  own logger fails on the rejected promise of one of its view transitions
+  ("Transition was skipped", captured; the Studio starts none) and logs
+  "Cannot parse given Error object"; on HA 2025.9 the alarm panel card's own
+  `setConfig` sometimes throws "Invalid configuration" on the first load and
+  the card then renders normally (cause not found; the Studio creates no
+  cards). `beta2_check` on 2025.9 can fail its console step on the latter.
 - Left to the owner: the GitHub repository description and topics (HACS
   and the Marketplace show the repository's description), and posting the
   reply on issue #40.

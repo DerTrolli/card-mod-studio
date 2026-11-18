@@ -133,9 +133,11 @@ try {
   });
 
   await step('no console errors', async () => {
-    // HA 2026.2 logs "Cannot parse given Error object" when it fails to report
-    // the skipped view transition (same with v1.0.0-beta.1 and on a dashboard
-    // without the Studio's edits; HA's own logger).
+    // HA 2026.2 logs "Cannot parse given Error object" when its own logger
+    // can't report the rejected promise of one of ITS view transitions
+    // ("AbortError: Transition was skipped. New ViewTransition started" —
+    // captured; the Studio starts no transitions). It only shows with the
+    // Studio loaded (timing), the same with v1.0.0-beta.1.
     const errs = h.errors.filter((e) => !/themesReady: Timeout|status of 50[02]|Error getting Image Colors|Transition was skipped|Failure writing unhandled promise rejection to system log: Error: Cannot parse given Error object/.test(e));
     need(errs.length === 0, errs.slice(0, 3).join(' || '));
   });

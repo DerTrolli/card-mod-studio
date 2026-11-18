@@ -24,7 +24,12 @@ Work in progress; not published yet.
   thing) and are written with the new names the next time the card is saved
   in the Studio; opening a card doesn't change it. Hand-written CSS in
   Advanced CSS is never rewritten: a rule of yours that uses an old `cms-…`
-  animation keeps its keyframes block.
+  animation keeps its keyframes block. Going back to an older version: it
+  doesn't know the new names, but the card looks and animates the same. A
+  saved animation opens there as hand-written CSS in Advanced CSS (written
+  back unchanged); a Threshold gradient (Fade) opens as a Threshold with its
+  32 steps, its marker kept in Advanced CSS, so its stops can't be edited as
+  stops there.
 - **Unchanged, on purpose:** the resource file `card-mod-studio.js`, the
   repository and its URLs, the integration's id `card_mod_studio`, the
   stored presets / palette / settings and the copy/paste text. Nothing to do

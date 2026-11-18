@@ -27,7 +27,7 @@ separate HACS install is no longer possible on 2026.11; existing HACS
 installs migrate automatically (custom repositories and update entities
 carry over).
 
-1. Open the Marketplace → search for **Card Style Studio**
+1. Open the Marketplace → search for **Card Style Studio** (or *UIX* / *card-mod*; it can still be listed as *Card-Mod Studio* for a while after the rename)
 2. Click it → install
 3. The Marketplace installs the plugin into `www/community/card-mod-studio/`
    and adds it as a dashboard resource
@@ -40,7 +40,7 @@ If your dashboard resources are in **YAML mode**, add the resource manually
 
 Card Style Studio is in the **HACS default store**:
 
-1. Open HACS → search for **Card Style Studio**
+1. Open HACS → search for **Card Style Studio** (it can still be listed as *Card-Mod Studio* for a while after the rename)
 2. Click it → **Download**
 3. HACS registers the dashboard resource automatically on modern versions
 4. Hard-refresh the browser (Ctrl+Shift+R)
