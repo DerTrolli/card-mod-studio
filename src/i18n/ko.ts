@@ -279,6 +279,8 @@ export const ko: Record<MessageKey, string> = {
   'lock.mixedBody': '이 카드에는 다른 엔진 키의 스타일과 함께 직접 작성한 사전형({dollar} shadow-piercing) 스타일이 있습니다. Studio는 이 조합을 정확히 다시 쓸 수 없으므로 여기에서의 작업으로 덮어써지지 않으며 스타일은 작성된 그대로 유지됩니다. 시각적으로 편집하려면 YAML에서 하나의 키로 합치세요.',
   'lock.rowsStillWork': '아래의 행별 스타일은 평소처럼 사용할 수 있습니다.',
   'layout.childrenTitle': '레이아웃 카드 — 아래에서 각 하위 카드의 스타일 지정',
+  'layout.sectionTitle': '섹션 — 아래에서 각 카드의 스타일 지정',
+  'layout.sectionBody': '이 섹션의 각 카드는 여기서 고유한 스타일 섹션을 가지며 해당 카드 자체의 설정에 저장됩니다. 이 수준의 고급 CSS는 :host { … }로 섹션 자체의 스타일을 지정합니다(예: :host { background: … }).',
   'layout.childrenBody': '"{type}"은(는) 컨테이너입니다: 이 수준의 스타일은 눈에 보이는 효과가 없으므로 안에 있는 각 카드마다 여기에 별도의 섹션이 있습니다(안쪽 컨테이너의 카드 포함). 변경 사항은 해당 카드 자체의 설정에 저장됩니다 — 단독 카드로 스타일을 지정한 것과 똑같습니다.',
   'layout.unsupportedTitle': '레이아웃 카드 — 여기서는 아직 하위 카드 스타일 지정을 지원하지 않습니다',
   'layout.unsupportedBody': '"{type}"은(는) 컨테이너입니다: 이 수준의 card-mod 스타일은 눈에 보이는 효과가 없으며, 이 종류의 컨테이너에는 Studio가 카드별 섹션을 제공할 수 있는 편집 가능한 {cards} 목록이 아직 없습니다. 지금 그 안의 카드에 스타일을 지정하려면 YAML에서 해당 {cardMod}를 직접 추가하세요.',

@@ -279,6 +279,8 @@ export const ptBR: Record<MessageKey, string> = {
   'lock.mixedBody': 'Este cartão tem um estilo em forma de dicionário ({dollar} shadow-piercing) escrito à mão ao lado de outro estilo na outra chave de mecanismo. O Studio não consegue reescrever essa combinação fielmente, então nada aqui vai sobrescrevê-lo — seu estilo é mantido exatamente como foi escrito. Junte tudo em uma só chave no YAML para editá-lo visualmente.',
   'lock.rowsStillWork': 'O estilo por linha abaixo continua funcionando normalmente.',
   'layout.childrenTitle': 'Cartão de layout — estilize cada cartão filho abaixo',
+  'layout.sectionTitle': 'Seção — estilize cada cartão abaixo',
+  'layout.sectionBody': 'Cada cartão desta seção tem aqui sua própria seção de estilo, salva na configuração desse cartão. O CSS avançado neste nível estiliza a própria seção, com :host { … } (por exemplo :host { background: … }).',
   'layout.childrenBody': '“{type}” é um contêiner: estilos neste nível não têm efeito visível, então cada cartão dentro dele ganha aqui sua própria seção (também os de um contêiner dentro dele). As mudanças são salvas na configuração desse cartão — exatamente como estilizá-lo sozinho.',
   'layout.unsupportedTitle': 'Cartão de layout — ainda não é possível estilizar os cartões filhos aqui',
   'layout.unsupportedBody': '“{type}” é um contêiner: estilos do card-mod neste nível não têm efeito visível, e este tipo de contêiner ainda não tem uma lista {cards} editável para a qual o Studio possa oferecer seções por cartão. Para estilizar hoje um cartão dentro dele, adicione o {cardMod} dele à mão no YAML.',

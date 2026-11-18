@@ -103,6 +103,8 @@ export class CmsPanel extends LitElement {
   protected readonly i18n = new LangController(this);
   @property({ attribute: false }) config?: CardModCardConfig;
   @property({ attribute: false }) hass?: HomeAssistant;
+  /** v1.0: shown in Home Assistant's section dialog (the config is the section's grid). */
+  @property({ type: Boolean }) section = false;
 
   @state() private _cardModPresent = false;
   @state() private _uixPresent = false;
@@ -1664,8 +1666,8 @@ export class CmsPanel extends LitElement {
       ${childCards
         ? html`
             <div class="container-banner">
-              <strong>🗂️ ${t('layout.childrenTitle')}</strong>
-              ${t('layout.childrenBody', { type: cardType })}
+              <strong>🗂️ ${t(this.section ? 'layout.sectionTitle' : 'layout.childrenTitle')}</strong>
+              ${this.section ? t('layout.sectionBody') : t('layout.childrenBody', { type: cardType })}
             </div>
             ${childCards.map(
               (child) => html`<cms-child-card-section

@@ -279,6 +279,8 @@ export const nl: Record<MessageKey, string> = {
   'lock.mixedBody': 'Deze kaart heeft een zelfgeschreven stijl in woordenboekvorm ({dollar} shadow-piercing) naast een andere stijl onder de andere engine-sleutel. De Studio kan die combinatie niet getrouw herschrijven, dus niets hier overschrijft hem — je stijl blijft precies bewaard zoals geschreven. Breng alles in YAML onder één sleutel om hem visueel te bewerken.',
   'lock.rowsStillWork': 'Stijlen per rij hieronder werken gewoon.',
   'layout.childrenTitle': 'Indelingskaart — geef hieronder elke kaart erin een stijl',
+  'layout.sectionTitle': 'Sectie — stijl elke kaart hieronder',
+  'layout.sectionBody': 'Elke kaart in deze sectie krijgt hier een eigen stijlsectie, opgeslagen in de eigen configuratie van die kaart. Geavanceerde CSS op dit niveau stijlt de sectie zelf, met :host { … } (bijvoorbeeld :host { background: … }).',
   'layout.childrenBody': '„{type}” is een container: stijlen op dit niveau hebben geen zichtbaar effect, dus elke kaart erin krijgt hier een eigen sectie (ook kaarten in een container daarin). Wijzigingen worden in de eigen configuratie van die kaart opgeslagen — precies wat je krijgt als je haar als losse kaart een stijl geeft.',
   'layout.unsupportedTitle': 'Indelingskaart — kaarten erin kunnen hier nog geen stijl krijgen',
   'layout.unsupportedBody': '„{type}” is een container: card-mod-stijlen op dit niveau hebben geen zichtbaar effect, en dit type container heeft (nog) geen bewerkbare {cards}-lijst waarvoor de Studio secties per kaart kan bieden. Voeg om een kaart erin nu een stijl te geven haar {cardMod} met de hand in YAML toe.',

@@ -312,6 +312,9 @@ export const en = {
   'layout.childrenTitle': 'Layout card — style each child card below',
   'layout.childrenBody':
     '"{type}" is a container: styles at this level have no visual effect, so every card inside it gets its own styling section here (cards in a container inside it too). Changes are saved into that card\'s own configuration — exactly what you\'d get styling it as a standalone card.',
+  'layout.sectionTitle': 'Section — style each card below',
+  'layout.sectionBody':
+    'Every card in this section gets its own styling section here, saved into that card\'s own configuration. Advanced CSS at this level styles the section itself, with :host { … } (for example :host { background: … }).',
   'layout.unsupportedTitle': "Layout card — child styling isn't supported here yet",
   'layout.unsupportedBody':
     '"{type}" is a container: card-mod styles applied at this level have no visual effect, and this container type doesn\'t carry an editable {cards} list the Studio can offer per-child sections for yet. To style a card inside it today, add the child\'s {cardMod} in YAML by hand.',

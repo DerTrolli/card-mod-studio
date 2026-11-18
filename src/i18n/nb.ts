@@ -279,6 +279,8 @@ export const nb: Record<MessageKey, string> = {
   'lock.mixedBody': 'Kortet har en håndskrevet stil i ordbokform ({dollar} shadow-piercing) ved siden av en annen stil under den andre motornøkkelen. Studio kan ikke skrive om den kombinasjonen trofast, så ingenting her overskriver den — stilen din bevares nøyaktig som skrevet. Samle den under én nøkkel i YAML for å redigere den visuelt.',
   'lock.rowsStillWork': 'Stil per rad nedenfor fungerer som vanlig.',
   'layout.childrenTitle': 'Oppsettskort — gi hvert underkort stil nedenfor',
+  'layout.sectionTitle': 'Seksjon — style hvert kort nedenfor',
+  'layout.sectionBody': 'Hvert kort i denne seksjonen får en egen stilseksjon her, lagret i kortets egen konfigurasjon. Avansert CSS på dette nivået styler selve seksjonen, med :host { … } (for eksempel :host { background: … }).',
   'layout.childrenBody': '«{type}» er en beholder: stiler på dette nivået har ingen synlig effekt, så hvert kort i den får sin egen seksjon her (også kort i en beholder i den). Endringer lagres i det kortets egen konfigurasjon — akkurat som om du ga det stil som et frittstående kort.',
   'layout.unsupportedTitle': 'Oppsettskort — underkort kan ikke få stil her ennå',
   'layout.unsupportedBody': '«{type}» er en beholder: card-mod-stiler på dette nivået har ingen synlig effekt, og denne typen beholder har ennå ingen redigerbar {cards}-liste som Studio kan tilby seksjoner per kort for. For å gi et kort i den stil i dag, legg til dets {cardMod} manuelt i YAML.',

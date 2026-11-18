@@ -279,6 +279,8 @@ export const es: Record<MessageKey, string> = {
   'lock.mixedBody': 'Esta tarjeta lleva un estilo en forma de diccionario ({dollar} shadow-piercing) escrito a mano junto a otro estilo bajo la otra clave de motor. El Studio no puede reescribir fielmente esa combinación, así que nada de aquí lo sobrescribirá — tu estilo se conserva exactamente como está escrito. Agrúpalo bajo una sola clave en YAML para editarlo visualmente.',
   'lock.rowsStillWork': 'El estilo por fila de abajo sigue funcionando como siempre.',
   'layout.childrenTitle': 'Tarjeta de diseño — da estilo a cada tarjeta hija abajo',
+  'layout.sectionTitle': 'Sección — da estilo a cada tarjeta abajo',
+  'layout.sectionBody': 'Cada tarjeta de esta sección tiene aquí su propia sección de estilo, guardada en su propia configuración. El CSS avanzado de este nivel da estilo a la propia sección, con :host { … } (por ejemplo :host { background: … }).',
   'layout.childrenBody': '«{type}» es un contenedor: los estilos a este nivel no tienen efecto visible, así que cada tarjeta que contiene tiene aquí su propia sección (también las de un contenedor dentro de él). Los cambios se guardan en la configuración de esa tarjeta — exactamente lo que obtendrías al darle estilo por separado.',
   'layout.unsupportedTitle': 'Tarjeta de diseño — aquí aún no se puede dar estilo a las tarjetas hijas',
   'layout.unsupportedBody': '«{type}» es un contenedor: los estilos de card-mod a este nivel no tienen efecto visible, y este tipo de contenedor aún no tiene una lista {cards} editable para la que el Studio pueda ofrecer secciones por tarjeta. Para dar estilo hoy a una tarjeta que contiene, añade a mano su {cardMod} en YAML.',

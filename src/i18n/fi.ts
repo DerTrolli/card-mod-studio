@@ -279,6 +279,8 @@ export const fi: Record<MessageKey, string> = {
   'lock.mixedBody': 'Tällä kortilla on käsin kirjoitettu sanakirjamuotoinen ({dollar} shadow-piercing) tyyli toisen moottoriavaimen alla olevan tyylin rinnalla. Studio ei voi kirjoittaa tätä yhdistelmää uudelleen tarkasti, joten mikään tässä ei korvaa sitä — tyylisi säilyy täsmälleen kirjoitetussa muodossa. Yhdistä se yhden avaimen alle YAML:ssa muokataksesi sitä visuaalisesti.',
   'lock.rowsStillWork': 'Alla oleva rivikohtainen tyyli toimii tavalliseen tapaan.',
   'layout.childrenTitle': 'Asettelukortti — muotoile jokainen alikortti alla',
+  'layout.sectionTitle': 'Osio — muotoile jokainen kortti alla',
+  'layout.sectionBody': 'Jokainen tämän osion kortti saa tässä oman tyyliosionsa, joka tallennetaan kortin omiin määrityksiin. Tällä tasolla Lisä-CSS muotoilee itse osiota, :host { … } -säännöllä (esimerkiksi :host { background: … }).',
   'layout.childrenBody': '”{type}” on säiliö: tämän tason tyyleillä ei ole näkyvää vaikutusta, joten jokainen sen sisällä oleva kortti saa tässä oman osionsa (myös sen sisällä olevan säiliön kortit). Muutokset tallennetaan kyseisen kortin omaan määritykseen — täsmälleen kuten muotoilisit sen erillisenä korttina.',
   'layout.unsupportedTitle': 'Asettelukortti — alikorttien muotoilua ei vielä tueta tässä',
   'layout.unsupportedBody': '”{type}” on säiliö: card-mod-tyyleillä tällä tasolla ei ole näkyvää vaikutusta, eikä tällä säiliötyypillä ole vielä muokattavaa {cards}-luetteloa, jolle Studio voisi tarjota korttikohtaisia osioita. Muotoillaksesi sen sisällä olevan kortin nyt, lisää sen {cardMod} käsin YAML:iin.',

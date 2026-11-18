@@ -17,6 +17,7 @@ import './editor/cms-panel.js';
 import './editor/cms-tab.js';
 import './components/cms-color-picker.js';
 import { startInjector } from './editor/cms-injector.js';
+import { startSectionInjector } from './editor/cms-section-injector.js';
 import { isCardModInstalled, isUixInstalled } from './utils/dom-helpers.js';
 import type { CardModStudioMeta } from './types/index.js';
 
@@ -67,4 +68,8 @@ if (window.cardModStudio) {
     .catch((err: unknown) => {
       console.error('[Card-Mod Studio] Injection failed:', err);
     });
+  // Sections views' "Section configuration" dialog (defined lazily by HA).
+  startSectionInjector().catch((err: unknown) => {
+    console.error('[Card-Mod Studio] Section-dialog injection failed:', err);
+  });
 }

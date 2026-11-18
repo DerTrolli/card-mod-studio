@@ -48,6 +48,16 @@ Work in progress; not published yet.
   `@media` block) left empty goes with them; the rest of Advanced CSS stays
   byte for byte. Not offered on styles with Jinja statements (`{% … %}`) or
   CSS it can't follow safely. Cancel the card editor to undo.
+- **Sections (sections views)**: the 🎨 Style button now also appears in Home
+  Assistant's **Section configuration** dialog (section menu → Edit). Every
+  card in the section gets its own styling section, saved into that card;
+  Advanced CSS at this level styles the section itself with `:host { … }`
+  (for example `:host { background: … }` — both engines). While the Studio
+  is open the dialog grows to fit it and shows the Studio's own preview.
+  Verified on Home Assistant 2026.11 with card-mod and UIX. On older Home
+  Assistant (checked: 2025.9, 2026.2) the section dialog is the small
+  "Edit section" one without a preview, and the Style button isn't offered
+  there; the cards in a section still each have their own Style button.
 
 ## [1.0.0-beta.1] — 2026-11-18
 

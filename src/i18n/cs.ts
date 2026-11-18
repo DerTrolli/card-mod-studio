@@ -280,6 +280,8 @@ export const cs: Record<MessageKey, string> = {
   'lock.rowsStillWork': 'Styl jednotlivých řádků níže funguje jako obvykle.',
   'layout.childrenTitle': 'Karta rozložení — nastavte styl každé podřízené kartě níže',
   'layout.childrenBody': '„{type}“ je kontejner: styly na této úrovni nemají viditelný účinek, takže každá karta v něm má zde vlastní sekci (i karty v kontejneru v něm). Změny se ukládají do vlastní konfigurace dané karty — přesně jako při stylování samostatné karty.',
+  'layout.sectionTitle': 'Sekce — upravte styl každé karty níže',
+  'layout.sectionBody': 'Každá karta v této sekci tu má vlastní sekci stylu, ukládanou do její vlastní konfigurace. Pokročilé CSS na této úrovni upravuje samotnou sekci pomocí :host { … } (například :host { background: … }).',
   'layout.unsupportedTitle': 'Karta rozložení — stylování podřízených karet zde zatím není podporováno',
   'layout.unsupportedBody': '„{type}“ je kontejner: styly card-mod na této úrovni nemají viditelný účinek a tento typ kontejneru zatím nemá upravitelný seznam {cards}, pro který by Studio mohlo nabídnout sekce pro jednotlivé karty. Chcete-li dnes nastavit styl kartě v něm, přidejte její {cardMod} ručně v YAML.',
   'preset.typeName': 'Zadejte název pro uložení této předvolby.',

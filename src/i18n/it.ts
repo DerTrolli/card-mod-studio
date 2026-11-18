@@ -279,6 +279,8 @@ export const it: Record<MessageKey, string> = {
   'lock.mixedBody': 'Questa scheda ha uno stile in forma di dizionario ({dollar} shadow-piercing) scritto a mano accanto a un altro stile sotto l\'altra chiave del motore. Lo Studio non può riscrivere fedelmente questa combinazione, quindi niente qui lo sovrascriverà — il tuo stile è conservato esattamente come è scritto. Riuniscilo sotto una sola chiave in YAML per modificarlo visivamente.',
   'lock.rowsStillWork': 'Lo stile per riga qui sotto funziona come sempre.',
   'layout.childrenTitle': 'Scheda di layout — dai uno stile a ogni scheda figlia qui sotto',
+  'layout.sectionTitle': 'Sezione — dai stile a ogni scheda qui sotto',
+  'layout.sectionBody': 'Ogni scheda di questa sezione ha qui la sua sezione di stile, salvata nella sua configurazione. Il CSS avanzato a questo livello dà stile alla sezione stessa, con :host { … } (per esempio :host { background: … }).',
   'layout.childrenBody': '«{type}» è un contenitore: gli stili a questo livello non hanno effetto visibile, quindi ogni scheda al suo interno ha qui una propria sezione (anche le schede in un contenitore al suo interno). Le modifiche vengono salvate nella configurazione di quella scheda — esattamente come stilizzarla da sola.',
   'layout.unsupportedTitle': 'Scheda di layout — qui non si possono ancora stilizzare le schede figlie',
   'layout.unsupportedBody': '«{type}» è un contenitore: gli stili card-mod a questo livello non hanno effetto visibile, e questo tipo di contenitore non ha ancora un elenco {cards} modificabile per cui lo Studio possa offrire sezioni per scheda. Per stilizzare oggi una scheda al suo interno, aggiungi a mano il suo {cardMod} in YAML.',

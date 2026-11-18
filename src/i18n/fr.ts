@@ -279,6 +279,8 @@ export const fr: Record<MessageKey, string> = {
   'lock.mixedBody': 'Cette carte porte un style sous forme de dictionnaire ({dollar} shadow-piercing) écrit à la main à côté d\'un autre style sous l\'autre clé de moteur. Le Studio ne peut pas réécrire fidèlement cette combinaison, donc rien ici ne l\'écrasera — votre style est conservé exactement tel qu\'écrit. Regroupez-le sous une seule clé en YAML pour le modifier visuellement.',
   'lock.rowsStillWork': 'Le style par ligne ci-dessous fonctionne normalement.',
   'layout.childrenTitle': 'Carte de disposition — stylisez chaque carte enfant ci-dessous',
+  'layout.sectionTitle': 'Section — stylez chaque carte ci-dessous',
+  'layout.sectionBody': 'Chaque carte de cette section a ici sa propre section de style, enregistrée dans sa propre configuration. Le CSS avancé à ce niveau stylise la section elle-même, avec :host { … } (par exemple :host { background: … }).',
   'layout.childrenBody': '« {type} » est un conteneur : les styles à ce niveau n\'ont pas d\'effet visible, donc chaque carte qu\'il contient a ici sa propre section (y compris les cartes d\'un conteneur qu\'il contient). Les modifications sont enregistrées dans la configuration de cette carte — exactement comme si vous la stylisiez seule.',
   'layout.unsupportedTitle': 'Carte de disposition — le style des cartes enfants n\'est pas encore pris en charge ici',
   'layout.unsupportedBody': '« {type} » est un conteneur : les styles card-mod à ce niveau n\'ont pas d\'effet visible, et ce type de conteneur n\'a pas encore de liste {cards} modifiable pour laquelle le Studio puisse proposer des sections par carte. Pour styliser une carte qu\'il contient aujourd\'hui, ajoutez son {cardMod} à la main en YAML.',

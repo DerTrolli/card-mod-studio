@@ -279,6 +279,8 @@ export const zhHans: Record<MessageKey, string> = {
   'lock.mixedBody': '此卡片在另一个引擎键下的样式旁边还有手写的字典形式（{dollar} shadow-piercing）样式。Studio 无法准确改写这种组合，因此这里的任何操作都不会覆盖它——您的样式将按原样保留。若要可视化编辑，请在 YAML 中将其合并到一个键下。',
   'lock.rowsStillWork': '下方的逐行样式照常可用。',
   'layout.childrenTitle': '布局卡片——在下方为每张子卡片设置样式',
+  'layout.sectionTitle': '分区 — 在下方为每张卡片设置样式',
+  'layout.sectionBody': '此分区中的每张卡片在这里都有自己的样式部分，保存在该卡片自己的配置中。此层级的高级 CSS通过 :host { … } 设置分区本身的样式（例如 :host { background: … }）。',
   'layout.childrenBody': '“{type}”是一个容器：此层级的样式没有可见效果，因此其中的每张卡片都会在这里获得自己的分区（包括其中容器里的卡片）。更改会保存到该卡片自己的配置中——与单独设置该卡片样式的结果完全相同。',
   'layout.unsupportedTitle': '布局卡片——此处暂不支持为子卡片设置样式',
   'layout.unsupportedBody': '“{type}”是一个容器：此层级的 card-mod 样式没有可见效果，而且这种容器还没有可编辑的 {cards} 列表供 Studio 提供逐卡分区。若现在要为其中的卡片设置样式，请在 YAML 中手动添加其 {cardMod}。',

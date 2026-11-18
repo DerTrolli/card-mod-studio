@@ -331,6 +331,8 @@ export const de: Record<MessageKey, string> = {
     'Diese Karte hat einen selbst geschriebenen Stil in Wörterbuchform ({dollar} Shadow-Piercing) und unter dem anderen Engine-Schlüssel einen anderen Stil. Das Studio kann diese Kombination nicht originalgetreu umschreiben, daher wird hier nichts überschrieben — dein Stil bleibt genau so erhalten, wie er geschrieben ist. Fasse ihn im YAML unter einem Schlüssel zusammen, um ihn hier zu bearbeiten.',
   'lock.rowsStillWork': 'Der Stil pro Zeile unten funktioniert wie gewohnt.',
   'layout.childrenTitle': 'Layout-Karte — gestalte unten jede enthaltene Karte',
+  'layout.sectionTitle': 'Bereich – jede Karte unten gestalten',
+  'layout.sectionBody': 'Jede Karte in diesem Bereich bekommt hier einen eigenen Abschnitt, gespeichert in ihrer eigenen Konfiguration. Das erweiterte CSS auf dieser Ebene gestaltet den Bereich selbst, mit :host { … } (zum Beispiel :host { background: … }).',
   'layout.childrenBody':
     '„{type}“ ist ein Container: Stile auf dieser Ebene haben keine sichtbare Wirkung, daher bekommt jede enthaltene Karte hier einen eigenen Abschnitt (auch Karten in einem Container darin). Änderungen werden in der Konfiguration dieser Karte gespeichert — genau so, als würdest du sie als einzelne Karte gestalten.',
   'layout.unsupportedTitle': 'Layout-Karte — Stile für enthaltene Karten werden hier noch nicht unterstützt',

@@ -279,6 +279,8 @@ export const pl: Record<MessageKey, string> = {
   'lock.mixedBody': 'Ta karta ma ręcznie pisany styl w formie słownika ({dollar} shadow-piercing) obok innego stylu pod drugim kluczem silnika. Studio nie może wiernie przepisać takiego połączenia, więc nic tutaj go nie nadpisze — Twój styl jest zachowany dokładnie tak, jak został napisany. Połącz go pod jednym kluczem w YAML, aby edytować go wizualnie.',
   'lock.rowsStillWork': 'Styl poszczególnych wierszy poniżej działa jak zwykle.',
   'layout.childrenTitle': 'Karta układu — nadaj styl każdej karcie podrzędnej poniżej',
+  'layout.sectionTitle': 'Sekcja — nadaj styl każdej karcie poniżej',
+  'layout.sectionBody': 'Każda karta w tej sekcji ma tu własną sekcję stylu, zapisywaną w jej własnej konfiguracji. Zaawansowany CSS na tym poziomie nadaje styl samej sekcji, przez :host { … } (na przykład :host { background: … }).',
   'layout.childrenBody': '„{type}” to kontener: style na tym poziomie nie mają widocznego efektu, więc każda karta w nim ma tutaj własną sekcję (także karty w kontenerze w nim). Zmiany są zapisywane we własnej konfiguracji tej karty — dokładnie tak, jak przy stylizowaniu jej osobno.',
   'layout.unsupportedTitle': 'Karta układu — stylizowanie kart podrzędnych nie jest tu jeszcze obsługiwane',
   'layout.unsupportedBody': '„{type}” to kontener: style card-mod na tym poziomie nie mają widocznego efektu, a ten typ kontenera nie ma jeszcze edytowalnej listy {cards}, dla której Studio mogłoby oferować sekcje dla kart. Aby dziś nadać styl karcie w nim, dodaj ręcznie jej {cardMod} w YAML.',

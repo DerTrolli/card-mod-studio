@@ -279,6 +279,8 @@ export const zhHant: Record<MessageKey, string> = {
   'lock.mixedBody': '此面板在另一個引擎鍵下的樣式旁邊還有手寫的字典形式（{dollar} shadow-piercing）樣式。Studio 無法準確改寫這種組合，因此這裡的任何操作都不會覆蓋它——您的樣式將按原樣保留。若要視覺化編輯，請在 YAML 中將其合併到一個鍵下。',
   'lock.rowsStillWork': '下方的逐行樣式照常可用。',
   'layout.childrenTitle': '佈局面板——在下方為每張子面板設定樣式',
+  'layout.sectionTitle': '區段 — 在下方為每張面板設定樣式',
+  'layout.sectionBody': '此區段中的每張面板在這裡都有自己的樣式部分，儲存在該面板自己的設定中。此層級的進階 CSS透過 :host { … } 設定區段本身的樣式（例如 :host { background: … }）。',
   'layout.childrenBody': '“{type}”是一個容器：此層級的樣式沒有可見效果，因此其中的每張面板都會在這裡獲得自己的分割槽（包括其中容器裡的面板）。變更會儲存到該面板自己的配置中——與單獨設定該面板樣式的結果完全相同。',
   'layout.unsupportedTitle': '佈局面板——此處暫不支援為子面板設定樣式',
   'layout.unsupportedBody': '“{type}”是一個容器：此層級的 card-mod 樣式沒有可見效果，而且這種容器還沒有可編輯的 {cards} 列表供 Studio 提供逐卡分割槽。若現在要為其中的面板設定樣式，請在 YAML 中手動新增其 {cardMod}。',

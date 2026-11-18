@@ -279,6 +279,8 @@ export const sk: Record<MessageKey, string> = {
   'lock.mixedBody': 'Táto karta má ručne písaný štýl vo forme slovníka ({dollar} shadow-piercing) vedľa iného štýlu pod druhým kľúčom enginu. Studio takúto kombináciu nedokáže verne prepísať, takže nič tu ho neprepíše — váš štýl zostane presne tak, ako je napísaný. Ak ho chcete upravovať vizuálne, zjednoťte ho v YAML pod jeden kľúč.',
   'lock.rowsStillWork': 'Štýl jednotlivých riadkov nižšie funguje ako obvykle.',
   'layout.childrenTitle': 'Karta rozloženia — nastavte štýl každej podriadenej karte nižšie',
+  'layout.sectionTitle': 'Sekcia — upravte štýl každej karty nižšie',
+  'layout.sectionBody': 'Každá karta v tejto sekcii tu má vlastnú sekciu štýlu, ukladanú do jej vlastnej konfigurácie. Pokročilé CSS na tejto úrovni upravuje samotnú sekciu pomocou :host { … } (napríklad :host { background: … }).',
   'layout.childrenBody': '„{type}“ je kontajner: štýly na tejto úrovni nemajú viditeľný účinok, takže každá karta v ňom má tu vlastnú sekciu (aj karty v kontajneri v ňom). Zmeny sa ukladajú do vlastnej konfigurácie danej karty — presne ako pri štýlovaní samostatnej karty.',
   'layout.unsupportedTitle': 'Karta rozloženia — štýlovanie podriadených kariet tu zatiaľ nie je podporované',
   'layout.unsupportedBody': '„{type}“ je kontajner: štýly card-mod na tejto úrovni nemajú viditeľný účinok a tento typ kontajnera zatiaľ nemá upraviteľný zoznam {cards}, pre ktorý by Studio mohlo ponúknuť sekcie pre jednotlivé karty. Ak chcete dnes nastaviť štýl karte v ňom, pridajte jej {cardMod} ručne v YAML.',

@@ -279,6 +279,8 @@ export const hu: Record<MessageKey, string> = {
   'lock.mixedBody': 'Ennek a kártyának egy kézzel írt, szótár formájú ({dollar} shadow-piercing) stílusa van egy másik motorkulcs alatti stílus mellett. A Studio ezt a kombinációt nem tudja hűen átírni, ezért itt semmi sem írja felül — a stílusa pontosan úgy marad, ahogy írták. A vizuális szerkesztéshez vonja össze egy kulcs alá a YAML-ben.',
   'lock.rowsStillWork': 'A lenti soronkénti stílus a megszokott módon működik.',
   'layout.childrenTitle': 'Elrendezéskártya — formázza lent egyenként a benne lévő kártyákat',
+  'layout.sectionTitle': 'Szakasz — formázza alább az egyes kártyákat',
+  'layout.sectionBody': 'A szakasz minden kártyája saját stílusszakaszt kap itt, amely a kártya saját konfigurációjába kerül. Ezen a szinten a(z) Haladó CSS magát a szakaszt formázza a :host { … } segítségével (például :host { background: … }).',
   'layout.childrenBody': 'A(z) „{type}” egy tároló: az ezen a szinten megadott stílusoknak nincs látható hatása, ezért minden benne lévő kártya saját szakaszt kap itt (a benne lévő tárolók kártyái is). A változások annak a kártyának a saját konfigurációjába mentődnek — pontosan úgy, mintha önálló kártyaként formázná.',
   'layout.unsupportedTitle': 'Elrendezéskártya — a benne lévő kártyák formázása itt még nem támogatott',
   'layout.unsupportedBody': 'A(z) „{type}” egy tároló: az ezen a szinten megadott card-mod stílusoknak nincs látható hatása, és ennek a tárolótípusnak még nincs szerkeszthető {cards} listája, amelyhez a Studio kártyánkénti szakaszokat tudna adni. Egy benne lévő kártya formázásához ma adja hozzá kézzel a {cardMod} részét a YAML-ben.',

@@ -280,6 +280,8 @@ export const da: Record<MessageKey, string> = {
   'lock.rowsStillWork': 'Stil pr. række nedenfor virker som normalt.',
   'layout.childrenTitle': 'Layoutkort — giv hvert underkort stil nedenfor',
   'layout.childrenBody': '»{type}« er en beholder: stilarter på dette niveau har ingen synlig effekt, så hvert kort i den får sin egen sektion her (også kort i en beholder i den). Ændringer gemmes i det korts egen konfiguration — præcis som hvis du gav det stil som et selvstændigt kort.',
+  'layout.sectionTitle': 'Sektion — style hvert kort nedenfor',
+  'layout.sectionBody': 'Hvert kort i denne sektion får sin egen stilsektion her, gemt i kortets egen konfiguration. Avanceret CSS på dette niveau styler selve sektionen med :host { … } (for eksempel :host { background: … }).',
   'layout.unsupportedTitle': 'Layoutkort — underkort kan endnu ikke få stil her',
   'layout.unsupportedBody': '»{type}« er en beholder: card-mod-stilarter på dette niveau har ingen synlig effekt, og denne type beholder har endnu ingen redigerbar {cards}-liste, som Studio kan tilbyde sektioner pr. kort for. For at give et kort i den stil i dag skal du tilføje dets {cardMod} manuelt i YAML.',
   'preset.typeName': 'Skriv et navn for at gemme denne forudindstilling.',
