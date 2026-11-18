@@ -19,7 +19,7 @@ export const es: Record<MessageKey, string> = {
   'base.overrideTitle': 'El CSS propio está sobrescribiendo este ajuste',
   'base.takeOver': 'Que este módulo tome el control',
   'base.takeOverConfirm': 'Esto quita {what} de CSS avanzado, para que se aplique el ajuste de este módulo. El resto de CSS avanzado se queda como está.',
-  'base.takeOverRemove': 'Quitar',
+  'base.takeOverRemove': 'Eliminar',
   'base.overrideBody': 'El CSS avanzado se aplica después de estos ajustes (los estilos escritos a mano siempre ganan), así que los cambios aquí pueden no verse en la tarjeta. Edita o elimina esas líneas en CSS avanzado para devolver el control a este módulo.',
   'when.applyWhen': 'Aplicar cuando',
   'when.always': 'Siempre',

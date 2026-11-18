@@ -19,7 +19,7 @@ export const ko: Record<MessageKey, string> = {
   'base.overrideTitle': '사용자 CSS가 이 설정을 덮어씁니다',
   'base.takeOver': '이 모듈이 맡도록 하기',
   'base.takeOverConfirm': '고급 CSS에서 {what}을(를) 삭제하여 이 모듈의 설정이 적용되게 합니다. 고급 CSS의 나머지 부분은 그대로 유지됩니다.',
-  'base.takeOverRemove': '삭제',
+  'base.takeOverRemove': '제거',
   'base.overrideBody': '고급 CSS는 이 설정들 다음에 적용됩니다(직접 작성한 스타일이 항상 우선합니다). 그래서 여기에서 바꾼 내용이 카드에 보이지 않을 수 있습니다. 이 모듈이 다시 제어하게 하려면 고급 CSS에서 해당 줄을 편집하거나 삭제하세요.',
   'when.applyWhen': '적용 조건',
   'when.always': '항상',

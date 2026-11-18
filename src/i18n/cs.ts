@@ -19,7 +19,7 @@ export const cs: Record<MessageKey, string> = {
   'base.overrideTitle': 'Vlastní CSS právě přepisuje toto nastavení',
   'base.takeOver': 'Nechat převzít tento modul',
   'base.takeOverConfirm': 'Tím se z Pokročilé CSS odstraní {what}, aby platilo nastavení tohoto modulu. Zbytek Pokročilé CSS zůstane, jak je.',
-  'base.takeOverRemove': 'Odstranit',
+  'base.takeOverRemove': 'Odebrat',
   'base.overrideBody': 'Pokročilé CSS se použije až po těchto nastaveních (ručně psané styly vždy vyhrávají), takže změny zde nemusí být na kartě vidět. Upravte nebo odstraňte tyto řádky v Pokročilém CSS a vraťte řízení tomuto modulu.',
   'when.applyWhen': 'Použít, když',
   'when.always': 'Vždy',

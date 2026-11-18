@@ -19,7 +19,7 @@ export const fr: Record<MessageKey, string> = {
   'base.overrideTitle': 'Du CSS personnalisé remplace actuellement ce réglage',
   'base.takeOver': 'Laisser ce module prendre le relais',
   'base.takeOverConfirm': 'Cela retire {what} de CSS avancé, pour que le réglage de ce module s\'applique. Le reste de CSS avancé reste tel quel.',
-  'base.takeOverRemove': 'Retirer',
+  'base.takeOverRemove': 'Supprimer',
   'base.overrideBody': 'Le CSS avancé est appliqué après ces réglages (les styles écrits à la main l\'emportent toujours), donc les modifications ici peuvent ne pas être visibles sur la carte. Modifiez ou supprimez ces lignes dans CSS avancé pour rendre la main à ce module.',
   'when.applyWhen': 'Appliquer quand',
   'when.always': 'Toujours',

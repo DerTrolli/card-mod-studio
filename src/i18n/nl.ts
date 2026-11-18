@@ -19,7 +19,7 @@ export const nl: Record<MessageKey, string> = {
   'base.overrideTitle': 'Eigen CSS overschrijft deze instelling nu',
   'base.takeOver': 'Laat deze module het overnemen',
   'base.takeOverConfirm': 'Dit verwijdert {what} uit Geavanceerde CSS, zodat de instelling van deze module geldt. De rest van Geavanceerde CSS blijft zoals het is.',
-  'base.takeOverRemove': 'Verwijderen',
+  'base.takeOverRemove': 'Verwijder',
   'base.overrideBody': 'Geavanceerde CSS wordt na deze instellingen toegepast (zelfgeschreven stijlen winnen altijd), dus wijzigingen hier zijn misschien niet zichtbaar op de kaart. Pas die regels in Geavanceerde CSS aan of verwijder ze om de controle terug te geven aan deze module.',
   'when.applyWhen': 'Toepassen wanneer',
   'when.always': 'Altijd',
