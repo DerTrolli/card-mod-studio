@@ -5,6 +5,10 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta.2] — unreleased
+
+Work in progress; not published yet.
+
 ## [1.0.0-beta.1] — 2026-11-18
 
 The first 1.0 pre-release: it completes the roadmap's "Path to v1.0" —
@@ -1904,6 +1908,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[1.0.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v1.0.0-beta.2
 [1.0.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v1.0.0-beta.1
 [0.11.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0
 [0.11.0-beta.3]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.3
