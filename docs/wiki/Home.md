@@ -9,7 +9,7 @@ module by module, plus recipes, troubleshooting, and exact per-card support.
 
 The visual style editor for [UIX](https://uix.lf.technology/) and
 [card-mod](https://github.com/thomasloven/lovelace-card-mod) in Home Assistant.
-*Formerly Card-Mod Studio* — renamed in v1.0.0-beta.2 because it is just as
+*Formerly known as Card-Mod Studio* — renamed in v1.0.0-beta.2 because it is just as
 much a UIX editor; see [The rename](https://github.com/DerTrolli/card-mod-studio#the-rename-card-mod-studio--card-style-studio).
 Your cards, resource, presets and settings carry over unchanged. It adds a
 **🎨 Style** button to the normal card editor; instead of hand-writing

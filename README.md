@@ -6,7 +6,7 @@
 
 **The visual style editor for [UIX](https://uix.lf.technology/) and [card-mod](https://github.com/thomasloven/lovelace-card-mod) in Home Assistant.** Style any dashboard card with color pickers, sliders and animation presets. It writes the `uix:` or `card_mod:` YAML for you, and both engines are supported equally.
 
-*Formerly **Card Style Studio**. Renamed in 1.0 because it is just as much a UIX editor ([#40](https://github.com/DerTrolli/card-mod-studio/issues/40)). Nothing changes for your cards, resources or settings; see [the rename](#the-rename-card-mod-studio--card-style-studio).*
+*Formerly known as **Card-Mod Studio**. Renamed in 1.0 because it is just as much a UIX editor ([#40](https://github.com/DerTrolli/card-mod-studio/issues/40)). Nothing changes for your cards, resources or settings; see [the rename](#the-rename-card-mod-studio--card-style-studio).*
 
 Instead of hand-writing YAML + CSS + Jinja2 templates, Card Style Studio gives you color pickers, sliders, and animation presets — and generates the correct `uix`/`card_mod` YAML automatically.
 
