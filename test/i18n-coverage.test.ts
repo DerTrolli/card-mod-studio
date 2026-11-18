@@ -72,7 +72,7 @@ function untranslated(t: string): string[] {
     .replace(/<style[\s\S]*?<\/style>/g, ' ')
     .replace(/<code>[\s\S]*?<\/code>/g, ' ')
     .replace(/<pre>[\s\S]*?<\/pre>/g, ' ')
-    .replace(/<h2>Card-Mod Studio<\/h2>/g, ' ')
+    .replace(/<h2>Card Style Studio<\/h2>/g, ' ')
     .replace(/<[^>]*>/g, ' ');
   scan(text);
   return out;

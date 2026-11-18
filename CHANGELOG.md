@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Work in progress; not published yet.
 
+### Changed
+
+- **New name: Card Style Studio** (formerly Card-Mod Studio), the visual
+  style editor for UIX and card-mod
+  ([#40](https://github.com/DerTrolli/card-mod-studio/issues/40)). The name
+  changes in the panel, in all 22 languages, in `hacs.json` (HACS / the
+  Marketplace), on the integration and in the docs. An integration entry
+  added under the old name is renamed when Home Assistant starts.
+- **The names the Studio writes into a style** change prefix from `cms-` to
+  `cstudio-`: `@keyframes cstudio-pulse` (and the other presets), the
+  `animation: cstudio-…` value, and `--cstudio-gradient-stops`. Styles with
+  the old names are read exactly as before (the controls show the same
+  thing) and are written with the new names the next time the card is saved
+  in the Studio; opening a card doesn't change it. Hand-written CSS in
+  Advanced CSS is never rewritten: a rule of yours that uses an old `cms-…`
+  animation keeps its keyframes block.
+- **Unchanged, on purpose:** the resource file `card-mod-studio.js`, the
+  repository and its URLs, the integration's id `card_mod_studio`, the
+  stored presets / palette / settings and the copy/paste text. Nothing to do
+  after updating.
+
 ### Added
 
 - **Square corners** in Border & Radius: a switch that writes

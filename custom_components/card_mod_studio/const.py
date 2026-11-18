@@ -1,6 +1,11 @@
-"""Constants for the Card-Mod Studio integration."""
+"""Constants for the Card Style Studio integration."""
 
 DOMAIN = "card_mod_studio"
+
+#: The entry's title. Before 1.0.0-beta.2 the Studio was called Card-Mod
+#: Studio; an entry still titled that is renamed when it is set up.
+TITLE = "Card Style Studio"
+OLD_TITLE = "Card-Mod Studio"
 
 CONF_LANGUAGE = "language"
 CONF_ASK_LANGUAGE = "ask_language"

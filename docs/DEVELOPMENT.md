@@ -1,6 +1,6 @@
 # Development Guide
 
-This document explains how to set up a local development environment and test Card-Mod Studio against a real Home Assistant instance.
+This document explains how to set up a local development environment and test Card Style Studio against a real Home Assistant instance.
 
 ---
 
@@ -108,7 +108,7 @@ If you have n8n running alongside HA, you can create a workflow that watches the
 3. In HA: open any card editor
 4. Open browser DevTools → Console tab
 5. Edit a .ts file → Vite rebuilds → copy dist file → Ctrl+Shift+R in HA
-6. Check console for "[Card-Mod Studio]" log messages
+6. Check console for "[Card Style Studio]" log messages
 7. Verify the 🎨 Style button appears in the editor header
 ```
 
@@ -119,7 +119,7 @@ If you have n8n running alongside HA, you can create a workflow that watches the
 If the Style button doesn't appear:
 
 1. Open browser DevTools (F12) → Console
-2. Look for `[Card-Mod Studio]` messages:
+2. Look for `[Card Style Studio]` messages:
    - `Waiting for hui-dialog-edit-card...` — plugin loaded, waiting for HA to define the element
    - `hui-dialog-edit-card patched successfully.` — injection worked
    - `Could not find ha-button[slot=secondaryAction]...` — HA's internal structure changed, see below
@@ -687,7 +687,7 @@ picker needs the same.
 Gradient mode (`v0.7.0-beta.3`) needed to smuggle its real anchor points
 through the generated CSS so reopening the editor could recover them —
 see `encodeGradientStops` in `css-generator.ts`. The first attempt encoded
-them as JSON in a custom property: `--cms-gradient-stops: '[{"v":0,...}]';`.
+them as JSON in a custom property: `--cstudio-gradient-stops: '[{"v":0,...}]';` (`--cms-gradient-stops` before v1.0.0-beta.2, still read; every name the Studio writes is defined in `src/utils/studio-names.ts`).
 This is entirely valid CSS — the braces sit safely inside a single-quoted
 string, which a spec-compliant CSS tokenizer treats as opaque text, exactly
 like this project's own `css-parser.ts` already does (see its

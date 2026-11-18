@@ -5,7 +5,7 @@ out of scope. Source of truth:
 
 ## The v1.0 goal
 
-Not "every card-mod/UIX feature" — the goal is that Card-Mod Studio is a
+Not "every card-mod/UIX feature" — the goal is that Card Style Studio is a
 confident, professional default for styling HA's built-in cards without
 touching CSS or Jinja2 by hand: state-driven styling off any entity or
 attribute, a real color system, and correct editing inside nested layouts.

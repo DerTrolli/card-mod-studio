@@ -320,7 +320,7 @@ export const de: Record<MessageKey, string> = {
   'panel.previewUnavailable': 'Vorschau nicht verfügbar — öffne zuerst einen Karteneditor.',
   'panel.previewSr': 'Live-Vorschau der Karte (nicht bedienbar)',
   'panel.unprofiled':
-    'Card-Mod Studio kennt diese benutzerdefinierte Karte noch nicht — manche Einstellungen erreichen sie eventuell nicht; „Erweitertes CSS“ funktioniert immer.',
+    'Card Style Studio kennt diese benutzerdefinierte Karte noch nicht — manche Einstellungen erreichen sie eventuell nicht; „Erweitertes CSS“ funktioniert immer.',
   'panel.templateStatementsOn':
     'Dieser Stil nutzt Vorlagen-Anweisungen ({% … %}), daher behält das Studio ihn vollständig so, wie er in „Erweitertes CSS“ steht.',
   'panel.templateStatementsOff':
@@ -374,8 +374,8 @@ export const de: Record<MessageKey, string> = {
     'Der Stil dieser Karte in Wörterbuchform ($ Shadow-Piercing) hat einen {dot}-Eintrag, der kein einfaches CSS ist, daher kann das Studio ihn nicht neu aufbauen — er bleibt genau so erhalten, wie er geschrieben ist.',
   'child.mixedLocked':
     'Gemischter Stil — diese Karte hat einen Stil in Wörterbuchform ($ Shadow-Piercing) und unter dem anderen Engine-Schlüssel einen anderen Stil. Das Studio kann diese Kombination nicht bearbeiten, daher bleibt sie genau so erhalten, wie sie geschrieben ist.',
-  'tab.close': 'Card-Mod Studio schließen',
-  'tab.open': 'Card-Mod Studio öffnen',
+  'tab.close': 'Card Style Studio schließen',
+  'tab.open': 'Card Style Studio öffnen',
   'tab.style': 'Stil',
 
   // --- My Color Palette -----------------------------------------------------------------------------------------
@@ -410,9 +410,9 @@ export const de: Record<MessageKey, string> = {
   'presets.pasteError.empty': 'Füge zuerst den kopierten Text ein.',
   'presets.pasteError.tooLarge': 'Dieser Text ist zu lang für einen Studio-Stil.',
   'presets.pasteError.notJson': 'Das ist kein aus dem Studio kopierter Text (kein JSON).',
-  'presets.pasteError.notOurs': 'Das ist kein aus Card-Mod Studio kopierter Stil und keine Vorlagen.',
+  'presets.pasteError.notOurs': 'Das ist kein aus Card Style Studio kopierter Stil und keine Vorlagen.',
   'presets.pasteError.nothingUsable': 'Nichts in diesem Text konnte verwendet werden.',
-  'presets.shareHint': 'Der Text enthält die Einstellungen des Studios, nicht das CSS: Wo du ihn einfügst, wird Card-Mod Studio gebraucht. Selbst geschriebene Einträge einer Karte und ihre Zahlengröße sind nicht enthalten.',
+  'presets.shareHint': 'Der Text enthält die Einstellungen des Studios, nicht das CSS: Wo du ihn einfügst, wird Card Style Studio gebraucht. Selbst geschriebene Einträge einer Karte und ihre Zahlengröße sind nicht enthalten.',
   'palette.title': 'Meine Farbpalette',
   'palette.newName': 'Meine Farbe {n}',
   'palette.oneColor': '{n} Farbe',
@@ -473,14 +473,14 @@ export const de: Record<MessageKey, string> = {
   'settings.auto': 'Automatisch erkennen (empfohlen)',
   'settings.autoWith': 'Automatisch: {language} (empfohlen)',
   'settings.languageHint':
-    'Automatisch verwendet die Sprache, in der Home Assistant für dich angezeigt wird, oder Englisch, wenn es Card-Mod Studio darin nicht gibt. In deinem Home-Assistant-Profil gespeichert.',
-  'settings.noticeLabel': 'Sprache von Card-Mod Studio',
-  'settings.noticeText': 'In welcher Sprache soll Card-Mod Studio angezeigt werden? Du kannst sie später unter Einstellungen ändern.',
+    'Automatisch verwendet die Sprache, in der Home Assistant für dich angezeigt wird, oder Englisch, wenn es Card Style Studio darin nicht gibt. In deinem Home-Assistant-Profil gespeichert.',
+  'settings.noticeLabel': 'Sprache von Card Style Studio',
+  'settings.noticeText': 'In welcher Sprache soll Card Style Studio angezeigt werden? Du kannst sie später unter Einstellungen ändern.',
   'settings.ok': 'OK',
   'settings.writesUnder': 'Stile werden geschrieben unter',
   'settings.writesUixHint': 'UIX ist installiert, daher schreibt das Studio den eigenen Schlüssel von UIX. Eine Karte mit card_mod: wechselt zu uix:, wenn du sie das nächste Mal hier speicherst.',
   'settings.writesCardModHint': 'card-mod liest nur card_mod:, UIX liest es ebenfalls. Mit UIX (und ohne card-mod) schreibt das Studio stattdessen uix:.',
-  'settings.siteManaged': 'Dein Administrator legt Standards für alle fest (Einstellungen → Geräte & Dienste → Card-Mod Studio). Deine eigene Wahl hier hat Vorrang.',
-  'settings.integrationHint': 'Standards für alle (Sprache, die Frage, EIN/AUS-Farben) lassen sich mit der optionalen Card-Mod Studio-Integration auf der Einstellungsseite von Home Assistant festlegen — {link}.',
+  'settings.siteManaged': 'Dein Administrator legt Standards für alle fest (Einstellungen → Geräte & Dienste → Card Style Studio). Deine eigene Wahl hier hat Vorrang.',
+  'settings.integrationHint': 'Standards für alle (Sprache, die Frage, EIN/AUS-Farben) lassen sich mit der optionalen Card Style Studio-Integration auf der Einstellungsseite von Home Assistant festlegen — {link}.',
   'settings.integrationLink': 'so wird sie installiert',
 };

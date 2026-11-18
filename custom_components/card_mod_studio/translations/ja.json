@@ -2,18 +2,18 @@
   "config": {
     "step": {
       "user": {
-        "title": "Card-Mod Studio",
-        "description": "このページに Card-Mod Studio の設定を追加します。Studio 本体はダッシュボードのリソースとしてインストールします（HACS、Marketplace、または手動）。このエントリには設定だけが保存されます。"
+        "title": "Card Style Studio",
+        "description": "このページに Card Style Studio の設定を追加します。Studio 本体はダッシュボードのリソースとしてインストールします（HACS、Marketplace、または手動）。このエントリには設定だけが保存されます。"
       }
     },
     "abort": {
-      "single_instance_allowed": "Card-Mod Studio はすでに設定されています。"
+      "single_instance_allowed": "Card Style Studio はすでに設定されています。"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Card-Mod Studio の設定",
+        "title": "Card Style Studio の設定",
         "description": "この Home Assistant の全員に適用されるデフォルトです。Studio でのユーザー自身の選択（⚙️ 設定、マイカラーパレット）が常に優先されます。",
         "data": {
           "language": "言語",

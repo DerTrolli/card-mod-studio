@@ -77,8 +77,14 @@ can't work on a card is left out of its list, and a preset you load from the
 preset bar is dropped if the card can't use it.
 
 A hand-written animation the module doesn't recognise (for example an
-iteration count typed by hand) keeps its generated `@keyframes cms-…` block
+iteration count typed by hand) keeps its generated `@keyframes cstudio-…` block
 on save, so it keeps running.
+
+**Names the Studio writes** *(v1.0.0-beta.2)*: its keyframes are called
+`cstudio-pulse`, `cstudio-glow` and so on (`cms-…` before the rename to Card
+Style Studio). A card with the old names keeps working and gets the new ones
+the next time you save it in the Studio; a rule of your own in Advanced CSS
+that uses an old `cms-…` name keeps its keyframes and is not rewritten.
 
 Plus a **Duration** slider (seconds per cycle — lower is faster; it was
 called "Speed" before v0.11.0-beta.3) and the trigger control: always / while the entity

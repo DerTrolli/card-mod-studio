@@ -2,18 +2,18 @@
   "config": {
     "step": {
       "user": {
-        "title": "Card-Mod Studio",
-        "description": "Legger til innstillingene for Card-Mod Studio på denne siden. Selve Studio installeres som en dashbordressurs (HACS, Marketplace eller manuelt); denne oppføringen inneholder bare innstillingene."
+        "title": "Card Style Studio",
+        "description": "Legger til innstillingene for Card Style Studio på denne siden. Selve Studio installeres som en dashbordressurs (HACS, Marketplace eller manuelt); denne oppføringen inneholder bare innstillingene."
       }
     },
     "abort": {
-      "single_instance_allowed": "Card-Mod Studio er allerede satt opp."
+      "single_instance_allowed": "Card Style Studio er allerede satt opp."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Innstillinger for Card-Mod Studio",
+        "title": "Innstillinger for Card Style Studio",
         "description": "Standarder for alle i denne Home Assistant. En brukers eget valg i Studio (⚙️ Innstillinger, Min fargepalett) vinner alltid.",
         "data": {
           "language": "Språk",

@@ -2,7 +2,7 @@
 
 *New in 1.0 (beta).*
 
-Card-Mod Studio's own text — module names, labels, hints, warnings, the
+Card Style Studio's own text — module names, labels, hints, warnings, the
 CSS checks in Advanced CSS — comes in **22 languages**:
 
 | | | | |
@@ -67,7 +67,7 @@ be reached when you chose, the choice is sent to it later.
 
 An administrator can set the language, whether users are asked, and the
 default ON/OFF colours for the whole Home Assistant on **Settings → Devices &
-services**, with the optional [Card-Mod Studio integration](Integration).
+services**, with the optional [Card Style Studio integration](Integration).
 A user's own choice still wins.
 
 ## What isn't translated

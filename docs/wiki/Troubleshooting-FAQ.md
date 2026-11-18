@@ -1,13 +1,13 @@
 ## The Style button doesn't appear
 
 1. Hard-refresh the browser (Ctrl+Shift+R) — stale bundle is the usual cause.
-   Also check your HA version: Card-Mod Studio needs **2025.9 or newer**
+   Also check your HA version: Card Style Studio needs **2025.9 or newer**
    (older card editors have no spot for the button).
    With a manual install, also bump the `?v=` in the resource URL.
 2. Check the resource exists: **Settings → Dashboards → ⋮ → Resources**
    (HACS or the Marketplace installs it automatically; type must be
    *JavaScript Module*)
-3. Check the browser console for a Card-Mod Studio warning: the button is
+3. Check the browser console for a Card Style Studio warning: the button is
    injected into HA's card-edit dialog (`hui-dialog-edit-card`), and a major
    HA update can rename internals. If that happens, check
    [the issues](https://github.com/DerTrolli/card-mod-studio/issues) —
@@ -46,7 +46,7 @@ this.
 ## The browser console shows "themesReady: Timeout waiting for themes to become ready"
 
 card-mod 4.2.1 on Home Assistant 2026.11 logs this about 30 seconds after a
-page load in light mode. It comes from card-mod, not from Card-Mod Studio, and
+page load in light mode. It comes from card-mod, not from Card Style Studio, and
 card styles still apply.
 
 ## I can't find HACS on HA 2026.11
@@ -54,7 +54,7 @@ card styles still apply.
 HA 2026.11 folds HACS into core as the **Marketplace**, so there is no
 separate HACS to install or open. Existing HACS installs migrate
 automatically, with custom repositories and update entities carried over.
-Look for Card-Mod Studio in the Marketplace instead. If the Style button
+Look for Card Style Studio in the Marketplace instead. If the Style button
 doesn't appear after installing and your dashboard resources are in **YAML
 mode**, add the resource manually — see
 [Installation](Installation#manual-install).
@@ -93,7 +93,7 @@ apply instead. See [Advanced CSS](Advanced-CSS).
 
 Fixed in **v0.8.0**. HA's newer schema-validated card editors rejected cards
 carrying `card_mod:`/`uix:` keys; the Studio now shims that validation. If
-you still see it, update Card-Mod Studio and hard-refresh.
+you still see it, update Card Style Studio and hard-refresh.
 
 ## My heading card's text styling stopped working on HA 2026.10
 
@@ -197,7 +197,7 @@ byte-for-byte (shown read-only in Advanced CSS). The one thing the Studio
 won't edit (but also won't touch) is *mixed-form* styling — see the 🔒 entry
 above.
 
-## If I uninstall Card-Mod Studio, do my styles break?
+## If I uninstall Card Style Studio, do my styles break?
 
 No — the generated YAML is plain card-mod/UIX syntax with no runtime
 dependency on the Studio. Cards keep rendering exactly as styled; you just

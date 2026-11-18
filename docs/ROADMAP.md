@@ -1,6 +1,8 @@
-# Card-Mod Studio — Roadmap
+# Card Style Studio — Roadmap
 
-**Last updated:** 2026-11-18 · **In progress:** v1.0.0-beta.2 (unreleased) — Square corners, five more controls, "Let this module take over", the Studio in the Section configuration dialog, a pinned preview on phones, fast reading of large Jinja styles; the rebrand (issue #40) waits on the owner's name choice; see "Recently shipped (v1.0.0-beta.2)" · **Pre-release:** v1.0.0-beta.1 (2026-11-18) — completes the "Path to v1.0": 22 languages (a one-time language question with Auto-detect, a ⚙️ Settings section), an optional integration for site-wide defaults (Settings → Devices & services), and the v1.0 structure items: `conditional`/`entity-filter` cards, containers nested in containers, tile Features, 📚 My Presets with copy/paste; see "Recently shipped (v1.0.0-beta.1)" · **Current stable:** v0.11.0 (2026-11-12) — "Reach": Mushroom and Bubble Card support (beta), Font → Number size on the gauge and the thermostat, controls that write only what you set, a conditional Background/Border that keeps the card's own look while off, Animation on nearly every built-in card, a notice on custom cards without a profile, keyboard / screen-reader / touch work, input checks, and seven read-back fixes found by replaying the styles of every release since v0.8.1 — on top of v0.10.2 (the HA 2026.11 maintenance release). Three pre-releases led up to it (beta.1 2026-10-27, beta.2 2026-11-10, beta.3 2026-11-11). Open GitHub issues: none. Next: **v1.0.0 final** — see "Open in this cycle" under "Recently shipped (v1.0.0-beta.1)" and "Open after v0.11.0" below. Plan of this cycle: [`docs/V1.0_PLAN.md`](V1.0_PLAN.md). Plans of finished cycles (historical): [`docs/V0.11_PLAN.md`](V0.11_PLAN.md), [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
+*Formerly Card-Mod Studio (renamed in v1.0.0-beta.2, issue #40).*
+
+**Last updated:** 2026-11-18 · **In progress:** v1.0.0-beta.2 (unreleased) — Square corners, five more controls, "Let this module take over", the Studio in the Section configuration dialog, a pinned preview on phones, fast reading of large Jinja styles, and the new name Card Style Studio (issue #40; the Studio-written `cms-` names become `cstudio-`); see "Recently shipped (v1.0.0-beta.2)" · **Pre-release:** v1.0.0-beta.1 (2026-11-18) — completes the "Path to v1.0": 22 languages (a one-time language question with Auto-detect, a ⚙️ Settings section), an optional integration for site-wide defaults (Settings → Devices & services), and the v1.0 structure items: `conditional`/`entity-filter` cards, containers nested in containers, tile Features, 📚 My Presets with copy/paste; see "Recently shipped (v1.0.0-beta.1)" · **Current stable:** v0.11.0 (2026-11-12) — "Reach": Mushroom and Bubble Card support (beta), Font → Number size on the gauge and the thermostat, controls that write only what you set, a conditional Background/Border that keeps the card's own look while off, Animation on nearly every built-in card, a notice on custom cards without a profile, keyboard / screen-reader / touch work, input checks, and seven read-back fixes found by replaying the styles of every release since v0.8.1 — on top of v0.10.2 (the HA 2026.11 maintenance release). Three pre-releases led up to it (beta.1 2026-10-27, beta.2 2026-11-10, beta.3 2026-11-11). Open GitHub issues: none. Next: **v1.0.0 final** — see "Open in this cycle" under "Recently shipped (v1.0.0-beta.1)" and "Open after v0.11.0" below. Plan of this cycle: [`docs/V1.0_PLAN.md`](V1.0_PLAN.md). Plans of finished cycles (historical): [`docs/V0.11_PLAN.md`](V0.11_PLAN.md), [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -167,10 +169,16 @@ request. See the 1.0.0-beta.2 section of [`CHANGELOG.md`](../CHANGELOG.md).
   `first_run_languages_check.mjs` (the first-run question in all 22
   languages); the continuity replay now includes v0.11.0 and v1.0.0-beta.1.
 
-**Open:** the rebrand — the display name (UI in 22 languages, `hacs.json`,
-the integration's title, docs) and the Studio-written `cms-` names (read
-both, write the new prefix on save). Stays: storage keys, the integration
-domain, the file name, the repository (see issue #40).
+- The rename to **Card Style Studio** (issue #40): the display name (UI in
+  22 languages, `hacs.json`, the integration's title — an entry still titled
+  "Card-Mod Studio" is renamed at setup — README, wiki) and the
+  Studio-written names, `cms-` → `cstudio-` (`src/utils/studio-names.ts`:
+  both read, the new one written on save; hand-written CSS never rewritten;
+  `studio-prefix.test.ts`). Stays: storage keys, the integration domain, the
+  file name, the repository, the copy/paste key.
+- Left to the owner: the GitHub repository description and topics (HACS
+  and the Marketplace show the repository's description), and posting the
+  reply on issue #40.
 
 ## Recently shipped (v1.0.0-beta.1)
 
@@ -827,7 +835,7 @@ Not worth supporting:
 - Arbitrary Jinja2 logic in the visual UI — the Advanced CSS editor is the
   intended escape hatch for anything beyond on/off and numeric thresholds.
 - **A UIX Forge equivalent.** [Forge](https://uix.lf.technology/) is UIX's own
-  first-party visual template builder. Rebuilding it inside Card-Mod Studio
+  first-party visual template builder. Rebuilding it inside Card Style Studio
   would be a worse clone of a tool that already exists for exactly that job,
   and pulls the project away from what makes it useful: working the same way
   whether someone has card-mod or UIX. A UIX-only user who wants Forge-level

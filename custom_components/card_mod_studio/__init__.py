@@ -1,4 +1,4 @@
-"""Card-Mod Studio — settings for the Card-Mod Studio card editor.
+"""Card Style Studio — settings for the Card Style Studio card editor.
 
 The Studio itself is a frontend plugin (card-mod-studio.js). This optional
 integration gives it an entry on Settings → Devices & services, whose options
@@ -32,6 +32,8 @@ from .const import (
     COLOR_OPTIONS,
     DEFAULT_OPTIONS,
     DOMAIN,
+    OLD_TITLE,
+    TITLE,
 )
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -94,6 +96,10 @@ async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> Non
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Tell open Studios about option changes."""
+    # Renamed in 1.0.0-beta.2: an entry added under the old name shows the new
+    # one (a title the user set themselves is left alone).
+    if entry.title == OLD_TITLE:
+        hass.config_entries.async_update_entry(entry, title=TITLE)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     hass.bus.async_fire(EVENT_UPDATED)
     return True

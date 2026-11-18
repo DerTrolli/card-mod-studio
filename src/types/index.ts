@@ -1,5 +1,5 @@
 /**
- * Shared TypeScript interfaces for Card-Mod Studio.
+ * Shared TypeScript interfaces for Card Style Studio.
  * All public-facing types live here so they can be imported by any module.
  */
 
@@ -37,7 +37,7 @@ export interface LovelaceCardConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Card-Mod Studio internal state types
+// Card Style Studio internal state types
 // ---------------------------------------------------------------------------
 
 /** The top-level config that card-mod reads from a card's YAML. Besides

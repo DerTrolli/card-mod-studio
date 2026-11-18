@@ -64,7 +64,7 @@ Exceptions and specials:
   every module and has its own shadow-DOM layout, so card-box-level modules
   generally work while icon/text specifics may need
   [Advanced CSS](Advanced-CSS). The panel shows a notice on such a card
-  (v0.11.0-beta.3): "Card-Mod Studio doesn't know this custom card yet — some
+  (v0.11.0-beta.3): "Card Style Studio doesn't know this custom card yet — some
   controls may not reach it; Advanced CSS always works." Per-card guides:
   [Mushroom](Mushroom-Cards) and [Bubble Card](Bubble-Card).
 - **ON / OFF conditions** are offered only when the card has an entity of its

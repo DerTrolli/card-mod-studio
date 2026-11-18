@@ -3,7 +3,7 @@
 1. Edit any card (pencil icon in dashboard edit mode)
 2. Click the **🎨 Style** button in the editor footer (icon-only on narrow
    screens)
-3. The Card-Mod Studio panel opens in place of the card's normal config form
+3. The Card Style Studio panel opens in place of the card's normal config form
 
 <img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/02%20Card-Mod%20Studio.png" alt="The panel" width="1024">
 
@@ -98,7 +98,7 @@ card_mod:
 ```
 
 You can inspect it any time via **Show code editor** — the generated YAML is
-plain card-mod/UIX syntax with no runtime dependency on Card-Mod Studio.
+plain card-mod/UIX syntax with no runtime dependency on Card Style Studio.
 **If you uninstall the Studio, every styled card keeps working** — the engine
 (card-mod/UIX) is what renders the styles.
 

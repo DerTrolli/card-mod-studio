@@ -2,18 +2,18 @@
   "config": {
     "step": {
       "user": {
-        "title": "Card-Mod Studio",
-        "description": "Hozzáadja a Card-Mod Studio beállításait ehhez az oldalhoz. Magát a Studiót irányítópult-erőforrásként kell telepíteni (HACS, Marketplace vagy kézzel); ez a bejegyzés csak a beállításait tárolja."
+        "title": "Card Style Studio",
+        "description": "Hozzáadja a Card Style Studio beállításait ehhez az oldalhoz. Magát a Studiót irányítópult-erőforrásként kell telepíteni (HACS, Marketplace vagy kézzel); ez a bejegyzés csak a beállításait tárolja."
       }
     },
     "abort": {
-      "single_instance_allowed": "A Card-Mod Studio már be van állítva."
+      "single_instance_allowed": "A Card Style Studio már be van állítva."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "A Card-Mod Studio beállításai",
+        "title": "A Card Style Studio beállításai",
         "description": "Alapértékek mindenkinek ebben a Home Assistantben. Egy felhasználó saját választása a Studióban (⚙️ Beállítások, Saját színpaletta) mindig elsőbbséget élvez.",
         "data": {
           "language": "Nyelv",

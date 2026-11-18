@@ -2,18 +2,18 @@
   "config": {
     "step": {
       "user": {
-        "title": "Card-Mod Studio",
-        "description": "將 Card-Mod Studio 的設定新增到此頁面。Studio 本身作為儀表板資源安裝（HACS、Marketplace 或手動）；此條目只儲存其設定。"
+        "title": "Card Style Studio",
+        "description": "將 Card Style Studio 的設定新增到此頁面。Studio 本身作為儀表板資源安裝（HACS、Marketplace 或手動）；此條目只儲存其設定。"
       }
     },
     "abort": {
-      "single_instance_allowed": "Card-Mod Studio 已設定。"
+      "single_instance_allowed": "Card Style Studio 已設定。"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Card-Mod Studio 設定",
+        "title": "Card Style Studio 設定",
         "description": "此 Home Assistant 中所有人的預設值。使用者在 Studio 中自己的選擇（⚙️ 設定、我的調色盤）始終優先。",
         "data": {
           "language": "語言",

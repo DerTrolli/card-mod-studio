@@ -1215,7 +1215,7 @@ export class CmsPanel extends LitElement {
     return html`
       <div class="header">
         <span aria-hidden="true">🎨</span>
-        <h2>Card-Mod Studio</h2>
+        <h2>Card Style Studio</h2>
         <span class="version">v${VERSION}</span>
       </div>
 

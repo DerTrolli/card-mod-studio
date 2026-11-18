@@ -1,4 +1,4 @@
-"""Diagnostics for Card-Mod Studio: the options as the Studio receives them."""
+"""Diagnostics for Card Style Studio: the options as the Studio receives them."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Config flow and options dialog for Card-Mod Studio."""
+"""Config flow and options dialog for Card Style Studio."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ from .const import (
     DEFAULT_OPTIONS,
     DOMAIN,
     LANGUAGE_OPTIONS,
+    TITLE,
 )
 
 
@@ -31,7 +32,7 @@ class CardModStudioConfigFlow(ConfigFlow, domain=DOMAIN):
         if self._async_current_entries():
             return self.async_abort(reason="single_instance_allowed")
         if user_input is not None:
-            return self.async_create_entry(title="Card-Mod Studio", data={}, options=dict(DEFAULT_OPTIONS))
+            return self.async_create_entry(title=TITLE, data={}, options=dict(DEFAULT_OPTIONS))
         return self.async_show_form(step_id="user")
 
     @staticmethod

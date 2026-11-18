@@ -3,7 +3,7 @@
  *
  * Thin wrapper around HA's own `<ha-entity-picker>` — the searchable,
  * autocompleting entity selector every native HA card editor uses. HA
- * registers it globally on the custom element registry before Card-Mod
+ * registers it globally on the custom element registry before Card Style
  * Studio ever runs (we're injected into the already-loaded frontend), so no
  * import is needed — same convention this project already uses for
  * `<ha-switch>` / `<ha-slider>`.

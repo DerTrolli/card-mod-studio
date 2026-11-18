@@ -181,7 +181,7 @@ async function replayBacklog(hass: HassSub | undefined): Promise<CustomPalette> 
       }
       writeUnsynced(flushed ? inFlight : []);
     } catch (err) {
-      console.warn('[Card-Mod Studio] Palette sync to HA failed (saved to localStorage only):', err);
+      console.warn('[Card Style Studio] Palette sync to HA failed (saved to localStorage only):', err);
     }
   }
   return next;
@@ -212,7 +212,7 @@ async function readPalette(hass: HassSub | undefined): Promise<{ palette: Custom
       if (result?.value) return { palette: sanitize(result.value), readFailed };
     } catch (err) {
       readFailed = true;
-      console.warn('[Card-Mod Studio] Palette load from HA failed, using localStorage:', err);
+      console.warn('[Card Style Studio] Palette load from HA failed, using localStorage:', err);
     }
   }
 
@@ -250,7 +250,7 @@ export async function savePalette(palette: CustomPalette, hass: HassSub | undefi
         value: cache,
       });
     } catch (err) {
-      console.warn('[Card-Mod Studio] Palette sync to HA failed (saved to localStorage only):', err);
+      console.warn('[Card Style Studio] Palette sync to HA failed (saved to localStorage only):', err);
     }
   }
 }
@@ -453,7 +453,7 @@ export function updatePalette(
             writeUnsynced(flushed ? inFlight : []);
           } catch (err) {
             onList = writeUnsynced(all);
-            console.warn('[Card-Mod Studio] Palette sync to HA failed (saved to localStorage only):', err);
+            console.warn('[Card Style Studio] Palette sync to HA failed (saved to localStorage only):', err);
           }
         }
       }

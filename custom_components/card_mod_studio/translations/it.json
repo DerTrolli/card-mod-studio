@@ -2,18 +2,18 @@
   "config": {
     "step": {
       "user": {
-        "title": "Card-Mod Studio",
-        "description": "Aggiunge le impostazioni di Card-Mod Studio a questa pagina. Lo Studio stesso si installa come risorsa della plancia (HACS, il Marketplace o a mano); questa voce contiene solo le sue impostazioni."
+        "title": "Card Style Studio",
+        "description": "Aggiunge le impostazioni di Card Style Studio a questa pagina. Lo Studio stesso si installa come risorsa della plancia (HACS, il Marketplace o a mano); questa voce contiene solo le sue impostazioni."
       }
     },
     "abort": {
-      "single_instance_allowed": "Card-Mod Studio è già configurato."
+      "single_instance_allowed": "Card Style Studio è già configurato."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Impostazioni di Card-Mod Studio",
+        "title": "Impostazioni di Card Style Studio",
         "description": "Valori predefiniti per tutti in questo Home Assistant. La scelta di un utente nello Studio (⚙️ Impostazioni, La mia tavolozza) ha sempre la precedenza.",
         "data": {
           "language": "Lingua",

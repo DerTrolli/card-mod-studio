@@ -5,7 +5,7 @@
  * - Whole sentences. Values go in as named placeholders (`{entity}`), never
  *   by gluing fragments, because word order differs between languages.
  * - Placeholders must match across languages (a unit test checks it).
- * - Brand and technical names stay as they are: Card-Mod Studio, card-mod,
+ * - Brand and technical names stay as they are: Card Style Studio, card-mod,
  *   UIX, Home Assistant, Jinja2, CSS, `!important`, entity ids.
  */
 export const en = {
@@ -299,7 +299,7 @@ export const en = {
   'panel.previewUnavailable': 'Preview unavailable — open a card editor first.',
   'panel.previewSr': 'Live preview of the card (not interactive)',
   'panel.unprofiled':
-    "Card-Mod Studio doesn't know this custom card yet — some controls may not reach it; Advanced CSS always works.",
+    "Card Style Studio doesn't know this custom card yet — some controls may not reach it; Advanced CSS always works.",
   'panel.templateStatementsOn':
     'This style uses template statements ({% … %}), so the Studio keeps all of it as written in Advanced CSS.',
   'panel.templateStatementsOff':
@@ -353,8 +353,8 @@ export const en = {
     "This child's dictionary-form ($ shadow-piercing) style has a {dot} entry that isn't plain CSS, so the Studio can't rebuild it — it is preserved exactly as written.",
   'child.mixedLocked':
     "Mixed-form styling — this child has a dictionary-form ($ shadow-piercing) style and a different style on the other engine key. The Studio can't edit that combination, so it is preserved exactly as written.",
-  'tab.close': 'Close Card-Mod Studio',
-  'tab.open': 'Open Card-Mod Studio style editor',
+  'tab.close': 'Close Card Style Studio',
+  'tab.open': 'Open Card Style Studio style editor',
   'tab.style': 'Style',
   // --- My Color Palette --------------------------------------------------------
   'presets.title': 'My Presets',
@@ -388,9 +388,9 @@ export const en = {
   'presets.pasteError.empty': 'Paste the copied text first.',
   'presets.pasteError.tooLarge': 'That text is too long to be a Studio style.',
   'presets.pasteError.notJson': "That isn't text copied from the Studio (it isn't JSON).",
-  'presets.pasteError.notOurs': "That isn't a style or presets copied from Card-Mod Studio.",
+  'presets.pasteError.notOurs': "That isn't a style or presets copied from Card Style Studio.",
   'presets.pasteError.nothingUsable': 'Nothing in that text could be used.',
-  'presets.shareHint': "The text holds the Studio's settings, not the CSS: Card-Mod Studio is needed where you paste it. A card's own hand-written entries and its Number size are not included.",
+  'presets.shareHint': "The text holds the Studio's settings, not the CSS: Card Style Studio is needed where you paste it. A card's own hand-written entries and its Number size are not included.",
   'palette.title': 'My Color Palette',
   'palette.newName': 'My color {n}',
   'palette.oneColor': '{n} color',
@@ -449,15 +449,15 @@ export const en = {
   'settings.auto': 'Auto-detect (recommended)',
   'settings.autoWith': 'Auto-detect: {language} (recommended)',
   'settings.languageHint':
-    'Auto-detect uses the language Home Assistant shows for you, or English if Card-Mod Studio is not available in it. Saved to your Home Assistant profile.',
-  'settings.noticeLabel': 'Card-Mod Studio language',
-  'settings.noticeText': 'Which language should Card-Mod Studio use? You can change it later under Settings.',
+    'Auto-detect uses the language Home Assistant shows for you, or English if Card Style Studio is not available in it. Saved to your Home Assistant profile.',
+  'settings.noticeLabel': 'Card Style Studio language',
+  'settings.noticeText': 'Which language should Card Style Studio use? You can change it later under Settings.',
   'settings.ok': 'OK',
   'settings.writesUnder': 'Styles are written under',
   'settings.writesUixHint': 'UIX is installed, so the Studio writes UIX\'s own key. A card styled under card_mod: moves to uix: the next time you save it here.',
   'settings.writesCardModHint': 'card-mod reads only card_mod:, and UIX reads it too. With UIX installed (and card-mod not), the Studio writes uix: instead.',
-  'settings.siteManaged': 'Your administrator sets defaults for everyone (Settings → Devices & services → Card-Mod Studio). Your own choices here come first.',
-  'settings.integrationHint': 'Defaults for everyone (language, the question, ON/OFF colours) can be set on Home Assistant\'s Settings page with the optional Card-Mod Studio integration — {link}.',
+  'settings.siteManaged': 'Your administrator sets defaults for everyone (Settings → Devices & services → Card Style Studio). Your own choices here come first.',
+  'settings.integrationHint': 'Defaults for everyone (language, the question, ON/OFF colours) can be set on Home Assistant\'s Settings page with the optional Card Style Studio integration — {link}.',
   'settings.integrationLink': 'how to install it',
 } as const;
 

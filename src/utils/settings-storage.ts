@@ -10,7 +10,7 @@
  * Applying the settings is immediate: the cache updates, the language layer
  * switches, and SETTINGS_CHANGED_EVENT tells open views.
  *
- * Site defaults (v1.0): the optional Card-Mod Studio integration (Settings →
+ * Site defaults (v1.0): the optional Card Style Studio integration (Settings →
  * Devices & services) holds defaults for everyone on this Home Assistant —
  * the language, whether each user is asked, the default ON/OFF colours. They
  * arrive over the websocket subscription `card_mod_studio/subscribe` (pushed
@@ -129,7 +129,7 @@ function subscribeSite(hass: HassSub | undefined): void {
   if (!conn?.subscribeMessage) return;
   siteSubscribed = true;
   conn.subscribeMessage((msg) => applySiteDefaults(msg), { type: `${INTEGRATION}/subscribe` }).catch((err) => {
-    console.warn('[Card-Mod Studio] Could not read the integration settings:', err);
+    console.warn('[Card Style Studio] Could not read the integration settings:', err);
     siteReceived = true;
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SETTINGS_CHANGED_EVENT));
   });
@@ -199,7 +199,7 @@ export function initSettings(hass: HassSub | undefined): Promise<void> {
       }
     } catch (err) {
       haFailed = true;
-      console.warn('[Card-Mod Studio] Settings load from HA failed, using this device:', err);
+      console.warn('[Card Style Studio] Settings load from HA failed, using this device:', err);
     } finally {
       haLoad = null;
       // Settled either way: views waiting on Home Assistant's copy re-render.
@@ -233,7 +233,7 @@ export async function updateSettings(change: Partial<Omit<StudioSettings, 'updat
   try {
     await conn.sendMessagePromise({ type: 'frontend/set_user_data', key: HA_KEY, value: next });
   } catch (err) {
-    console.warn('[Card-Mod Studio] Settings sync to HA failed (saved on this device only):', err);
+    console.warn('[Card Style Studio] Settings sync to HA failed (saved on this device only):', err);
   }
 }
 

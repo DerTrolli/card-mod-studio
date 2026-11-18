@@ -1,7 +1,7 @@
 /**
  * preset-storage.ts
  *
- * Cross-device preset storage for Card-Mod Studio.
+ * Cross-device preset storage for Card Style Studio.
  *
  * Primary:  HA per-user WebSocket storage via frontend/get_user_data +
  *           frontend/set_user_data. Data lives in HA's backend under
@@ -64,7 +64,7 @@ async function readPresets(
       if (Array.isArray(value)) return { list: migratePresets(value), readFailed, unreadable: false };
     } catch (err) {
       readFailed = true;
-      console.warn('[Card-Mod Studio] Preset load from HA failed, using localStorage:', err);
+      console.warn('[Card Style Studio] Preset load from HA failed, using localStorage:', err);
     }
   }
 
@@ -185,7 +185,7 @@ async function saveList(presets: StylePreset[], hass: HassSub | undefined): Prom
         value: presets,
       });
     } catch (err) {
-      console.warn('[Card-Mod Studio] Preset sync to HA failed (saved to localStorage only):', err);
+      console.warn('[Card Style Studio] Preset sync to HA failed (saved to localStorage only):', err);
       return { local, wrote: false };
     }
   }

@@ -1,4 +1,4 @@
-# Card-Mod Studio — project instructions
+# Card Style Studio — project instructions
 
 These apply automatically to every session in this repo — no need to ask
 for them by name.

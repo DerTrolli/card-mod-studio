@@ -2,18 +2,18 @@
   "config": {
     "step": {
       "user": {
-        "title": "Card-Mod Studio",
-        "description": "Lisää Card-Mod Studion asetukset tälle sivulle. Itse Studio asennetaan kojelaudan resurssina (HACS, Marketplace tai käsin); tämä merkintä sisältää vain sen asetukset."
+        "title": "Card Style Studio",
+        "description": "Lisää Card Style Studion asetukset tälle sivulle. Itse Studio asennetaan kojelaudan resurssina (HACS, Marketplace tai käsin); tämä merkintä sisältää vain sen asetukset."
       }
     },
     "abort": {
-      "single_instance_allowed": "Card-Mod Studio on jo määritetty."
+      "single_instance_allowed": "Card Style Studio on jo määritetty."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Card-Mod Studion asetukset",
+        "title": "Card Style Studion asetukset",
         "description": "Oletukset kaikille tässä Home Assistantissa. Käyttäjän oma valinta Studiossa (⚙️ Asetukset, Oma väripaletti) on aina etusijalla.",
         "data": {
           "language": "Kieli",

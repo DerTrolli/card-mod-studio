@@ -1,4 +1,4 @@
-# Card-Mod Studio — testing sandbox
+# Card Style Studio — testing sandbox
 
 A self-contained rig that runs **real Home Assistant + real card-mod** in Docker
 and uses **Playwright** to measure exactly what a `card_mod` style does to a real
@@ -24,7 +24,7 @@ which CSS variables it honors. So the rig must use the **real HA card components
 
 ## Prerequisites (agent sandbox)
 
-This is built for a root-capable cloud agent sandbox like the one Card-Mod Studio
+This is built for a root-capable cloud agent sandbox like the one Card Style Studio
 is developed in:
 
 - **Docker-in-Docker**: `docker` CLI present and the process can start `dockerd`

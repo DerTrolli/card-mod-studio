@@ -2,18 +2,18 @@
   "config": {
     "step": {
       "user": {
-        "title": "Card-Mod Studio",
-        "description": "Adiciona as definições do Card-Mod Studio a esta página. O Studio em si é instalado como recurso do painel (HACS, Marketplace ou manualmente); esta entrada guarda só as definições dele."
+        "title": "Card Style Studio",
+        "description": "Adiciona as definições do Card Style Studio a esta página. O Studio em si é instalado como recurso do painel (HACS, Marketplace ou manualmente); esta entrada guarda só as definições dele."
       }
     },
     "abort": {
-      "single_instance_allowed": "O Card-Mod Studio já está configurado."
+      "single_instance_allowed": "O Card Style Studio já está configurado."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Definições do Card-Mod Studio",
+        "title": "Definições do Card Style Studio",
         "description": "Predefinições para todos neste Home Assistant. A escolha própria de um utilizador no Studio (⚙️ Definições, Minha paleta de cores) sempre tem prioridade.",
         "data": {
           "language": "Idioma",

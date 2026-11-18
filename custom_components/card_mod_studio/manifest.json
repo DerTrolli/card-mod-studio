@@ -1,6 +1,6 @@
 {
   "domain": "card_mod_studio",
-  "name": "Card-Mod Studio",
+  "name": "Card Style Studio",
   "codeowners": ["@DerTrolli"],
   "config_flow": true,
   "dependencies": ["websocket_api"],

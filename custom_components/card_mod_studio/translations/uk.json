@@ -2,18 +2,18 @@
   "config": {
     "step": {
       "user": {
-        "title": "Card-Mod Studio",
-        "description": "Додає налаштування Card-Mod Studio на цю сторінку. Сам Studio встановлюється як ресурс панелі (HACS, Marketplace або вручну); цей запис зберігає лише його налаштування."
+        "title": "Card Style Studio",
+        "description": "Додає налаштування Card Style Studio на цю сторінку. Сам Studio встановлюється як ресурс панелі (HACS, Marketplace або вручну); цей запис зберігає лише його налаштування."
       }
     },
     "abort": {
-      "single_instance_allowed": "Card-Mod Studio вже налаштовано."
+      "single_instance_allowed": "Card Style Studio вже налаштовано."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Налаштування Card-Mod Studio",
+        "title": "Налаштування Card Style Studio",
         "description": "Типові значення для всіх у цьому Home Assistant. Власний вибір користувача в Studio (⚙️ Налаштування, Моя палітра) завжди має пріоритет.",
         "data": {
           "language": "Мова",

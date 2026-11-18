@@ -142,7 +142,7 @@ function patch(DialogClass: CustomElementConstructor): void {
     try {
       closeOnYaml(this, changed);
     } catch (err) {
-      console.error('[Card-Mod Studio] Error closing Studio in the section dialog:', err);
+      console.error('[Card Style Studio] Error closing Studio in the section dialog:', err);
     }
     requestAnimationFrame(() => {
       try {
@@ -153,11 +153,11 @@ function patch(DialogClass: CustomElementConstructor): void {
           panel.hass = this.hass;
         }
       } catch (err) {
-        console.error('[Card-Mod Studio] Error during section-dialog injection:', err);
+        console.error('[Card Style Studio] Error during section-dialog injection:', err);
       }
     });
   };
-  console.info('[Card-Mod Studio] hui-dialog-edit-section patched successfully.');
+  console.info('[Card Style Studio] hui-dialog-edit-section patched successfully.');
 }
 
 /** Waits for Home Assistant's section dialog (sections views only) and patches it. */

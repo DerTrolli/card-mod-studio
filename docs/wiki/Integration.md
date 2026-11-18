@@ -2,8 +2,8 @@
 
 *New in 1.0 (beta). Optional.*
 
-Card-Mod Studio itself is a dashboard resource and needs nothing else. The
-small **Card-Mod Studio integration** adds an entry under **Settings →
+Card Style Studio itself is a dashboard resource and needs nothing else. The
+small **Card Style Studio integration** adds an entry under **Settings →
 Devices & services**, where an administrator sets defaults for everyone on
 this Home Assistant:
 
@@ -24,7 +24,7 @@ can be removed at any time (the Studio then goes back to its own defaults).
 
 ## Install
 
-HACS / the Marketplace installs Card-Mod Studio as a dashboard plugin and
+HACS / the Marketplace installs Card Style Studio as a dashboard plugin and
 can't add an integration from the same repository, so the integration is
 installed by hand:
 
@@ -34,7 +34,7 @@ installed by hand:
 2. Unzip it into your config folder so that you have
    `config/custom_components/card_mod_studio/manifest.json`.
 3. Restart Home Assistant.
-4. **Settings → Devices & services → + Add integration → Card-Mod Studio →
+4. **Settings → Devices & services → + Add integration → Card Style Studio →
    Submit.** (Only one entry is allowed.)
 5. On the entry, **Configure** opens the options.
 

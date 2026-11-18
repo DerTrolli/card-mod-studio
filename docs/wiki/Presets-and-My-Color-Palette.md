@@ -54,7 +54,7 @@ Also in 📚 My Presets:
   added to your list (a name that's already taken gets a number).
 
 The text carries the Studio's settings, not CSS, so the place you paste it
-into needs Card-Mod Studio too — another card, another user, another Home
+into needs Card Style Studio too — another card, another user, another Home
 Assistant. It doesn't carry the card's own hand-written entries or number
 sizes. Anything that isn't a Studio text is refused with an explanation and
 changes nothing.

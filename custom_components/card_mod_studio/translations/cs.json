@@ -2,18 +2,18 @@
   "config": {
     "step": {
       "user": {
-        "title": "Card-Mod Studio",
-        "description": "Přidá na tuto stránku nastavení Card-Mod Studio. Samotné Studio se instaluje jako zdroj ovládacího panelu (HACS, Marketplace nebo ručně); tato položka obsahuje jen jeho nastavení."
+        "title": "Card Style Studio",
+        "description": "Přidá na tuto stránku nastavení Card Style Studio. Samotné Studio se instaluje jako zdroj ovládacího panelu (HACS, Marketplace nebo ručně); tato položka obsahuje jen jeho nastavení."
       }
     },
     "abort": {
-      "single_instance_allowed": "Card-Mod Studio je již nastaveno."
+      "single_instance_allowed": "Card Style Studio je již nastaveno."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Nastavení Card-Mod Studio",
+        "title": "Nastavení Card Style Studio",
         "description": "Výchozí hodnoty pro všechny v tomto Home Assistant. Vlastní volba uživatele ve Studiu (⚙️ Nastavení, Moje paleta barev) má vždy přednost.",
         "data": {
           "language": "Jazyk",

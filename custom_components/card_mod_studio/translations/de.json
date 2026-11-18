@@ -2,18 +2,18 @@
   "config": {
     "step": {
       "user": {
-        "title": "Card-Mod Studio",
-        "description": "Fügt die Einstellungen von Card-Mod Studio auf dieser Seite hinzu. Card-Mod Studio selbst wird als Dashboard-Ressource installiert (HACS, Marketplace oder von Hand); dieser Eintrag enthält nur seine Einstellungen."
+        "title": "Card Style Studio",
+        "description": "Fügt die Einstellungen von Card Style Studio auf dieser Seite hinzu. Card Style Studio selbst wird als Dashboard-Ressource installiert (HACS, Marketplace oder von Hand); dieser Eintrag enthält nur seine Einstellungen."
       }
     },
     "abort": {
-      "single_instance_allowed": "Card-Mod Studio ist bereits eingerichtet."
+      "single_instance_allowed": "Card Style Studio ist bereits eingerichtet."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Einstellungen von Card-Mod Studio",
+        "title": "Einstellungen von Card Style Studio",
         "description": "Standards für alle in diesem Home Assistant. Die eigene Wahl eines Benutzers im Studio (⚙️ Einstellungen, Meine Farbpalette) hat Vorrang.",
         "data": {
           "language": "Sprache",

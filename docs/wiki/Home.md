@@ -1,14 +1,17 @@
-Welcome to the **Card-Mod Studio** wiki — the detailed manual. The
+Welcome to the **Card Style Studio** wiki — the detailed manual. The
 [README](https://github.com/DerTrolli/card-mod-studio#readme) covers what the
 project is and how to install it; these pages cover how everything works,
 module by module, plus recipes, troubleshooting, and exact per-card support.
 
-**Current version:** v1.0.0-beta.1 (pre-release; the stable release is v0.11.0; v1.0.0-beta.2 is in the works: Square corners, five more controls, "Let this module take over", the Studio in the Section configuration dialog, a pinned preview on phones). New in 1.0: [22 languages](Language-and-Settings), an optional [Settings integration](Integration), [conditional, entity-filter and nested containers](Container-Cards), [tile Features](Tile-Card#features-new-in-10-beta) and [📚 My Presets with copy/paste](Presets-and-My-Color-Palette). Everything else applies to both.
+**Current version:** v1.0.0-beta.1 (pre-release; the stable release is v0.11.0; v1.0.0-beta.2 is in the works: Square corners, five more controls, "Let this module take over", the Studio in the Section configuration dialog, a pinned preview on phones, and the new name). New in 1.0: [22 languages](Language-and-Settings), an optional [Settings integration](Integration), [conditional, entity-filter and nested containers](Container-Cards), [tile Features](Tile-Card#features-new-in-10-beta) and [📚 My Presets with copy/paste](Presets-and-My-Color-Palette). Everything else applies to both.
 
-## What is Card-Mod Studio?
+## What is Card Style Studio?
 
-A visual GUI editor for [card-mod](https://github.com/thomasloven/lovelace-card-mod)
-/ [UIX](https://uix.lf.technology/) styles in Home Assistant. It adds a
+The visual style editor for [UIX](https://uix.lf.technology/) and
+[card-mod](https://github.com/thomasloven/lovelace-card-mod) in Home Assistant.
+*Formerly Card-Mod Studio* — renamed in v1.0.0-beta.2 because it is just as
+much a UIX editor; see [The rename](https://github.com/DerTrolli/card-mod-studio#the-rename-card-mod-studio--card-style-studio).
+Your cards, resource, presets and settings carry over unchanged. It adds a
 **🎨 Style** button to the normal card editor; instead of hand-writing
 YAML + CSS + Jinja2, you use color pickers, sliders, and rule builders — and
 the correct `card_mod:`/`uix:` YAML is generated, previewed live, and saved
