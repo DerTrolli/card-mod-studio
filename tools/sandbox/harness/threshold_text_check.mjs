@@ -49,6 +49,19 @@ const waitIcon = async (want) => {
   for (let i = 0; i < 30; i++) { v = await iconColor(); if (v === want) return v; await wait(400); }
   throw new Error(`icon ${v}, want ${want}`);
 };
+/** Open the card's editor and the Studio. On HA 2025.9 a second open after
+ *  Cancel can time out in this driver (also without the Studio, and with
+ *  v1.0.0-beta.1): reload the dashboard once and try again. */
+const openStudio = async () => {
+  try {
+    await D.openCardEditor(page, 0);
+  } catch {
+    await D.gotoDashboard(page, URLPATH, { engine: false });
+    await D.enterEditMode(page);
+    await D.openCardEditor(page, 0);
+  }
+  await D.openStudio(page);
+};
 const rule = (n) => page.locator('cms-threshold-module .rule').nth(n);
 const addRule = () => page.locator('cms-threshold-module').getByRole('button', { name: '+ Add Rule' }).click();
 const studioRules = () => page.evaluate(() => {
@@ -64,8 +77,7 @@ try {
   await D.enterEditMode(page);
 
   await step('"is" starts from the current state and colours the icon while it matches', async () => {
-    await D.openCardEditor(page, 0);
-    await D.openStudio(page);
+    await openStudio();
     await D.setSectionEnabled(page, 'Threshold Colors', true);
     await addRule();
     await rule(0).locator('select').selectOption('is');
@@ -89,8 +101,7 @@ try {
   });
 
   await step('it reopens with the text rule, nothing in Advanced CSS', async () => {
-    await D.openCardEditor(page, 0);
-    await D.openStudio(page);
+    await openStudio();
     const s = await studioRules();
     need(s?.on && JSON.stringify(s.rules) === JSON.stringify(['is heating']) && s.adv === '', JSON.stringify(s));
     need((await rule(0).locator('select').inputValue()) === 'is' && (await rule(0).locator('input.text-value').inputValue()) === 'heating', 'controls differ');
@@ -98,8 +109,7 @@ try {
   });
 
   await step('"is not", and a text rule for unavailable checked before a number rule', async () => {
-    await D.openCardEditor(page, 0);
-    await D.openStudio(page);
+    await openStudio();
     await rule(0).locator('select').selectOption('is-not');
     const f0 = rule(0).locator('input.text-value');
     await f0.fill('off');
@@ -125,8 +135,7 @@ try {
 
   await step('an attribute (hvac_action) as the source', async () => {
     await setMode('heat', { hvac_action: 'heating' });
-    await D.openCardEditor(page, 0);
-    await D.openStudio(page);
+    await openStudio();
     await D.chooseOption(page.locator('cms-threshold-module select[aria-labelledby="lbl-value-read-from"]'), 'Attribute: hvac_action').catch(async () => {
       await page.locator('cms-threshold-module select[aria-labelledby="lbl-value-read-from"]').selectOption('hvac_action');
     });
@@ -145,8 +154,7 @@ try {
   });
 
   await step('a number typed into "is" becomes the number rule ==', async () => {
-    await D.openCardEditor(page, 0);
-    await D.openStudio(page);
+    await openStudio();
     const f0 = rule(0).locator('input.text-value');
     await f0.fill('12');
     await f0.press('Tab');
