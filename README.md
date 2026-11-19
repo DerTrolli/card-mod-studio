@@ -75,11 +75,11 @@ Apply a **solid color** or a **gradient** (with configurable angle) as the card 
 
 ### Threshold Colors
 
-The most powerful module. Define numeric rules that change visual properties based on a sensor's live value — no coding required.
+The most powerful module. Define rules that change visual properties based on an entity's live value — a number, or a state's text — no coding required.
 
 Each rule has three parts:
-- **Operator** — `<` `<=` `>` `>=` `==` `!=`
-- **Value** — the numeric threshold to compare against
+- **Operator** — `<` `<=` `>` `>=` `==` `!=` for numbers, or `is` / `is not` for text *(new in 1.0.0-beta.2)*
+- **Value** — the number to compare against, or the state's text (`heating`, `docked`, …) exactly as Home Assistant stores it
 - **Color** — the color to apply when the rule matches
 
 You can add as many rules as you need, plus a **default color** that applies when no rule matches. At runtime, card-mod/UIX evaluates the rules as a Jinja2 ternary chain against the live sensor state.
@@ -185,6 +185,7 @@ An optional **Card Style Studio integration** adds an entry under **Settings →
 - **"Let this module take over"**: when hand-written CSS overrides a module, one button removes exactly the overriding declarations — after showing which.
 - **Sections**: the 🎨 Style button in Home Assistant's Section configuration dialog (HA 2026.11) — every card in the section gets its own styling section; Advanced CSS styles the section itself with `:host { … }`.
 - **Phones**: the live preview is pinned at the top while you scroll the controls (Hide/Show).
+- **Threshold text rules** ([#41](https://github.com/DerTrolli/card-mod-studio/issues/41)): `is` / `is not` compare a state's text, e.g. `heating` → orange, `cooling` → blue, `error` → red.
 - **⚙️ Settings** shows which key is written (`uix:` with UIX installed, else `card_mod:`) and whether the optional integration is installed.
 - **New name: Card Style Studio** (formerly Card-Mod Studio), see below.
 
@@ -530,6 +531,7 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 31 | 📚 My Presets: rename, reorder, duplicate, delete; copy/paste a card's style or all presets as text | 🧪 v1.0.0 (beta.1) |
 | 32 | 1.0.0-beta.2: Square corners in Border & Radius; Font/Threshold text colour on alarm-panel and picture-elements and Animation on the heading card (measured); "Let this module take over" removes exactly the overriding Advanced CSS; the Studio in Home Assistant's Section configuration dialog (HA 2026.11); a pinned preview on phones; ⚙️ Settings shows the written key and the integration's status; large Jinja styles open fast again | 🧪 v1.0.0 (beta.2, unreleased) |
 | 33 | New name **Card Style Studio** (formerly Card-Mod Studio): UI in 22 languages, HACS name, integration title; Studio-written names `cms-` → `cstudio-` (old ones read, new ones written on save) | 🧪 v1.0.0 (beta.2, unreleased) |
+| 34 | Threshold Colors text rules `is` / `is not` (states like `heating`, `docked`; text attributes), checked before number rules; also per entities row | 🧪 v1.0.0 (beta.2, unreleased) |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

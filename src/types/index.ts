@@ -331,9 +331,17 @@ export interface FontModuleState {
 
 export interface ThresholdRule {
   id: string;
-  operator: '<' | '<=' | '>' | '>=' | '==' | '!=';
-  value: number;
+  /** `<` … `!=` compare the value as a number; `is` / `is-not` (v1.0.0-beta.2,
+   *  issue #41) compare it as text, exactly (`heating`, `docked`, …). */
+  operator: '<' | '<=' | '>' | '>=' | '==' | '!=' | 'is' | 'is-not';
+  /** A number for the number operators, the text for `is` / `is-not`. */
+  value: number | string;
   color: string;
+}
+
+/** True for the text operators (`is` / `is-not`). */
+export function isTextRule(rule: Pick<ThresholdRule, 'operator'>): boolean {
+  return rule.operator === 'is' || rule.operator === 'is-not';
 }
 
 export type ThresholdProperty =

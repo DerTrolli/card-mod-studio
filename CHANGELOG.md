@@ -84,6 +84,23 @@ Work in progress; not published yet.
   Assistant (checked: 2025.9, 2026.2) the section dialog is the small
   "Edit section" one without a preview, and the Style button isn't offered
   there; the cards in a section still each have their own Style button.
+- **Threshold text rules** ([#41](https://github.com/DerTrolli/card-mod-studio/issues/41)):
+  next to `<` … `!=`, a rule can be `is` / `is not` a text, for states that
+  are words: a thermostat's `heating` / `cooling` / `idle`, a vacuum's
+  `cleaning` / `docked` / `error`, a select's option. Written as
+  `states('…') == 'heating'` (an attribute: `state_attr('…', '…') | string ==
+  '…'`), so it is compared exactly as Home Assistant stores it, not as the
+  translated text the dashboard shows; the editor shows the current value
+  and starts a new text rule from it. Text rules are checked before the
+  number rules (which read a text state as 0), in the order entered, so
+  `is unavailable` works next to `< 5`. "Value read from" also offers text
+  attributes (e.g. `hvac_action`) while a text rule exists. A number typed
+  into `is` becomes the number rule `==`. The same in an entities card's
+  per-row rules. Fade stays numbers-only. A hand-written chain in exactly
+  this spelling is now read into Threshold Colors instead of staying in
+  Advanced CSS. Older versions keep a style with text rules as hand-written
+  CSS in Advanced CSS (it works unchanged); a preset or copied style with
+  text rules loses those rules there.
 - **A pinned preview on phones**: on a narrow panel the live preview now
   comes first and stays at the top while the modules scroll under it (a
   strip of at most about a quarter of the screen; a tall card scrolls

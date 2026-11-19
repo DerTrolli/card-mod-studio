@@ -31,7 +31,12 @@ const cond = () => pick<any>([
   { when: 'value', valueEntity: 'sensor.outside_temperature', valueOperator: pick(['<', '<=', '>', '>=', '==', '!=']), valueThreshold: pick([0, 20, -5.5, 100]) },
   { when: 'value', valueEntity: 'sensor.outside_temperature', valueAttribute: 'battery_level', valueOperator: '<=', valueThreshold: 15.5 },
 ]);
-const rules = () => Array.from({ length: 1 + Math.floor(rnd() * 3) }, (_, i) => ({ id: `r${i}`, operator: pick(['<', '<=', '>', '>=', '==', '!=']), value: pick([-10, 0, 10, 20.5, 50, 100]) + i, color: pick(COL) }));
+// v1.0.0-beta.2 (#41): text rules too — alone, mixed with number rules,
+// awkward characters included.
+const TEXTS = ['heating', 'idle', 'unavailable', 'on', "it's", 'a b', 'x\\y', 'Ünïcødé', '12', 'cleaning'];
+const rules = () => Array.from({ length: 1 + Math.floor(rnd() * 3) }, (_, i) => rnd() < 0.3
+  ? { id: `r${i}`, operator: pick(['is', 'is-not']), value: pick(TEXTS), color: pick(COL) }
+  : { id: `r${i}`, operator: pick(['<', '<=', '>', '>=', '==', '!=']), value: pick([-10, 0, 10, 20.5, 50, 100]) + i, color: pick(COL) });
 const stops = () => [{ id: 's1', value: 0, color: '#2196f3' }, ...(maybe(0.5) ? [{ id: 's2', value: 50, color: '#ffeb3b' }] : []), { id: 's3', value: 100, color: '#ff0000' }];
 
 function randomState(key: string, config: any): any {

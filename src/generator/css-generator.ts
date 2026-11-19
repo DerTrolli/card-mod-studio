@@ -21,6 +21,7 @@ import type {
   ColorStop,
   StyleCondition,
 } from '../types/index.js';
+import { isTextRule } from '../types/index.js';
 import { capsFor, hasOwnEntity, type CardCaps } from '../utils/card-caps.js';
 import {
   getCustomCardProfile,
@@ -998,18 +999,37 @@ function iconColorBlock(s: IconColorModuleState): string {
 /**
  * Sorts threshold rules into evaluation order: highest value first for `>`/`>=`
  * (so the largest matching threshold wins), lowest first for `<`/`<=`. The first
- * rule's operator decides the direction. Exported so the editor can show the
+ * number rule's operator decides the direction. Text rules (`is` / `is-not`,
+ * v1.0.0-beta.2) come first, in the order they were entered: a number rule
+ * reads a text state as 0 (`| float(0)`), so `< 5` placed before them would
+ * also catch `heating` or `unavailable`. Exported so the editor can show the
  * exact same order it will generate. Returns a new array; input is untouched.
  */
 export function sortThresholdRules(rules: ThresholdRule[]): ThresholdRule[] {
-  const firstOp = rules[0]?.operator ?? '>';
-  const sorted = [...rules];
+  const text = rules.filter(isTextRule);
+  const sorted = rules.filter((r) => !isTextRule(r));
+  const firstOp = sorted[0]?.operator ?? '>';
+  const num = (r: ThresholdRule) => Number(r.value);
   if (firstOp === '>' || firstOp === '>=') {
-    sorted.sort((a, b) => b.value - a.value);
+    sorted.sort((a, b) => num(b) - num(a));
   } else if (firstOp === '<' || firstOp === '<=') {
-    sorted.sort((a, b) => a.value - b.value);
+    sorted.sort((a, b) => num(a) - num(b));
   }
-  return sorted;
+  return [...text, ...sorted];
+}
+
+/** One rule's condition: `states('x') | float(0) > 3`, or for a text rule
+ *  `states('x') == 'heating'` (an attribute: `state_attr('x', 'a') | string
+ *  == '…'`, so a non-text attribute compares by its text too). */
+export function thresholdCondition(rule: ThresholdRule, entityId: string, attribute?: string): string {
+  const src = attribute
+    ? `state_attr('${jinjaStr(entityId)}', '${jinjaStr(attribute)}')`
+    : `states('${jinjaStr(entityId)}')`;
+  if (isTextRule(rule)) {
+    const left = attribute ? `${src} | string` : src;
+    return `${left} ${rule.operator === 'is' ? '==' : '!='} '${jinjaStr(String(rule.value))}'`;
+  }
+  return `${src} | float(0) ${rule.operator} ${rule.value}`;
 }
 
 /**
@@ -1024,15 +1044,12 @@ export function buildThresholdJinja(
   /** Rewrites each colour before it is written (Mushroom: `R, G, B`). */
   mapColor: (color: string) => string = (c) => c,
 ): string {
-  const stateExpr = attribute
-    ? `state_attr('${jinjaStr(entityId)}', '${jinjaStr(attribute)}') | float(0)`
-    : `states('${jinjaStr(entityId)}') | float(0)`;
   const sortedRules = sortThresholdRules(rules);
   let jinja = '{{ ';
   for (let i = 0; i < sortedRules.length; i++) {
     const rule = sortedRules[i];
     if (i > 0) jinja += ' else (';
-    jinja += `'${jinjaStr(mapColor(rule.color))}' if ${stateExpr} ${rule.operator} ${rule.value}`;
+    jinja += `'${jinjaStr(mapColor(rule.color))}' if ${thresholdCondition(rule, entityId, attribute)}`;
   }
   jinja += ` else '${jinjaStr(mapColor(defaultColor))}'`;
   jinja += ')'.repeat(sortedRules.length - 1);

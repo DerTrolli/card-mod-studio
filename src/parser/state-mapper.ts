@@ -35,6 +35,8 @@ import type {
   StyleCondition,
   DictSource,
 } from '../types/index.js';
+import { isTextRule } from '../types/index.js';
+import { normalizeRule } from '../utils/threshold-rules.js';
 import { parseCss, parseCssDetailed, isBareDeclarations, keptCmsKeyframes } from './css-parser.js';
 import { ANY_PREFIX_SRC, GRADIENT_MARKER_PROPERTIES, animationName } from '../utils/studio-names.js';
 import {
@@ -199,6 +201,31 @@ function coerceNumericValues<T extends { value: unknown }>(items: T[]): T[] {
   return out;
 }
 
+/** Longest text a text rule keeps (a state is at most 255 characters). */
+const TEXT_RULE_MAX = 255;
+const RULE_OPERATORS = new Set(['<', '<=', '>', '>=', '==', '!=', 'is', 'is-not']);
+
+/**
+ * Threshold rules from storage or a paste: a number rule gets a finite number
+ * (as coerceNumericValues); a text rule (`is` / `is-not`, v1.0.0-beta.2) keeps
+ * its text — one whose text is a number becomes the number rule `==` / `!=`
+ * (normalizeRule). An unknown operator, or a text rule without text, is
+ * dropped.
+ */
+function coerceRuleValues(items: ThresholdRule[]): ThresholdRule[] {
+  const out: ThresholdRule[] = [];
+  for (const item of items) {
+    if (!item || typeof item !== 'object' || !RULE_OPERATORS.has(item.operator as string)) continue;
+    if (isTextRule(item)) {
+      const v = typeof item.value === 'number' && Number.isFinite(item.value) ? String(item.value) : item.value;
+      if (typeof v === 'string' && v.length > 0 && v.length <= TEXT_RULE_MAX) out.push(normalizeRule(v === item.value ? item : { ...item, value: v }));
+      continue;
+    }
+    out.push(...coerceNumericValues([item]));
+  }
+  return out;
+}
+
 /**
  * Normalises a StudioState of ANY historical schema (e.g. a preset saved by
  * v0.6.x, before multi-property/gradient threshold and conditional accent
@@ -246,7 +273,7 @@ export function migrateStudioState(raw: unknown): StudioState {
   if (threshold.valueMode !== 'gradient') threshold.valueMode = 'switch';
   if (!Array.isArray(threshold.rules)) threshold.rules = [];
   // Very old presets stored a rule's / stop's value as text ("12.5").
-  threshold.rules = coerceNumericValues(threshold.rules);
+  threshold.rules = coerceRuleValues(threshold.rules);
   if (Array.isArray(threshold.colorStops)) threshold.colorStops = coerceNumericValues(threshold.colorStops);
   if (!Array.isArray(threshold.colorStops) || threshold.colorStops.length === 0) {
     threshold.colorStops = DEFAULT_THRESHOLD.colorStops.map((s) => ({ ...s }));
@@ -2380,6 +2407,13 @@ function mapFont(
 // Threshold module
 // ---------------------------------------------------------------------------
 
+/** Cheap pre-check: a value that may be a threshold chain — a number rule
+ *  (`| float(0)`) or a text rule (`if states(…) == '…'`, v1.0.0-beta.2). */
+const TEXT_RULE_HINT = /\bif\s+(?:states|state_attr)\([^)]*\)\s*(?:\|\s*string\s*)?[=!]=\s*'/;
+export function looksLikeThresholdJinja(value: string): boolean {
+  return value.includes('float(0)') || TEXT_RULE_HINT.test(value);
+}
+
 export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet' = 'css'): {
   entityId: string;
   /** Set when the rules read state_attr(entity, attribute) instead of the state. */
@@ -2387,7 +2421,7 @@ export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet'
   rules: ThresholdRule[];
   defaultColor: string;
 } | null {
-  if (!value.includes('float(0)')) return null;
+  if (!looksLikeThresholdJinja(value)) return null;
 
   // Color token accepts hex, a bare CSS color name, var(--xxx-color) — the
   // var form is what the palette presets (see cms-color-picker.ts) write,
@@ -2406,8 +2440,11 @@ export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet'
     format === 'rgb-triplet'
       ? TRIPLET_TOKEN_SRC
       : String.raw`#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+`;
+  // A text rule (v1.0.0-beta.2): `states('x') == 'heating'`, or for an
+  // attribute `state_attr('x', 'a') | string == '…'` (what thresholdCondition
+  // writes; the round-trip check below rejects any other spelling).
   const RULE_RE = new RegExp(
-    String.raw`'(${COLOR_TOKEN})'\s+if\s+${VALUE_SOURCE_SRC}\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+(?:\.\d+)?)`,
+    String.raw`'(${COLOR_TOKEN})'\s+if\s+${VALUE_SOURCE_SRC}\s*(?:\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+(?:\.\d+)?)|(?:\|\s*string\s*)?(==|!=)\s*'(${JINJA_STR_BODY})')`,
     'g',
   );
   // Trailing anchor is `)` or `}` ONLY — the final else is always followed
@@ -2429,7 +2466,7 @@ export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet'
   let match: RegExpExecArray | null;
 
   while ((match = RULE_RE.exec(trimmed)) !== null) {
-    const [, rawColor, stateEntity, attrEntity, attrName, operator, numStr] = match;
+    const [, rawColor, stateEntity, attrEntity, attrName, operator, numStr, textOp, textValue] = match;
     const color = format === 'rgb-triplet' ? fromRgbTriplet(rawColor) : rawColor;
     if (color === null) return null;
     const ruleEntity = unescapeJinjaStr((stateEntity ?? attrEntity)!);
@@ -2439,12 +2476,11 @@ export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet'
     if (idx > 0 && (ruleEntity !== entityId || ruleAttr !== attribute)) return null;
     entityId = ruleEntity;
     attribute = ruleAttr;
-    rules.push({
-      id: String(idx++),
-      operator: operator as ThresholdRule['operator'],
-      value: parseFloat(numStr),
-      color,
-    });
+    rules.push(
+      textOp !== undefined
+        ? { id: String(idx++), operator: textOp === '==' ? 'is' : 'is-not', value: unescapeJinjaStr(textValue), color }
+        : { id: String(idx++), operator: operator as ThresholdRule['operator'], value: parseFloat(numStr), color },
+    );
   }
 
   if (rules.length === 0 || !entityId) return null;
@@ -2543,7 +2579,7 @@ export function parseEntityRowCss(css: string, rowEntity?: string): EntitiesRowS
   };
 
   const iconVal = valueOf('--state-icon-color', '--paper-item-icon-color');
-  if (iconVal.includes('float(0)')) {
+  if (looksLikeThresholdJinja(iconVal)) {
     const parsed = parseThresholdJinja(iconVal);
     // Rows have no attribute-threshold UI — an attribute-form expression
     // would silently lose its state_attr() source on regeneration, so it
@@ -2565,7 +2601,7 @@ export function parseEntityRowCss(css: string, rowEntity?: string): EntitiesRowS
   }
 
   const textVal = valueOf('color');
-  if (textVal.includes('float(0)')) {
+  if (looksLikeThresholdJinja(textVal)) {
     const parsed = parseThresholdJinja(textVal);
     if (parsed && !parsed.attribute && (!rowEntity || parsed.entityId === rowEntity)) {
       style.textMode = 'threshold';

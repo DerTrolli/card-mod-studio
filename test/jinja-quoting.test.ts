@@ -303,6 +303,14 @@ const SITES: Site[] = [
     read: (s) => s.threshold.defaultColor,
     roundTrips: false,
   },
+  {
+    // v1.0.0-beta.2 (#41): a text rule's text is a Jinja string literal too.
+    name: 'Threshold: text rule',
+    build: (v) => ({ threshold: { ...E.threshold, enabled: true, entityId: 'sensor.x', properties: ['icon-color'], rules: [{ id: '0', operator: 'is', value: v, color: 'red' }], defaultColor: 'grey' } }),
+    skeleton: ['{{ S if states(S) == S else S }}'],
+    literals: [['red', 'sensor.x', 'V', 'grey']],
+    read: (s) => s.threshold.rules[0]?.value,
+  },
 ];
 
 describe.each(SITES)('$name', (site) => {

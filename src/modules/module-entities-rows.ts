@@ -1,6 +1,8 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, HomeAssistant, ThresholdRule } from '../types/index.js';
+import { isTextRule } from '../types/index.js';
+import { commitTextRuleValue, normalizeRule, rawRuleValue, revertTextRuleValue, withOperator } from '../utils/threshold-rules.js';
 import {
   moduleStyles, renderOverrideHint, onHeaderKeydown, renderResetButton, renderDefaultOption,
   guardSliderTouch, nameSwitches, prepareSliders,
@@ -228,6 +230,21 @@ export class EntitiesRowsModule extends LitElement {
       .rule select {
         width: 64px;
         flex: 0 0 auto;
+      }
+      .rule select.text-op {
+        width: auto;
+        min-width: 64px;
+        max-width: 132px;
+      }
+      .rule input.text-value {
+        flex: 1 1 96px;
+        width: auto;
+        min-width: 72px;
+        max-width: 180px;
+      }
+      .now-value {
+        margin-top: 4px;
+        overflow-wrap: anywhere;
       }
       .rule input.num {
         flex: 1 1 64px;
@@ -640,6 +657,8 @@ export class EntitiesRowsModule extends LitElement {
   ) {
     const icon = prop === 'icon';
     const named = (what: string) => (rowLabel ? t('rows.named', { what, row: rowLabel }) : what);
+    // Text rules (v1.0.0-beta.2) compare the row entity's raw state.
+    const now = rawRuleValue(this.hass, this._rowEntity(rowKey));
     return html`
       <div class="rules-container">
         <span class="rule-label">${t('threshold.rulesLabel')}</span>
@@ -647,11 +666,14 @@ export class EntitiesRowsModule extends LitElement {
           <div class="rule">
             <span class="rule-label">${t('threshold.ifValue')}</span>
             <select
+              class=${isTextRule(rule) ? 'text-op' : ''}
               aria-label=${named(t(icon ? 'rows.iconRuleOp' : 'rows.textRuleOp', { n: i + 1 }))}
               .value=${rule.operator}
-              @change=${(e: Event) => this._updateRule(rowKey, prop, i, {
-                operator: (e.target as HTMLSelectElement).value as ThresholdRule['operator'],
-              })}
+              @change=${(e: Event) => {
+                let next = withOperator(rule, (e.target as HTMLSelectElement).value as ThresholdRule['operator']);
+                if (isTextRule(next) && !isTextRule(rule) && now && isTextRule(normalizeRule({ ...next, value: now }))) next = { ...next, value: now };
+                this._updateRule(rowKey, prop, i, { operator: next.operator, value: next.value });
+              }}
             >
               <option value="<"  ?selected=${rule.operator === '<'}>&lt;</option>
               <option value="<=" ?selected=${rule.operator === '<='}>&lt;=</option>
@@ -659,23 +681,43 @@ export class EntitiesRowsModule extends LitElement {
               <option value=">=" ?selected=${rule.operator === '>='}>&gt;=</option>
               <option value="==" ?selected=${rule.operator === '=='}>==</option>
               <option value="!=" ?selected=${rule.operator === '!='}>!=</option>
+              <option value="is" ?selected=${rule.operator === 'is'}>${t('threshold.opIs')}</option>
+              <option value="is-not" ?selected=${rule.operator === 'is-not'}>${t('threshold.opIsNot')}</option>
             </select>
-            <input
-              type="text"
-              class="num"
-              aria-label=${t(icon ? 'rows.iconRuleValue' : 'rows.textRuleValue', { n: i + 1 })}
-              aria-invalid="false"
-              spellcheck="false"
-              autocomplete="off"
-              .value=${String(rule.value)}
-              @input=${markNumberInput}
-              @change=${(e: Event) => {
-                // Empty / unparseable: keep the previous value (cue shows until blur).
-                const n = commitNumberInput(e);
-                if (n !== undefined) this._updateRule(rowKey, prop, i, { value: n });
-              }}
-              @blur=${(e: Event) => revertNumberInput(e, rule.value)}
-            />
+            ${isTextRule(rule)
+              ? html`<input
+                  type="text"
+                  class="text-value"
+                  aria-label=${named(t('threshold.ruleText', { n: i + 1 }))}
+                  aria-invalid="false"
+                  spellcheck="false"
+                  autocomplete="off"
+                  placeholder=${now ?? ''}
+                  .value=${String(rule.value)}
+                  @change=${(e: Event) => {
+                    const v = commitTextRuleValue(e);
+                    if (v === undefined) return;
+                    const next = normalizeRule({ ...rule, value: v });
+                    this._updateRule(rowKey, prop, i, { operator: next.operator, value: next.value });
+                  }}
+                  @blur=${(e: Event) => revertTextRuleValue(e, String(rule.value))}
+                />`
+              : html`<input
+                  type="text"
+                  class="num"
+                  aria-label=${t(icon ? 'rows.iconRuleValue' : 'rows.textRuleValue', { n: i + 1 })}
+                  aria-invalid="false"
+                  spellcheck="false"
+                  autocomplete="off"
+                  .value=${String(rule.value)}
+                  @input=${markNumberInput}
+                  @change=${(e: Event) => {
+                    // Empty / unparseable: keep the previous value (cue shows until blur).
+                    const n = commitNumberInput(e);
+                    if (n !== undefined) this._updateRule(rowKey, prop, i, { value: n });
+                  }}
+                  @blur=${(e: Event) => revertNumberInput(e, Number(rule.value))}
+                />`}
             <span class="rule-label">→</span>
             <cms-color-picker
               label=${named(t(icon ? 'rows.iconRuleColor' : 'rows.textRuleColor', { n: i + 1 }))}
@@ -687,6 +729,9 @@ export class EntitiesRowsModule extends LitElement {
           </div>
         `)}
         <button class="add-rule-btn" aria-label=${named(t(icon ? 'rows.addIconRule' : 'rows.addTextRule'))} @click=${() => this._addRule(rowKey, prop)}>${t('threshold.addRule')}</button>
+        ${rules.some(isTextRule)
+          ? html`<div class="hint now-value">${now === null ? t('threshold.textHint') : t('threshold.nowValue', { value: now })}</div>`
+          : nothing}
         <div class="control-row" style="margin-top:4px">
           <span class="control-label">${t('threshold.defaultColor')}</span>
           <div class="control-right">
@@ -723,6 +768,12 @@ export class EntitiesRowsModule extends LitElement {
         textDefault: mode === 'threshold' ? (current.textDefault ?? '#888888') : undefined,
       });
     }
+  }
+
+  /** The entity of row `rowKey` (its index in `rows`). */
+  private _rowEntity(rowKey: string): string {
+    const r = this.rows[Number(rowKey)];
+    return typeof r === 'string' ? r : (r?.entity ?? '');
   }
 
   private _addRule(rowKey: string, prop: 'icon' | 'text') {

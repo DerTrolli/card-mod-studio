@@ -1,4 +1,5 @@
-The most powerful module: colors driven by a **live numeric value**, with no
+The most powerful module: colors driven by a **live value** (a number, or
+since v1.0.0-beta.2 a state's text such as `heating` or `docked`), with no
 YAML or Jinja2 to write.
 
 <img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/07%20Threshold%20Fade.png" alt="Fade mode" width="630">
@@ -49,6 +50,32 @@ back as rules when the card is reopened (before v0.11.0, v0.10 and
 later showed Threshold Colors switched off with the expression under
 Advanced CSS; v0.8 and v0.9 reordered the rules on the next save).
 
+### Text rules: is / is not *(v1.0.0-beta.2)*
+
+Next to the number operators, a rule can compare the value **as text**:
+`is` / `is not`, for states that are words rather than numbers. A thermostat's
+action — `heating` orange, `cooling` blue, default grey — or a vacuum —
+`cleaning` green, `error` red, `docked` grey — or any select, person or
+media player. The rules can also read a text attribute (Value read from →
+e.g. `hvac_action`); the dropdown offers text attributes while a text rule
+exists.
+
+- The text is compared **exactly as Home Assistant stores it**: `heating`, not
+  the translated *Heating* / *Heizt* the dashboard shows, and case matters.
+  The editor shows the value right now under the rules, and switching a rule
+  to `is` fills in the current state.
+- Text rules are checked **first**, in the order you entered them, then the
+  number rules. That way `is unavailable` works next to `< 5` (a number rule
+  reads `unavailable` as 0).
+- A number typed into `is` / `is not` becomes the number rule `==` / `!=`,
+  which compares the same thing.
+- Fade mode stays numbers-only.
+- A hand-written chain in exactly this spelling —
+  `{{ 'orange' if states('climate.hall') == 'heating' else 'grey' }}` — is now
+  read into the module when the card is opened (it stayed in Advanced CSS
+  before); any other spelling (`is_state(…)`, double quotes, extra conditions)
+  stays hand-written.
+
 ## Fade mode (gradient)
 
 Instead of discrete steps, define **value → color points**; the color blends
@@ -69,8 +96,9 @@ the field. `1,000` is refused rather than read as 1. Values from about
 
 If the entity's value is `unavailable`, `unknown` or missing, it counts as 0
 in the rules (the generated template reads it with `| float(0)`), so a Fade
-shows its lowest colour and a rule such as `<= 12.5` matches. Use an "is not
-unavailable" check in your own CSS if that matters.
+shows its lowest colour and a rule such as `<= 12.5` matches. Since
+v1.0.0-beta.2 a text rule `is unavailable` handles that in the module: it is
+checked before the number rules.
 
 ## Generated YAML
 
