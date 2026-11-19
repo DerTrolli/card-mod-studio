@@ -3,7 +3,7 @@ Welcome to the **Card Style Studio** wiki — the detailed manual. The
 project is and how to install it; these pages cover how everything works,
 module by module, plus recipes, troubleshooting, and exact per-card support.
 
-**Current version:** v1.0.0-beta.1 (pre-release; the stable release is v0.11.0; v1.0.0-beta.2 is in the works: Square corners, five more controls, "Let this module take over", the Studio in the Section configuration dialog, a pinned preview on phones, and the new name). New in 1.0: [22 languages](Language-and-Settings), an optional [Settings integration](Integration), [conditional, entity-filter and nested containers](Container-Cards), [tile Features](Tile-Card#features-new-in-10-beta) and [📚 My Presets with copy/paste](Presets-and-My-Color-Palette). Everything else applies to both.
+**Current version:** v1.0.0-beta.2 (pre-release, 2026-11-19; the stable release is v0.11.0). New in beta.2: the new name, [Threshold text rules](Threshold-Colors#text-rules-is--is-not-v100-beta2) (`is` / `is not`), Square corners, "Let this module take over", the Studio in the Section configuration dialog, a pinned preview on phones and five more controls. New in 1.0: [22 languages](Language-and-Settings), an optional [Settings integration](Integration), [conditional, entity-filter and nested containers](Container-Cards), [tile Features](Tile-Card#features-new-in-10-beta) and [📚 My Presets with copy/paste](Presets-and-My-Color-Palette). Everything else applies to both.
 
 ## What is Card Style Studio?
 

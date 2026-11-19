@@ -178,7 +178,7 @@ The first time you open it, a short notice asks which language to use — **Auto
 
 An optional **Card Style Studio integration** adds an entry under **Settings → Devices & services** where an administrator sets defaults for everyone: the language, whether users are asked for one, and the default ON/OFF colours. A user's own choice still wins. It's installed by hand from the release's `card_mod_studio.zip` (see [Installation](#optional-the-settings-integration)) and is translated into the same 22 languages.
 
-### New in 1.0.0-beta.2 *(not released yet)*
+### New in 1.0.0-beta.2 *(pre-release)*
 
 - **Square corners** in Border & Radius (sharp corners were only possible by hand).
 - **Five more controls**, measured: Font → Text color and Threshold → Text Color on the alarm panel (its title) and picture-elements (its labels); Animation on the heading card (without Glow, Spin and Gradient Shift).
@@ -529,9 +529,9 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 29 | Optional integration (Settings → Devices & services): site-wide language, language question on/off, default ON/OFF colours, pushed live to open Studios; translated into the same 22 languages | 🧪 v1.0.0 (beta.1) |
 | 30 | Structure: `conditional` and `entity-filter` cards, containers nested inside containers (any depth, entities rows and tile Features inside), tile **Features** module (height, corner radius, colour) | 🧪 v1.0.0 (beta.1) |
 | 31 | 📚 My Presets: rename, reorder, duplicate, delete; copy/paste a card's style or all presets as text | 🧪 v1.0.0 (beta.1) |
-| 32 | 1.0.0-beta.2: Square corners in Border & Radius; Font/Threshold text colour on alarm-panel and picture-elements and Animation on the heading card (measured); "Let this module take over" removes exactly the overriding Advanced CSS; the Studio in Home Assistant's Section configuration dialog (HA 2026.11); a pinned preview on phones; ⚙️ Settings shows the written key and the integration's status; large Jinja styles open fast again | 🧪 v1.0.0 (beta.2, unreleased) |
-| 33 | New name **Card Style Studio** (formerly Card-Mod Studio): UI in 22 languages, HACS name, integration title; Studio-written names `cms-` → `cstudio-` (old ones read, new ones written on save) | 🧪 v1.0.0 (beta.2, unreleased) |
-| 34 | Threshold Colors text rules `is` / `is not` (states like `heating`, `docked`; text attributes), checked before number rules; also per entities row | 🧪 v1.0.0 (beta.2, unreleased) |
+| 32 | 1.0.0-beta.2: Square corners in Border & Radius; Font/Threshold text colour on alarm-panel and picture-elements and Animation on the heading card (measured); "Let this module take over" removes exactly the overriding Advanced CSS; the Studio in Home Assistant's Section configuration dialog (HA 2026.11); a pinned preview on phones; ⚙️ Settings shows the written key and the integration's status; large Jinja styles open fast again | 🧪 v1.0.0 (beta.2) |
+| 33 | New name **Card Style Studio** (formerly Card-Mod Studio): UI in 22 languages, HACS name, integration title; Studio-written names `cms-` → `cstudio-` (old ones read, new ones written on save) | 🧪 v1.0.0 (beta.2) |
+| 34 | Threshold Colors text rules `is` / `is not` (states like `heating`, `docked`; text attributes), checked before number rules; also per entities row | 🧪 v1.0.0 (beta.2) |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.
