@@ -52,9 +52,11 @@ Card Style Studio is in the **HACS default store**:
 
 Pre-releases are published as GitHub *pre-releases*. To opt in:
 
-- **Marketplace (HA 2026.11 and newer):** turn on the **Pre-release** switch
-  of the Card Style Studio repository. A specific version (an older one, or
-  a beta) can be installed from the repository's menu in the Marketplace.
+- **Marketplace (HA 2026.11 and newer):** open the Marketplace → **Card Style
+  Studio** → ⋮ (top right) → **Include pre-releases** (the entry then reads
+  *Exclude pre-releases*, and the page lists *Pre-releases included*). The
+  same menu has **Install another version** for a specific version, an older
+  one or a beta.
 - **HACS (HA before 2026.11):** open the Card Style Studio entry → ⋮ →
   **Redownload** → enable *"Show beta versions"*.
 
