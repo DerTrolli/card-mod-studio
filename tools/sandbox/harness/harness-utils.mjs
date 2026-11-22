@@ -21,6 +21,36 @@
  */
 export const MOUNT_HELPER_SRC = `(() => {
   if (window.__cmsMount) return;
+  // Since 1.0 a styled card opens with its modules closed (the summaries say
+  // what each does). The checks that mount a panel themselves, outside Home
+  // Assistant's card editor, inspect what is INSIDE a module (parsed state,
+  // pickers, rows); for them an enabled module opens on its first render, as
+  // before 1.0 — what a user gets by clicking its header. Panels in the real
+  // card / section dialog (click driver, functional UI check, simulations)
+  // are left alone, so those keep checking the shipped behaviour.
+  const MODULES = ['cms-font-module', 'cms-filter-module', 'cms-accent-color-module', 'cms-icon-color-module',
+    'cms-threshold-module', 'cms-background-module', 'cms-animation-module', 'cms-border-module',
+    'cms-features-module', 'cms-heading-style-module'];
+  const inRealDialog = (el) => {
+    for (let p = el; p; p = p.parentElement || (p.getRootNode && p.getRootNode().host)) {
+      if (p.tagName && p.tagName.startsWith('HUI-DIALOG')) return true;
+    }
+    return false;
+  };
+  for (const tag of MODULES) {
+    customElements.whenDefined(tag).then(() => {
+      const C = customElements.get(tag);
+      if (!C || C.prototype.__cmsHarnessOpen) return;
+      const orig = C.prototype.firstUpdated;
+      C.prototype.firstUpdated = function (...args) {
+        if (orig) orig.apply(this, args);
+        if (this.state && !inRealDialog(this)) {
+          this._open = !!(this.state.enabled || (this.numberSize && this.state.numberSizeEnabled));
+        }
+      };
+      C.prototype.__cmsHarnessOpen = true;
+    });
+  }
   window.__cmsMount = (host) => {
     const ha = document.querySelector('home-assistant');
     (ha?.shadowRoot || document.body).appendChild(host);
