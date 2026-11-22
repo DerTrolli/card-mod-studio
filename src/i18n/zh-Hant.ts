@@ -274,7 +274,7 @@ export const zhHant: Record<MessageKey, string> = {
   'panel.uixMacrosCoexist': '此面板還有 uix: 巨集/billets——Studio 的編輯會更新 card_mod:，但 UIX 會繼續原樣顯示您的 uix: 樣式（巨集/billets 無法自動同步）。',
   'panel.uixMacroKept': '此面板的 uix: 樣式使用了巨集/billets。它們保持不變——呼叫它們的那部分樣式保留在進階 CSS 中。',
   'panel.nothingToStyle': '此面板不顯示任何內容，因此沒有可設定樣式的部分——進階 CSS 仍然生效。',
-  'panel.unrecognised': '部分現有樣式未被識別——已保留在進階 CSS 中。',
+  'panel.unrecognised': '此卡片的部分樣式不由任何模組控制——它們原樣保留在進階 CSS 中。',
   'panel.noCard': '未選擇面板。',
   'panel.preview': '預覽',
   'panel.previewHide': '隱藏',

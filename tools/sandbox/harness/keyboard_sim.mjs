@@ -34,7 +34,8 @@ const step = async (name, fn) => {
 /** The focused element, through shadow roots: what a keyboard user is on. */
 const active = () => page.evaluate(() => {
   let a = document.activeElement;
-  while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
+  let host = null; // the component around the focused element (its label may be slotted text)
+  while (a && a.shadowRoot && a.shadowRoot.activeElement) { host = a; a = a.shadowRoot.activeElement; }
   if (!a) return null;
   let mod = '';
   for (let p = a; p; p = p.parentElement || p.getRootNode().host) {
@@ -43,8 +44,8 @@ const active = () => page.evaluate(() => {
   let inPanel = false;
   for (let p = a; p; p = p.parentElement || p.getRootNode().host) if (p.tagName === 'CMS-PANEL') { inPanel = true; break; }
   return {
-    tag: a.tagName.toLowerCase(), role: a.getAttribute('role') || '', tab: a.dataset?.tab || '', selected: a.getAttribute('aria-selected'),
-    expanded: a.getAttribute('aria-expanded'), label: (a.getAttribute('aria-label') || a.title || a.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60),
+    tag: a.tagName.toLowerCase(), type: a.type || '', role: a.getAttribute('role') || '', tab: a.dataset?.tab || '', selected: a.getAttribute('aria-selected'),
+    expanded: a.getAttribute('aria-expanded'), label: (a.getAttribute('aria-label') || a.title || (a.textContent || '').trim() || host?.getAttribute?.('aria-label') || (host?.textContent || '').trim()).replace(/\s+/g, ' ').trim().slice(0, 60),
     cls: typeof a.className === 'string' ? a.className : '', mod, inPanel,
   };
 });
@@ -109,7 +110,8 @@ try {
   });
 
   await step('Tab to Background\'s switch, Space switches it on (and opens it)', async () => {
-    const { presses } = await tabTo((x) => x.mod === 'cms-background-module' && x.tag === 'ha-switch', 'Background switch');
+    // focus lands on the switch's own control inside ha-switch (role "switch")
+    const { presses } = await tabTo((x) => x.mod === 'cms-background-module' && x.role === 'switch', 'Background switch');
     await page.keyboard.press('Space');
     await wait(400);
     const s = await studioState();
@@ -135,7 +137,8 @@ try {
   });
 
   await step('Enter in a text field (the colour value) stays in the Studio', async () => {
-    const { a } = await tabTo((x) => x.mod === 'cms-background-module' && x.tag === 'input', 'text field', 10, 'Shift+Tab').catch(() => tabTo((x) => x.mod === 'cms-background-module' && x.tag === 'input', 'text field', 10));
+    const isText = (x) => x.mod === 'cms-background-module' && x.tag === 'input' && x.type === 'text';
+    const { a } = await tabTo(isText, 'text field', 10).catch(() => tabTo(isText, 'text field', 10, 'Shift+Tab'));
     await page.keyboard.press('Enter');
     await wait(400);
     need(await page.locator('cms-panel').first().isVisible(), 'the dialog closed');

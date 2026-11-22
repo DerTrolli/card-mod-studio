@@ -70,6 +70,10 @@ options only change in a backward-compatible way within 1.x.
   the hint line; picking a part of the preview works the same.
 - **One wording for every condition: "Apply when"** (some said "Reacts
   to"), and "State" for the entity's own value in every "Value read from".
+- **A calmer note for CSS no module controls**: "Some of this card's
+  styles aren't controlled by a module — they're kept, unchanged, in
+  Advanced CSS" (was "Some existing styles weren't recognised — preserved
+  in Advanced CSS", which read like something had broken).
 - **Advanced CSS is always last**: on an entities card, Entity Rows now
   come before it.
 

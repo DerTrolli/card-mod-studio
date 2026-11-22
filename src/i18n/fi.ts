@@ -274,7 +274,7 @@ export const fi: Record<MessageKey, string> = {
   'panel.uixMacrosCoexist': 'Tällä kortilla on myös uix:-makroja/billettejä — Studion muutokset päivittävät card_mod:-avaimen, mutta UIX näyttää edelleen uix:-tyylisi muuttumattomana (makroja/billettejä ei voi synkronoida automaattisesti).',
   'panel.uixMacroKept': 'Tämän kortin uix:-tyyli käyttää makroja/billettejä. Ne säilyvät ennallaan — tyylin osa, joka kutsuu niitä, jää Lisä-CSS:ään.',
   'panel.nothingToStyle': 'Tämä kortti ei näytä mitään, joten muotoiltavaa ei ole — Lisä-CSS on silti käytössä.',
-  'panel.unrecognised': 'Joitakin olemassa olevia tyylejä ei tunnistettu — ne säilytetään Lisä-CSS:ssä.',
+  'panel.unrecognised': 'Mikään moduuli ei ohjaa kaikkia tämän kortin tyylejä — ne säilyvät muuttumattomina Lisä-CSS:ssä.',
   'panel.noCard': 'Korttia ei ole valittu.',
   'panel.preview': 'Esikatselu',
   'panel.previewHide': 'Piilota',

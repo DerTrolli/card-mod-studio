@@ -274,7 +274,7 @@ export const pl: Record<MessageKey, string> = {
   'panel.uixMacrosCoexist': 'Ta karta ma też makra/billety uix: — zmiany w Studio aktualizują card_mod:, ale UIX nadal będzie wyświetlać Twój styl uix: bez zmian (makr/billetów nie da się automatycznie synchronizować).',
   'panel.uixMacroKept': 'Styl uix: tej karty używa makr/billetów. Pozostają bez zmian — część stylu, która je wywołuje, zostaje w Zaawansowanym CSS.',
   'panel.nothingToStyle': 'Ta karta nic nie wyświetla, więc nie ma czego stylizować — Zaawansowany CSS nadal działa.',
-  'panel.unrecognised': 'Niektóre istniejące style nie zostały rozpoznane — zachowano je w Zaawansowanym CSS.',
+  'panel.unrecognised': 'Niektórych stylów tej karty nie obsługuje żaden moduł — pozostają bez zmian w Zaawansowanym CSS.',
   'panel.noCard': 'Nie wybrano karty.',
   'panel.preview': 'Podgląd',
   'panel.previewHide': 'Ukryj',

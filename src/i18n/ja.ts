@@ -274,7 +274,7 @@ export const ja: Record<MessageKey, string> = {
   'panel.uixMacrosCoexist': 'このカードには uix: のマクロ/billets もあります — Studio での編集は card_mod: を更新しますが、UIX は uix: のスタイルを変更せずに表示し続けます（マクロ/billets は自動で同期できません）。',
   'panel.uixMacroKept': 'このカードの uix: スタイルはマクロ/billets を使っています。それらはそのまま保持され、呼び出している部分は高度な CSS に残ります。',
   'panel.nothingToStyle': 'このカードは何も表示しないため、スタイルを付ける対象がありません — 高度な CSS は引き続き適用されます。',
-  'panel.unrecognised': '既存のスタイルの一部を認識できませんでした — 高度な CSS に保持されています。',
+  'panel.unrecognised': 'このカードのスタイルの一部はどのモジュールでも制御されていません — 高度な CSS にそのまま保持されています。',
   'panel.noCard': 'カードが選択されていません。',
   'panel.preview': 'プレビュー',
   'panel.previewHide': '非表示',

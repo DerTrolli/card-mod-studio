@@ -300,7 +300,7 @@ export const en = {
   'panel.uixMacroKept':
     "This card's uix: style uses macros/billets. They are kept as they are — the part of the style that calls them stays in Advanced CSS.",
   'panel.nothingToStyle': 'This card renders nothing, so there is nothing to style — Advanced CSS still applies.',
-  'panel.unrecognised': "Some existing styles weren't recognised — preserved in Advanced CSS.",
+  'panel.unrecognised': "Some of this card's styles aren't controlled by a module — they're kept, unchanged, in Advanced CSS.",
   'panel.noCard': 'No card selected.',
   'panel.preview': 'Preview',
   'panel.previewHide': 'Hide',

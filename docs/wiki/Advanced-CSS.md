@@ -41,8 +41,10 @@ hand-written rules, including ones with `!important`, stay here and are
 written back unchanged; on a Bubble card the card's own `styles:` option is
 never touched either.
 
-If a card opens with the note *"Some existing styles weren't recognised —
-preserved in Advanced CSS"*, that's this mechanism, working. (Containers and
+If a card opens with the note *"Some of this card's styles aren't
+controlled by a module — they're kept, unchanged, in Advanced CSS"*
+("Some existing styles weren't recognised" before 1.0), that's this
+mechanism, working; it shows for your own rules here too. (Containers and
 other cards that have no modules don't show it: their CSS lives here by
 design.)
 

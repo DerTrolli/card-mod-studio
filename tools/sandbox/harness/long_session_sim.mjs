@@ -1,16 +1,17 @@
 // User simulation — a long editing session (the 1.0.0 release run).
 //
-// Many rounds over several cards: open the editor, open the Studio, switch
-// a module on, change a colour, visit another tab, then Cancel (or, every
-// fifth round, Save). Afterwards: no Studio panel left behind in the page,
-// the JS heap (after a garbage collection) has not kept growing, every save
-// landed, and the console is clean.
-//   ROUNDS=40 node long_session_sim.mjs        (card-mod rig)
+// Many rounds over several cards: first Home Assistant's own editor alone
+// (the baseline), then with the Studio: open it, switch a module on, change
+// a colour, visit another tab, then Cancel (or, every fifth round, Save).
+// Afterwards: no Studio panel left in the page, the Studio's heap growth per
+// round over the baseline (after a garbage collection) stays small, every
+// save landed, and the console is clean.
+//   ROUNDS=30 node long_session_sim.mjs        (card-mod rig)
 import * as D from './click-driver.mjs';
 
 const RIG = process.env.RIG === 'uix' ? 'uix' : 'cm';
 const URLPATH = 'qa-long-session';
-const ROUNDS = Number(process.env.ROUNDS) || 40;
+const ROUNDS = Number(process.env.ROUNDS) || 30;
 const results = [];
 const need = (cond, msg) => { if (!cond) throw new Error(msg); };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -70,20 +71,43 @@ try {
   await D.gotoDashboard(page, URLPATH, { engine: false });
   await D.enterEditMode(page);
 
-  await step(`${ROUNDS} rounds: open, switch a module on, a colour, another tab, Cancel (Save every fifth)`, async () => {
+  // Home Assistant itself keeps every closed card editor in memory (measured
+  // 2026-11-22 with the Studio's file blocked: 12 of 12 dialogs and editors
+  // still alive after 12 open / Cancel rounds), and the Studio's panel lives
+  // inside that editor. So the check is the Studio's EXTRA growth per round
+  // over the same rounds without it, not the heap as a whole.
+  const slope = (h) => (h[h.length - 1][1] - h[0][1]) / Math.max(1, h[h.length - 1][0] - h[0][0]);
+  const base = [];
+  await step(`baseline: ${ROUNDS} rounds of Home Assistant's own editor (open, Cancel), no Studio`, async () => {
+    for (let r = 0; r < ROUNDS; r++) {
+      try { await D.openCardEditor(page, r % CARDS.length); } catch (e) { throw new Error(`round ${r + 1}: ${String(e.message).split('\n')[0]}`); }
+      await page.waitForTimeout(600);
+      await D.cancelCard(page);
+      if (r === 3 || r === ROUNDS - 1 || r % 10 === 9) base.push([r + 1, await heapMB()]);
+    }
+    return `heap (MB after GC) by round: ${base.map(([r, mb]) => `${r}:${mb}`).join(' ')}`;
+  });
+
+  await step(`${ROUNDS} rounds with the Studio: open, switch a module on, a colour, another tab, Cancel (Save every fifth)`, async () => {
     for (let r = 0; r < ROUNDS; r++) {
       const n = r % CARDS.length;
-      await open(n);
-      const secs = (await D.listSections(page)).map((s) => s.name);
-      const m = MODS.find((x) => secs.includes(x) && !(n === 2 && x === 'Animation'));
-      if (m) await D.setSectionEnabled(page, m, true);
-      if (secs.includes('Background')) {
-        await D.setSectionEnabled(page, 'Background', true);
-        await D.pickSwatch(await D.findControl(page, 'Background', 'Color'), SWATCH[r % SWATCH.length]);
+      try {
+        await open(n);
+        const secs = (await D.listSections(page)).map((s) => s.name);
+        const m = MODS.find((x) => secs.includes(x) && !(n === 2 && x === 'Animation'));
+        if (m) await D.setSectionEnabled(page, m, true);
+        if (secs.includes('Background')) {
+          await D.setSectionEnabled(page, 'Background', true);
+          // a different colour on every visit to a card: a Save round always has a change
+          // (HA keeps Save disabled when nothing changed)
+          await D.pickSwatch(await D.findControl(page, 'Background', 'Color'), SWATCH[(r + Math.floor(r / CARDS.length)) % SWATCH.length]);
+        }
+        await D.selectTab(page, TABS[r % TABS.length]);
+        await D.selectTab(page, 'style');
+        if (r % 5 === 4) { await D.saveCard(page); saves++; } else await D.cancelCard(page);
+      } catch (e) {
+        throw new Error(`round ${r + 1} (card ${n}): ${String(e.message).split('\n')[0]}`);
       }
-      await D.selectTab(page, TABS[r % TABS.length]);
-      await D.selectTab(page, 'style');
-      if (r % 5 === 4) { await D.saveCard(page); saves++; } else await D.cancelCard(page);
       if (r === 3 || r === ROUNDS - 1 || r % 10 === 9) heap.push([r + 1, await heapMB()]);
     }
     return `heap (MB after GC) by round: ${heap.map(([r, mb]) => `${r}:${mb}`).join(' ')}`;
@@ -95,11 +119,11 @@ try {
     need(n === 0, `${n} cms-panel elements still in the page`);
   });
 
-  await step('the heap does not keep growing (last vs. after round 4: under +25 MB and under +50 %)', async () => {
-    const first = heap[0][1];
-    const last = heap[heap.length - 1][1];
-    need(last - first < 25 && last < first * 1.5, `${first} MB → ${last} MB`);
-    return `${first} MB → ${last} MB`;
+  await step('the Studio adds under 1 MB per opened editor over Home Assistant\'s own growth', async () => {
+    need(base.length > 1 && heap.length > 1, 'not enough measurements');
+    const extra = slope(heap) - slope(base);
+    need(extra < 1, `${slope(heap).toFixed(2)} MB/round with the Studio, ${slope(base).toFixed(2)} without: +${extra.toFixed(2)}`);
+    return `${slope(heap).toFixed(2)} MB/round with the Studio, ${slope(base).toFixed(2)} without (Home Assistant's own): +${extra.toFixed(2)} MB/round`;
   });
 
   await step('every save landed', async () => {

@@ -274,7 +274,7 @@ export const da: Record<MessageKey, string> = {
   'panel.uixMacrosCoexist': 'Kortet har også uix:-makroer/billets — ændringer i Studio opdaterer card_mod:, men UIX bliver ved med at vise din uix:-stil uændret (makroer/billets kan ikke synkroniseres automatisk).',
   'panel.uixMacroKept': 'Kortets uix:-stil bruger makroer/billets. De bevares, som de er — den del af stilen, der kalder dem, bliver i Avanceret CSS.',
   'panel.nothingToStyle': 'Dette kort viser intet, så der er intet at give stil — Avanceret CSS anvendes stadig.',
-  'panel.unrecognised': 'Nogle eksisterende stilarter blev ikke genkendt — de er bevaret i Avanceret CSS.',
+  'panel.unrecognised': 'Nogle af kortets stilarter styres ikke af et modul — de bevares uændret i Avanceret CSS.',
   'panel.noCard': 'Intet kort valgt.',
   'panel.preview': 'Forhåndsvisning',
   'panel.previewHide': 'Skjul',

@@ -163,6 +163,16 @@ try {
     await open(0);
     await D.setSectionEnabled(page, 'Border & Radius', false);
     await D.setSectionEnabled(page, 'Border & Radius', true);
+    // A version that already writes what this one writes (1.0.0-beta.2: the
+    // cstudio- names) leaves the config unchanged: HA keeps Save disabled.
+    const save = page.locator('hui-dialog-edit-card ha-button').filter({ hasText: /^\s*Save\s*$/ }).first();
+    if ((await save.getAttribute('disabled')) !== null) {
+      await D.cancelCard(page);
+      const css0 = (await D.savedCards(page, URLPATH))[0]?.[KEY]?.style ?? '';
+      need(css0.includes('animation: cstudio-pulse'), `unchanged, but not the current names: ${css0.slice(0, 200)}`);
+      await D.exitEditMode(page).catch(() => {}); // as the save branch leaves it
+      return 'already the current names: the Studio writes the same style, nothing to save';
+    }
     await D.saveCard(page);
     const css = (await D.savedCards(page, URLPATH))[0]?.[KEY]?.style ?? '';
     need(css.includes('animation: cstudio-pulse') && !/\bcms-pulse\b/.test(css), css.slice(0, 300));

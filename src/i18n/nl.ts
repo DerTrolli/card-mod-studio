@@ -274,7 +274,7 @@ export const nl: Record<MessageKey, string> = {
   'panel.uixMacrosCoexist': 'Deze kaart heeft ook uix:-macro\'s/billets — wijzigingen in de Studio werken card_mod: bij, maar UIX blijft je uix:-stijl ongewijzigd tonen (macro\'s/billets kunnen niet automatisch worden gesynchroniseerd).',
   'panel.uixMacroKept': 'De uix:-stijl van deze kaart gebruikt macro\'s/billets. Die blijven zoals ze zijn — het deel van de stijl dat ze aanroept blijft in Geavanceerde CSS.',
   'panel.nothingToStyle': 'Deze kaart toont niets, dus er is niets om te stijlen — Geavanceerde CSS werkt nog steeds.',
-  'panel.unrecognised': 'Sommige bestaande stijlen werden niet herkend — ze zijn bewaard in Geavanceerde CSS.',
+  'panel.unrecognised': 'Sommige stijlen van deze kaart worden niet door een module bestuurd — ze blijven ongewijzigd in Geavanceerde CSS.',
   'panel.noCard': 'Geen kaart geselecteerd.',
   'panel.preview': 'Voorbeeld',
   'panel.previewHide': 'Verbergen',

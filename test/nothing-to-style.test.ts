@@ -1,5 +1,5 @@
 /**
- * Panel notes by card kind: the "weren't recognised" note needs modules that
+ * Panel notes by card kind: the "aren't controlled by a module" note needs modules that
  * could have recognised something; a card that renders nothing says so and
  * has no preset bar.
  */
@@ -23,7 +23,7 @@ beforeAll(async () => {
   Panel = registry.get('cms-panel') as new () => PanelT;
 });
 
-const UNRECOGNISED = "weren't recognised";
+const UNRECOGNISED = "aren't controlled by a module";
 const NOTHING = 'This card renders nothing';
 /** Rendered on the Presets tab (the preset bar's tab since v1.0): the Style
  *  tab stays in the page (hidden), so this holds both. */
@@ -37,7 +37,7 @@ const render = (config: unknown) => {
 };
 const css = { card_mod: { style: 'ha-card { color: red; }\n.odd-thing { foo: bar; }' } };
 
-describe('"weren\'t recognised" note', () => {
+describe('"aren\'t controlled by a module" note', () => {
   it.each([
     ['vertical-stack', { type: 'vertical-stack', cards: [] }],
     ['horizontal-stack', { type: 'horizontal-stack', cards: [] }],

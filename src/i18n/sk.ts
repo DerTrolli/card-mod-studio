@@ -274,7 +274,7 @@ export const sk: Record<MessageKey, string> = {
   'panel.uixMacrosCoexist': 'Táto karta má aj makrá/billety uix: — úpravy v Studiu aktualizujú card_mod:, ale UIX bude ďalej zobrazovať váš štýl uix: bez zmeny (makrá/billety nemožno automaticky synchronizovať).',
   'panel.uixMacroKept': 'Štýl uix: tejto karty používa makrá/billety. Zostávajú tak, ako sú — časť štýlu, ktorá ich volá, zostáva v Pokročilom CSS.',
   'panel.nothingToStyle': 'Táto karta nič nezobrazuje, takže nie je čo štýlovať — Pokročilé CSS sa aj tak použije.',
-  'panel.unrecognised': 'Niektoré existujúce štýly neboli rozpoznané — zachované v Pokročilom CSS.',
+  'panel.unrecognised': 'Niektoré štýly tejto karty neovláda žiadny modul — zostávajú bez zmeny v Pokročilom CSS.',
   'panel.noCard': 'Nie je vybraná žiadna karta.',
   'panel.preview': 'Náhľad',
   'panel.previewHide': 'Skryť',

@@ -134,7 +134,8 @@ try {
   await step('it reopens with its modules closed, each summary naming its condition', async () => {
     await D.enterEditMode(page);
     await open();
-    const sum = async (tag) => ((await mod(tag).locator('.module-summary').textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    // the " · " between parts is a separator element with CSS gaps, no spaces in the text
+    const sum = async (tag) => ((await mod(tag).locator('.module-summary').textContent().catch(() => '')) || '').replace(/\s+/g, ' ').replace(/\s*·\s*/g, ' · ').trim();
     const got = {
       background: await sum('cms-background-module'),
       animation: await sum('cms-animation-module'),

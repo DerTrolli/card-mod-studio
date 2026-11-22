@@ -274,7 +274,7 @@ export const it: Record<MessageKey, string> = {
   'panel.uixMacrosCoexist': 'Questa scheda ha anche macro/billet uix: — le modifiche dello Studio aggiornano card_mod:, ma UIX continuerà a mostrare il tuo stile uix: invariato (macro/billet non si possono sincronizzare automaticamente).',
   'panel.uixMacroKept': 'Lo stile uix: di questa scheda usa macro/billet. Restano così come sono — la parte dello stile che li richiama resta in CSS avanzato.',
   'panel.nothingToStyle': 'Questa scheda non mostra nulla, quindi non c\'è nulla da stilizzare — il CSS avanzato si applica comunque.',
-  'panel.unrecognised': 'Alcuni stili esistenti non sono stati riconosciuti — conservati in CSS avanzato.',
+  'panel.unrecognised': 'Alcuni stili di questa scheda non sono gestiti da un modulo — restano invariati in CSS avanzato.',
   'panel.noCard': 'Nessuna scheda selezionata.',
   'panel.preview': 'Anteprima',
   'panel.previewHide': 'Nascondi',

@@ -274,7 +274,7 @@ export const zhHans: Record<MessageKey, string> = {
   'panel.uixMacrosCoexist': '此卡片还有 uix: 宏/billets——Studio 的编辑会更新 card_mod:，但 UIX 会继续原样显示您的 uix: 样式（宏/billets 无法自动同步）。',
   'panel.uixMacroKept': '此卡片的 uix: 样式使用了宏/billets。它们保持不变——调用它们的那部分样式保留在高级 CSS 中。',
   'panel.nothingToStyle': '此卡片不显示任何内容，因此没有可设置样式的部分——高级 CSS 仍然生效。',
-  'panel.unrecognised': '部分现有样式未被识别——已保留在高级 CSS 中。',
+  'panel.unrecognised': '此卡片的部分样式不由任何模块控制——它们原样保留在高级 CSS 中。',
   'panel.noCard': '未选择卡片。',
   'panel.preview': '预览',
   'panel.previewHide': '隐藏',

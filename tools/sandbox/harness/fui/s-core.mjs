@@ -230,7 +230,7 @@ async function saveCancelSection(T) {
   T.check('reopened saved card: Background module adopted (enabled)', await bg2.locator('.module-header ha-switch').evaluate((e) => e.checked));
   await expectPage(T, 'reopened saved card: preview renders the saved red', P_CARD, 0, (v) => sameRgb(v?.bg, red));
   const pv = await T.page.evaluate(P_PANEL);
-  T.check('round-trip: no "weren\'t recognised" banner (all CSS adopted by modules)', !(pv.info || []).some((t) => t.includes("weren't recognised")), JSON.stringify(pv.info));
+  T.check('round-trip: no "aren\'t controlled by a module" banner (all CSS adopted by modules)', !(pv.info || []).some((t) => t.includes("aren't controlled by a module")), JSON.stringify(pv.info));
   await expand(bg2);
   await pickSwatch(rowOf(T, bg2, 'Color').locator('cms-color-picker'), 'Green');
   await expectCfg(T, 'edit to green emitted (pending, unsaved)', has(T, 'background: var(--green-color);'));

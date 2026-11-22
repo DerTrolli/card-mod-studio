@@ -274,7 +274,7 @@ export const hu: Record<MessageKey, string> = {
   'panel.uixMacrosCoexist': 'Ennek a kártyának uix: makrói/billetjei is vannak — a Studio módosításai a card_mod: részt frissítik, de a UIX változatlanul a uix: stílusát fogja mutatni (a makrók/billetek nem szinkronizálhatók automatikusan).',
   'panel.uixMacroKept': 'A kártya uix: stílusa makrókat/billeteket használ. Ezek változatlanok maradnak — a stílus őket hívó része a Haladó CSS-ben marad.',
   'panel.nothingToStyle': 'Ez a kártya semmit sem jelenít meg, így nincs mit formázni — a Haladó CSS ettől még érvényesül.',
-  'panel.unrecognised': 'Néhány meglévő stílust nem sikerült felismerni — a Haladó CSS-ben maradtak meg.',
+  'panel.unrecognised': 'A kártya néhány stílusát egyik modul sem kezeli — változatlanul megmaradnak a Haladó CSS-ben.',
   'panel.noCard': 'Nincs kártya kiválasztva.',
   'panel.preview': 'Előnézet',
   'panel.previewHide': 'Elrejtés',

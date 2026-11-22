@@ -274,7 +274,7 @@ export const ko: Record<MessageKey, string> = {
   'panel.uixMacrosCoexist': '이 카드에는 uix: 매크로/billets도 있습니다 — Studio에서 편집하면 card_mod:가 업데이트되지만, UIX는 uix: 스타일을 변경 없이 계속 표시합니다(매크로/billets는 자동으로 동기화할 수 없습니다).',
   'panel.uixMacroKept': '이 카드의 uix: 스타일은 매크로/billets를 사용합니다. 그대로 유지되며 호출하는 부분은 고급 CSS에 남습니다.',
   'panel.nothingToStyle': '이 카드는 아무것도 표시하지 않으므로 스타일을 지정할 대상이 없습니다 — 고급 CSS는 계속 적용됩니다.',
-  'panel.unrecognised': '기존 스타일의 일부를 인식하지 못했습니다 — 고급 CSS에 유지되어 있습니다.',
+  'panel.unrecognised': '이 카드의 일부 스타일은 어떤 모듈에서도 제어하지 않습니다 — 고급 CSS에 그대로 유지됩니다.',
   'panel.noCard': '선택된 카드가 없습니다.',
   'panel.preview': '미리 보기',
   'panel.previewHide': '숨기기',

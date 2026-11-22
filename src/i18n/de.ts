@@ -321,7 +321,7 @@ export const de: Record<MessageKey, string> = {
   'panel.uixMacroKept':
     'Der uix:-Stil dieser Karte nutzt Makros/Billets. Sie bleiben, wie sie sind — der Teil des Stils, der sie aufruft, bleibt in „Erweitertes CSS“.',
   'panel.nothingToStyle': 'Diese Karte zeigt nichts an, daher gibt es nichts zu gestalten — „Erweitertes CSS“ wirkt trotzdem.',
-  'panel.unrecognised': 'Einige vorhandene Stile wurden nicht erkannt — sie bleiben in „Erweitertes CSS“ erhalten.',
+  'panel.unrecognised': 'Einige Stile dieser Karte steuert kein Modul — sie bleiben unverändert in „Erweitertes CSS“.',
   'panel.noCard': 'Keine Karte ausgewählt.',
   'panel.preview': 'Vorschau',
   'panel.previewHide': 'Ausblenden',
