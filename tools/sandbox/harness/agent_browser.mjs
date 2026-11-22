@@ -32,7 +32,7 @@ const H = Number(process.env.HEIGHT || 800);
 const TOUCH = process.env.TOUCH === '1';
 const START = process.env.START || '/lovelace/0';
 mkdirSync(OUT, { recursive: true });
-const HA_NOISE = /themesReady: Timeout|status of 50[02]|Error getting Image Colors|Transition was skipped|Cannot parse given Error object/;
+const HA_NOISE = /themesReady: Timeout|status of 50[02]|Error getting Image Colors|Transition was skipped|Cannot parse given Error object|card alarm-panel Error: Invalid configuration/;
 
 const h = await D.launch({
   rig: process.env.RIG === 'uix' ? 'uix' : 'cm',
