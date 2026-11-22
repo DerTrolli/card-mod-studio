@@ -9,9 +9,15 @@
 
 The layout:
 
-- **Left column** — the preset bar, [My Color Palette](Presets-and-My-Color-Palette),
-  and the style modules. Only modules that can actually do something on this
-  card type are shown (see [Card Support](Card-Support)).
+- **Tabs** *(1.0)* — **Style** holds the style modules; **Presets** the
+  preset bar and [My Presets](Presets-and-My-Color-Palette) with copy/paste;
+  **Palette** [My Color Palette](Presets-and-My-Color-Palette); **Settings**
+  the [language and the written key](Language-and-Settings). Every editor
+  opens on Style. A module you opened stays open while you look at another
+  tab. The tab list works with the arrow keys, Home and End.
+- **Left column** — the open tab. On Style, only modules that can actually
+  do something on this card type are shown (see [Card Support](Card-Support)),
+  in a fixed order with Advanced CSS last.
 - **Right column** — a live preview of the real card that re-renders on every
   change, shown on your theme's own dashboard background. When the panel is
   narrower than about 720px (phones, small windows, tablet split view) the
@@ -19,8 +25,14 @@ The layout:
   under it *(v1.0.0-beta.2)*; **Hide** folds it away (remembered on that
   device), **Show** brings it back.
 
-The panel follows your theme in light and dark mode. Each module has a
-**toggle** (enables its output) and a collapsible body. A module that's off
+The panel follows your theme in light and dark mode and uses Home
+Assistant's own look *(1.0)*: each module is an outlined panel with an icon,
+its **toggle** (enables its output) and a chevron that opens its body. A
+closed module shows **what it does on this card** in one line under its
+title — *Pulse · 2s · when vacuum.robo is “cleaning”*, colours as dots, a
+fade as a bar, the first line of Advanced CSS — and a styled card opens with
+its modules closed, so the whole style can be read at a glance. A module
+opens when you click it, switch it on, or click its part of the preview. A module that's off
 contributes nothing to the generated YAML, and a module that's on but where you
 haven't set anything writes nothing either — Heading Style, Font and Icon
 Color start from "Default", the card's own look.

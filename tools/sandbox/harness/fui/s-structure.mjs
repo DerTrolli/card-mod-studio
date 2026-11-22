@@ -257,6 +257,10 @@ async function presetsSection(T) {
   await expectPage(T, 'preview: preset look (red bg, pulse, pink icon, 20px radius)', P_CARD, 0, (v) => sameRgb(v?.bg, red) && v.anim === 'cstudio-pulse' && sameRgb(v.iconColor, pink) && v.radius === '20px');
   await tab(T, 'style');
   T.check('modules reflect the loaded preset (Background switch on)', await mod(T, 'cms-background-module').locator('.module-header ha-switch').evaluate((e) => e.checked));
+  const borderM = mod(T, 'cms-border-module');
+  await expand(borderM);
+  const rv = await rowOf(T, borderM, 'Border radius').locator('ha-slider').evaluate((e) => Number(e.value));
+  T.check('…a module opened after the load shows the preset\'s values (Border radius slider at 20)', rv === 20, String(rv));
   await tab(T, 'presets');
 
   // delete: two steps — the first click arms the button, the second one deletes

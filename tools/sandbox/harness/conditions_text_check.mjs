@@ -103,11 +103,15 @@ try {
     return `heating → ${a}, idle → ${b}`;
   });
 
-  await step('it reopens with "A value matches", value is heating; nothing in Advanced CSS', async () => {
+  await step('it reopens closed, its summary says "when … is “heating”"; open: "A value matches", value is heating; nothing in Advanced CSS', async () => {
     await open(0);
     const s = await panelState();
     need(s?.background?.condition?.valueText === 'heating' && s.background.condition.valueTextOperator === 'is' && s.advanced.rawCss === '', JSON.stringify({ bg: s?.background, adv: s?.advanced }));
     const m = mod('cms-background-module');
+    // a styled card opens with its modules closed, each saying what it does (v1.0)
+    const sum = ((await m.locator('.module-summary').textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    need(sum === `when ${ENT} is “heating”`, `closed Background's summary "${sum}"`);
+    await D.expandSection(page, 'Background');
     need((await m.locator('select[aria-labelledby="when-label"]').inputValue()) === 'value', 'Apply when is not "A value matches"');
     need((await m.locator('select[aria-labelledby="cond-op-label"]').inputValue()) === 'is', 'condition is not "value is"');
     await D.cancelCard(page);

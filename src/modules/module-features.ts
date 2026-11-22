@@ -43,10 +43,6 @@ export class FeaturesModule extends LitElement {
 
   static override styles = [moduleStyles, css``];
 
-  override firstUpdated() {
-    this._open = this.state.enabled;
-  }
-
   override connectedCallback() {
     super.connectedCallback();
     guardSliderTouch(this.renderRoot);

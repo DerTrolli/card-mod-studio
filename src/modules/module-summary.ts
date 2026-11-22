@@ -63,12 +63,16 @@ const PRESET: Record<AnimationModuleState['preset'], MessageKey> = {
   heartbeat: 'anim.preset.heartbeat',
 };
 
-export function fontSummary(s: FontModuleState): SummaryPart[] {
+/** Font: its own switch, and Number size (cards with a big number) has its own. */
+export function fontSummary(s: FontModuleState, numberSize = false): SummaryPart[] {
   const p: SummaryPart[] = [];
-  if (s.fontSize) p.push(`${s.fontSize}px`);
-  if (s.fontWeight) p.push(t(WEIGHT[s.fontWeight]));
-  if (s.fontFamily) p.push(s.fontFamily.split(',')[0].replace(/['"]/g, '').trim());
-  if (s.color) p.push({ color: s.color });
+  if (s.enabled) {
+    if (s.fontSize) p.push(`${s.fontSize}px`);
+    if (s.fontWeight) p.push(t(WEIGHT[s.fontWeight]));
+    if (s.fontFamily) p.push(s.fontFamily.split(',')[0].replace(/['"]/g, '').trim());
+    if (s.color) p.push({ color: s.color });
+  }
+  if (numberSize && s.numberSizeEnabled) p.push(pair('font.numberSize', `${s.numberSize}px`));
   return p;
 }
 

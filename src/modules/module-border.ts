@@ -39,10 +39,6 @@ export class BorderModule extends LitElement {
 
   static override styles = [moduleStyles, css``];
 
-  override firstUpdated() {
-    this._open = this.state.enabled;
-  }
-
   override updated(changed: Map<PropertyKey, unknown>) {
     nameSwitches(this.renderRoot);
     prepareSliders(this.renderRoot);

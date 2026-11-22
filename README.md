@@ -69,7 +69,7 @@ The Accent Color override targets the correct CSS variable per card type: `--til
 
 ### Background
 
-Apply a **solid color** or a **gradient** (with configurable angle) as the card background. Optionally restrict the background to only show when the entity is **on** or **off** — useful for making a card visually "glow" when a device is active.
+Apply a **solid color** or a **gradient** (with configurable angle) as the card background. Optionally restrict the background to only show when the entity is **on** or **off** — useful for making a card visually "glow" when a device is active — while another entity is on, or **while a value matches** *(new in 1.0)*: a number (`> 25`) or a state's text (`is cleaning`, `is not docked`), from the entity's state or one of its attributes.
 
 <img src="images/04%20Background%20Color.png" alt="Background color module" width="618">
 
@@ -78,7 +78,7 @@ Apply a **solid color** or a **gradient** (with configurable angle) as the card 
 The most powerful module. Define rules that change visual properties based on an entity's live value — a number, or a state's text — no coding required.
 
 Each rule has three parts:
-- **Operator** — `<` `<=` `>` `>=` `==` `!=` for numbers, or `is` / `is not` for text *(new in 1.0.0-beta.2)*
+- **Operator** — `<` `<=` `>` `>=` `==` `!=` for numbers, or `is` / `is not` for text *(new in 1.0)*
 - **Value** — the number to compare against, or the state's text (`heating`, `docked`, …) exactly as Home Assistant stores it
 - **Color** — the color to apply when the rule matches
 
@@ -106,13 +106,13 @@ Beyond the basics:
 ### Visual Filters
 
 Apply CSS filter effects to the entire card:
-- **Grayscale** — always on, only when entity is on, or only when off (great for making inactive devices look "dead")
+- **Grayscale** — always on, only when entity is on, or only when off (great for making inactive devices look "dead"), while another entity is on, or while a value matches (a number or a text, *new in 1.0*)
 - **Brightness** — brighten or dim the card
 - **Blur** — blur the card content
 - **Opacity** — fade the whole card
 - **Transition duration** — control how smoothly state changes animate (milliseconds; lower is faster)
 
-Brightness/blur/opacity can also **react to a state or value condition** — e.g. blur + fade a camera card only while it's off, or while a sensor crosses a threshold.
+Brightness/blur/opacity can also **apply only when** a state or value condition holds — e.g. blur + fade a camera card only while it's off, while a sensor crosses a threshold, or while a vacuum `is not cleaning`.
 
 ### Animation
 
@@ -132,11 +132,11 @@ Add a looping CSS animation to the card. Available presets:
 
 Animation is offered on nearly every built-in card. A preset that cannot work on a card is left out of its list: Spin on the thermostat, humidifier, light and map (it makes the handle or the map drift away from the pointer), Gradient Shift where there is no card background to shift (picture cards, iframe, map, media control, Bubble Card, the Mushroom title card). The **Duration** slider is seconds per cycle — lower is faster.
 
-Each animation can run **always**, only while the entity is **on**/**off**, while **another entity** is on — or only **while a value matches** (entity or numeric attribute + operator + threshold): *pulse while the freezer is above -10°, glow while `battery_level` < 15*.
+Each animation can run **always**, only while the entity is **on**/**off**, while **another entity** is on — or only **while a value matches** (entity or attribute + operator + a number or a text): *pulse while the freezer is above -10°, glow while `battery_level` < 15, spin while the vacuum `is cleaning`* (text: new in 1.0).
 
 ### Border
 
-Round the card corners with a configurable **corner radius**, and optionally add a colored **border** with adjustable width. The border can also **react to a state or value condition** — e.g. a 3px red border only while the freezer is above -10°, with an optional thinner fallback border otherwise. Works well combined with Threshold Colors targeting border color.
+Round the card corners with a configurable **corner radius**, and optionally add a colored **border** with adjustable width. The border can also **apply only when** a state or value condition holds (a number or, new in 1.0, a text) — e.g. a 3px red border only while the freezer is above -10°, with an optional thinner fallback border otherwise. Works well combined with Threshold Colors targeting border color.
 
 ### Font
 
@@ -162,31 +162,33 @@ A raw CSS editor for anything the visual modules don't cover. Your CSS is append
 
 Save the full style configuration of any card as a **named preset** and restore it on any other card in one click. Presets are stored per-user in HA's backend (`frontend/get_user_data`) so they sync automatically across every device and browser logged in as the same HA user. localStorage is also written as an instant local fallback.
 
-**📚 My Presets** *(new in 1.0, beta)* lists them: rename, move up/down, duplicate and delete. It can also **copy a card's style or all your presets as text** and paste them onto another card, for another user or into another Home Assistant (the text carries the Studio's settings, so the other side needs Card Style Studio too). See [Presets & My Color Palette](../../wiki/Presets-and-My-Color-Palette).
+On the **Presets** tab, **My Presets** *(new in 1.0)* lists them: rename, move up/down, duplicate and delete. It can also **copy a card's style or all your presets as text** and paste them onto another card, for another user or into another Home Assistant (the text carries the Studio's settings, so the other side needs Card Style Studio too). See [Presets & My Color Palette](../../wiki/Presets-and-My-Color-Palette).
 
 ### My Color Palette
 
 Define named custom colors once and they appear as extra swatches in **every** color picker — card-level modules, threshold rules, and per-row controls alike. You can also override the built-in default ON/OFF colors that a freshly-enabled Icon Color/Accent Color module (and every new threshold rule) starts from. Stored per HA user, same cross-device sync as presets. Cards keep the colour they were given: changing or removing an entry doesn't restyle cards that already use it. A change made while Home Assistant can't be reached is kept and sent later.
 
-### Language *(new in 1.0, beta)*
+### Language *(new in 1.0)*
 
 The Studio's own text comes in **22 languages**: English, Deutsch, Nederlands, Français, Español, Italiano, Polski, Português, Português (Brasil), Svenska, Dansk, Norsk bokmål, Čeština, Slovenčina, Magyar, Suomi, Русский, Українська, 简体中文, 繁體中文, 日本語 and 한국어. English and German are written by hand; **the other 20 are machine translations, not yet read by native speakers**, that use Home Assistant's own word wherever Home Assistant has one (its translation of *entity*, *card*, *icon*, …), so the Studio reads like the rest of Home Assistant. Corrections are very welcome as issues.
 
-The first time you open it, a short notice asks which language to use — **Auto-detect** (recommended) follows the language Home Assistant shows for you — and you can change it any time under **⚙️ Settings**, right below My Color Palette. The choice is stored per HA user, so it's asked once, not on every device. The generated YAML/CSS is the same in every language. See [Language & Settings](../../wiki/Language-and-Settings).
+The first time you open it, a short notice asks which language to use — **Auto-detect** (recommended) follows the language Home Assistant shows for you — and you can change it any time on the Studio's **Settings** tab. The choice is stored per HA user, so it's asked once, not on every device. The generated YAML/CSS is the same in every language. See [Language & Settings](../../wiki/Language-and-Settings).
 
-### Settings page for administrators *(new in 1.0, beta, optional)*
+### Settings page for administrators *(new in 1.0, optional)*
 
 An optional **Card Style Studio integration** adds an entry under **Settings → Devices & services** where an administrator sets defaults for everyone: the language, whether users are asked for one, and the default ON/OFF colours. A user's own choice still wins. It's installed by hand from the release's `card_mod_studio.zip` (see [Installation](#optional-the-settings-integration)) and is translated into the same 22 languages.
 
-### New in 1.0.0-beta.2 *(pre-release)*
+### New in 1.0
 
+- **A panel that looks like Home Assistant**: modules are outlined panels with Home Assistant's icons, and tabs — **Style** (the modules), **Presets**, **Palette**, **Settings**. A closed module shows what it does on this card in one line (*Pulse · 2s · when vacuum.robo is “cleaning”*, colours as dots), and a styled card opens with its modules closed, so you can read the whole style at a glance.
+- **Text in every value condition** ([#42](https://github.com/DerTrolli/card-mod-studio/issues/42)): Animation, Visual Filters, Border and icon size compare a number *or* a state's text (`is` / `is not`); Background and grayscale get "A value matches" too.
+- **Threshold text rules** ([#41](https://github.com/DerTrolli/card-mod-studio/issues/41)): `is` / `is not` compare a state's text, e.g. `heating` → orange, `cooling` → blue, `error` → red.
 - **Square corners** in Border & Radius (sharp corners were only possible by hand).
 - **Five more controls**, measured: Font → Text color and Threshold → Text Color on the alarm panel (its title) and picture-elements (its labels); Animation on the heading card (without Glow, Spin and Gradient Shift).
 - **"Let this module take over"**: when hand-written CSS overrides a module, one button removes exactly the overriding declarations — after showing which.
-- **Sections**: the 🎨 Style button in Home Assistant's Section configuration dialog (HA 2026.11) — every card in the section gets its own styling section; Advanced CSS styles the section itself with `:host { … }`.
+- **Sections**: the Style button in Home Assistant's Section configuration dialog (HA 2026.11) — every card in the section gets its own styling section; Advanced CSS styles the section itself with `:host { … }`.
 - **Phones**: the live preview is pinned at the top while you scroll the controls (Hide/Show).
-- **Threshold text rules** ([#41](https://github.com/DerTrolli/card-mod-studio/issues/41)): `is` / `is not` compare a state's text, e.g. `heating` → orange, `cooling` → blue, `error` → red.
-- **⚙️ Settings** shows which key is written (`uix:` with UIX installed, else `card_mod:`) and whether the optional integration is installed.
+- **Settings** shows which key is written (`uix:` with UIX installed, else `card_mod:`) and whether the optional integration is installed.
 - **New name: Card Style Studio** (formerly Card-Mod Studio), see below.
 
 ### The rename: Card-Mod Studio → Card Style Studio
@@ -208,7 +210,7 @@ name that fits both ([#40](https://github.com/DerTrolli/card-mod-studio/issues/4
   integration's id (`card_mod_studio`), your presets, palette and settings,
   and the copy/paste text format. Nothing to do after updating.
 
-### Tile Features *(new in 1.0, beta)*
+### Tile Features *(new in 1.0)*
 
 On the tile card, a **Features** module styles the feature rows under it (brightness slider, cover buttons, …): row height, corner radius and colour. Empty colour = Home Assistant's state colour, as before. See [Tile](../../wiki/Tile-Card).
 
@@ -220,7 +222,7 @@ Vertical-stack, horizontal-stack, grid, `conditional` and `entity-filter` cards 
 
 <img src="images/08%20Stack%20Children.png" alt="Per-child styling sections on a vertical stack" width="1024">
 
-New in 1.0 (beta): **containers inside containers** (a stack in a stack, a grid in a conditional, …) get nested sections at any depth, and `conditional` / `entity-filter` cards a section for the card inside them. Not covered yet: `sections` view containers and custom containers such as layout-card. See [Containers](../../wiki/Container-Cards).
+New in 1.0: **containers inside containers** (a stack in a stack, a grid in a conditional, …) get nested sections at any depth, and `conditional` / `entity-filter` cards a section for the card inside them. Not covered yet: `sections` view containers and custom containers such as layout-card. See [Containers](../../wiki/Container-Cards).
 
 ---
 
@@ -316,13 +318,13 @@ Card Style Studio is in the **HACS default store** — no custom repository need
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=1.0.0-beta.2`
+   - URL: `/local/card-mod-studio.js?v=1.0.0`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
 
 ### Optional: the Settings integration
 
-*(new in 1.0, beta)* For the administrator's defaults described [above](#settings-page-for-administrators-new-in-10-beta-optional). HACS and the Marketplace install Card Style Studio as a dashboard plugin and can't add an integration from the same repository, so this part is manual:
+*(new in 1.0)* For the administrator's defaults described [above](#settings-page-for-administrators-new-in-10-optional). HACS and the Marketplace install Card Style Studio as a dashboard plugin and can't add an integration from the same repository, so this part is manual:
 
 1. Download `card_mod_studio.zip` from the same release as the Studio
 2. Unzip it into your config folder, so that `config/custom_components/card_mod_studio/manifest.json` exists
@@ -525,13 +527,15 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 25 | Mushroom (5.2.3) and Bubble Card (3.x: button, slider button, separator, cover) support via per-card profiles, click-to-edit for their parts, entities-card row labels follow HA 2026.11 naming, Alert card gating | ✅ v0.11.0 (beta.2; Mushroom and Bubble Card support stays a beta) |
 | 26 | Release-review round: controls you switch on but don't touch write nothing (Heading Style, Font, Icon Color incl. a "Keep the card's colour" mode); a conditional Background/Border keeps the card's own look while off; no entity-based conditions on entity-less cards or for entities that are never on/off; gauge Number size 50–130 % with 100 % = Home Assistant's size; Animation on nearly every built-in card (presets left out where they can't work), card-level Threshold Colors on the entities card, Icon Color on the statistic card, a per-card maximum icon size; Font reaches more text; a notice on custom cards without a profile; Advanced CSS, colour and number input checks; keyboard, screen-reader and touch work; click-to-edit for more card parts; palette and presets keep changes made while Home Assistant is unreachable; Enter no longer saves the dialog on HA 2025.9–2026.2 | ✅ v0.11.0 (beta.3; verified on four rigs, see Compatibility) |
 | 27 | Read-back fixes found by replaying 217,000 styles of every release since v0.8.1 and by fuzzing: a Font without a size next to Threshold Colors and Threshold rules pointing both ways are read back into their modules; hand-written `!important`, `border-radius: 0px`, `border: 0px solid …` and heading-card selectors on other cards are no longer rewritten on save (cards and entities rows); repeatable checks in `tools/continuity/` | ✅ v0.11.0 |
-| 28 | The Studio in 22 languages: every text through one dictionary (about 390 messages; English and German by hand, 20 more machine-translated with Home Assistant's own terms), a one-time language question (Auto-detect recommended, follows Home Assistant's language), a ⚙️ Settings section with the language selector that switches the open panel at once, stored per HA user | 🧪 v1.0.0 (beta.1) |
-| 29 | Optional integration (Settings → Devices & services): site-wide language, language question on/off, default ON/OFF colours, pushed live to open Studios; translated into the same 22 languages | 🧪 v1.0.0 (beta.1) |
-| 30 | Structure: `conditional` and `entity-filter` cards, containers nested inside containers (any depth, entities rows and tile Features inside), tile **Features** module (height, corner radius, colour) | 🧪 v1.0.0 (beta.1) |
-| 31 | 📚 My Presets: rename, reorder, duplicate, delete; copy/paste a card's style or all presets as text | 🧪 v1.0.0 (beta.1) |
-| 32 | 1.0.0-beta.2: Square corners in Border & Radius; Font/Threshold text colour on alarm-panel and picture-elements and Animation on the heading card (measured); "Let this module take over" removes exactly the overriding Advanced CSS; the Studio in Home Assistant's Section configuration dialog (HA 2026.11); a pinned preview on phones; ⚙️ Settings shows the written key and the integration's status; large Jinja styles open fast again | 🧪 v1.0.0 (beta.2) |
-| 33 | New name **Card Style Studio** (formerly Card-Mod Studio): UI in 22 languages, HACS name, integration title; Studio-written names `cms-` → `cstudio-` (old ones read, new ones written on save) | 🧪 v1.0.0 (beta.2) |
-| 34 | Threshold Colors text rules `is` / `is not` (states like `heating`, `docked`; text attributes), checked before number rules; also per entities row | 🧪 v1.0.0 (beta.2) |
+| 28 | The Studio in 22 languages: every text through one dictionary (about 390 messages; English and German by hand, 20 more machine-translated with Home Assistant's own terms), a one-time language question (Auto-detect recommended, follows Home Assistant's language), a Settings section with the language selector that switches the open panel at once, stored per HA user | ✅ v1.0.0 |
+| 29 | Optional integration (Settings → Devices & services): site-wide language, language question on/off, default ON/OFF colours, pushed live to open Studios; translated into the same 22 languages | ✅ v1.0.0 |
+| 30 | Structure: `conditional` and `entity-filter` cards, containers nested inside containers (any depth, entities rows and tile Features inside), tile **Features** module (height, corner radius, colour) | ✅ v1.0.0 |
+| 31 | My Presets: rename, reorder, duplicate, delete; copy/paste a card's style or all presets as text | ✅ v1.0.0 |
+| 32 | Square corners in Border & Radius; Font/Threshold text colour on alarm-panel and picture-elements and Animation on the heading card (measured); "Let this module take over" removes exactly the overriding Advanced CSS; the Studio in Home Assistant's Section configuration dialog (HA 2026.11); a pinned preview on phones; Settings shows the written key and the integration's status; large Jinja styles open fast again | ✅ v1.0.0 |
+| 33 | New name **Card Style Studio** (formerly Card-Mod Studio): UI in 22 languages, HACS name, integration title; Studio-written names `cms-` → `cstudio-` (old ones read, new ones written on save) | ✅ v1.0.0 |
+| 34 | Threshold Colors text rules `is` / `is not` (states like `heating`, `docked`; text attributes), checked before number rules; also per entities row | ✅ v1.0.0 |
+| 35 | Text in every value condition (`is` / `is not`: Animation, Visual Filters, Border, icon size) and "A value matches" for Background and grayscale ([#42](https://github.com/DerTrolli/card-mod-studio/issues/42)); stored in fields older versions ignore | ✅ v1.0.0 |
+| 36 | Panel in Home Assistant's look: outlined modules with HA icons, tabs Style / Presets / Palette / Settings, a one-line summary on every closed module (styled cards open with their modules closed), "Apply when" for every condition, Advanced CSS always last | ✅ v1.0.0 |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.

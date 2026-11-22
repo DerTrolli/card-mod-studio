@@ -1,6 +1,6 @@
 # Language & Settings
 
-*New in 1.0 (beta).*
+*New in 1.0.*
 
 Card Style Studio's own text — module names, labels, hints, warnings, the
 CSS checks in Advanced CSS — comes in **22 languages**:
@@ -42,11 +42,11 @@ the card while it's shown, and until you answer the Studio uses Auto-detect.
 
 ## Changing it later
 
-Open the **⚙️ Settings** section (right below My Color Palette) and choose a
-different **Language**. The panel switches at once; open sections stay open
-and nothing you were editing is lost.
+Open the Studio's **Settings** tab and choose a different **Language**. The
+panel switches at once; open sections stay open and nothing you were
+editing is lost.
 
-## Also in ⚙️ Settings *(v1.0.0-beta.2)*
+## Also on the Settings tab *(v1.0.0-beta.2)*
 
 - **Styles are written under** — which key the Studio writes: `uix:` when
   UIX is installed (UIX's own key; a card styled under `card_mod:` moves to

@@ -69,14 +69,14 @@ Betas are testing builds — the changelog marks them clearly.
    [latest release](https://github.com/DerTrolli/card-mod-studio/releases/latest)
 2. Copy it to `config/www/card-mod-studio.js`
 3. **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=1.0.0-beta.2`
+   - URL: `/local/card-mod-studio.js?v=1.0.0`
    - Type: *JavaScript Module*
 4. Hard-refresh the browser (Ctrl+Shift+R)
 
 When updating manually, bump the `?v=` query string so browsers don't serve
 the cached old bundle.
 
-## Optional: the Settings integration *(new in 1.0, beta)*
+## Optional: the Settings integration *(new in 1.0)*
 
 An optional integration adds a **Card Style Studio** entry under **Settings →
 Devices & services**, where an administrator sets the language, whether

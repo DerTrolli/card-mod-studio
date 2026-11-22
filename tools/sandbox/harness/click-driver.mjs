@@ -957,7 +957,11 @@ export async function setSectionEnabled(page, key, on = true, opts) {
 
 /** OBSERVE: controls of the Studio panel (all, or of one section by key). Hidden ones are included with visible:false. */
 export async function listControls(page, section, { within, deep = false } = {}) {
-  if (section !== undefined && section !== null) await findSectionAnyTab(page, section, { within });
+  if (section !== undefined && section !== null) {
+    // on its tab, and open: a styled card opens with its modules closed (v1.0)
+    const { s } = await findSectionAnyTab(page, section, { within });
+    if (s && s.collapsible && !s.open) await expandSection(page, s.index);
+  }
   const { sections, controls } = await scan(page);
   let list = controls;
   if (section !== undefined && section !== null) {

@@ -62,10 +62,17 @@ effects, icon size).
 - Glance icon color stays out: even shadow-piercing styles don't reach it
   ([why](Glance-Card#why-no-icon-color)).
 
-## v1.0 (beta) — languages, a Settings page, and structural completeness
+## v1.0 (shipped 2026-11-22) — languages, a Settings page, structural completeness and a new panel
 
+- **The panel in Home Assistant's look** (1.0.0): tabs Style / Presets /
+  Palette / Settings, Material icons, a one-line summary on every closed
+  module, "Apply when" for every condition — see
+  [Getting Started](Getting-Started).
+- **Text in every value condition** (1.0.0, issue #42): `is` / `is not`
+  next to the number operators, and "A value matches" for Background and
+  grayscale — see [Background, Filters, Animation & Border](Background-Filters-Animation-Border).
 - **22 languages**, with a one-time language question (Auto-detect
-  recommended) and a **⚙️ Settings** section to change it; English and German
+  recommended) and a **Settings** tab to change it; English and German
   by hand, the other 20 machine-translated with Home Assistant's own terms
   and not yet read by native speakers — see
   [Language & Settings](Language-and-Settings).
@@ -75,7 +82,7 @@ effects, icon size).
 - **`conditional` and `entity-filter` cards, and containers nested inside
   containers** — see [Containers](Container-Cards).
 - **Tile Features** — height, corner radius and colour of the feature rows;
-  see [Tile](Tile-Card#features-new-in-10-beta).
+  see [Tile](Tile-Card#features-new-in-10).
 - **📚 My Presets** — rename, reorder, duplicate, delete; and **copy / paste**
   a card's style or all presets as text — see
   [Presets](Presets-and-My-Color-Palette).

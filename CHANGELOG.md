@@ -58,6 +58,11 @@ options only change in a backward-compatible way within 1.x.
   Assistant's card editors, with Material Design icons, the switch and a
   chevron on the right, and no filled header. Emoji in headers, banners and
   buttons are replaced by Home Assistant's icons.
+- **A styled card opens with its modules closed**, each showing its
+  summary, so the whole style can be read at a glance; a module opens when
+  you click it, switch it on, or click its part of the preview. Advanced
+  CSS still opens by itself when the card brings CSS the modules didn't
+  take over.
 - **One wording for every condition: "Apply when"** (some said "Reacts
   to").
 - **Advanced CSS is always last**: on an entities card, Entity Rows now

@@ -1,7 +1,7 @@
 // Every shipped language (v1.0), through the real Settings selector: the
 // panel follows it, and nothing in it runs out of the panel sideways.
 //   node languages_sweep_check.mjs                  (card-mod rig, desktop 1440×900)
-//   PHONE=1 node languages_sweep_check.mjs          (390×844, touch)
+//   PHONE=1 node languages_sweep_check.mjs          (390×844, touch; PHONE_W=360 for a narrower phone)
 //   RIG=uix UIX_TOKENS_FILE=/path/tokens.json node languages_sweep_check.mjs
 //   SHOTS_DIR=/path node languages_sweep_check.mjs  (one screenshot per language)
 // The card is a vertical stack (a heading, a tile with a feature row, an
@@ -170,7 +170,7 @@ async function openEverything(page) {
 
 const h = await D.launch({
   rig: RIG,
-  viewport: PHONE ? { width: 390, height: 844 } : { width: 1440, height: Number(process.env.VH) || 900 }, // VH=6000: the whole panel in one screenshot
+  viewport: PHONE ? { width: Number(process.env.PHONE_W) || 390, height: 844 } : { width: 1440, height: Number(process.env.VH) || 900 }, // VH=6000: the whole panel in one screenshot
   hasTouch: PHONE,
   ...(tokensFile ? { tokensFile } : {}),
 });
@@ -214,7 +214,7 @@ try {
   await openEverything(page);
   const st = await notOpen(page);
   console.log(`fixture: ${nAdd} Threshold modules with 2 rules each, 2 presets`);
-  console.log(`setup: ${codes.length} languages, ${st.all} sections (${st.on} modules on; closed: ${st.closed.length}, off: ${st.off.length}) (${PHONE ? '390 phone' : '1440 desktop'})`);
+  console.log(`setup: ${codes.length} languages, ${st.all} sections (${st.on} modules on; closed: ${st.closed.length}, off: ${st.off.length}) (${PHONE ? `${Number(process.env.PHONE_W) || 390} phone` : '1440 desktop'})`);
   if (st.closed.length || st.off.length) throw new Error(`not everything open: closed ${st.closed.join(', ')}; off ${st.off.join(', ')}`);
 
   for (const { code, name } of (process.env.ONLY ? codes.filter((c) => process.env.ONLY.split(",").includes(c.code)) : codes)) {

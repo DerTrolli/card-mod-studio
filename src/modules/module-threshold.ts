@@ -285,10 +285,6 @@ export class ThresholdModule extends LitElement {
     `,
   ];
 
-  override firstUpdated() {
-    this._open = this.state.enabled;
-  }
-
   override updated(changed: Map<PropertyKey, unknown>) {
     nameSwitches(this.renderRoot);
     prepareSliders(this.renderRoot);

@@ -1,6 +1,6 @@
 # Integration (Settings page)
 
-*New in 1.0 (beta). Optional.*
+*New in 1.0. Optional.*
 
 Card Style Studio itself is a dashboard resource and needs nothing else. The
 small **Card Style Studio integration** adds an entry under **Settings →
@@ -13,7 +13,7 @@ this Home Assistant:
 | **Ask each user which language to use** | On: the one-time question appears the first time a user opens the Studio. Off: nobody is asked; the language above is used |
 | **Default ON colour** / **Default OFF colour** | What a newly switched-on Icon Color, Accent Color or threshold rule starts with, as one of Home Assistant's named colours (red, pink, purple, blue, cyan, teal, green, yellow, orange, grey), or the Studio's own |
 
-A user's own choice always wins: their ⚙️ Settings language and their
+A user's own choice always wins: their Settings language and their
 [My Color Palette](Presets-and-My-Color-Palette#my-color-palette) defaults.
 A change applies at once to every open Studio, without a reload. The
 options dialog is translated into the same 22 languages and follows the

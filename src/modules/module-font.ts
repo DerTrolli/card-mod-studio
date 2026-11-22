@@ -82,10 +82,6 @@ export class FontModule extends LitElement {
 
   static override styles = [moduleStyles];
 
-  override firstUpdated() {
-    this._open = this.state.enabled || (!!this.numberSize && this.state.numberSizeEnabled);
-  }
-
   override updated(changed: Map<PropertyKey, unknown>) {
     nameSwitches(this.renderRoot);
     prepareSliders(this.renderRoot);
@@ -149,7 +145,7 @@ export class FontModule extends LitElement {
       <div class="module">
         ${renderModuleHeader({
           icon: 'mdi:format-text',
-          summary: this.state.enabled ? fontSummary(this.state) : undefined,
+          summary: fontSummary(this.state, !!this.numberSize),
           title: t('font.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),

@@ -53,7 +53,7 @@ The container itself only offers [Advanced CSS](Advanced-CSS) — background/
 border/etc. at container level have no visual effect (there's no `ha-card`
 box), which is why those modules aren't shown there.
 
-## Containers inside containers *(new in 1.0, beta)*
+## Containers inside containers *(new in 1.0)*
 
 A container inside a container (a stack in a stack, a grid inside a
 conditional, …) gets its own section, with one nested section per card

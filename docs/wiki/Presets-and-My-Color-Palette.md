@@ -5,12 +5,13 @@ as an instant local fallback).
 
 ## Style presets
 
-The bar at the top of the panel:
+The bar at the top of the **Presets** tab (at the top of the panel before
+1.0):
 
-- **💾 Save preset** — stores the card's *entire* current style
+- **Save preset** — stores the card's *entire* current style
   configuration under a name, typed into the bar itself (Enter saves,
   Escape cancels).
-- **📋 Load preset…** — applies a saved preset to any other card, in one
+- **Load preset…** — applies a saved preset to any other card, in one
   click. Card-type-specific parts adapt (the same accent preset colors a
   gauge's dial and a tile's tint). Settings the card can't use are left
   out: hidden modules, Font rows the card hides, an animation preset the
@@ -32,9 +33,9 @@ and sent to Home Assistant when it is reachable again (the bar tells you it
 was "saved on this device only"). If this browser's storage is full too, it
 says the change can't be saved.
 
-### 📚 My Presets *(new in 1.0, beta)*
+### My Presets *(new in 1.0)*
 
-A section below the preset bar that lists your presets in their order:
+On the Presets tab, below the preset bar, a section that lists your presets in their order:
 
 - **Rename** — click the name, type, Enter (a name that's taken is refused
   and the field says why).
@@ -42,9 +43,9 @@ A section below the preset bar that lists your presets in their order:
 - **⧉** — duplicate it, right below, as "… (copy)".
 - **×** — delete it (press twice).
 
-### Share a style or your presets *(new in 1.0, beta)*
+### Share a style or your presets *(new in 1.0)*
 
-Also in 📚 My Presets:
+Also in My Presets:
 
 - **Copy this card's style** or **Copy all presets** puts a short text on
   the clipboard (where the browser doesn't allow that — Home Assistant
@@ -67,7 +68,7 @@ won't silently wipe your custom rules.
 
 <img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/09%20Font%20and%20Palette.png" alt="My Color Palette" width="618">
 
-The **🖌️ My Color Palette** section (below the preset bar):
+The **My Color Palette** section, on the Studio's **Palette** tab (below the preset bar before 1.0):
 
 - **My colors** — named custom colors that appear as an extra swatch row in
   **every** color picker: card modules, threshold rules, fade points, and
