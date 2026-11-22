@@ -66,7 +66,7 @@ won't silently wipe your custom rules.
 
 ## My Color Palette
 
-<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/09%20Font%20and%20Palette.png" alt="My Color Palette" width="618">
+<img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/13%20Palette.png" alt="My Color Palette on the Palette tab" width="618">
 
 The **My Color Palette** section, on the Studio's **Palette** tab (below the preset bar before 1.0):
 

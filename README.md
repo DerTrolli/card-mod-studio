@@ -148,7 +148,7 @@ Text size, weight, family (including a custom free-text family), and color for a
 
 *Gauge card: the Font module's Number size row makes the value number bigger.*
 
-<img src="images/09%20Font%20and%20Palette.png" alt="Font module and the Color Palette Manager" width="618">
+<img src="images/09%20Font%20and%20Palette.png" alt="Font module, with your palette colors in its color picker" width="618">
 
 ### Heading Style
 
@@ -167,6 +167,8 @@ On the **Presets** tab, **My Presets** *(new in 1.0)* lists them: rename, move u
 ### My Color Palette
 
 Define named custom colors once and they appear as extra swatches in **every** color picker — card-level modules, threshold rules, and per-row controls alike. You can also override the built-in default ON/OFF colors that a freshly-enabled Icon Color/Accent Color module (and every new threshold rule) starts from. Stored per HA user, same cross-device sync as presets. Cards keep the colour they were given: changing or removing an entry doesn't restyle cards that already use it. A change made while Home Assistant can't be reached is kept and sent later.
+
+<img src="images/13%20Palette.png" alt="My Color Palette on the Studio's Palette tab" width="618">
 
 ### Language *(new in 1.0)*
 

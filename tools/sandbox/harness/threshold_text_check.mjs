@@ -61,6 +61,9 @@ const openStudio = async () => {
     await D.openCardEditor(page, 0);
   }
   await D.openStudio(page);
+  // a styled card opens with its modules closed (v1.0): open Threshold Colors when it is on
+  const thr = (await D.listSections(page)).find((x) => x.name === 'Threshold Colors');
+  if (thr?.enabled && !thr.open) await D.expandSection(page, 'Threshold Colors');
 };
 const rule = (n) => page.locator('cms-threshold-module .rule').nth(n);
 const addRule = () => page.locator('cms-threshold-module').getByRole('button', { name: '+ Add Rule' }).click();
