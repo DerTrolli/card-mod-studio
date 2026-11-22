@@ -3,8 +3,8 @@ import { property, state } from 'lit/decorators.js';
 import type { AnimationModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ANIMATION } from '../parser/state-mapper.js';
 import { moduleStyles, renderOverrideHint, renderModuleHeader, offeredOnOff, guardSliderTouch, nameSwitches, prepareSliders,
+  renderValueFields,
 } from './module-base.js';
-import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 import { stateKindFor } from '../utils/card-caps.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
@@ -12,7 +12,6 @@ import { LangController, t, type MessageKey } from '../i18n/index.js';
 
 type AnimationPreset = AnimationModuleState['preset'];
 type AnimationTrigger = AnimationModuleState['trigger'];
-type ValueOperator = NonNullable<AnimationModuleState['valueOperator']>;
 
 const PRESETS: Array<{ value: AnimationPreset; label: MessageKey }> = [
   { value: 'pulse', label: 'anim.preset.pulse' },
@@ -26,7 +25,6 @@ const PRESETS: Array<{ value: AnimationPreset; label: MessageKey }> = [
   { value: 'heartbeat', label: 'anim.preset.heartbeat' },
 ];
 
-const VALUE_OPERATORS: ValueOperator[] = ['<', '<=', '>', '>=', '==', '!='];
 
 export class AnimationModule extends LitElement {
   protected readonly i18n = new LangController(this);
@@ -256,107 +254,10 @@ export class AnimationModule extends LitElement {
     }
   }
 
-  /** Numeric attributes of the picked value entity (the condition compares
-   *  via float(), so string/list attributes would always read 0). The stored
-   *  attribute is always offered even when it's not currently numeric — an
-   *  entity that's unavailable right now shouldn't hide the active selection.
-   *  Same pattern as the Threshold module's _numericAttributes. */
-  private _numericAttributes(): string[] {
-    const entityId = this.state.valueEntity ?? '';
-    const attrs = this.hass?.states?.[entityId]?.attributes ?? {};
-    const names = Object.keys(attrs).filter((k) => {
-      const v = (attrs as Record<string, unknown>)[k];
-      return typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v)));
-    });
-    const current = this.state.valueAttribute;
-    if (current && !names.includes(current)) names.unshift(current);
-    return names;
-  }
-
-  private _renderAttributeSelect() {
-    const options = this._numericAttributes();
-    if (options.length === 0 && !this.state.valueAttribute) return nothing;
-    return html`
-      <div class="control-row">
-        <span class="control-label" id="lbl-value-read-from">${t('cond.valueReadFrom')}</span>
-        <div class="control-right">
-          <select
-            aria-labelledby="lbl-value-read-from"
-            .value=${this.state.valueAttribute ?? ''}
-            @change=${(e: Event) =>
-              this._emit({ valueAttribute: (e.target as HTMLSelectElement).value })}
-          >
-            <option value="" ?selected=${!this.state.valueAttribute}>${t('anim.stateDefault')}</option>
-            ${options.map(
-              (name) => html`<option value=${name} ?selected=${this.state.valueAttribute === name}>
-                ${t('cond.attribute', { name })}
-              </option>`,
-            )}
-          </select>
-        </div>
-      </div>
-    `;
-  }
-
+  /** "A value matches": the shared value fields (a number comparison or,
+   *  since v1.0.0, is / is not a text), on this module's flat state. */
   private _renderValueCondition() {
-    return html`
-      <div class="control-row">
-        <span class="control-label">${t('base.entity')}</span>
-        <div class="control-right">
-          <cms-entity-picker
-            .hass=${this.hass}
-            .value=${this.state.valueEntity ?? ''}
-            label=""
-            accessible-name=${t('cond.valueEntity')}
-            placeholder="sensor.temperature"
-            @value-changed=${(e: CustomEvent<{ value: string }>) =>
-              this._emit({ valueEntity: e.detail.value.trim(), valueAttribute: '' })}
-          ></cms-entity-picker>
-        </div>
-      </div>
-      ${this._renderAttributeSelect()}
-      <div class="control-row">
-        <span class="control-label" id="lbl-condition">${t('cond.condition')}</span>
-        <div class="control-right">
-          <select
-            aria-labelledby="lbl-condition"
-            .value=${this.state.valueOperator ?? '>'}
-            @change=${(e: Event) =>
-              this._emit({
-                valueOperator: (e.target as HTMLSelectElement).value as ValueOperator,
-              })}
-          >
-            ${VALUE_OPERATORS.map(
-              (op) =>
-                html`<option value=${op} ?selected=${(this.state.valueOperator ?? '>') === op}>
-                  ${t('cond.valueOp', { op })}
-                </option>`,
-            )}
-          </select>
-        </div>
-      </div>
-      <div class="control-row">
-        <span class="control-label">${t('cond.threshold')}</span>
-        <div class="control-right">
-          <input
-            type="text"
-            class="num"
-            aria-label=${t('cond.thresholdValue')}
-            aria-invalid="false"
-            spellcheck="false"
-            autocomplete="off"
-            .value=${String(this.state.valueThreshold ?? 0)}
-            @input=${markNumberInput}
-            @change=${(e: Event) => {
-              // Empty / unparseable: keep the previous value (cue shows until blur).
-              const n = commitNumberInput(e);
-              if (n !== undefined) this._emit({ valueThreshold: n });
-            }}
-            @blur=${(e: Event) => revertNumberInput(e, this.state.valueThreshold ?? 0)}
-          />
-        </div>
-      </div>
-    `;
+    return renderValueFields(this.state, this.hass, (patch) => this._emit(patch), t('anim.stateDefault'));
   }
 }
 

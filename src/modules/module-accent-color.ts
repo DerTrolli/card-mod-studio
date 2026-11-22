@@ -113,7 +113,7 @@ export class AccentColorModule extends LitElement {
         <div class="when-hint">
           ${mode === 'plain'
             ? t('accent.hintPlain')
-            : t('accent.hintOnOff')}
+            : html`${t('accent.hintOnOff')} ${t('accent.hintByValue', { module: t('threshold.title') })}`}
         </div>
         ${this.tripletAccent && accentColorsWithoutTriplet(this.state).length
           ? html`<div class="when-hint warn">${tripletHint(accentColorsWithoutTriplet(this.state))}</div>`

@@ -50,6 +50,12 @@ export const de: Record<MessageKey, string> = {
   'cond.valueOp': 'Wert {op}',
   'cond.threshold': 'Schwellenwert',
   'cond.thresholdValue': 'Schwellenwert',
+  'cond.valueIs': 'Wert ist',
+  'cond.valueIsNot': 'Wert ist nicht',
+  'cond.text': 'Text',
+  'cond.textValue': 'Text zum Vergleichen',
+  'cond.nowValue': 'Text wird genau so verglichen, wie Home Assistant ihn speichert. Gerade: {value}',
+  'cond.textHint': 'Text wird genau so verglichen, wie Home Assistant ihn speichert, zum Beispiel heating statt „Heizt“.',
   'watch.usesOtherNotOwn': 'Verwendet den Ein/Aus-Zustand von {entity}, nicht die eigene Entität dieser Karte.',
   'watch.usesOther': 'Verwendet den Ein/Aus-Zustand von {entity}.',
   'watch.leaveEmpty': 'Leer lassen, um die eigene Entität dieser Karte zu verwenden.',
@@ -159,6 +165,7 @@ export const de: Record<MessageKey, string> = {
   'accent.accentColorOff': 'Akzentfarbe bei AUS',
   'accent.hintPlain': 'Eine Farbe, die immer angezeigt wird.',
   'accent.hintOnOff': 'Eine Farbe, solange die steuernde Entität eingeschaltet ist, eine andere, solange sie aus ist.',
+  'accent.hintByValue': 'Farben nach einer Zahl oder einem Text-Zustand (heating, docked …): {module}.',
   'accent.gaugeHint':
     'Färbt die Skala der Anzeige — oder, mit {needle}, die Nadel und den Wert (die Skala zeigt dann deine eingestellten Segmentfarben).',
   'accent.tripletHint':

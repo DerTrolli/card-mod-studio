@@ -185,6 +185,15 @@ export interface StyleCondition {
   valueAttribute?: string;
   valueOperator?: '<' | '<=' | '>' | '>=' | '==' | '!=';
   valueThreshold?: number;
+  /**
+   * A text comparison instead (v1.0.0, issue #42): `is` / `is-not` this text,
+   * exactly as Home Assistant stores the state. When set, valueOperator /
+   * valueThreshold are unset — versions before 1.0.0 then see an incomplete
+   * number comparison and write the unconditional form instead of an
+   * invalid template.
+   */
+  valueText?: string;
+  valueTextOperator?: 'is' | 'is-not';
 }
 
 export interface FilterModuleState {
@@ -193,6 +202,10 @@ export interface FilterModuleState {
   grayscaleWhen: 'always' | 'on' | 'off' | 'custom';
   /** entity_id when grayscaleWhen === 'custom' — a different entity than the card's own. */
   customEntity?: string;
+  /** "A value matches" for grayscale (v1.0.0, #42): a `when: 'value'`
+   *  condition; grayscaleWhen stays 'always' (versions before 1.0.0 ignore
+   *  this field and apply grayscale always). */
+  grayscaleCondition?: StyleCondition;
   brightness: number;       // 0–200, default 100
   blur: number;             // px, default 0
   /** 0–100; 100/undefined = no opacity() part emitted. */
@@ -246,6 +259,10 @@ export interface BackgroundModuleState {
   applyWhen: 'always' | 'on' | 'off' | 'custom';
   /** entity_id when applyWhen === 'custom' — a different entity than the card's own. */
   customEntity?: string;
+  /** "A value matches" (v1.0.0, #42): a `when: 'value'` condition;
+   *  applyWhen stays 'always' (versions before 1.0.0 ignore this field and
+   *  show the background always). */
+  condition?: StyleCondition;
 }
 
 export interface AnimationModuleState {
@@ -271,6 +288,9 @@ export interface AnimationModuleState {
   valueAttribute?: string;
   valueOperator?: '<' | '<=' | '>' | '>=' | '==' | '!=';
   valueThreshold?: number;
+  /** A text comparison instead (v1.0.0, #42); see StyleCondition.valueText. */
+  valueText?: string;
+  valueTextOperator?: 'is' | 'is-not';
 }
 
 export interface BorderModuleState {

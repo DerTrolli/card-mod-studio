@@ -128,8 +128,12 @@ export class FilterModule extends LitElement {
               customEntity: this.state.customEntity,
               hass: this.hass,
               onChange: (v) =>
-                this._emit({ grayscaleWhen: v as FilterModuleState['grayscaleWhen'] }),
+                this._emit({ grayscaleWhen: v as FilterModuleState['grayscaleWhen'], grayscaleCondition: undefined }),
               onCustomEntity: (id) => this._emit({ customEntity: id }),
+              // "A value matches" (v1.0.0, #42): grayscaleWhen stays 'always'.
+              allowValue: true,
+              condition: this.state.grayscaleCondition,
+              onCondition: (c) => this._emit({ grayscaleCondition: c, grayscaleWhen: 'always' }),
             })
           : nothing}
 

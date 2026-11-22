@@ -51,6 +51,12 @@ export const en = {
   'cond.valueOp': 'value {op}',
   'cond.threshold': 'Threshold',
   'cond.thresholdValue': 'Threshold value',
+  'cond.valueIs': 'value is',
+  'cond.valueIsNot': 'value is not',
+  'cond.text': 'Text',
+  'cond.textValue': 'Text to compare',
+  'cond.nowValue': 'Text is compared exactly as Home Assistant stores it. Right now: {value}',
+  'cond.textHint': 'Text is compared exactly as Home Assistant stores it, for example heating rather than “Heating”.',
   'watch.usesOtherNotOwn': "Uses {entity}'s on/off state, not this card's own entity.",
   'watch.usesOther': "Uses {entity}'s on/off state.",
   'watch.leaveEmpty': "Leave empty to use this card's own entity.",
@@ -116,6 +122,7 @@ export const en = {
   'accent.accentColorOff': 'Accent color when OFF',
   'accent.hintPlain': 'One color, shown all the time.',
   'accent.hintOnOff': 'One color while the controlling entity is on, another while off.',
+  'accent.hintByValue': 'Colors by a number or a text state (heating, docked…): {module}.',
   'accent.gaugeHint':
     'Colors the gauge dial — or, with {needle}, the needle and value text (the dial itself shows your configured segment colors there).',
   'accent.tripletHint':

@@ -214,7 +214,7 @@ export class IconColorModule extends LitElement {
             ? t('accent.hintPlain')
             : mode === 'light'
             ? t('icon.hintLight')
-            : t('accent.hintOnOff')}
+            : html`${t('accent.hintOnOff')} ${t('accent.hintByValue', { module: t('threshold.title') })}`}
         </div>
         ${watches
           ? html`

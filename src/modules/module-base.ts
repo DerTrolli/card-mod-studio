@@ -5,6 +5,8 @@
 import { css, html, nothing } from 'lit';
 import type { TemplateResult } from 'lit';
 import type { HomeAssistant, StyleCondition } from '../types/index.js';
+import { isTextRule } from '../types/index.js';
+import { commitTextRuleValue, normalizeRule, rawRuleValue, revertTextRuleValue } from '../utils/threshold-rules.js';
 import '../components/cms-entity-picker.js';
 import '../components/cms-take-over.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
@@ -276,6 +278,15 @@ export const moduleStyles = [
   input.num {
     width: 84px;
     min-width: 0;
+  }
+  /* A condition's text (v1.0.0): wider than a number, never wider than the row. */
+  input.text-value {
+    width: 160px;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .now-value {
+    overflow-wrap: anywhere;
   }
   /* Invalid number: dashed border as well as colour, plus aria-invalid. */
   input[aria-invalid='true'] {
@@ -839,6 +850,13 @@ export interface WhenControlOptions {
   hass?: HomeAssistant;
   onChange: (v: WhenValue) => void;
   onCustomEntity?: (id: string) => void;
+  /** Offer "A value matches" (v1.0.0, #42): the condition lives in its own
+   *  field (Background's `condition`, grayscale's `grayscaleCondition`). */
+  allowValue?: boolean;
+  /** The stored value condition (when: 'value'), if any. */
+  condition?: StyleCondition;
+  /** Sets / clears the value condition (undefined = back to `value`'s option). */
+  onCondition?: (c: StyleCondition | undefined) => void;
 }
 
 /** Which of the ON / OFF options a condition select offers. A stored on/off
@@ -870,6 +888,163 @@ function whenHint(v: WhenValue, o: WhenControlOptions): string {
   }
 }
 
+/** The fields of a "value matches" condition (StyleCondition; the Animation
+ *  trigger keeps the same names flat on its state). */
+export type ValueFields = Pick<
+  StyleCondition,
+  'valueEntity' | 'valueAttribute' | 'valueOperator' | 'valueThreshold' | 'valueText' | 'valueTextOperator'
+>;
+
+const TEXT_OPERATORS = ['is', 'is-not'] as const;
+
+/** Text attributes too (v1.0.0): a text comparison reads them as text. */
+function valueAttributes(hass: HomeAssistant | undefined, entityId: string, current: string | undefined, text: boolean): string[] {
+  const names = numericAttributes(hass, entityId, current);
+  if (!text) return names;
+  const attrs = hass?.states?.[entityId]?.attributes ?? {};
+  for (const [k, v] of Object.entries(attrs)) {
+    if ((typeof v === 'string' || typeof v === 'boolean') && !names.includes(k)) names.push(k);
+  }
+  return names;
+}
+
+/**
+ * The "a value matches" fields — entity, read from, condition, value — shared
+ * by every condition control (Reacts to, Apply when, the Animation trigger).
+ * The condition offers the number comparisons and, since v1.0.0 (#42),
+ * `is` / `is not` a text: the value field then takes text, starts from the
+ * entity's current value, and a hint shows that value (compared exactly as
+ * Home Assistant stores it). A number typed as text becomes `==` / `!=`.
+ * `stateLabel` names the "read from: the state" option.
+ */
+export function renderValueFields(
+  c: ValueFields | undefined,
+  hass: HomeAssistant | undefined,
+  change: (patch: Partial<ValueFields>) => void,
+  stateLabel: string = t('cond.state'),
+): TemplateResult {
+  const text = c?.valueText !== undefined;
+  const op = text ? (c?.valueTextOperator ?? 'is') : (c?.valueOperator ?? '>');
+  const now = c?.valueEntity ? rawRuleValue(hass, c.valueEntity, c.valueAttribute || undefined) : null;
+  const attrNames = c?.valueEntity ? valueAttributes(hass, c.valueEntity, c.valueAttribute, text) : [];
+  const toText = (o: 'is' | 'is-not'): Partial<ValueFields> => {
+    if (text) return { valueTextOperator: o };
+    // Starts from the current value when that is text (a number stays a number rule).
+    const start = now !== null && isTextRule(normalizeRule({ id: '', operator: o, value: now, color: '' })) ? now : '';
+    return { valueTextOperator: o, valueText: start, valueOperator: undefined, valueThreshold: undefined };
+  };
+  const toNumber = (o: NonNullable<ValueFields['valueOperator']>): Partial<ValueFields> => {
+    if (!text) return { valueOperator: o };
+    const t2 = (c?.valueText ?? '').trim();
+    const n = Number(t2);
+    return { valueOperator: o, valueThreshold: t2 !== '' && Number.isFinite(n) ? n : 0, valueText: undefined, valueTextOperator: undefined };
+  };
+  const commitText = (e: Event) => {
+    const v = commitTextRuleValue(e);
+    if (v === undefined) return;
+    const r = normalizeRule({ id: '', operator: c?.valueTextOperator ?? 'is', value: v, color: '' });
+    change(isTextRule(r)
+      ? { valueText: v }
+      : { valueOperator: r.operator as ValueFields['valueOperator'], valueThreshold: Number(r.value), valueText: undefined, valueTextOperator: undefined });
+  };
+
+  return html`
+    <div class="control-row">
+      <span class="control-label">${t('base.entity')}</span>
+      <div class="control-right">
+        <cms-entity-picker
+          .hass=${hass}
+          .value=${c?.valueEntity ?? ''}
+          label=""
+          accessible-name=${t('cond.valueEntity')}
+          placeholder="sensor.temperature"
+          @value-changed=${(e: CustomEvent<{ value: string }>) =>
+            change({ valueEntity: e.detail.value.trim(), valueAttribute: '' })}
+        ></cms-entity-picker>
+      </div>
+    </div>
+    ${attrNames.length > 0 || c?.valueAttribute
+      ? html`
+          <div class="control-row">
+            <span class="control-label" id="cond-read-label">${t('cond.valueReadFrom')}</span>
+            <div class="control-right">
+              <select
+                aria-labelledby="cond-read-label"
+                .value=${c?.valueAttribute ?? ''}
+                @change=${(e: Event) => change({ valueAttribute: (e.target as HTMLSelectElement).value })}
+              >
+                <option value="" ?selected=${!c?.valueAttribute}>${stateLabel}</option>
+                ${attrNames.map(
+                  (name) =>
+                    html`<option value=${name} ?selected=${c?.valueAttribute === name}>
+                      ${t('cond.attribute', { name })}
+                    </option>`,
+                )}
+              </select>
+            </div>
+          </div>
+        `
+      : nothing}
+    <div class="control-row">
+      <span class="control-label" id="cond-op-label">${t('cond.condition')}</span>
+      <div class="control-right">
+        <select
+          aria-labelledby="cond-op-label"
+          .value=${op}
+          @change=${(e: Event) => {
+            const v = (e.target as HTMLSelectElement).value;
+            change(v === 'is' || v === 'is-not' ? toText(v) : toNumber(v as NonNullable<ValueFields['valueOperator']>));
+          }}
+        >
+          ${CONDITION_OPERATORS.map(
+            (o) => html`<option value=${o} ?selected=${op === o}>${t('cond.valueOp', { op: o })}</option>`,
+          )}
+          ${TEXT_OPERATORS.map(
+            (o) => html`<option value=${o} ?selected=${op === o}>${t(o === 'is' ? 'cond.valueIs' : 'cond.valueIsNot')}</option>`,
+          )}
+        </select>
+      </div>
+    </div>
+    <div class="control-row">
+      <span class="control-label">${t(text ? 'cond.text' : 'cond.threshold')}</span>
+      <div class="control-right">
+        ${text
+          ? html`<input
+              type="text"
+              class="text-value"
+              aria-label=${t('cond.textValue')}
+              aria-invalid="false"
+              spellcheck="false"
+              autocomplete="off"
+              placeholder=${now ?? ''}
+              .value=${c?.valueText ?? ''}
+              @change=${commitText}
+              @blur=${(e: Event) => revertTextRuleValue(e, c?.valueText ?? '')}
+            />`
+          : html`<input
+              type="text"
+              class="num"
+              aria-label=${t('cond.thresholdValue')}
+              aria-invalid="false"
+              spellcheck="false"
+              autocomplete="off"
+              .value=${String(c?.valueThreshold ?? 0)}
+              @input=${markNumberInput}
+              @change=${(e: Event) => {
+                // Empty / unparseable: keep the previous value (cue shows until blur).
+                const n = commitNumberInput(e);
+                if (n !== undefined) change({ valueThreshold: n });
+              }}
+              @blur=${(e: Event) => revertNumberInput(e, c?.valueThreshold ?? 0)}
+            />`}
+      </div>
+    </div>
+    ${text
+      ? html`<div class="when-hint now-value">${now === null ? t('cond.textHint') : t('cond.nowValue', { value: now })}</div>`
+      : nothing}
+  `;
+}
+
 /**
  * Renders a consistent "Apply when" control across modules. On non-state-aware
  * cards the ON/OFF options are hidden so the user can't pick a condition that
@@ -879,12 +1054,24 @@ function whenHint(v: WhenValue, o: WhenControlOptions): string {
 export function renderWhen(o: WhenControlOptions): TemplateResult {
   const { showOn, showOff } = offeredOnOff(o.stateAware, o.offOnly, o.value === 'on' || o.value === 'off');
   // If "Always" is the only meaningful choice, drop the single-option dropdown.
-  const showSelect = showOn || showOff || !!o.allowCustom;
+  const showSelect = showOn || showOff || !!o.allowCustom || !!o.allowValue;
+  // "A value matches" is its own field; the stored when-value stays as it is.
+  const isValue = !!o.allowValue && o.condition?.when === 'value';
+  const shown = isValue ? 'value' : o.value;
 
-  const opts: Array<{ v: WhenValue; label: string }> = [{ v: 'always', label: t('when.always') }];
+  const opts: Array<{ v: WhenValue | 'value'; label: string }> = [{ v: 'always', label: t('when.always') }];
   if (showOn) opts.push({ v: 'on', label: t('when.onlyOn') });
   if (showOff) opts.push({ v: 'off', label: t('when.onlyOff') });
   if (o.allowCustom) opts.push({ v: 'custom', label: t('when.otherEntity') });
+  if (o.allowValue) opts.push({ v: 'value', label: t('cond.valueMatches') });
+  const pick = (v: string) => {
+    if (v === 'value') {
+      // Seeded like the other value conditions (a number comparison, `> 0`).
+      o.onCondition?.({ when: 'value', valueOperator: '>', valueThreshold: 0 });
+      return;
+    }
+    o.onChange(v as WhenValue);
+  };
 
   return html`
     ${showSelect
@@ -894,13 +1081,12 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
             <div class="control-right">
               <select
                 aria-labelledby="when-label"
-                .value=${o.value}
-                @change=${(e: Event) =>
-                  o.onChange((e.target as HTMLSelectElement).value as WhenValue)}
+                .value=${shown}
+                @change=${(e: Event) => pick((e.target as HTMLSelectElement).value)}
               >
                 ${opts.map(
                   (opt) =>
-                    html`<option value=${opt.v} ?selected=${o.value === opt.v}>
+                    html`<option value=${opt.v} ?selected=${shown === opt.v}>
                       ${opt.label}
                     </option>`,
                 )}
@@ -909,7 +1095,10 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
           </div>
         `
       : nothing}
-    ${o.value === 'custom'
+    ${isValue
+      ? renderValueFields(o.condition, o.hass, (patch) => o.onCondition?.({ ...(o.condition as StyleCondition), ...patch }))
+      : nothing}
+    ${!isValue && o.value === 'custom'
       ? html`
           <div class="control-row">
             <span class="control-label">${t('base.entity')}</span>
@@ -928,7 +1117,7 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
           </div>
         `
       : nothing}
-    <div class="when-hint">${whenHint(o.value, o)}</div>
+    <div class="when-hint">${isValue ? t('cond.hintValue', { noun: t(o.noun) }) : whenHint(o.value, o)}</div>
   `;
 }
 
@@ -1099,9 +1288,6 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
     change({ when: v });
   };
 
-  const attrNames =
-    when === 'value' && c?.valueEntity ? numericAttributes(o.hass, c.valueEntity, c.valueAttribute) : [];
-
   return html`
     <div class="control-row">
       <span class="control-label" id="cond-label">${t('cond.reactsTo')}</span>
@@ -1137,89 +1323,7 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
           </div>
         `
       : nothing}
-    ${when === 'value'
-      ? html`
-          <div class="control-row">
-            <span class="control-label">${t('base.entity')}</span>
-            <div class="control-right">
-              <cms-entity-picker
-                .hass=${o.hass}
-                .value=${c?.valueEntity ?? ''}
-                label=""
-                accessible-name=${t('cond.valueEntity')}
-                placeholder="sensor.temperature"
-                @value-changed=${(e: CustomEvent<{ value: string }>) =>
-                  change({ valueEntity: e.detail.value.trim(), valueAttribute: '' })}
-              ></cms-entity-picker>
-            </div>
-          </div>
-          ${attrNames.length > 0 || c?.valueAttribute
-            ? html`
-                <div class="control-row">
-                  <span class="control-label" id="cond-read-label">${t('cond.valueReadFrom')}</span>
-                  <div class="control-right">
-                    <select
-                      aria-labelledby="cond-read-label"
-                      .value=${c?.valueAttribute ?? ''}
-                      @change=${(e: Event) =>
-                        change({ valueAttribute: (e.target as HTMLSelectElement).value })}
-                    >
-                      <option value="" ?selected=${!c?.valueAttribute}>${t('cond.state')}</option>
-                      ${attrNames.map(
-                        (name) =>
-                          html`<option value=${name} ?selected=${c?.valueAttribute === name}>
-                            ${t('cond.attribute', { name })}
-                          </option>`,
-                      )}
-                    </select>
-                  </div>
-                </div>
-              `
-            : nothing}
-          <div class="control-row">
-            <span class="control-label" id="cond-op-label">${t('cond.condition')}</span>
-            <div class="control-right">
-              <select
-                aria-labelledby="cond-op-label"
-                .value=${c?.valueOperator ?? '>'}
-                @change=${(e: Event) =>
-                  change({
-                    valueOperator: (e.target as HTMLSelectElement)
-                      .value as StyleCondition['valueOperator'],
-                  })}
-              >
-                ${CONDITION_OPERATORS.map(
-                  (op) =>
-                    html`<option value=${op} ?selected=${(c?.valueOperator ?? '>') === op}>
-                      ${t('cond.valueOp', { op })}
-                    </option>`,
-                )}
-              </select>
-            </div>
-          </div>
-          <div class="control-row">
-            <span class="control-label">${t('cond.threshold')}</span>
-            <div class="control-right">
-              <input
-                type="text"
-                class="num"
-                aria-label=${t('cond.thresholdValue')}
-                aria-invalid="false"
-                spellcheck="false"
-                autocomplete="off"
-                .value=${String(c?.valueThreshold ?? 0)}
-                @input=${markNumberInput}
-                @change=${(e: Event) => {
-                  // Empty / unparseable: keep the previous value (cue shows until blur).
-                  const n = commitNumberInput(e);
-                  if (n !== undefined) change({ valueThreshold: n });
-                }}
-                @blur=${(e: Event) => revertNumberInput(e, c?.valueThreshold ?? 0)}
-              />
-            </div>
-          </div>
-        `
-      : nothing}
+    ${when === 'value' ? renderValueFields(c, o.hass, change) : nothing}
     <div class="when-hint">${conditionHint(c, o)}</div>
   `;
 }

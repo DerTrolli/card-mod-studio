@@ -134,11 +134,50 @@ export function conditionExpr(c: StyleCondition | undefined): string | null {
     return c.customEntity ? `is_state('${jinjaStr(c.customEntity)}', 'on')` : null;
   }
   // when === 'value'
-  if (!c.valueEntity || !c.valueOperator || c.valueThreshold === undefined) return null;
-  const src = c.valueAttribute
-    ? `state_attr('${jinjaStr(c.valueEntity)}', '${jinjaStr(c.valueAttribute)}') | float(0)`
-    : `states('${jinjaStr(c.valueEntity)}') | float(0)`;
-  return `${src} ${c.valueOperator} ${c.valueThreshold}`;
+  return valueConditionExpr(c);
+}
+
+/** A number or a text comparison of an entity's state / attribute (v1.0.0:
+ *  text for conditions and the Animation trigger, #42). null when incomplete
+ *  — callers write the unconditional form then. */
+export function valueConditionExpr(c: {
+  valueEntity?: string;
+  valueAttribute?: string;
+  valueOperator?: StyleCondition['valueOperator'];
+  valueThreshold?: number;
+  valueText?: string;
+  valueTextOperator?: StyleCondition['valueTextOperator'];
+}): string | null {
+  if (!c.valueEntity) return null;
+  if (c.valueText !== undefined) {
+    if (c.valueText === '') return null;
+    return valueComparison(c.valueEntity, c.valueAttribute, c.valueTextOperator ?? 'is', c.valueText);
+  }
+  if (!c.valueOperator || c.valueThreshold === undefined) return null;
+  return valueComparison(c.valueEntity, c.valueAttribute, c.valueOperator, c.valueThreshold);
+}
+
+/**
+ * The one spelling of "this entity's state (or attribute) compared with a
+ * value", shared by the Threshold rules, the conditions and the Animation
+ * trigger: `states('x') | float(0) > 5`, or for text (`is` / `is-not`)
+ * `states('x') == 'heating'` — an attribute as `state_attr('x', 'a') |
+ * string == '…'`, so a non-text attribute compares by its text too.
+ */
+export function valueComparison(
+  entityId: string,
+  attribute: string | undefined,
+  operator: ThresholdRule['operator'],
+  value: number | string,
+): string {
+  const src = attribute
+    ? `state_attr('${jinjaStr(entityId)}', '${jinjaStr(attribute)}')`
+    : `states('${jinjaStr(entityId)}')`;
+  if (operator === 'is' || operator === 'is-not') {
+    const left = attribute ? `${src} | string` : src;
+    return `${left} ${operator === 'is' ? '==' : '!='} '${jinjaStr(String(value))}'`;
+  }
+  return `${src} | float(0) ${operator} ${value}`;
 }
 
 function filterDecls(s: FilterModuleState, caps: CardCaps, rawCss = ''): string[] {
@@ -164,7 +203,11 @@ function filterDecls(s: FilterModuleState, caps: CardCaps, rawCss = ''): string[
     const grayVal = grayParts.join(' ');
     const otherVal = otherParts.length > 0 ? otherParts.join(' ') : 'none';
 
-    if (s.grayscaleWhen === 'always') {
+    if (s.grayscaleCondition?.when === 'value') {
+      // "A value matches" (v1.0.0, #42); incomplete → unconditional.
+      const cond = conditionExpr(s.grayscaleCondition);
+      decls.push(cond ? `filter: {{ '${grayVal}' if ${cond} else '${otherVal}' }};` : `filter: ${grayVal};`);
+    } else if (s.grayscaleWhen === 'always') {
       decls.push(`filter: ${grayVal};`);
     } else if (s.grayscaleWhen === 'off') {
       decls.push(
@@ -485,6 +528,8 @@ function asImportant(decl: string, on: boolean): string {
 
 /** The condition a Background reacts to (null = unconditional). */
 function backgroundCondition(s: BackgroundModuleState): string | null {
+  // "A value matches" (v1.0.0, #42); incomplete → unconditional.
+  if (s.condition?.when === 'value') return conditionExpr(s.condition);
   if (s.applyWhen === 'always') return null;
   // 'custom' with no entity picked yet → unconditional. The old fallthrough
   // mapped an incomplete 'custom' to the 'off' branch — the background
@@ -578,15 +623,11 @@ function animationDecls(s: AnimationModuleState): string[] {
         : `animation: ${animValue};`,
     );
   } else if (s.trigger === 'value') {
-    if (s.valueEntity && s.valueOperator && s.valueThreshold !== undefined) {
-      // Same value-source expressions as buildThresholdJinja, so both
-      // features read a numeric state/attribute in the identical spelling.
-      const stateExpr = s.valueAttribute
-        ? `state_attr('${jinjaStr(s.valueEntity)}', '${jinjaStr(s.valueAttribute)}') | float(0)`
-        : `states('${jinjaStr(s.valueEntity)}') | float(0)`;
-      decls.push(
-        `animation: {{ '${animValue}' if ${stateExpr} ${s.valueOperator} ${s.valueThreshold} else 'none' }};`,
-      );
+    // Same comparison as the Threshold rules and the conditions (a number,
+    // or since v1.0.0 a text).
+    const cond = valueConditionExpr(s);
+    if (cond) {
+      decls.push(`animation: {{ '${animValue}' if ${cond} else 'none' }};`);
     } else {
       decls.push(`animation: ${animValue};`); // incomplete → unconditional (W8)
     }
@@ -1022,14 +1063,7 @@ export function sortThresholdRules(rules: ThresholdRule[]): ThresholdRule[] {
  *  `states('x') == 'heating'` (an attribute: `state_attr('x', 'a') | string
  *  == '…'`, so a non-text attribute compares by its text too). */
 export function thresholdCondition(rule: ThresholdRule, entityId: string, attribute?: string): string {
-  const src = attribute
-    ? `state_attr('${jinjaStr(entityId)}', '${jinjaStr(attribute)}')`
-    : `states('${jinjaStr(entityId)}')`;
-  if (isTextRule(rule)) {
-    const left = attribute ? `${src} | string` : src;
-    return `${left} ${rule.operator === 'is' ? '==' : '!='} '${jinjaStr(String(rule.value))}'`;
-  }
-  return `${src} | float(0) ${rule.operator} ${rule.value}`;
+  return valueComparison(entityId, attribute, rule.operator, rule.value);
 }
 
 /**

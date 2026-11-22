@@ -184,8 +184,13 @@ export class BackgroundModule extends LitElement {
           allowCustom: true,
           customEntity: this.state.customEntity,
           hass: this.hass,
-          onChange: (v) => this._emit({ applyWhen: v as BackgroundModuleState['applyWhen'] }),
+          onChange: (v) => this._emit({ applyWhen: v as BackgroundModuleState['applyWhen'], condition: undefined }),
           onCustomEntity: (id) => this._emit({ customEntity: id }),
+          // "A value matches" (v1.0.0, #42): applyWhen stays 'always' (what
+          // versions before 1.0.0 then show).
+          allowValue: true,
+          condition: this.state.condition,
+          onCondition: (c) => this._emit({ condition: c, applyWhen: 'always' }),
         })}
       </div>
     `;
