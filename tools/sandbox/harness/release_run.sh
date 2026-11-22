@@ -50,6 +50,16 @@ verify() {
   [ $bad = 0 ] && log "rigs hold the frozen bundle ($1)"
 }
 deploy; verify "deployed"
+# every rig starts with no stored presets, palette or settings (as a first install)
+( cd "$H" && SC="$SC" node -e "
+import('./click-driver.mjs').then(async (D) => {
+  for (const o of [{ rig: 'cm' }, { rig: 'uix', tokensFile: process.env.SC + '/tokens-uix9.json' }, { rig: 'cm', tokensFile: process.env.SC + '/tokens-2602.json' }, { rig: 'cm', tokensFile: process.env.SC + '/tokens-2509.json' }]) {
+    const h = await D.launch(o);
+    await h.page.evaluate(async () => { const c = document.querySelector('home-assistant').hass.connection; for (const key of ['cms_settings', 'cms_presets', 'cms_palette']) await c.sendMessagePromise({ type: 'frontend/set_user_data', key, value: null }); });
+    console.log('clean', h.ha); await h.close();
+  }
+});" ) > "$RUN/clean.log" 2>&1
+log "rig state cleared rc=$?: $(tr '\n' ' ' < "$RUN/clean.log" | cut -c1-200)"
 
 # ---------------------------------------------------------------- 2. continuity
 VERS="v0.8.1,v0.9.1,v0.10.0,v0.10.1,v0.10.2,v0.11.0-beta.1,v0.11.0-beta.2,v0.11.0-beta.3,v0.11.0,v1.0.0-beta.1,v1.0.0-beta.2" \
