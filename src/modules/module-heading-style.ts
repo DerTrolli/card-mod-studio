@@ -6,6 +6,7 @@ import {
   moduleStyles, renderOverrideHint, renderModuleHeader, renderResetButton, renderDefaultOption,
   guardSliderTouch, nameSwitches, prepareSliders,
 } from './module-base.js';
+import { headingSummary } from './module-summary.js';
 import { FONT_FAMILY_PRESETS } from './module-font.js';
 import '../components/cms-color-picker.js';
 import { LangController, t } from '../i18n/index.js';
@@ -88,7 +89,8 @@ export class HeadingStyleModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '🔤',
+          icon: 'mdi:format-header-pound',
+          summary: this.state.enabled ? headingSummary(this.state) : undefined,
           title: t('heading.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),

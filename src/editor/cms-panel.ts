@@ -55,7 +55,7 @@ import '../modules/module-features.js';
 import { DEFAULT_FEATURES } from '../parser/state-mapper.js';
 import './cms-preset-manager.js';
 import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
-import { cmsTokens } from '../modules/module-base.js';
+import { cmsTokens, renderIcon } from '../modules/module-base.js';
 import { hasTopLevelJinjaStatement, templateStatementNote, anyModuleOn } from '../utils/css-lint.js';
 import { uixStyleUsesMacro } from '../utils/uix-macro-use.js';
 
@@ -70,7 +70,7 @@ import '../modules/module-advanced.js';
 import '../modules/module-heading-style.js';
 import '../modules/module-font.js';
 import '../modules/module-entities-rows.js';
-import { LangController, currentLanguage, languageOfHass, setHomeAssistantLanguage, t, tParts } from '../i18n/index.js';
+import { LangController, currentLanguage, languageOfHass, setHomeAssistantLanguage, t, tParts, type MessageKey } from '../i18n/index.js';
 
 declare const __APP_VERSION__: string;
 const VERSION = __APP_VERSION__;
@@ -99,6 +99,16 @@ function isDarkTheme(hass: HomeAssistant | undefined): boolean {
 /** A locked card renders only the entity rows module, so only it can be picked. */
 const LOCKED_PICK_MODULES = ['cms-entities-rows-module'] as const;
 
+/** v1.0: the panel's tabs. Style holds the modules; the others what is not
+ *  about this card's look (they used to sit above the modules). */
+export type PanelTab = 'style' | 'presets' | 'palette' | 'settings';
+const TABS: ReadonlyArray<{ id: PanelTab; label: MessageKey }> = [
+  { id: 'style', label: 'tab.style' },
+  { id: 'presets', label: 'tabs.presets' },
+  { id: 'palette', label: 'tabs.palette' },
+  { id: 'settings', label: 'settings.title' },
+];
+
 /** Per-device convenience: the phone preview's folded state. */
 const PREVIEW_FOLD_KEY = 'cms-preview-folded';
 function readPreviewFolded(): boolean {
@@ -119,6 +129,8 @@ export class CmsPanel extends LitElement {
   @state() private _cardModPresent = false;
   @state() private _uixPresent = false;
   @state() private _studioState: StudioState | null = null;
+  /** The open tab; every new editor starts on Style. */
+  @state() private _tab: PanelTab = 'style';
   @state() private _previewConfig: CardModCardConfig | undefined = undefined;
   @state() private _previewKey = 0;
   @state() private _presets: StylePreset[] = [];
@@ -835,6 +847,48 @@ export class CmsPanel extends LitElement {
     }
 
     .header h2 { margin: 0; font-size: 16px; font-weight: 500; }
+    .header-icon {
+      --mdc-icon-size: 22px;
+      color: var(--primary-color, #03a9f4);
+      display: inline-flex;
+    }
+
+    /* ---- Tabs (Home Assistant's own: text, the open one underlined) ---- */
+
+    .tabs {
+      flex-shrink: 0;
+      display: flex;
+      overflow-x: auto;
+      scrollbar-width: none;
+      border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      padding: 0 8px;
+    }
+    .tab {
+      flex: 0 0 auto;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      min-height: 44px;
+      padding: 0 16px;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      background: none;
+      color: var(--secondary-text-color, #727272);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .tab:hover {
+      color: var(--primary-text-color, #212121);
+    }
+    .tab.active {
+      color: var(--primary-color, #03a9f4);
+      border-bottom-color: var(--primary-color, #03a9f4);
+    }
+    .tab:focus-visible {
+      outline: 2px solid var(--primary-color, #03a9f4);
+      outline-offset: -2px;
+    }
     .header .version {
       font-size: 11px;
       color: var(--secondary-text-color, #727272);
@@ -1214,32 +1268,17 @@ export class CmsPanel extends LitElement {
     const hasPreview = !!(this.config && this.hass);
     return html`
       <div class="header">
-        <span aria-hidden="true">🎨</span>
-        <h2>Card Style Studio</h2>
+        <ha-icon class="header-icon" icon="mdi:palette" aria-hidden="true"></ha-icon>
+        <h2 id="cms-title">Card Style Studio</h2>
         <span class="version">v${VERSION}</span>
       </div>
+      ${this._renderTabs()}
 
       <div class="panel-body ${hasPreview ? '' : 'no-preview'} ${this._narrow ? 'narrow' : ''} ${this._narrow && this._previewFolded ? 'preview-folded' : ''}">
-        <div class="modules-col">
+        <div class="modules-col" id="cms-tabpanel" role="tabpanel" aria-labelledby="cms-tab-${this._tab}">
           <cms-language-notice .hass=${this.hass}></cms-language-notice>
           ${this._renderCompatBanner()}
-
-          ${this._studioState
-            ? html`
-                ${this._isLocked || this._nothingToStyle ? nothing : this._renderPresetBar()}
-                <cms-preset-manager
-                  .presets=${this._presets}
-                  .cardState=${this._isLocked ? undefined : this._portableState()}
-                  @preset-change=${this._onPresetManagerChange}
-                  @style-paste=${this._onStylePaste}
-                ></cms-preset-manager>
-                <cms-palette-manager .hass=${this.hass}></cms-palette-manager>
-                <cms-settings .hass=${this.hass}></cms-settings>
-                ${this._renderNothingToStyleNote()}
-                ${this._renderUnprofiledNotice()}
-                ${this._renderModuleList(settleEntityless(this._studioState, this.config as unknown as Record<string, unknown>))}
-              `
-            : html`<div class="no-config">${t('panel.noCard')}</div>`}
+          ${this._renderTabContent()}
         </div>
 
         ${hasPreview
@@ -1256,7 +1295,7 @@ export class CmsPanel extends LitElement {
                       >${t(this._previewFolded ? 'panel.previewShow' : 'panel.previewHide')}</button>`
                     : nothing}
                 </div>
-                ${this._pickerActive
+                ${this._pickerActive && this._tab === 'style'
                   ? html`<span class="preview-hint">${t('panel.previewHint')}</span>`
                   : nothing}
                 <div class="preview-card-wrapper">
@@ -1267,6 +1306,73 @@ export class CmsPanel extends LitElement {
           : nothing}
       </div>
     `;
+  }
+
+  /** Style / Presets / Palette / Settings, as an ARIA tab list: arrow keys,
+   *  Home and End move between the tabs and open them. */
+  private _renderTabs() {
+    return html`<div class="tabs" role="tablist" aria-labelledby="cms-title" @keydown=${this._onTabKeydown}>
+      ${TABS.map((tab) => {
+        const on = tab.id === this._tab;
+        return html`<button
+          type="button"
+          role="tab"
+          class="tab ${on ? 'active' : ''}"
+          id="cms-tab-${tab.id}"
+          data-tab=${tab.id}
+          aria-selected=${on ? 'true' : 'false'}
+          aria-controls="cms-tabpanel"
+          tabindex=${on ? '0' : '-1'}
+          @click=${() => this._selectTab(tab.id)}
+        >${t(tab.label)}</button>`;
+      })}
+    </div>`;
+  }
+
+  private _selectTab(tab: PanelTab, focus = false) {
+    this._tab = tab;
+    if (focus) {
+      void this.updateComplete.then(() => (this.shadowRoot?.getElementById(`cms-tab-${tab}`) as HTMLElement | null)?.focus());
+    }
+  }
+
+  private _onTabKeydown = (e: KeyboardEvent) => {
+    const i = TABS.findIndex((x) => x.id === this._tab);
+    const next = e.key === 'ArrowRight' ? (i + 1) % TABS.length
+      : e.key === 'ArrowLeft' ? (i - 1 + TABS.length) % TABS.length
+        : e.key === 'Home' ? 0
+          : e.key === 'End' ? TABS.length - 1
+            : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    this._selectTab(TABS[next].id, true);
+  };
+
+  private _renderTabContent() {
+    switch (this._tab) {
+      case 'presets':
+        return html`
+          ${this._studioState && !this._isLocked && !this._nothingToStyle ? this._renderPresetBar() : nothing}
+          <cms-preset-manager
+            .presets=${this._presets}
+            .cardState=${this._isLocked || !this._studioState ? undefined : this._portableState()}
+            @preset-change=${this._onPresetManagerChange}
+            @style-paste=${this._onStylePaste}
+          ></cms-preset-manager>
+        `;
+      case 'palette':
+        return html`<cms-palette-manager .hass=${this.hass}></cms-palette-manager>`;
+      case 'settings':
+        return html`<cms-settings .hass=${this.hass}></cms-settings>`;
+      default:
+        return this._studioState
+          ? html`
+              ${this._renderNothingToStyleNote()}
+              ${this._renderUnprofiledNotice()}
+              ${this._renderModuleList(settleEntityless(this._studioState, this.config as unknown as Record<string, unknown>))}
+            `
+          : html`<div class="no-config">${t('panel.noCard')}</div>`;
+    }
   }
 
   /** True when the click-to-edit picker overlays the preview. Container
@@ -1332,8 +1438,12 @@ export class CmsPanel extends LitElement {
   }
 
   /** Click-to-edit: scroll to the picked module, open it, flash it. */
-  private _onPreviewPick(e: CustomEvent<PickEventDetail>) {
+  private async _onPreviewPick(e: CustomEvent<PickEventDetail>) {
     const { module, rowEntity, rowIndex } = e.detail;
+    if (this._tab !== 'style') {
+      this._tab = 'style';
+      await this.updateComplete;
+    }
     const el = this.shadowRoot?.querySelector(module) as
       | (HTMLElement & { _open?: boolean; open?: boolean; _openRows?: Set<string> })
       | null;
@@ -1383,7 +1493,7 @@ export class CmsPanel extends LitElement {
     // read it either), and hide the fact that nothing renders regardless.
     if (!this._cardModPresent && !this._uixPresent) {
       return html`<div class="warning-banner">
-        ⚠️ ${t('panel.noEngine')}
+        ${renderIcon('mdi:alert-outline')}${t('panel.noEngine')}
       </div>`;
     }
 
@@ -1391,7 +1501,7 @@ export class CmsPanel extends LitElement {
     if (atRisk) {
       if (this._uixOnlyUsesMacros) {
         return html`<div class="warning-banner">
-          ⚠️ ${t('panel.uixOnlyMacros')}
+          ${renderIcon('mdi:alert-outline')}${t('panel.uixOnlyMacros')}
         </div>`;
       }
       const what = this._uixOnlyAtRisk && this._uixOnlyRowsAtRisk
@@ -1400,20 +1510,20 @@ export class CmsPanel extends LitElement {
           ? t('panel.uixOnlyRows')
           : t('panel.uixOnlyCard');
       return html`<div class="warning-banner">
-        ⚠️ ${what}
+        ${renderIcon('mdi:alert-outline')}${what}
         <button class="btn-banner-action" @click=${this._copyUixStyleToCardMod}>${t('panel.copyToCardMod')}</button>
       </div>`;
     }
 
     if (this._uixMacrosCoexist) {
       return html`<div class="info-banner">
-        ℹ️ ${t('panel.uixMacrosCoexist')}
+        ${renderIcon('mdi:information-outline')}${t('panel.uixMacrosCoexist')}
       </div>`;
     }
 
     if (this._uixMacroStyleKept) {
       return html`<div class="info-banner">
-        ℹ️ ${t('panel.uixMacroKept')}
+        ${renderIcon('mdi:information-outline')}${t('panel.uixMacroKept')}
       </div>`;
     }
 
@@ -1424,13 +1534,13 @@ export class CmsPanel extends LitElement {
    *  hint that some may not reach it. Not shown over the lock banner. */
   private _renderUnprofiledNotice() {
     if (this._isLocked || !isUnprofiledCustomCard(this.config)) return nothing;
-    return html`<div class="info-banner">ℹ️ ${unprofiledCardNotice()}</div>`;
+    return html`<div class="info-banner">${renderIcon('mdi:information-outline')}${unprofiledCardNotice()}</div>`;
   }
 
   /** A card that renders nothing: say so instead of an empty preview. */
   private _renderNothingToStyleNote() {
     if (this._isLocked || !this._nothingToStyle) return nothing;
-    return html`<div class="info-banner">ℹ️ ${t('panel.nothingToStyle')}</div>`;
+    return html`<div class="info-banner">${renderIcon('mdi:information-outline')}${t('panel.nothingToStyle')}</div>`;
   }
 
   private _renderPresetBar() {
@@ -1459,7 +1569,7 @@ export class CmsPanel extends LitElement {
             class="btn-preset-save"
             ?disabled=${!name}
             @click=${this._saveCurrentAsPreset}
-          ><span aria-hidden="true">💾</span> ${exists ? t('preset.overwrite') : t('preset.save')}</button>
+          >${renderIcon('mdi:content-save-outline')}${exists ? t('preset.overwrite') : t('preset.save')}</button>
           <button class="btn-preset-cancel" @click=${this._cancelNamingPreset}>${t('preset.cancel')}</button>
           ${hint ? html`<div class="preset-hint" id="preset-hint" role="status">${hint}</div>` : nothing}
         </div>
@@ -1484,7 +1594,7 @@ export class CmsPanel extends LitElement {
               @keydown=${this._onPresetDeleteKeydown}
             >${this._deleteArmed ? t('preset.deleteQ') : '×'}</button>`
           : nothing}
-        <button class="btn-preset-save" title=${t('preset.saveTitle')} @click=${this._startNamingPreset}><span aria-hidden="true">💾</span> ${t('preset.savePreset')}</button>
+        <button class="btn-preset-save" title=${t('preset.saveTitle')} @click=${this._startNamingPreset}>${renderIcon('mdi:content-save-outline')}${t('preset.savePreset')}</button>
         ${this._presetsUnsaved
           ? html`<div class="preset-hint" role="status">${t('preset.storageFull')}</div>`
           : this._presetsLocalOnly
@@ -1511,9 +1621,9 @@ export class CmsPanel extends LitElement {
       return html`
         <div class="container-banner">
           ${hasUnsupportedDictRoot(this.config?.card_mod?.style) || hasUnsupportedDictRoot(this.config?.uix?.style)
-            ? html`<strong>🔒 ${t('lock.dictTitle')}</strong>
+            ? html`<strong>${renderIcon('mdi:lock-outline')}${t('lock.dictTitle')}</strong>
                 ${tParts('lock.dictBody', { dollar: html`<code>$</code>`, dot: html`<code>.</code>` })}`
-            : html`<strong>🔒 ${t('lock.mixedTitle')}</strong>
+            : html`<strong>${renderIcon('mdi:lock-outline')}${t('lock.mixedTitle')}</strong>
                 ${tParts('lock.mixedBody', { dollar: html`<code>$</code>` })}`}
           ${this._isEntitiesCard
             ? html`${t('lock.rowsStillWork')}`
@@ -1541,11 +1651,11 @@ export class CmsPanel extends LitElement {
     return html`
       ${hasUnrecognisedCss && this._loadedWholeStyleKept
         ? html`<div class="info-banner">
-            ℹ️ ${templateStatementNote(anyModuleOn(s))}
+            ${renderIcon('mdi:information-outline')}${templateStatementNote(anyModuleOn(s))}
           </div>`
         : hasUnrecognisedCss
           ? html`<div class="info-banner">
-              ℹ️ ${t('panel.unrecognised')}
+              ${renderIcon('mdi:information-outline')}${t('panel.unrecognised')}
             </div>`
           : nothing}
 
@@ -1690,14 +1800,14 @@ export class CmsPanel extends LitElement {
           ></cms-features-module>`
         : nothing}
 
+      ${this._renderEntityRowsModule()}
+
       <cms-advanced-module
         .state=${s.advanced}
         .pierced=${userEntries(s.dictSource)}
         .autoOpen=${loadedCss || userEntries(s.dictSource).length > 0}
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
-
-      ${this._renderEntityRowsModule()}
     `;
   }
 
@@ -1731,7 +1841,7 @@ export class CmsPanel extends LitElement {
       ${childCards
         ? html`
             <div class="container-banner">
-              <strong>🗂️ ${t(this.section ? 'layout.sectionTitle' : 'layout.childrenTitle')}</strong>
+              <strong>${renderIcon('mdi:view-dashboard-outline')}${t(this.section ? 'layout.sectionTitle' : 'layout.childrenTitle')}</strong>
               ${this.section ? t('layout.sectionBody') : t('layout.childrenBody', { type: cardType })}
             </div>
             ${childCards.map(
@@ -1746,7 +1856,7 @@ export class CmsPanel extends LitElement {
           `
         : html`
             <div class="container-banner">
-              <strong>🗂️ ${t('layout.unsupportedTitle')}</strong>
+              <strong>${renderIcon('mdi:view-dashboard-outline')}${t('layout.unsupportedTitle')}</strong>
               ${tParts('layout.unsupportedBody', { type: cardType, cards: html`<code>cards:</code>`, cardMod: html`<code>card_mod:</code>` })}
             </div>
           `}

@@ -123,9 +123,9 @@ describe('preset bar', () => {
     expect(opt.tag).not.toMatch(/📋/u);
   });
 
-  it('the Save preset emoji is hidden from assistive technology', () => {
+  it('the Save preset icon is hidden from assistive technology', () => {
     const text = renderedText(open()._renderPresetBar());
-    expect(text).toContain('<span aria-hidden="true">💾</span> Save preset');
+    expect(text).toContain('<ha-icon class="inline-icon" icon="mdi:content-save-outline" aria-hidden="true"></ha-icon>Save preset');
   });
 
   it('says so when a preset could not even be saved on this device', () => {
@@ -160,11 +160,11 @@ describe('preset bar', () => {
 // ---- palette header ---------------------------------------------------------
 
 describe('palette manager header', () => {
-  it('the emoji is hidden from the accessible name', async () => {
+  it('the icon is hidden from assistive technology', async () => {
     await import('../src/editor/cms-palette-manager.js');
     type M = { render(): unknown };
     const m = new (registry.get('cms-palette-manager') as new () => M)();
-    expect(renderedText(m.render())).toContain('<span aria-hidden="true">🖌️</span> My Color Palette');
+    expect(renderedText(m.render())).toMatch(/<ha-icon class="module-icon" icon="mdi:palette-outline" aria-hidden="true"><\/ha-icon>\s*<span class="module-heading"><span class="module-title"><span>My Color Palette<\/span>/);
   });
 });
 

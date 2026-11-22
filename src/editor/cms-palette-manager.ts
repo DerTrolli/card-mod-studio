@@ -20,7 +20,7 @@ import {
   type PaletteEdit,
 } from '../utils/palette-storage.js';
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
-import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
+import { moduleStyles, renderStaticHeader } from '../modules/module-base.js';
 import { ArmGuard } from '../utils/arm-guard.js';
 import { LangController, t, type MessageKey } from '../i18n/index.js';
 import { getSiteDefaults } from '../utils/settings-storage.js';
@@ -42,7 +42,6 @@ export class CmsPaletteManager extends LitElement {
   protected readonly i18n = new LangController(this);
   @property({ attribute: false }) hass?: HomeAssistant;
 
-  @state() private _open = false;
   /** Uncommitted colour per row (native dialog drag / typed text): shown live,
    *  never written to storage until committed. */
   @state() private _live = new Map<string, { hex: string; src: 'pick' | 'type' }>();
@@ -335,25 +334,13 @@ export class CmsPaletteManager extends LitElement {
     const hasContent = palette.colors.length > 0 || !!palette.defaults.onColor || !!palette.defaults.offColor;
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this._open ? 'true' : 'false'}
-          @click=${() => (this._open = !this._open)}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron" aria-hidden="true">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title"><span aria-hidden="true">🖌️</span> ${t('palette.title')}</span>
-          ${hasContent && !this._open
-            ? html`<span class="header-summary">
-                ${palette.colors.length
-                  ? t(palette.colors.length === 1 ? 'palette.oneColor' : 'palette.nColors', { n: palette.colors.length })
-                  : t('palette.defaultsSet')}
-              </span>`
-            : nothing}
-        </div>
-        ${this._open ? this._renderBody(palette) : nothing}
+        ${renderStaticHeader('mdi:palette-outline', t('palette.title'),
+          hasContent
+            ? html`<span class="module-summary">${palette.colors.length
+                ? t(palette.colors.length === 1 ? 'palette.oneColor' : 'palette.nColors', { n: palette.colors.length })
+                : t('palette.defaultsSet')}</span>`
+            : nothing)}
+        ${this._renderBody(palette)}
         ${this._unsaved
           ? html`<div class="hint" role="status">${t('palette.unsaved')}</div>`
           : nothing}

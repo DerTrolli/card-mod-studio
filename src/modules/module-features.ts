@@ -18,6 +18,7 @@ import {
   nameSwitches,
   prepareSliders,
 } from './module-base.js';
+import { featuresSummary } from './module-summary.js';
 import '../components/cms-color-picker.js';
 import { LangController, t } from '../i18n/index.js';
 
@@ -70,7 +71,8 @@ export class FeaturesModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '🎚️',
+          icon: 'mdi:list-box-outline',
+          summary: this.state.enabled ? featuresSummary(this.state) : undefined,
           title: t('features.title'),
           open: this._open,
           onToggle: () => (this._open = !this._open),

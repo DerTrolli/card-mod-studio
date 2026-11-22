@@ -5,6 +5,7 @@ import { DEFAULT_ANIMATION } from '../parser/state-mapper.js';
 import { moduleStyles, renderOverrideHint, renderModuleHeader, offeredOnOff, guardSliderTouch, nameSwitches, prepareSliders,
   renderValueFields,
 } from './module-base.js';
+import { animationSummary } from './module-summary.js';
 import { stateKindFor } from '../utils/card-caps.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
@@ -99,7 +100,8 @@ export class AnimationModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '✨',
+          icon: 'mdi:animation-play-outline',
+          summary: this.state.enabled ? animationSummary(this.state) : undefined,
           title: t('anim.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),

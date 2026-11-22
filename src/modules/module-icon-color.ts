@@ -13,6 +13,7 @@ import {
   renderModuleHeader,
   guardSliderTouch, nameSwitches, prepareSliders,
 } from './module-base.js';
+import { iconSummary } from './module-summary.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
@@ -121,7 +122,8 @@ export class IconColorModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '🎨',
+          icon: 'mdi:brush-variant',
+          summary: this.state.enabled ? iconSummary(this.state) : undefined,
           title: t('icon.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),

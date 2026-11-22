@@ -4,6 +4,7 @@ import type { BackgroundModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_BACKGROUND } from '../parser/state-mapper.js';
 import { moduleStyles, renderWhen,  renderOverrideHint, renderThresholdOwnedHint, renderModuleHeader, guardSliderTouch, nameSwitches, prepareSliders,
 } from './module-base.js';
+import { backgroundSummary } from './module-summary.js';
 import '../components/cms-color-picker.js';
 import { stateKindFor } from '../utils/card-caps.js';
 import { isValidCssColor } from '../utils/css-color.js';
@@ -85,7 +86,8 @@ export class BackgroundModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '🖼️',
+          icon: 'mdi:format-paint',
+          summary: this.state.enabled ? backgroundSummary(this.state) : undefined,
           title: t('background.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),

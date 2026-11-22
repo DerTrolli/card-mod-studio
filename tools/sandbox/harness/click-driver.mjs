@@ -869,10 +869,48 @@ function matchSection(sections, key, { within } = {}) {
   return null;
 }
 
+/** v1.0 panel tabs (Style / Presets / Palette / Settings): [{id, selected}], empty for a panel without tabs. */
+export async function listTabs(page) {
+  return page.locator('cms-panel').first().locator('[role="tab"][data-tab]')
+    .evaluateAll((els) => els.map((e) => ({ id: e.dataset.tab, label: (e.textContent || '').trim(), selected: e.getAttribute('aria-selected') === 'true' })))
+    .catch(() => []);
+}
+
+/** Real click on a panel tab (by id: style | presets | palette | settings); waits until it is selected. */
+export async function selectTab(page, id) {
+  const tab = page.locator('cms-panel').first().locator(`[role="tab"][data-tab="${id}"]`);
+  if ((await tab.getAttribute('aria-selected')) === 'true') return;
+  await tab.click();
+  for (let i = 0; i < 40; i++) {
+    if ((await tab.getAttribute('aria-selected')) === 'true') { await wait(100); return; }
+    await wait(50);
+  }
+  throw new Error(`tab "${id}" did not open`);
+}
+
+/** The section on the open tab, else on the first other tab that has it (the panel is left on that tab). */
+async function findSectionAnyTab(page, key, opts) {
+  let sections = await listSections(page);
+  let s = matchSection(sections, key, opts);
+  if (s) return { s, sections };
+  const tabs = await listTabs(page);
+  const start = tabs.find((t) => t.selected)?.id;
+  const seen = [sections.map((x) => x.name).join(' | ')];
+  for (const tab of tabs) {
+    if (tab.selected) continue;
+    await selectTab(page, tab.id);
+    sections = await listSections(page);
+    s = matchSection(sections, key, opts);
+    if (s) return { s, sections };
+    seen.push(`[${tab.id}] ` + sections.map((x) => x.name).join(' | '));
+  }
+  if (start) await selectTab(page, start);
+  return { s: null, sections, seen };
+}
+
 async function sectionFor(page, key, opts) {
-  const sections = await listSections(page);
-  const s = matchSection(sections, key, opts);
-  if (!s) throw new Error(`no section "${key}" among: ${sections.map((x) => x.name).join(' | ')}`);
+  const { s, seen } = await findSectionAnyTab(page, key, opts);
+  if (!s) throw new Error(`no section "${key}" among: ${seen.join(' || ')}`);
   return s;
 }
 
@@ -913,6 +951,7 @@ export async function setSectionEnabled(page, key, on = true, opts) {
 
 /** OBSERVE: controls of the Studio panel (all, or of one section by key). Hidden ones are included with visible:false. */
 export async function listControls(page, section, { within, deep = false } = {}) {
+  if (section !== undefined && section !== null) await findSectionAnyTab(page, section, { within });
   const { sections, controls } = await scan(page);
   let list = controls;
   if (section !== undefined && section !== null) {

@@ -5,6 +5,7 @@ import { DEFAULT_ACCENT_COLOR } from '../parser/state-mapper.js';
 import { accentColorsWithoutTriplet, tripletHint } from '../utils/rgb-triplet.js';
 import { moduleStyles, renderOverrideHint, renderThresholdOwnedHint, renderWatchHint, renderModuleHeader, nameSwitches,
 } from './module-base.js';
+import { accentSummary } from './module-summary.js';
 import { stateKindFor } from '../utils/card-caps.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
@@ -69,7 +70,8 @@ export class AccentColorModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '🌈',
+          icon: 'mdi:format-color-fill',
+          summary: this.state.enabled ? accentSummary(this.state) : undefined,
           title: t('accent.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),

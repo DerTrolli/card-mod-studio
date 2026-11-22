@@ -18,7 +18,7 @@ import { property, state } from 'lit/decorators.js';
 import type { StudioState } from '../types/index.js';
 import type { PresetChange, StylePreset } from '../utils/preset-storage.js';
 import { exportPresets, exportStyle, parseTransfer, uniqueNames, TRANSFER_NAME_MAX } from '../utils/style-transfer.js';
-import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
+import { moduleStyles, renderIcon, renderStaticHeader } from '../modules/module-base.js';
 import { ArmGuard } from '../utils/arm-guard.js';
 import { LangController, t } from '../i18n/index.js';
 
@@ -28,7 +28,6 @@ export class CmsPresetManager extends LitElement {
   /** The card's current style (what "Copy this card's style" copies). */
   @property({ attribute: false }) cardState?: StudioState;
 
-  @state() private _open = false;
   /** The preset whose delete button is armed. */
   @state() private _armed: string | null = null;
   /** A rename that was refused, and why (shown under the list). */
@@ -244,21 +243,9 @@ export class CmsPresetManager extends LitElement {
     const n = this.presets.length;
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this._open ? 'true' : 'false'}
-          @click=${() => (this._open = !this._open)}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron" aria-hidden="true">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title"><span aria-hidden="true">📚</span> ${t('presets.title')}</span>
-          ${n && !this._open
-            ? html`<span class="header-summary">${t(n === 1 ? 'presets.one' : 'presets.many', { n })}</span>`
-            : nothing}
-        </div>
-        ${this._open ? this._renderBody() : nothing}
+        ${renderStaticHeader('mdi:bookmark-multiple-outline', t('presets.title'),
+          n ? html`<span class="module-summary">${t(n === 1 ? 'presets.one' : 'presets.many', { n })}</span>` : nothing)}
+        ${this._renderBody()}
       </div>
     `;
   }
@@ -314,8 +301,8 @@ export class CmsPresetManager extends LitElement {
 
         <span class="section-label">${t('presets.shareLabel')}</span>
         <div class="share-row">
-          <button class="share-btn" ?disabled=${!this.cardState} @click=${() => void this._copy('style')}>📋 ${t('presets.copyStyle')}</button>
-          <button class="share-btn" ?disabled=${!this.presets.length} @click=${() => void this._copy('presets')}>📋 ${t('presets.copyAll')}</button>
+          <button class="share-btn" ?disabled=${!this.cardState} @click=${() => void this._copy('style')}>${renderIcon('mdi:content-copy')}${t('presets.copyStyle')}</button>
+          <button class="share-btn" ?disabled=${!this.presets.length} @click=${() => void this._copy('presets')}>${renderIcon('mdi:content-copy')}${t('presets.copyAll')}</button>
         </div>
         ${this._exportText
           ? html`<div class="hint note-ok" role="status">${this._exportNote}</div>
@@ -336,7 +323,7 @@ export class CmsPresetManager extends LitElement {
           }}
         ></textarea>
         <div class="share-row">
-          <button class="share-btn" ?disabled=${!this._pasteText.trim()} @click=${this._paste}>📥 ${t('presets.paste')}</button>
+          <button class="share-btn" ?disabled=${!this._pasteText.trim()} @click=${this._paste}>${renderIcon('mdi:content-paste')}${t('presets.paste')}</button>
         </div>
         ${this._pasteNote
           ? html`<div class="hint ${this._pasteOk ? 'note-ok' : 'note-error'}" role="status">${this._pasteNote}</div>`

@@ -27,7 +27,7 @@ export const en = {
   'base.overrideBody':
     'Advanced CSS is applied after these settings (hand-written styles always win), so changes here may not be visible on the card. Edit or remove those lines in Advanced CSS to hand control back to this module.',
 
-  // --- "Apply when" / "Reacts to" ----------------------------------------
+  // --- "Apply when" ----------------------------------------------------------
   'when.applyWhen': 'Apply when',
   'when.always': 'Always',
   'when.onlyOn': 'Only while entity is ON',
@@ -38,7 +38,6 @@ export const en = {
   'when.hintCustom': 'Applies the {noun} only while {entity} is on.',
   'when.hintCustomNone': 'Applies the {noun} only while the chosen entity is on.',
   'when.hintAlways': 'Always applies the {noun}.',
-  'cond.reactsTo': 'Reacts to',
   'cond.valueMatches': 'While a value matches…',
   'cond.hintOn': "Applies the {noun} only while this card's entity is on.",
   'cond.hintOff': "Applies the {noun} only while this card's entity is off.",
@@ -368,11 +367,22 @@ export const en = {
   'tab.close': 'Close Card Style Studio',
   'tab.open': 'Open Card Style Studio style editor',
   'tab.style': 'Style',
+  // --- the panel's tabs (v1.0) and the summary on a closed module -----------
+  'tabs.presets': 'Presets',
+  'tabs.palette': 'Palette',
+  'sum.pair': '{label} {value}',
+  'sum.whileOn': 'while ON',
+  'sum.whileOff': 'while OFF',
+  'sum.whileEntityOn': 'while {entity} is ON',
+  'sum.whenValue': 'when {entity} {op} {value}',
+  'sum.whenText': 'when {entity} is “{value}”',
+  'sum.whenNotText': 'when {entity} is not “{value}”',
+  'sum.onOff': 'ON / OFF',
   // --- My Color Palette --------------------------------------------------------
   'presets.title': 'My Presets',
   'presets.one': '{n} preset',
   'presets.many': '{n} presets',
-  'presets.none': 'No presets yet. Save one with 💾 Save preset above; it then shows up here.',
+  'presets.none': 'No presets yet. Save one with “Save preset” above; it then shows up here.',
   'presets.nameOf': 'Name of preset {name}',
   'presets.renameEmpty': 'A preset needs a name.',
   'presets.renameTaken': 'There is already a preset called “{name}”.',

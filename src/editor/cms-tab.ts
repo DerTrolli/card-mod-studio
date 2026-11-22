@@ -62,8 +62,8 @@ export class CmsTabButton extends LitElement {
     }
 
     .icon {
-      font-size: 16px;
-      line-height: 1;
+      --mdc-icon-size: 18px;
+      display: inline-flex;
     }
 
     @media (pointer: coarse) {
@@ -106,7 +106,7 @@ export class CmsTabButton extends LitElement {
         aria-label=${t('tab.style')}
         aria-pressed="${this.active}"
       >
-        <span class="icon" aria-hidden="true">🎨</span>
+        <ha-icon class="icon" icon="mdi:palette" aria-hidden="true"></ha-icon>
         <span class="label">${t('tab.style')}</span>
       </button>
     `;

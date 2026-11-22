@@ -13,7 +13,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { HomeAssistant } from '../types/index.js';
-import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
+import { moduleStyles, renderIcon, renderStaticHeader } from '../modules/module-base.js';
 import {
   LANGUAGES,
   LangController,
@@ -84,7 +84,6 @@ abstract class SettingsView extends LitElement {
 }
 
 export class CmsSettings extends SettingsView {
-  @state() private _open = false;
 
   static override styles = [
     moduleStyles,
@@ -118,38 +117,26 @@ export class CmsSettings extends SettingsView {
   override render() {
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this._open ? 'true' : 'false'}
-          @click=${() => (this._open = !this._open)}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron" aria-hidden="true">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title"><span aria-hidden="true">⚙️</span> ${t('settings.title')}</span>
+        ${renderStaticHeader('mdi:cog-outline', t('settings.title'))}
+        <div class="module-body">
+        <div class="control-row">
+          <label class="control-label" for="cms-language">${t('settings.language')}</label>
+          <div class="control-right">
+            ${renderLanguageSelect('cms-language', getLanguageSetting(), (language) =>
+              void updateSettings({ language, languageChosen: true }, this.hass),
+            )}
+          </div>
         </div>
-        ${this._open
-          ? html`<div class="module-body">
-              <div class="control-row">
-                <label class="control-label" for="cms-language">${t('settings.language')}</label>
-                <div class="control-right">
-                  ${renderLanguageSelect('cms-language', getLanguageSetting(), (language) =>
-                    void updateSettings({ language, languageChosen: true }, this.hass),
-                  )}
-                </div>
-              </div>
-              <div class="when-hint">${t('settings.languageHint')}</div>
-              <div class="control-row">
-                <span class="control-label">${t('settings.writesUnder')}</span>
-                <div class="control-right"><code>${pickOutputKey(this.hass)}:</code></div>
-              </div>
-              <div class="when-hint">
-                ${t(pickOutputKey(this.hass) === 'uix' ? 'settings.writesUixHint' : 'settings.writesCardModHint')}
-              </div>
-              ${this._renderSiteNote()}
-            </div>`
-          : nothing}
+        <div class="when-hint">${t('settings.languageHint')}</div>
+        <div class="control-row">
+          <span class="control-label">${t('settings.writesUnder')}</span>
+          <div class="control-right"><code>${pickOutputKey(this.hass)}:</code></div>
+        </div>
+        <div class="when-hint">
+          ${t(pickOutputKey(this.hass) === 'uix' ? 'settings.writesUixHint' : 'settings.writesCardModHint')}
+        </div>
+        ${this._renderSiteNote()}
+        </div>
       </div>
     `;
   }
@@ -192,7 +179,7 @@ export class CmsLanguageNotice extends SettingsView {
     if (getSettings().languageChosen || !settingsSettled(this.hass) || !askLanguage()) return nothing;
     const pick = this._pick ?? getLanguageSetting();
     return html`<div class="notice" role="region" aria-label=${t('settings.noticeLabel')}>
-      <span class="text"><span aria-hidden="true">🌐</span> ${t('settings.noticeText')}</span>
+      <span class="text">${renderIcon('mdi:translate')}${t('settings.noticeText')}</span>
       ${renderLanguageSelect('cms-language-notice', pick, (v) => {
         this._pick = v;
       })}

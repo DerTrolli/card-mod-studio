@@ -91,7 +91,7 @@ describe('naming', () => {
     type('Cool');
     expect(text()).not.toContain('Type a name');
     expect(text()).not.toContain('Replaces');
-    expect(text()).toContain('<span aria-hidden="true">💾</span> ');
+    expect(text()).toContain('<ha-icon class="inline-icon" icon="mdi:content-save-outline" aria-hidden="true"></ha-icon>');
     expect(text()).not.toContain('Overwrite');
     expect(text()).not.toContain('preset-hint');
   });
@@ -99,11 +99,11 @@ describe('naming', () => {
     const { p, text, type } = make();
     p._namingPreset = true;
     type(' Warm ');
-    expect(text()).toContain('<span aria-hidden="true">💾</span> ');
+    expect(text()).toContain('<ha-icon class="inline-icon" icon="mdi:content-save-outline" aria-hidden="true"></ha-icon>');
     expect(text()).toContain('Overwrite');
     expect(text()).toContain('Replaces the existing preset "Warm".');
     type('Warmer');
-    expect(text()).toContain('<span aria-hidden="true">💾</span> ');
+    expect(text()).toContain('<ha-icon class="inline-icon" icon="mdi:content-save-outline" aria-hidden="true"></ha-icon>');
     expect(text()).not.toContain('Overwrite');
     expect(text()).not.toContain('Replaces');
   });
@@ -122,7 +122,7 @@ describe('naming', () => {
     p._selectedPreset = long;
     (p as unknown as { _startNamingPreset(): void })._startNamingPreset();
     expect(p._presetName).toBe(long); // prefilled whole
-    expect(text()).toContain('<span aria-hidden="true">💾</span> ');
+    expect(text()).toContain('<ha-icon class="inline-icon" icon="mdi:content-save-outline" aria-hidden="true"></ha-icon>');
     expect(text()).toContain('Overwrite');
     expect(type(long).value).toBe(long); // an input event does not cut it
     const changed = { ...STATE, border: { ...STATE.border, enabled: true } };
@@ -142,13 +142,13 @@ describe('naming', () => {
     const { p, text, type } = make(['Warm ']);
     p._namingPreset = true;
     type('Warm');
-    expect(text()).toContain('<span aria-hidden="true">💾</span> ');
+    expect(text()).toContain('<ha-icon class="inline-icon" icon="mdi:content-save-outline" aria-hidden="true"></ha-icon>');
     expect(text()).toContain('Overwrite');
     (p as unknown as { _saveCurrentAsPreset(): void })._saveCurrentAsPreset();
     expect(p._presets.map((x) => x.name)).toEqual(['Warm ']); // replaced under its own name, no duplicate
     p._namingPreset = true;
     type('warm');
-    expect(text()).toContain('<span aria-hidden="true">💾</span> ');
+    expect(text()).toContain('<ha-icon class="inline-icon" icon="mdi:content-save-outline" aria-hidden="true"></ha-icon>');
     expect(text()).not.toContain('Overwrite');
     expect(text()).not.toContain('Replaces');
     (p as unknown as { _saveCurrentAsPreset(): void })._saveCurrentAsPreset();

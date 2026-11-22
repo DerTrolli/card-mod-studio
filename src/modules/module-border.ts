@@ -10,6 +10,7 @@ import {
   renderModuleHeader,
   guardSliderTouch, nameSwitches, prepareSliders,
 } from './module-base.js';
+import { borderSummary } from './module-summary.js';
 import '../components/cms-color-picker.js';
 import { stateKindFor } from '../utils/card-caps.js';
 import { LangController, t } from '../i18n/index.js';
@@ -74,7 +75,8 @@ export class BorderModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '📐',
+          icon: 'mdi:rounded-corner',
+          summary: this.state.enabled ? borderSummary(this.state) : undefined,
           title: t('border.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),

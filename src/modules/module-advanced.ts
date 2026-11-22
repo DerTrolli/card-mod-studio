@@ -1,9 +1,10 @@
 import { LitElement, html, css } from 'lit';
 import { property } from 'lit/decorators.js';
 import type { AdvancedModuleState, PiercedEntry } from '../types/index.js';
-import { moduleStyles, renderModuleHeader, nameCodeEditor, nameSwitches,
+import { moduleStyles, renderModuleHeader, nameCodeEditor, nameSwitches, renderIcon,
 } from './module-base.js';
 import { lintAdvancedCss } from '../utils/css-lint.js';
+import { advancedSummary } from './module-summary.js';
 import { LangController, t } from '../i18n/index.js';
 
 export class AdvancedModule extends LitElement {
@@ -91,8 +92,9 @@ export class AdvancedModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '📝',
+          icon: 'mdi:code-braces',
           title: t('advanced.title'),
+          summary: advancedSummary(this.state.rawCss ?? ''),
           open: this.open,
           onToggle: () => {
             this.open = !this.open;
@@ -113,7 +115,7 @@ export class AdvancedModule extends LitElement {
                 ${this.pierced.length > 0
                   ? html`
                       <div class="pierced">
-                        <p class="hint">🔒 ${t('advanced.pierced')}</p>
+                        <p class="hint">${renderIcon('mdi:lock-outline')}${t('advanced.pierced')}</p>
                         <pre>${this._renderPierced()}</pre>
                       </div>
                     `
@@ -129,7 +131,7 @@ export class AdvancedModule extends LitElement {
   private _renderLint() {
     const issue = lintAdvancedCss(this.state.rawCss ?? '');
     return issue
-      ? html`<p class="lint-warning" role="status">⚠️ ${issue.message}</p>`
+      ? html`<p class="lint-warning" role="status">${renderIcon('mdi:alert-outline')}${issue.message}</p>`
       : '';
   }
 

@@ -7,6 +7,7 @@ import { commitTextRuleValue, normalizeRule, rawRuleValue, revertTextRuleValue, 
 import { DEFAULT_THRESHOLD } from '../parser/state-mapper.js';
 import { moduleStyles, renderOverrideHint, renderModuleHeader, guardSliderTouch, nameSwitches, prepareSliders,
 } from './module-base.js';
+import { thresholdSummary } from './module-summary.js';
 import { sortThresholdRules } from '../generator/css-generator.js';
 import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 import { previewHexFor } from '../components/cms-color-picker.js';
@@ -343,7 +344,8 @@ export class ThresholdModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '🎯',
+          icon: 'mdi:stairs',
+          summary: this.state.enabled ? thresholdSummary(this.state) : undefined,
           title: t('threshold.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),

@@ -4,8 +4,17 @@ import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, HomeAssistan
 import { isTextRule } from '../types/index.js';
 import { commitTextRuleValue, normalizeRule, rawRuleValue, revertTextRuleValue, withOperator } from '../utils/threshold-rules.js';
 import {
-  moduleStyles, renderOverrideHint, onHeaderKeydown, renderResetButton, renderDefaultOption,
-  guardSliderTouch, nameSwitches, prepareSliders,
+  moduleStyles,
+  renderOverrideHint,
+  onHeaderKeydown,
+  renderResetButton,
+  renderDefaultOption,
+  guardSliderTouch,
+  nameSwitches,
+  prepareSliders,
+  renderChevron,
+  renderIcon,
+  renderStaticHeader,
 } from './module-base.js';
 import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 import { colorDefaults } from '../utils/palette-storage.js';
@@ -133,12 +142,6 @@ export class EntitiesRowsModule extends LitElement {
       .entity-header:focus-visible {
         outline: 2px solid var(--primary-color, #03a9f4);
         outline-offset: -2px;
-      }
-      .entity-chevron {
-        font-size: 10px;
-        color: var(--secondary-text-color, #727272);
-        width: 14px;
-        flex-shrink: 0;
       }
       /* Name may shrink (ellipsis) so a long friendly name can't push the
          entity id and the styled-dot out of a phone-width header. */
@@ -380,9 +383,7 @@ export class EntitiesRowsModule extends LitElement {
 
     return html`
       <div class="module">
-        <div class="module-header" style="cursor:default; pointer-events:none">
-          <span class="module-title"><span><span aria-hidden="true">🏠</span> ${t('rows.title')}</span></span>
-        </div>
+        ${renderStaticHeader('mdi:format-list-bulleted', t('rows.title'))}
         <div class="module-body">
           ${entityRows.map(({ row, index }) => {
             return this._renderRow(row, index, labels.get(index) ?? row.entity);
@@ -423,13 +424,13 @@ export class EntitiesRowsModule extends LitElement {
           @click=${() => this._toggleRow(rowKey)}
           @keydown=${onHeaderKeydown}
         >
-          <span class="entity-chevron" aria-hidden="true">${isOpen ? '▼' : '▶'}</span>
           <span class="entity-name">${label}</span>
           <span class="entity-id">${id}</span>
           ${conflicts.length
-            ? html`<span class="override-badge" title=${t('rows.overridden')}>⚠️</span>`
+            ? html`<span class="override-badge" title=${t('rows.overridden')}><ha-icon icon="mdi:alert-outline"></ha-icon></span>`
             : nothing}
           ${hasStyle ? html`<span class="style-dot" title=${t('rows.hasStyle')}></span>` : nothing}
+          ${renderChevron(isOpen)}
         </div>
         ${isOpen ? (rowStyle.frozen ? this._renderFrozen(rowKey) : this._renderBody(rowKey, rowStyle, conflicts, row.state_color === false, label)) : nothing}
       </div>
@@ -441,7 +442,7 @@ export class EntitiesRowsModule extends LitElement {
    *  (audit v0.10 #9). */
   private _renderFrozen(rowKey: string) {
     return html`<div class="entity-body" id="row-body-${rowKey}">
-      <p class="when-hint frozen-note">🔒 ${tParts('rows.frozen', { dot: html`<code>.</code>` })}</p>
+      <p class="when-hint frozen-note">${renderIcon('mdi:lock-outline')}${tParts('rows.frozen', { dot: html`<code>.</code>` })}</p>
     </div>`;
   }
 

@@ -261,12 +261,11 @@ describe('accessible names', () => {
     expect(tags('offColor').join('\n')).toContain('aria-label=Colour of default OFF colour');
   });
 
-  it('the collapse header is a keyboard-operable button', () => {
+  it('is always open (its own tab since v1.0): a heading, not a button', () => {
     const header = dom(el).find((n) => n.tag.includes('module-header'))!;
-    expect(header.tag).toContain('role=button');
-    expect(header.tag).toContain('tabindex=0');
-    expect(header.on.keydown).toBeTypeOf('function');
-    expect(dom(el).find((n) => n.tag.includes('module-chevron'))!.tag).toContain('aria-hidden=true');
+    expect(header.tag).toContain('static');
+    expect(header.tag).not.toContain('role=button');
+    expect(header.on.click).toBeUndefined();
   });
 });
 
@@ -277,10 +276,7 @@ describe('help line', () => {
       t && typeof t === 'object' ? ((t as { strings?: string[] }).strings ?? []).join('') +
         ((t as { values?: unknown[] }).values ?? []).map(flat).join('') :
       typeof t === 'string' ? t : '';
-  it('is only rendered while expanded', () => {
-    el._open = false;
-    expect(flat(el.render())).not.toContain(HELP);
-    el._open = true;
+  it('is shown under the colours', () => {
     const text = flat(el.render()).replace(/\s+/g, ' ');
     expect(text).toContain(`${HELP} Cards keep the colour they were given — changing an entry here doesn't restyle them.`);
   });

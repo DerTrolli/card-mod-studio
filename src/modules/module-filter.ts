@@ -10,6 +10,7 @@ import {
   renderModuleHeader,
   guardSliderTouch, nameSwitches, prepareSliders,
 } from './module-base.js';
+import { filterSummary } from './module-summary.js';
 import { stateKindFor } from '../utils/card-caps.js';
 import { LangController, t } from '../i18n/index.js';
 
@@ -87,7 +88,8 @@ export class FilterModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '🎚️',
+          icon: 'mdi:image-filter-black-white',
+          summary: this.state.enabled ? filterSummary(this.state) : undefined,
           title: t('filter.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),

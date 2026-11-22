@@ -8,6 +8,7 @@ import {
   moduleStyles, renderOverrideHint, renderModuleHeader, renderResetButton, renderDefaultOption,
   guardSliderTouch, renderThresholdOwnedHint, nameSwitches, prepareSliders,
 } from './module-base.js';
+import { fontSummary } from './module-summary.js';
 import '../components/cms-color-picker.js';
 import { LangController, t, type MessageKey } from '../i18n/index.js';
 
@@ -147,7 +148,8 @@ export class FontModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '🔠',
+          icon: 'mdi:format-text',
+          summary: this.state.enabled ? fontSummary(this.state) : undefined,
           title: t('font.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),

@@ -72,7 +72,7 @@ function untranslated(t: string): string[] {
     .replace(/<style[\s\S]*?<\/style>/g, ' ')
     .replace(/<code>[\s\S]*?<\/code>/g, ' ')
     .replace(/<pre>[\s\S]*?<\/pre>/g, ' ')
-    .replace(/<h2>Card Style Studio<\/h2>/g, ' ')
+    .replace(/<h2[^>]*>Card Style Studio<\/h2>/g, ' ')
     .replace(/<[^>]*>/g, ' ');
   scan(text);
   return out;
@@ -165,7 +165,11 @@ describe('every visible text is translatable', () => {
       p.hass = hass;
       p._initState();
       Object.assign(p, extra);
-      texts.push(renderedText(p.render()));
+      // every tab: the preset bar lives on Presets (v1.0)
+      for (const _tab of ['style', 'presets', 'palette', 'settings']) {
+        Object.assign(p, { _tab });
+        texts.push(renderedText(p.render()));
+      }
     };
     panel({ type: 'tile', entity: 'light.a', card_mod: { style: '{% if 1 %}a{% endif %}' } });
     panel({ type: 'tile', entity: 'light.a', card_mod: { style: 'ha-card { --x: 1; }' } }, { _selectedPreset: 'Mine', _presetsLocalOnly: true });

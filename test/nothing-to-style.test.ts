@@ -25,12 +25,15 @@ beforeAll(async () => {
 
 const UNRECOGNISED = "weren't recognised";
 const NOTHING = 'This card renders nothing';
+/** The Style tab and the Presets tab (where the preset bar lives since v1.0). */
 const render = (config: unknown) => {
-  const p = new Panel();
+  const p = new Panel() as PanelT & { _tab: string };
   p.dispatchEvent = () => true;
   p.config = config as CardModCardConfig;
   p._initState();
-  return templateText(p.render());
+  const style = templateText(p.render());
+  p._tab = 'presets';
+  return style + templateText(p.render());
 };
 const css = { card_mod: { style: 'ha-card { color: red; }\n.odd-thing { foo: bar; }' } };
 
@@ -57,7 +60,7 @@ describe('a card that renders nothing', () => {
     const t = render(empty);
     expect(t.split(NOTHING)).toHaveLength(2);
     expect(t).not.toContain('preset-bar');
-    expect(t).toContain('cms-palette-manager');
+    expect(t).toContain('cms-preset-manager');
     expect(t).toContain('cms-advanced-module');
   });
   it.each([

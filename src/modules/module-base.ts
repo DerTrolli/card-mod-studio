@@ -58,11 +58,14 @@ export const moduleStyles = [
     display: block;
   }
 
+  /* v1.0: Home Assistant's own outlined expansion panel (its card editors,
+     Bubble Card's): card background, rounded outline, no filled header. */
   .module {
     border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
-    border-radius: 8px;
+    border-radius: var(--ha-card-border-radius, 12px);
+    background: var(--card-background-color, var(--ha-card-background, #fff));
     overflow: hidden;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
 
   .module-header {
@@ -70,22 +73,41 @@ export const moduleStyles = [
     align-items: center;
     justify-content: space-between;
     gap: 6px;
-    min-height: 44px;
+    min-height: 48px;
     box-sizing: border-box;
-    padding: 6px 14px;
-    background: var(--cms-fill);
+    padding: 6px 12px;
     cursor: pointer;
     user-select: none;
     transition: background 0.15s ease;
   }
 
   .module-header:hover {
-    background: var(--cms-fill-hover);
+    background: var(--cms-fill);
   }
 
   .module-header:focus-visible {
     outline: 2px solid var(--primary-color, #03a9f4);
     outline-offset: -2px;
+  }
+
+  /* A section that is always open (Presets / Palette / Settings tabs): a
+     heading, not a button. */
+  .module-header.static {
+    cursor: default;
+    justify-content: flex-start;
+    gap: 12px;
+  }
+  .module-header.static:hover {
+    background: none;
+  }
+
+  /* An icon in a line of text (banners, buttons): Home Assistant's own icons. */
+  .inline-icon {
+    --mdc-icon-size: 18px;
+    display: inline-flex;
+    vertical-align: -4px;
+    margin-inline-end: 4px;
+    flex-shrink: 0;
   }
 
   /* Text kept for assistive technology only (names the control it sits in). */
@@ -128,21 +150,65 @@ export const moduleStyles = [
   /* Header whose button and switch are siblings (renderModuleHeader): the
      button takes over the bar's padding so the whole bar still toggles. */
   .module-header.has-toggle {
-    padding: 0 14px 0 0;
-    gap: 0;
+    padding: 0 8px 0 0;
+    gap: 4px;
     cursor: default;
   }
   .module-toggle {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 12px;
     flex: 1;
     min-width: 0;
     align-self: stretch;
     box-sizing: border-box;
-    min-height: 44px;
-    padding: 6px 6px 6px 14px;
+    min-height: 48px;
+    padding: 6px 6px 6px 12px;
     cursor: pointer;
+  }
+  .module-icon {
+    --mdc-icon-size: 20px;
+    color: var(--secondary-text-color, #727272);
+    flex-shrink: 0;
+    display: inline-flex;
+  }
+  /* Title, and under it what the module does on this card (closed only). */
+  .module-heading {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+  .module-summary {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--secondary-text-color, #727272);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .module-summary .sum-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sum-swatch {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid var(--cms-outline);
+  }
+  .sum-fade {
+    width: 32px;
+    border-radius: 5px;
+  }
+  .sum-code {
+    font-family: var(--code-font-family, monospace);
+    font-size: 11px;
   }
   .module-toggle:focus-visible {
     outline: 2px solid var(--primary-color, #03a9f4);
@@ -150,25 +216,30 @@ export const moduleStyles = [
   }
 
   .module-chevron {
-    font-size: 10px;
-    color: var(--secondary-text-color, #727272);
-    width: 14px;
+    --mdc-icon-size: 24px;
+    color: var(--primary-text-color, #212121);
     flex-shrink: 0;
+    display: inline-flex;
+    padding: 4px;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .module-chevron.open {
+    transform: rotate(180deg);
   }
 
   .module-title {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
-    flex: 1;
+    color: var(--primary-text-color, #212121);
     min-width: 0;
   }
 
   .module-body {
-    padding: 12px 14px;
-    border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+    padding: 4px 14px 14px;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -352,8 +423,9 @@ export const moduleStyles = [
 
   /* "Custom CSS is overriding this control" — see style-conflicts.ts. */
   .override-badge {
-    font-size: 13px;
-    margin-right: 6px;
+    --mdc-icon-size: 16px;
+    display: inline-flex;
+    color: var(--warning-color, #ffa600);
     flex-shrink: 0;
     cursor: help;
   }
@@ -530,8 +602,12 @@ export function onHeaderKeydown(e: KeyboardEvent): void {
 }
 
 export interface ModuleHeaderOptions {
+  /** A Material Design icon (`mdi:format-text`), as Home Assistant's editors use. */
   icon: string;
   title: string;
+  /** What the module does on this card, shown under the title while closed
+   *  (see renderSummary). */
+  summary?: SummaryPart[];
   open: boolean;
   onToggle: () => void;
   /** Advanced CSS is overriding this module (warning badge). */
@@ -553,6 +629,9 @@ export const MODULE_BODY_ID = 'module-body';
  */
 export function renderModuleHeader(o: ModuleHeaderOptions): TemplateResult {
   const name = t('base.enableModule', { module: o.title });
+  // The summary describes the button (aria-describedby) without becoming
+  // part of its name, which stays the module's title.
+  const summary = !o.open && o.summary?.length ? o.summary : undefined;
   return html`
     <div class="module-header has-toggle">
       <div
@@ -561,12 +640,15 @@ export function renderModuleHeader(o: ModuleHeaderOptions): TemplateResult {
         tabindex="0"
         aria-expanded=${o.open ? 'true' : 'false'}
         aria-controls=${o.open ? MODULE_BODY_ID : nothing}
+        aria-describedby=${summary ? SUMMARY_ID : nothing}
         @click=${() => o.onToggle()}
         @keydown=${onHeaderKeydown}
       >
-        <span class="module-chevron" aria-hidden="true">${o.open ? '▼' : '▶'}</span>
-        <span class="module-title"><span><span aria-hidden="true">${o.icon}</span> ${o.title}</span></span>
-        ${renderOverrideBadge(o.overridden ?? false)}
+        <ha-icon class="module-icon" icon=${o.icon} aria-hidden="true"></ha-icon>
+        <span class="module-heading">
+          <span class="module-title"><span>${o.title}</span>${renderOverrideBadge(o.overridden ?? false)}</span>
+          ${summary ? renderSummary(summary, SUMMARY_ID) : nothing}
+        </span>
       </div>
       ${o.enable
         ? html`<ha-switch
@@ -575,8 +657,48 @@ export function renderModuleHeader(o: ModuleHeaderOptions): TemplateResult {
             @change=${(e: Event) => o.enable!.onChange((e.target as HTMLInputElement).checked)}
           ></ha-switch>`
         : nothing}
+      ${renderChevron(o.open, () => o.onToggle())}
     </div>
   `;
+}
+
+/** The expand chevron at the right end of a section header (decorative for
+ *  assistive technology — the header's own button carries the state). */
+export function renderChevron(open: boolean, onToggle?: () => void): TemplateResult {
+  return html`<ha-icon
+    class="module-chevron ${open ? 'open' : ''}"
+    icon="mdi:chevron-down"
+    aria-hidden="true"
+    @click=${onToggle ? () => onToggle() : nothing}
+  ></ha-icon>`;
+}
+
+/** One piece of a module's summary: a text, a colour (a dot), a fade (a
+ *  bar) or a line of code. */
+export type SummaryPart = string | { color: string } | { gradient: string[] } | { code: string };
+
+/** The id of a module's summary line (one module per shadow root). */
+export const SUMMARY_ID = 'module-summary';
+
+/** The summary line: texts joined with " · ", colours as dots. Hidden from
+ *  the accessibility tree itself; a header points at it as its description. */
+export function renderSummary(parts: SummaryPart[], id?: string): TemplateResult {
+  const items: TemplateResult[] = [];
+  let lastWasText = false;
+  for (const p of parts) {
+    if (typeof p === 'string') {
+      if (!p) continue;
+      if (lastWasText) items.push(html`<span aria-hidden="true">·</span>`);
+      items.push(html`<span class="sum-text">${p}</span>`);
+      lastWasText = true;
+      continue;
+    }
+    lastWasText = false;
+    if ('color' in p) items.push(html`<span class="sum-swatch" style=${`background:${p.color}`} title=${p.color}></span>`);
+    else if ('gradient' in p) items.push(html`<span class="sum-swatch sum-fade" style=${`background:linear-gradient(90deg, ${p.gradient.join(', ')})`}></span>`);
+    else items.push(html`<code class="sum-text sum-code">${p.code}</code>`);
+  }
+  return html`<span class="module-summary" id=${id ?? nothing} aria-hidden="true">${items}</span>`;
 }
 
 /** The name each switch was last given (see nameSwitches). */
@@ -1173,6 +1295,19 @@ export function renderThresholdOwnedHint(
 // Shared "Custom CSS is overriding this control" warning (v0.8.1)
 // ---------------------------------------------------------------------------
 
+/** A Home Assistant icon inside a line of text (decorative). */
+export function renderIcon(icon: string): TemplateResult {
+  return html`<ha-icon class="inline-icon" icon=${icon} aria-hidden="true"></ha-icon>`;
+}
+
+/** The always-open heading of a section (Presets / Palette / Settings tabs). */
+export function renderStaticHeader(icon: string, title: string, extra: TemplateResult | typeof nothing = nothing): TemplateResult {
+  return html`<div class="module-header static">
+    <ha-icon class="module-icon" icon=${icon} aria-hidden="true"></ha-icon>
+    <span class="module-heading"><span class="module-title"><span>${title}</span></span>${extra}</span>
+  </div>`;
+}
+
 /** Header badge for a module whose output is overridden by Advanced CSS. */
 export function renderOverrideBadge(overridden: boolean): TemplateResult | typeof nothing {
   if (!overridden) return nothing;
@@ -1181,7 +1316,7 @@ export function renderOverrideBadge(overridden: boolean): TemplateResult | typeo
     role="img"
     aria-label=${t('base.overrideBadge')}
     title=${t('base.overrideBadge')}
-  >⚠️</span>`;
+  ><ha-icon icon="mdi:alert-outline"></ha-icon></span>`;
 }
 
 /** Body hint explaining WHY changes in this module may not be visible. */
@@ -1193,7 +1328,7 @@ export function renderOverrideHint(
 ): TemplateResult | typeof nothing {
   if (!overridden) return nothing;
   return html`<div class="override-hint">
-    ⚠️ <strong>${t('base.overrideTitle')}</strong>${detail
+    ${renderIcon('mdi:alert-outline')}<strong>${t('base.overrideTitle')}</strong>${detail
       ? html` — <code>${detail}</code>`
       : nothing}. ${t('base.overrideBody')}
     ${takeOver && detail ? html`<cms-take-over .module=${takeOver} .detail=${detail}></cms-take-over>` : nothing}
@@ -1290,7 +1425,7 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
 
   return html`
     <div class="control-row">
-      <span class="control-label" id="cond-label">${t('cond.reactsTo')}</span>
+      <span class="control-label" id="cond-label">${t('when.applyWhen')}</span>
       <div class="control-right">
         <select
           aria-labelledby="cond-label"

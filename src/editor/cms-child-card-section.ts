@@ -61,7 +61,7 @@ import {
   panelStateAware,
 } from '../utils/card-caps.js';
 import { childKindLabel, profileKeyOf, isUnprofiledCustomCard, unprofiledCardNotice } from '../utils/custom-card-profiles.js';
-import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
+import { moduleStyles, onHeaderKeydown, renderChevron, renderIcon } from '../modules/module-base.js';
 import { canTakeOver, findAdvancedCssConflicts, removeAdvancedCssConflicts, type ConflictableModule } from '../utils/style-conflicts.js';
 import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
 import { hasDictFormStyle, hasUnsupportedDictRoot } from '../utils/style-compat.js';
@@ -124,7 +124,7 @@ export class CmsChildCardSection extends LitElement {
       }
       .child-section {
         border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
-        border-radius: 8px;
+        border-radius: var(--ha-card-border-radius, 12px);
         margin-bottom: 8px;
         overflow: hidden;
       }
@@ -134,14 +134,13 @@ export class CmsChildCardSection extends LitElement {
         gap: 8px;
         min-height: 44px;
         box-sizing: border-box;
-        padding: 6px 12px;
-        background: var(--cms-fill);
+        padding: 6px 8px 6px 12px;
         cursor: pointer;
         user-select: none;
         transition: background 0.15s ease;
       }
       .child-header:hover {
-        background: var(--cms-fill-hover);
+        background: var(--cms-fill);
       }
       .child-header:focus-visible {
         outline: 2px solid var(--primary-color, #03a9f4);
@@ -149,7 +148,7 @@ export class CmsChildCardSection extends LitElement {
       }
       .child-title {
         font-weight: 500;
-        font-size: 13px;
+        font-size: 14px;
         flex-shrink: 0;
       }
       .child-sub {
@@ -315,10 +314,10 @@ export class CmsChildCardSection extends LitElement {
           @click=${() => (this._open = !this._open)}
           @keydown=${onHeaderKeydown}
         >
-          <span class="module-chevron" aria-hidden="true">${this._open ? '▼' : '▶'}</span>
           <span class="child-title">${label}</span>
           <span class="child-sub">${sub}</span>
           ${this._isStyled ? html`<span class="styled-dot" title=${t('child.hasStyle')}></span>` : nothing}
+          ${renderChevron(this._open)}
         </div>
         ${this._open ? this._renderBody() : nothing}
       </div>
@@ -340,7 +339,7 @@ export class CmsChildCardSection extends LitElement {
         return html`<div class="child-note">${t('child.nestedContainer', { type: String(c.type) })}</div>`;
       }
       return html`<div class="child-body nested">
-        <div class="child-hint">🗂️ ${t('child.nestedChildren', { type: String(c.type) })}</div>
+        <div class="child-hint">${renderIcon('mdi:view-dashboard-outline')}${t('child.nestedChildren', { type: String(c.type) })}</div>
         ${kids.map(
           (k) => html`<cms-child-card-section
             .childConfig=${k.config}
@@ -366,8 +365,8 @@ export class CmsChildCardSection extends LitElement {
       // mixed-form gate (audit v0.10 #17).
       return html`<div class="child-note">
         ${hasUnsupportedDictRoot(c.card_mod?.style) || hasUnsupportedDictRoot(c.uix?.style)
-          ? html`🔒 ${tParts('child.dictLocked', { dot: html`<code>.</code>` })}`
-          : html`🔒 ${t('child.mixedLocked')}`}
+          ? html`${renderIcon('mdi:lock-outline')}${tParts('child.dictLocked', { dot: html`<code>.</code>` })}`
+          : html`${renderIcon('mdi:lock-outline')}${t('child.mixedLocked')}`}
       </div>${caps.isEntities
         ? html`<div class="child-body"><cms-entities-rows-module
             .hass=${this.hass}
@@ -392,10 +391,10 @@ export class CmsChildCardSection extends LitElement {
     return html`
       <div class="child-body">
         ${hasUnrecognisedCss && this._loadedWholeStyleKept
-          ? html`<div class="child-hint">ℹ️ ${templateStatementNote(anyModuleOn(s))}</div>`
+          ? html`<div class="child-hint">${renderIcon('mdi:information-outline')}${templateStatementNote(anyModuleOn(s))}</div>`
           : nothing}
         ${isUnprofiledCustomCard(c)
-          ? html`<div class="child-hint">ℹ️ ${unprofiledCardNotice()}</div>`
+          ? html`<div class="child-hint">${renderIcon('mdi:information-outline')}${unprofiledCardNotice()}</div>`
           : nothing}
 
         ${showHeading
