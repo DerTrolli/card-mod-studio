@@ -606,6 +606,17 @@ const footerBtn = (page, name) => dialogOf(page)
   .getByRole('button', { name, exact: true });
 
 export async function openCardEditor(page, ref) {
+  // HA 2025.9 ignores an Edit click that comes right after its dialog closed
+  // (measured: also with the Studio's file blocked; a 1.5 s pause after Cancel
+  // always works) — so when the editor doesn't open, click once more.
+  try {
+    return await openCardEditorOnce(page, ref, 8000);
+  } catch {
+    return openCardEditorOnce(page, ref, 20000);
+  }
+}
+
+async function openCardEditorOnce(page, ref, timeout) {
   const card = await findCard(page, ref);
   await card.locator.waitFor({ state: 'visible', timeout: 15000 });
   const opts = card.locator.locator('xpath=ancestor::hui-card-options');
@@ -621,7 +632,7 @@ export async function openCardEditor(page, ref) {
     if (!(await wrap.count())) throw new Error('card has no edit wrapper - call enterEditMode(page) first');
     if (state.get(page)?.hasTouch) await tap(wrap); else await wrap.click();
   }
-  await footerBtn(page, 'Save').waitFor({ state: 'visible', timeout: 20000 });
+  await footerBtn(page, 'Save').waitFor({ state: 'visible', timeout });
   await page.locator('cms-tab-button').first().waitFor({ state: 'visible', timeout: 20000 });
   return dialogOf(page);
 }
