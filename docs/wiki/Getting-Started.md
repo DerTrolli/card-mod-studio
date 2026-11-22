@@ -32,7 +32,8 @@ closed module shows **what it does on this card** in one line under its
 title — *Pulse · 2s · when vacuum.robo is “cleaning”*, colours as dots, a
 fade as a bar, the first line of Advanced CSS — and a styled card opens with
 its modules closed, so the whole style can be read at a glance. A module
-opens when you click it, switch it on, or click its part of the preview. A module that's off
+opens when you click it, switch it on, or click its part of the preview.
+Changing a setting of a module that is off switches it on *(1.0)*. A module that's off
 contributes nothing to the generated YAML, and a module that's on but where you
 haven't set anything writes nothing either — Heading Style, Font and Icon
 Color start from "Default", the card's own look.

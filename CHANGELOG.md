@@ -63,8 +63,13 @@ options only change in a backward-compatible way within 1.x.
   you click it, switch it on, or click its part of the preview. Advanced
   CSS still opens by itself when the card brings CSS the modules didn't
   take over.
+- **Changing a setting of a module that is off switches it on.** Before,
+  the change was kept but nothing showed until the switch was flipped too,
+  which read as broken. The switch itself still turns a module off.
+- **Phones: a shorter pinned preview** (about a fifth of the screen) without
+  the hint line; picking a part of the preview works the same.
 - **One wording for every condition: "Apply when"** (some said "Reacts
-  to").
+  to"), and "State" for the entity's own value in every "Value read from".
 - **Advanced CSS is always last**: on an entities card, Entity Rows now
   come before it.
 
