@@ -541,6 +541,10 @@ async function dictSection(T) {
   const adv = mod(T, 'cms-advanced-module');
   T.check('Advanced CSS opens itself and lists the pierced entry read-only', (await isOpen(adv)) && ((await adv.locator('.pierced pre').textContent()) || '').includes('"ha-gauge$"') && ((await adv.locator('.pierced pre').textContent()) || '').includes('font-weight: 700;'));
   const border = mod(T, 'cms-border-module');
+  // a styled card opens with its modules closed (v1.0); the summary says what Border does
+  const bsum = ((await border.locator('.module-summary').textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+  T.check('…Border is closed, its summary reads "Border radius 20px"', bsum === 'Border radius 20px', bsum);
+  await expand(border);
   T.check('the `.` entry was adopted: Border on at 20px', (await border.locator('.module-header ha-switch').evaluate((e) => e.checked)) && ((await rowOf(T, border, 'Border radius').locator('.value-label').textContent()) || '').trim() === '20px');
   await setSlider(T, rowOf(T, border, 'Border radius').locator('ha-slider'), 8);
   const bg = mod(T, 'cms-background-module');
