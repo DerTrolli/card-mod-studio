@@ -19,6 +19,24 @@
  * waitForHassReady() installs this and pre-loads the lazy cards, so scripts
  * that use it need no extra call; others call installMountHelper(page).
  */
+/**
+ * Console / page errors that come from Home Assistant or an engine itself,
+ * not from the Studio — the release run's written allowlist. Each was traced
+ * (stack or a run with the Studio's file blocked). Anything else fails.
+ */
+export const KNOWN_NOISE = [
+  { re: /themesReady: Timeout/, why: "card-mod / UIX waiting for Home Assistant's themes" },
+  { re: /status of 50[02]/, why: "Home Assistant 2025.9's media / image proxy" },
+  { re: /Error getting Image Colors/, why: "Home Assistant's picture colour extraction" },
+  { re: /Transition was skipped|Cannot parse given Error object/, why: "Home Assistant 2026.2+ view transitions (an AbortError)" },
+  { re: /card alarm-panel Error: Invalid configuration/, why: 'Home Assistant 2025.9 alarm panel while its element loads' },
+  { re: /Failed to execute 'observe' on 'MutationObserver'/, stack: /card-mod\.js/, why: 'card-mod 3.4.5 on Home Assistant 2025.9 (every frame in card-mod.js)' },
+];
+/** True for an error on the allowlist above (the stack must match too where one is given). */
+export function isKnownNoise(msg, stack = '') {
+  return KNOWN_NOISE.some((n) => n.re.test(String(msg)) && (!n.stack || n.stack.test(String(stack))));
+}
+
 export const MOUNT_HELPER_SRC = `(() => {
   if (window.__cmsMount) return;
   // Since 1.0 a styled card opens with its modules closed (the summaries say

@@ -1,3 +1,4 @@
+import { isKnownNoise } from '../harness-utils.mjs';
 // Functional UI check — shared library (see ../functional_ui_check.mjs).
 //
 // Everything here drives Card Style Studio the way a user does: Playwright
@@ -261,7 +262,10 @@ export function makeT({ page, env, record, shotsDir, ws }) {
     }
     return d.dismiss();
   });
-  page.on('pageerror', (e) => T.pageErrors.push({ section: T.section, msg: String(e?.message || e).slice(0, 400), stack: String(e?.stack || '').slice(0, 800) }));
+  page.on('pageerror', (e) => {
+    if (isKnownNoise(e?.message || e, e?.stack)) { T.notes.push(`[${T.section}] known noise: ${String(e?.message || e).slice(0, 120)}`); return; }
+    T.pageErrors.push({ section: T.section, msg: String(e?.message || e).slice(0, 400), stack: String(e?.stack || '').slice(0, 800) });
+  });
   T.check = (name, pass, detail) => record(`[${T.section}] ${name}`, !!pass, detail === undefined ? undefined : typeof detail === 'string' ? detail.slice(0, 1500) : JSON.stringify(detail).slice(0, 1500));
   T.note = (msg) => T.notes.push(`[${T.section}] ${msg}`);
   return T;

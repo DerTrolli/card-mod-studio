@@ -179,7 +179,7 @@ import { chromium } from 'playwright';
 import { readFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
-import { waitForHassReady, ensureStorageDashboard } from './harness-utils.mjs';
+import { waitForHassReady, ensureStorageDashboard, isKnownNoise } from './harness-utils.mjs';
 
 /** The Studio asks once which language to use (v1.0): checks start with
  *  that answered (Auto-detect), unless CMS_FIRST_RUN=1 wants the question. */
@@ -242,8 +242,9 @@ export async function launch({ rig = 'cm', viewport = { width: 1440, height: 900
   const context = await browser.newContext({ viewport, deviceScaleFactor, hasTouch, isMobile, ...(colorScheme ? { colorScheme } : {}) });
   const page = await context.newPage();
   const errors = [];
-  page.on('pageerror', (e) => errors.push('pageerror: ' + String(e.message || e).slice(0, 400)));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text().slice(0, 400)); });
+  // Home Assistant's / the engines' own known errors (KNOWN_NOISE) are left out here.
+  page.on('pageerror', (e) => { if (!isKnownNoise(e.message || e, e.stack)) errors.push('pageerror: ' + String(e.message || e).slice(0, 400)); });
+  page.on('console', (m) => { if (m.type() === 'error' && !isKnownNoise(m.text())) errors.push('console: ' + m.text().slice(0, 400)); });
   await page.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
   if (process.env.CMS_FIRST_RUN !== '1') await page.addInitScript(SEED_SETTINGS);
   await page.goto(`${ha}/lovelace/0`, { waitUntil: 'domcontentloaded' });
