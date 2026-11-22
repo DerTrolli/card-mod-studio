@@ -31,6 +31,8 @@ export const KNOWN_NOISE = [
   { re: /Transition was skipped|Cannot parse given Error object/, why: "Home Assistant 2026.2+ view transitions (an AbortError)" },
   { re: /card alarm-panel Error: Invalid configuration/, why: 'Home Assistant 2025.9 alarm panel while its element loads' },
   { re: /Failed to execute 'observe' on 'MutationObserver'/, stack: /card-mod\.js/, why: 'card-mod 3.4.5 on Home Assistant 2025.9 (every frame in card-mod.js)' },
+  // the Studio never reads recovery_mode; the stack must be Home Assistant's own and not name the Studio's file
+  { re: /reading 'recovery_mode'/, stack: /^(?![\s\S]*card-mod-studio)[\s\S]*\/frontend_(latest|es5)\//, why: "Home Assistant 2025.9's frontend, intermittently (hass.config still null), see docs/COMPATIBILITY_AUDIT.md" },
 ];
 /** True for an error on the allowlist above (the stack must match too where one is given). */
 export function isKnownNoise(msg, stack = '') {

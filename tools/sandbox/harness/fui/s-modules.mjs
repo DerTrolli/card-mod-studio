@@ -345,7 +345,14 @@ async function iconSection(T) {
   T.check('tile: Icon size control offered', (await size.count()) === 1);
   T.check('Icon size starts at "theme"', (await size.locator('.value-label').textContent()).trim() === 'theme');
   // The tile's circle grows with the icon, so the slider stops at 36px (the largest that still fits).
-  T.check('tile: the Icon size slider stops at 36px', (await size.locator('ha-slider #slider').getAttribute('aria-valuemax')) === '36' || (await size.locator('ha-slider input[type="range"]').getAttribute('max')) === '36');
+  // HA 2026.x's Web Awesome slider has #slider; 2025.x's Material slider a range input (no #slider to wait for)
+  const sliderMax = async (row) => {
+    const wa = row.locator('ha-slider #slider');
+    if (await wa.count()) return wa.first().getAttribute('aria-valuemax');
+    const md = row.locator('ha-slider input[type="range"]');
+    return (await md.count()) ? md.first().getAttribute('max') : null;
+  };
+  T.check('tile: the Icon size slider stops at 36px', (await sliderMax(size)) === '36', await sliderMax(size));
   await setSlider(T, size.locator('ha-slider'), 36);
   // …and the circle around the icon grows with it: three halves of the icon size.
   await expectCfg(T, 'Icon size 36 → ha-tile-icon { --tile-icon-size: 54px; --mdc-icon-size: 36px }', has(T, 'ha-tile-icon {\n  --tile-icon-size: 54px;\n  --mdc-icon-size: 36px;\n}'));
