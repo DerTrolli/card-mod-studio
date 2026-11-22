@@ -145,10 +145,17 @@ export class EntitiesRowsModule extends LitElement {
       }
       /* Name may shrink (ellipsis) so a long friendly name can't push the
          entity id and the styled-dot out of a phone-width header. */
+      /* The row's name, and its entity id on a line of its own under it
+         (side by side, a 360px phone cut the name to a few letters). */
+      .entity-heading {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-width: 0;
+      }
       .entity-name {
         font-size: 13px;
         font-weight: 500;
-        flex: 0 1 auto;
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -158,11 +165,10 @@ export class EntitiesRowsModule extends LitElement {
         font-size: 11px;
         color: var(--secondary-text-color, #727272);
         font-family: monospace;
+        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        flex: 1 1 0;
-        min-width: 40px;
       }
       .style-dot {
         width: 8px;
@@ -424,8 +430,10 @@ export class EntitiesRowsModule extends LitElement {
           @click=${() => this._toggleRow(rowKey)}
           @keydown=${onHeaderKeydown}
         >
-          <span class="entity-name">${label}</span>
-          <span class="entity-id">${id}</span>
+          <span class="entity-heading">
+            <span class="entity-name">${label}</span>
+            <span class="entity-id">${id}</span>
+          </span>
           ${conflicts.length
             ? html`<span class="override-badge" title=${t('rows.overridden')}><ha-icon icon="mdi:alert-outline"></ha-icon></span>`
             : nothing}

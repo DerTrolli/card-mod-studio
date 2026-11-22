@@ -91,6 +91,14 @@ const overflow = (page) => page.evaluate(() => {
     }
     return false;
   };
+  // Inside a Home Assistant component (its entity picker field, a slider):
+  // its own text and its own ellipsis, not the Studio's layout.
+  const inHaComponent = (el) => {
+    for (let p = el.parentElement || el.getRootNode().host; p && p !== panel; p = p.parentElement || p.getRootNode().host) {
+      if (p.tagName && p.tagName.startsWith('HA-') && p.tagName !== 'HA-CARD') return true;
+    }
+    return false;
+  };
   const inPreview = (el) => {
     for (let p = el; p && p !== panel; p = p.parentElement || p.getRootNode().host) {
       if (p.classList && (p.classList.contains('preview-card-wrapper') || p.classList.contains('preview-stage'))) return true;
@@ -119,6 +127,7 @@ const overflow = (page) => page.evaluate(() => {
       // Studio text cut off inside its own box (ellipsis / hidden overflow)
       // (not: screen-reader-only text, 1px by design; entity ids, which end in … on purpose)
       if (!/^(INPUT|SELECT|TEXTAREA|CODE|PRE)$/.test(el.tagName) && el.clientWidth > 1
+          && !inHaComponent(el)
           && !/^[a-z_]+\.[\w]+$/.test(el.textContent.trim())
           && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
           && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible') {
