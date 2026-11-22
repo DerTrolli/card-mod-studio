@@ -115,7 +115,7 @@ export const P_PANEL = () => {
   const p = Q.panel();
   if (!p) return null;
   const sr = p.shadowRoot;
-  const mods = [...sr.querySelectorAll('.modules-col > *')].map((n) => n.tagName.toLowerCase()).filter((t) => t.startsWith('cms-'));
+  const mods = [...sr.querySelectorAll('.modules-col > *, .modules-col > .tab-style > *')].map((n) => n.tagName.toLowerCase()).filter((t) => t.startsWith('cms-'));
   return {
     modules: mods,
     warning: Q.txt(sr.querySelector('.warning-banner')),

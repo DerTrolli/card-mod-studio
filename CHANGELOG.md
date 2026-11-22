@@ -5,6 +5,75 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] — 2026-11-22
+
+Card Style Studio 1.0: the first stable release. Every condition that
+compares a value can now compare a text state as well as a number (#42),
+Background and grayscale get "A value matches", and the panel takes Home
+Assistant's own look: tabs, icons and a summary on every closed module.
+
+From here on, the generated `card_mod:` / `uix:` YAML, the stored preset,
+palette and settings formats, the copy/paste text and the integration's
+options only change in a backward-compatible way within 1.x.
+
+### Added
+
+- **Text states in "A value matches"**
+  ([#42](https://github.com/DerTrolli/card-mod-studio/issues/42)): the
+  Animation trigger, Visual Filters (effects), Border & Radius (width) and
+  Icon Color (size) offer `is` / `is not` next to `<` … `!=`, for states
+  that are words: a thermostat's `heating`, a vacuum's `cleaning` or
+  `docked`, a select's option. The text field starts from the entity's
+  current value and shows it ("Right now: …"), and "Value read from" offers
+  text attributes (e.g. `hvac_action`) while a text operator is chosen.
+  Written as `states('climate.hall') == 'heating'` (an attribute:
+  `state_attr('…', '…') | string == '…'`), the same spelling as Threshold
+  text rules (#41), so it is compared exactly as Home Assistant stores it.
+  A number typed as text becomes the number comparison `==` / `!=`.
+- **Background and grayscale: "A value matches"**: their "Apply when" now
+  also offers a value condition (a number or a text), e.g. the background
+  red while a vacuum is `cleaning`. The other branch is the card's own
+  look. Mushroom and Bubble cards get it through their background
+  variables.
+- **Icon Color and Accent Color** (ON / OFF colours) point to Threshold
+  Colors for colours by a number or a text state, which writes exactly that
+  (a colour per value, or a fade).
+- **Tabs: Style / Presets / Palette / Settings.** The modules have the
+  Style tab to themselves. The preset bar (load, save, delete) moved onto
+  the Presets tab next to My Presets and copy/paste; My Color Palette and
+  Settings have their own tabs and are always open there. Every editor
+  opens on Style; a module you opened stays open while you visit another
+  tab; a click on the preview from any tab goes back to Style and opens the
+  module. The tab list works with the arrow keys, Home and End. On phones
+  the four tabs share the width (they fit 360px in all 22 languages).
+- **A summary on every closed module**: what it does on this card, under
+  its title — colours as dots, a fade as a bar, conditions in words
+  ("when climate.hall is “heating”"), sizes and the first line of Advanced
+  CSS. Screen readers get it as the header's description; the header's
+  name stays the module's title.
+
+### Changed
+
+- **Home Assistant's own look**: modules are outlined panels like Home
+  Assistant's card editors, with Material Design icons, the switch and a
+  chevron on the right, and no filled header. Emoji in headers, banners and
+  buttons are replaced by Home Assistant's icons.
+- **One wording for every condition: "Apply when"** (some said "Reacts
+  to").
+- **Advanced CSS is always last**: on an entities card, Entity Rows now
+  come before it.
+
+### Compatibility
+
+- Text conditions are stored in new fields (`valueText`,
+  `valueTextOperator`), and the Background / grayscale value condition in
+  `condition` / `grayscaleCondition`, with "Apply when" itself left at
+  Always. Measured against 1.0.0-beta.2 and 0.11.0: going back to an older
+  version, such a condition applies always (no broken template, no
+  inverted condition) and the rest of the style is unchanged.
+- Styles, presets, palettes, settings and copied text from every earlier
+  version read unchanged.
+
 ## [1.0.0-beta.2] — 2026-11-19
 
 The second 1.0 pre-release: the new name **Card Style Studio** (formerly
@@ -2019,6 +2088,7 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[1.0.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v1.0.0
 [1.0.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v1.0.0-beta.2
 [1.0.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v1.0.0-beta.1
 [0.11.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0

@@ -889,6 +889,15 @@ export class CmsPanel extends LitElement {
       outline: 2px solid var(--primary-color, #03a9f4);
       outline-offset: -2px;
     }
+    /* Phones: the four tabs share the width (measured: they fit 360px in
+       every language with this padding). */
+    .tabs.narrow .tab {
+      flex: 1 0 auto;
+      padding: 0 10px;
+    }
+    .tab-style[hidden] {
+      display: none;
+    }
     .header .version {
       font-size: 11px;
       color: var(--secondary-text-color, #727272);
@@ -1295,7 +1304,7 @@ export class CmsPanel extends LitElement {
                       >${t(this._previewFolded ? 'panel.previewShow' : 'panel.previewHide')}</button>`
                     : nothing}
                 </div>
-                ${this._pickerActive && this._tab === 'style'
+                ${this._pickerActive
                   ? html`<span class="preview-hint">${t('panel.previewHint')}</span>`
                   : nothing}
                 <div class="preview-card-wrapper">
@@ -1311,7 +1320,7 @@ export class CmsPanel extends LitElement {
   /** Style / Presets / Palette / Settings, as an ARIA tab list: arrow keys,
    *  Home and End move between the tabs and open them. */
   private _renderTabs() {
-    return html`<div class="tabs" role="tablist" aria-labelledby="cms-title" @keydown=${this._onTabKeydown}>
+    return html`<div class="tabs ${this._narrow ? 'narrow' : ''}" role="tablist" aria-labelledby="cms-title" @keydown=${this._onTabKeydown}>
       ${TABS.map((tab) => {
         const on = tab.id === this._tab;
         return html`<button
@@ -1348,7 +1357,27 @@ export class CmsPanel extends LitElement {
     this._selectTab(TABS[next].id, true);
   };
 
+  /** The Style tab stays in the page while another tab is open (hidden), so
+   *  the modules a user opened are still open when they come back; the other
+   *  tabs are drawn only while open. */
   private _renderTabContent() {
+    return html`
+      <div class="tab-style" ?hidden=${this._tab !== 'style'}>${this._renderStyleTab()}</div>
+      ${this._tab === 'style' ? nothing : this._renderOtherTab()}
+    `;
+  }
+
+  private _renderStyleTab() {
+    return this._studioState
+      ? html`
+          ${this._renderNothingToStyleNote()}
+          ${this._renderUnprofiledNotice()}
+          ${this._renderModuleList(settleEntityless(this._studioState, this.config as unknown as Record<string, unknown>))}
+        `
+      : html`<div class="no-config">${t('panel.noCard')}</div>`;
+  }
+
+  private _renderOtherTab() {
     switch (this._tab) {
       case 'presets':
         return html`
@@ -1365,13 +1394,7 @@ export class CmsPanel extends LitElement {
       case 'settings':
         return html`<cms-settings .hass=${this.hass}></cms-settings>`;
       default:
-        return this._studioState
-          ? html`
-              ${this._renderNothingToStyleNote()}
-              ${this._renderUnprofiledNotice()}
-              ${this._renderModuleList(settleEntityless(this._studioState, this.config as unknown as Record<string, unknown>))}
-            `
-          : html`<div class="no-config">${t('panel.noCard')}</div>`;
+        return nothing;
     }
   }
 

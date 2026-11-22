@@ -56,7 +56,8 @@ try {
   await D.openCardEditor(page, 0);
   await D.openStudio(page);
 
-  // two presets saved the normal way (preset bar)
+  // two presets saved the normal way (preset bar, on the Presets tab)
+  await D.selectTab(page, 'presets');
   for (const name of ['A', 'B']) {
     await page.locator('cms-panel .btn-preset-save').first().click();
     await page.locator('cms-panel input.preset-name').pressSequentially(name);
@@ -66,7 +67,6 @@ try {
   await until(async () => sameList(await stored(), ['A', 'B']), 'stored after saving A and B');
 
   await step('My Presets lists them in order', async () => {
-    await mgr().locator('.module-header').click();
     await until(async () => sameList(await rows(), ['A', 'B']), 'rows');
   });
 
@@ -110,7 +110,8 @@ try {
 
   let styleText = '';
   await step("copy this card's style (Border on) gives the text", async () => {
-    await D.setSectionEnabled(page, 'Border & Radius', true);
+    await D.setSectionEnabled(page, 'Border & Radius', true); // switches to the Style tab
+    await D.selectTab(page, 'presets');
     await mgr().getByRole('button', { name: /Copy this card's style/ }).click();
     const area = mgr().locator('textarea.export');
     await area.waitFor({ state: 'visible', timeout: 5000 });
@@ -125,12 +126,13 @@ try {
   await step('paste it on the second card → Border on, saved with the card', async () => {
     await D.openCardEditor(page, 1);
     await D.openStudio(page);
-    await mgr().locator('.module-header').click();
+    await D.selectTab(page, 'presets');
     const area = mgr().locator('#cms-paste');
     await area.click();
     await page.keyboard.insertText(styleText); // what a paste does
     await mgr().getByRole('button', { name: /Apply/ }).click();
     await wait(600);
+    await D.selectTab(page, 'style');
     const border = (await D.listSections(page)).find((s) => s.name === 'Border & Radius');
     need(border?.enabled === true, `Border ${border?.enabled}`);
     await D.saveCard(page);
@@ -142,7 +144,7 @@ try {
   await step('copy all presets, then paste them into an empty list', async () => {
     await D.openCardEditor(page, 0);
     await D.openStudio(page);
-    await mgr().locator('.module-header').click();
+    await D.selectTab(page, 'presets');
     await mgr().getByRole('button', { name: /Copy all presets/ }).click();
     const text = await mgr().locator('textarea.export').inputValue();
     // empty the list through the UI (two deletes)

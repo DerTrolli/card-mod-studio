@@ -327,7 +327,7 @@ export const es: Record<MessageKey, string> = {
   'tab.close': 'Cerrar Card Style Studio',
   'tab.open': 'Abrir el editor de estilos de Card Style Studio',
   'tab.style': 'Estilo',
-  'tabs.presets': 'Ajustes predefinidos',
+  'tabs.presets': 'Predefinidos',
   'tabs.palette': 'Paleta',
   'sum.pair': '{label} {value}',
   'sum.whileOn': 'mientras ENCENDIDA',

@@ -57,6 +57,8 @@ const settingsSelect = (page) => page.locator('cms-settings select');
 const selectedText = (loc) => loc.evaluate((e) => e.selectedOptions[0]?.textContent.trim());
 const names = async (page) => (await D.listSections(page)).map((s) => s.name);
 const hasSection = async (page, name) => (await names(page)).includes(name);
+/** The panel's tab labels (v1.0), "Style|Presets|Palette|Settings". */
+const tabLabels = async (page) => (await D.listTabs(page)).map((t) => t.label).join('|');
 const styleButtonText = (page) => page.locator('cms-tab-button button').first().innerText();
 
 /** Dashboard menu → Edit dashboard → a card's Edit, in English or German Home Assistant. */
@@ -143,10 +145,10 @@ try {
     need((await selectedText(sel)) === 'Deutsch', `settings shows "${await selectedText(sel)}"`);
     await D.chooseOption(sel, 'English');
     await wait(300);
-    need(await hasSection(pa, 'Border & Radius'), `sections: ${(await names(pa)).join(' | ')}`);
     need(await hasSection(pa, 'Settings'), 'Settings title not English');
+    need((await tabLabels(pa)) === 'Style|Presets|Palette|Settings', `tabs ${await tabLabels(pa)}`);
     need((await storedSettings(pa))?.language === 'en', 'not stored');
-    return 'Border & Radius, Settings';
+    return 'Settings; tabs Style | Presets | Palette | Settings';
   });
 
   await step('Settings → Auto-detect follows HA (English); back to Deutsch for the next step', async () => {
@@ -154,10 +156,12 @@ try {
     await D.chooseOption(sel, 'Auto-detect: English (recommended)');
     await wait(300);
     need((await storedSettings(pa))?.language === 'auto', 'auto not stored');
-    need(await hasSection(pa, 'Border & Radius'), 'not English');
+    need((await tabLabels(pa)) === 'Style|Presets|Palette|Settings', `not English: ${await tabLabels(pa)}`);
     await D.chooseOption(settingsSelect(pa), 'Deutsch');
     await wait(300);
-    need(await hasSection(pa, 'Rahmen & Radius'), 'not German again');
+    need((await tabLabels(pa)) === 'Stil|Vorlagen|Palette|Einstellungen', `not German again: ${await tabLabels(pa)}`);
+    await D.selectTab(pa, 'style');
+    need(await hasSection(pa, 'Rahmen & Radius'), `Style tab: ${(await names(pa)).join(' | ')}`);
   });
 
   await step('no console errors (A)', async () => {

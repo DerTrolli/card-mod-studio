@@ -196,13 +196,15 @@ try {
   await D.openCardEditor(page, 0);
   await D.openStudio(page);
   await openEverything(page);
-  // two presets through the preset bar, so 📚 My Presets shows its rows
+  // two presets through the preset bar (Presets tab), so My Presets shows its rows
+  await D.selectTab(page, 'presets');
   for (const name of ['Warm', 'Cool']) {
     await page.locator('cms-panel .btn-preset-save').first().click();
     await page.locator('cms-panel input.preset-name').pressSequentially(name);
     await page.locator('cms-panel input.preset-name').press('Enter');
     await wait(500);
   }
+  await D.selectTab(page, 'style');
   // two Threshold rules in every Threshold module, so the rule rows are on screen
   const addRule = page.locator('cms-threshold-module button.add-btn', { hasText: 'Add rule' });
   const nAdd = await addRule.count();
@@ -216,28 +218,44 @@ try {
   if (st.closed.length || st.off.length) throw new Error(`not everything open: closed ${st.closed.join(', ')}; off ${st.off.join(', ')}`);
 
   for (const { code, name } of (process.env.ONLY ? codes.filter((c) => process.env.ONLY.split(",").includes(c.code)) : codes)) {
-    await step(`${code} (${name}): the panel switches, nothing sticks out or is cut off`, async () => {
+    await step(`${code} (${name}): the panel switches, nothing sticks out or is cut off, on every tab`, async () => {
+      await D.selectTab(page, 'settings');
       await D.chooseOption(settingsSelect(page), name);
       await wait(400);
-      await openEverything(page);
-      const now = await notOpen(page);
-      need(!now.closed.length && !now.off.length, `closed: ${now.closed.join(', ')}; off: ${now.off.join(', ')}`);
-      const titles = (await D.listSections(page)).map((s) => s.name);
-      const border = msg(code, 'border.title');
-      const settings = msg(code, 'settings.title');
-      need(titles.includes(border), `no "${border}" in ${titles.slice(0, 6).join(' | ')}…`);
-      need(titles.includes(settings), `no "${settings}"`);
-      const o = await overflow(page);
-      need(!o.error, o.error);
-      need(!o.sideways, `panel scrolls sideways (${JSON.stringify(o.panel)})`);
-      need(o.out.length === 0, `${o.out.length} sticking out: ${o.out.slice(0, 3).join(' || ')}`);
-      need(o.cut.length === 0, `${o.cut.length} cut off: ${o.cut.slice(0, 4).join(' || ')}`);
-      need(o.spill.length === 0, `${o.spill.length} running out of their box: ${o.spill.slice(0, 4).join(' || ')}`);
-      if (SHOTS) {
-        mkdirSync(SHOTS, { recursive: true });
-        await page.screenshot({ path: `${SHOTS}/lang-${code}-${PHONE ? 390 : 1440}.png` });
+      const labels = (await D.listTabs(page)).map((t) => t.label);
+      const want = [msg(code, 'tab.style'), msg(code, 'tabs.presets'), msg(code, 'tabs.palette'), msg(code, 'settings.title')];
+      need(JSON.stringify(labels) === JSON.stringify(want), `tabs ${labels.join(' | ')}, want ${want.join(' | ')}`);
+      // the four tabs fit side by side (no scrolling the tab bar to reach Settings)
+      const bar = await page.locator('cms-panel').first().locator('[role="tablist"]').evaluate((e) => ({ sw: e.scrollWidth, cw: e.clientWidth }));
+      need(bar.sw <= bar.cw + 1, `the tab bar scrolls: ${bar.sw} > ${bar.cw}`);
+      let summary = '';
+      for (const tab of ['settings', 'palette', 'presets', 'style']) {
+        await D.selectTab(page, tab);
+        if (tab === 'style') {
+          await openEverything(page);
+          const now = await notOpen(page);
+          need(!now.closed.length && !now.off.length, `closed: ${now.closed.join(', ')}; off: ${now.off.join(', ')}`);
+          const titles = (await D.listSections(page)).map((s) => s.name);
+          const border = msg(code, 'border.title');
+          need(titles.includes(border), `no "${border}" in ${titles.slice(0, 6).join(' | ')}…`);
+          summary = `${now.all} sections open, ${now.on} modules on`;
+        } else {
+          const titles = (await D.listSections(page)).map((s) => s.name);
+          const title = msg(code, tab === 'settings' ? 'settings.title' : tab === 'palette' ? 'palette.title' : 'presets.title');
+          need(titles.includes(title), `${tab}: no "${title}" in ${titles.join(' | ')}`);
+        }
+        const o = await overflow(page);
+        need(!o.error, o.error);
+        need(!o.sideways, `${tab}: panel scrolls sideways (${JSON.stringify(o.panel)})`);
+        need(o.out.length === 0, `${tab}: ${o.out.length} sticking out: ${o.out.slice(0, 3).join(' || ')}`);
+        need(o.cut.length === 0, `${tab}: ${o.cut.length} cut off: ${o.cut.slice(0, 4).join(' || ')}`);
+        need(o.spill.length === 0, `${tab}: ${o.spill.length} running out of their box: ${o.spill.slice(0, 4).join(' || ')}`);
+        if (SHOTS) {
+          mkdirSync(SHOTS, { recursive: true });
+          await page.screenshot({ path: `${SHOTS}/lang-${code}-${tab}-${PHONE ? 390 : 1440}.png` });
+        }
       }
-      return `${now.all} sections open, ${now.on} modules on`;
+      return summary;
     });
   }
 

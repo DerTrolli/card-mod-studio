@@ -420,6 +420,15 @@ export async function clickEditOn(T, cardIndex = 0) {
 export const styleBtn = (T) => T.page.locator('cms-tab-button').filter({ visible: true }).first().locator('button');
 export const panelLoc = (T) => T.page.locator('cms-panel').filter({ visible: true }).first();
 
+/** v1.0 panel tabs: a real click on Style / Presets / Palette / Settings (by id), then waits until it is selected. */
+export async function tab(T, id) {
+  const t = panelLoc(T).locator(`[role="tab"][data-tab="${id}"]`);
+  if ((await t.getAttribute('aria-selected')) === 'true') return;
+  await t.click();
+  await panelLoc(T).locator(`[role="tab"][data-tab="${id}"][aria-selected="true"]`).waitFor({ timeout: 5000 });
+  await sleep(150);
+}
+
 export async function panelVisible(T) {
   return T.page.evaluate(() => !!window.__fui.panel());
 }

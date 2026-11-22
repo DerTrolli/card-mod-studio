@@ -25,15 +25,15 @@ beforeAll(async () => {
 
 const UNRECOGNISED = "weren't recognised";
 const NOTHING = 'This card renders nothing';
-/** The Style tab and the Presets tab (where the preset bar lives since v1.0). */
+/** Rendered on the Presets tab (the preset bar's tab since v1.0): the Style
+ *  tab stays in the page (hidden), so this holds both. */
 const render = (config: unknown) => {
   const p = new Panel() as PanelT & { _tab: string };
   p.dispatchEvent = () => true;
   p.config = config as CardModCardConfig;
   p._initState();
-  const style = templateText(p.render());
   p._tab = 'presets';
-  return style + templateText(p.render());
+  return templateText(p.render());
 };
 const css = { card_mod: { style: 'ha-card { color: red; }\n.odd-thing { foo: bar; }' } };
 

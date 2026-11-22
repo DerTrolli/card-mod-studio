@@ -327,7 +327,7 @@ export const it: Record<MessageKey, string> = {
   'tab.close': 'Chiudi Card Style Studio',
   'tab.open': 'Apri l\'editor di stile di Card Style Studio',
   'tab.style': 'Stile',
-  'tabs.presets': 'Preimpostazioni',
+  'tabs.presets': 'Preset',
   'tabs.palette': 'Tavolozza',
   'sum.pair': '{label} {value}',
   'sum.whileOn': 'mentre ACCESA',

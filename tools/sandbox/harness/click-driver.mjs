@@ -892,8 +892,10 @@ export async function selectTab(page, id) {
 async function findSectionAnyTab(page, key, opts) {
   let sections = await listSections(page);
   let s = matchSection(sections, key, opts);
-  if (s) return { s, sections };
+  if (s && s.visible) return { s, sections };
   const tabs = await listTabs(page);
+  if (s && !tabs.length) return { s, sections };
+  const hiddenHere = !!s; // found, but not shown: on a tab that isn't open (or hidden for another reason)
   const start = tabs.find((t) => t.selected)?.id;
   const seen = [sections.map((x) => x.name).join(' | ')];
   for (const tab of tabs) {
@@ -901,10 +903,14 @@ async function findSectionAnyTab(page, key, opts) {
     await selectTab(page, tab.id);
     sections = await listSections(page);
     s = matchSection(sections, key, opts);
-    if (s) return { s, sections };
+    if (s && s.visible) return { s, sections };
     seen.push(`[${tab.id}] ` + sections.map((x) => x.name).join(' | '));
   }
   if (start) await selectTab(page, start);
+  if (hiddenHere) {
+    sections = await listSections(page);
+    return { s: matchSection(sections, key, opts), sections };
+  }
   return { s: null, sections, seen };
 }
 
