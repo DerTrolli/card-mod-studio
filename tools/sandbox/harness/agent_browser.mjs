@@ -17,7 +17,7 @@
 //   /scroll?x=&y=&dy=400      mouse wheel over that point (negative dy = up)
 //   /drag?x1=&y1=&x2=&y2=     press, move, release (sliders)
 //   /goto?path=/qa-agent-1/0  a path on the rig (the address bar)
-//   /reload                   reload the page
+//   /reload                   clear the browser cache, then reload (picks up a newly deployed build)
 //   /wait?ms=1000             wait, then a screenshot
 //   /errors                   console errors since the start (Home Assistant's known noise left out)
 import * as D from './click-driver.mjs';
@@ -118,7 +118,13 @@ http.createServer((req, res) => {
           await page.mouse.up();
           await settle(); return await answer(res);
         case '/goto': await page.goto(`${HA}${q.get('path') || '/'}`, { waitUntil: 'domcontentloaded' }); await settle(2500); return await answer(res);
-        case '/reload': await page.reload({ waitUntil: 'domcontentloaded' }); await settle(2500); return await answer(res);
+        case '/reload': {
+          // a reload after a new build is deployed must not run the cached old file
+          const cdp = await page.context().newCDPSession(page);
+          await cdp.send('Network.clearBrowserCache');
+          await cdp.detach();
+          await page.reload({ waitUntil: 'domcontentloaded' }); await settle(2500); return await answer(res);
+        }
         case '/wait': await page.waitForTimeout(Math.min(num(q, 'ms') || 1000, 15000)); return await answer(res);
         case '/errors': return res.end(JSON.stringify({ consoleErrors: errors(), pageErrorStacks: stacks }));
         default: res.statusCode = 404; return res.end(JSON.stringify({ error: 'unknown action' }));
