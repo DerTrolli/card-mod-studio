@@ -240,6 +240,17 @@ const run = async () => {
     );
   };
 
+  // A styled card opens with its modules closed (v1.0): open Threshold Colors
+  // (its header, as a user would) so its rule and default pickers are there.
+  await page.evaluate(async () => {
+    const all = (r, t) => { const o = []; const s = [r]; t = t.toLowerCase(); while (s.length) { const n = s.pop(); if (n.tagName && n.tagName.toLowerCase() === t) o.push(n); if (n.shadowRoot) s.push(...n.shadowRoot.children); if (n.children) s.push(...n.children); } return o; };
+    const panel = all(document.body, 'cms-panel')[0];
+    const thr = panel?.shadowRoot?.querySelector('cms-threshold-module');
+    const toggle = thr?.shadowRoot?.querySelector('.module-toggle[aria-expanded="false"]');
+    if (toggle) { toggle.click(); await thr.updateComplete; }
+    await new Promise((r) => setTimeout(r, 300));
+  });
+
   await check(
     'first threshold rule swatch',
     `() => {
