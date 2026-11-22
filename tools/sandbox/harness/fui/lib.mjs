@@ -742,6 +742,21 @@ export async function pickEntity(T, cmsPicker, entityId) {
       return walk(document).some((n) => n.tagName === 'VAADIN-COMBO-BOX-OVERLAY' && n.opened);
     });
     if (!listed) throw new Error(`entity ${entityId} (${friendly}) not offered by the picker`);
+    // the row for exactly this entity (each overlay row carries its entity), once
+    // the filter has caught up; the first row by keyboard picked a different
+    // entity when it hadn't (2025.9.4, Border "Apply when" in the 1.0.0 run)
+    let row = null;
+    for (let i = 0; i < 40 && !row; i++) {
+      row = await page.evaluate((id) => {
+        const walk = (r, o = []) => { for (const e of r.querySelectorAll('*')) { o.push(e); if (e.shadowRoot) walk(e.shadowRoot, o); } return o; };
+        const n = walk(document).find((x) => x.tagName === 'VAADIN-COMBO-BOX-ITEM' && (x.item?.entity_id ?? x.item?.id) === id && x.getBoundingClientRect().height > 0);
+        if (!n) return null;
+        const r = n.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      }, entityId);
+      if (!row) await sleep(150);
+    }
+    if (row) { await page.mouse.click(row.x, row.y); await sleep(300); return friendly; }
     await page.keyboard.press('ArrowDown'); await sleep(150);
     await page.keyboard.press('Enter'); await sleep(300);
     return friendly;

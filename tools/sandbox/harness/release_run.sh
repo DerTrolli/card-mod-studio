@@ -20,7 +20,7 @@ last() { grep -E 'checks passed|SUMMARY|passed\.|FAILED|FAIL setup' "$1" | tail 
 check() {
   local name="$1" logf="$2"; shift 2
   ( cd "$H" && timeout 3600 "$@" ) > "$logf" 2>&1; local rc=$? note=""
-  if [ $rc -ne 0 ]; then ( cd "$H" && timeout 3600 "$@" ) > "$logf" 2>&1; rc=$?; note=" (retried)"; fi
+  if [ $rc -ne 0 ]; then mv "$logf" "$logf.try1"; ( cd "$H" && timeout 3600 "$@" ) > "$logf" 2>&1; rc=$?; note=" (retried; first attempt: $(last "$logf.try1" | cut -c1-120))"; fi
   log "$name rc=$rc$note: $(last "$logf")"
 }
 
@@ -33,7 +33,7 @@ log "commit $(git rev-parse HEAD) on $(git rev-parse --abbrev-ref HEAD)"
 # ---------------------------------------------------------------- 1. static
 npm ci > "$RUN/npm-ci.log" 2>&1; log "npm ci rc=$?"
 npx tsc --noEmit -p . > "$RUN/typecheck.log" 2>&1; log "typecheck rc=$?"
-npx eslint src --ext .ts > "$RUN/lint.log" 2>&1; log "lint: $(tail -2 "$RUN/lint.log" | head -1) (record only; before this cycle: 181 problems)"
+npx eslint src --ext .ts > "$RUN/lint.log" 2>&1; log "lint: $(grep -E '^✖ [0-9]+ problems' "$RUN/lint.log" | tail -1) (record only; before this cycle: 181 problems)"
 npx vitest run > "$RUN/unit.log" 2>&1; log "unit rc=$?: $(grep -E 'Tests ' "$RUN/unit.log" | tail -1)"
 npx vite build > "$RUN/build1.log" 2>&1; A="$(sha256sum dist/card-mod-studio.js | cut -d' ' -f1)"
 npx vite build > "$RUN/build2.log" 2>&1; B="$(sha256sum dist/card-mod-studio.js | cut -d' ' -f1)"
