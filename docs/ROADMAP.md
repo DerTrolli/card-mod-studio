@@ -167,7 +167,7 @@ The first stable release; plan and test record in
   Palette / Settings (the Style tab stays mounted, so open modules stay
   open across tabs); a summary on every closed module (`module-summary.ts`;
   styled cards open with their modules closed); "Apply when" everywhere;
-  Advanced CSS last. Measured: the tab bar fits 390px phones in all 22
+  Advanced CSS last. Measured live: the tab bar fits 360px phones in all 22
   languages.
 
 ## Recently shipped (v1.0.0-beta.2) — 2026-11-19, pre-release
