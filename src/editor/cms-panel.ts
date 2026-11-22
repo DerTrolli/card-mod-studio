@@ -881,8 +881,11 @@ export class CmsPanel extends LitElement {
     .tab:hover {
       color: var(--primary-text-color, #212121);
     }
+    /* The open tab: its label in the normal text colour (Home Assistant's
+       light-theme primary blue is under 3:1 on white for 14px text), marked
+       by the primary-colour underline. */
     .tab.active {
-      color: var(--primary-color, #03a9f4);
+      color: var(--primary-text-color, #212121);
       border-bottom-color: var(--primary-color, #03a9f4);
     }
     .tab:focus-visible {
