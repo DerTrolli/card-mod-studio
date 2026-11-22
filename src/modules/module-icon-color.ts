@@ -12,6 +12,7 @@ import {
   renderCondition,
   renderModuleHeader,
   guardSliderTouch, nameSwitches, prepareSliders,
+  editState,
 } from './module-base.js';
 import { iconSummary } from './module-summary.js';
 import '../components/cms-color-picker.js';
@@ -103,7 +104,7 @@ export class IconColorModule extends LitElement {
   }
 
   private _emit(changes: Partial<IconColorModuleState>) {
-    const detail = { ...this.state, ...changes };
+    const detail = editState(this.state, changes);
     this.dispatchEvent(
       new CustomEvent<IconColorModuleState>('state-changed', { detail }),
     );

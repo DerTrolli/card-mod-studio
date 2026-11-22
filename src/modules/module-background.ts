@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { BackgroundModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_BACKGROUND } from '../parser/state-mapper.js';
 import { moduleStyles, renderWhen,  renderOverrideHint, renderThresholdOwnedHint, renderModuleHeader, guardSliderTouch, nameSwitches, prepareSliders,
+  editState,
 } from './module-base.js';
 import { backgroundSummary } from './module-summary.js';
 import '../components/cms-color-picker.js';
@@ -55,7 +56,7 @@ export class BackgroundModule extends LitElement {
   private _emit(changes: Partial<BackgroundModuleState>) {
     this.dispatchEvent(
       new CustomEvent<BackgroundModuleState>('state-changed', {
-        detail: { ...this.state, ...changes },
+        detail: editState(this.state, changes),
       }),
     );
   }

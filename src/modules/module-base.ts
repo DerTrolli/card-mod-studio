@@ -179,20 +179,20 @@ export const moduleStyles = [
     flex: 1;
     min-width: 0;
   }
+  /* Wraps onto a second line rather than cutting each part ("Sh… · 2."
+     on a phone); a long condition breaks inside an entity id if it must. */
   .module-summary {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 4px;
+    gap: 0 4px;
     font-size: 12px;
     line-height: 1.4;
     color: var(--secondary-text-color, #727272);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .module-summary .sum-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   .sum-swatch {
     display: inline-block;
@@ -267,6 +267,14 @@ export const moduleStyles = [
     /* a word longer than the column (some languages): hyphenate, else break */
     hyphens: auto;
     overflow-wrap: anywhere;
+  }
+
+  /* A label beside a short value (Settings → written key) takes the room
+     it needs instead of breaking its words in the narrow label column. */
+  .control-row.wide-label .control-label {
+    flex: 1 1 auto;
+    hyphens: manual;
+    overflow-wrap: normal;
   }
 
   .control-right {
@@ -549,6 +557,19 @@ export function renderResetButton(
  */
 export function renderDefaultOption(selected: boolean, native = ''): TemplateResult {
   return html`<option value="" ?selected=${selected}>${native ? t('base.defaultWith', { value: native }) : t('base.default')}</option>`;
+}
+
+/**
+ * A module's next state after a user's change. Changing a setting of a
+ * module that is off switches it on (v1.0): before, the change was kept but
+ * nothing showed until the switch was flipped as well, and people (and the
+ * test agents) took the setting for broken. The switch itself, and a change
+ * that says `enabled` (or switches a part off), keep their own meaning.
+ */
+export function editState<T extends { enabled: boolean }>(state: T, changes: Partial<T>, mayEnable = true): T {
+  const next = { ...state, ...changes };
+  if (mayEnable && !state.enabled && !('enabled' in changes)) next.enabled = true;
+  return next;
 }
 
 /** The pending observer per editor and the name it should apply. */

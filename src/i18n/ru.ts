@@ -179,7 +179,6 @@ export const ru: Record<MessageKey, string> = {
   'anim.preset.glow': 'Свечение (пульсирующая тень)',
   'anim.preset.heartbeat': 'Сердцебиение (двойной удар)',
   'anim.hintValue': 'Проигрывает анимацию только пока выполняется условие.',
-  'anim.stateDefault': 'Состояние (по умолчанию)',
   'noun.animation': 'анимацию',
   'threshold.pointsLabel': 'Точки — цвет плавно переходит между ними; значения вне этого диапазона остаются на ближайшем краю:',
   'threshold.legendIf': 'Если значение {op} {value}',

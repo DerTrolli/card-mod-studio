@@ -971,7 +971,12 @@ export class CmsPanel extends LitElement {
     }
     .panel-body.narrow .preview-card-wrapper {
       min-height: 72px;
-      max-height: 26vh;
+      max-height: 22vh;
+    }
+    /* Phones: the pinned strip keeps to the card (the hint cost a second
+       line in long languages; picking parts works the same without it). */
+    .panel-body.narrow .preview-hint {
+      display: none;
     }
     .panel-body.narrow.preview-folded .preview-card-wrapper,
     .panel-body.narrow.preview-folded .preview-hint {

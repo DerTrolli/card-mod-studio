@@ -179,7 +179,6 @@ export const nb: Record<MessageKey, string> = {
   'anim.preset.glow': 'Glød (pulserende skygge)',
   'anim.preset.heartbeat': 'Hjerteslag (dobbeltslag)',
   'anim.hintValue': 'Kjører animasjonen bare mens betingelsen er oppfylt.',
-  'anim.stateDefault': 'Tilstand (standard)',
   'noun.animation': 'animasjonen',
   'threshold.pointsLabel': 'Punkter — fargen glir jevnt mellom dem; verdier utenfor området blir værende ved nærmeste ende:',
   'threshold.legendIf': 'Hvis verdi {op} {value}',

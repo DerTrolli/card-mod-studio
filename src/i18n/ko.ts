@@ -179,7 +179,6 @@ export const ko: Record<MessageKey, string> = {
   'anim.preset.glow': '발광(맥동하는 그림자)',
   'anim.preset.heartbeat': '심장 박동(두 번 뛰기)',
   'anim.hintValue': '조건을 만족하는 동안만 애니메이션을 재생합니다.',
-  'anim.stateDefault': '상태(기본값)',
   'noun.animation': '애니메이션',
   'threshold.pointsLabel': '지점 — 색이 지점 사이에서 부드럽게 바뀝니다. 범위를 벗어난 값은 가까운 끝의 색을 유지합니다:',
   'threshold.legendIf': '값이 {op} {value}이면',

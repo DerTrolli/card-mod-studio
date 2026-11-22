@@ -9,6 +9,7 @@ import {
   renderCondition,
   renderModuleHeader,
   guardSliderTouch, nameSwitches, prepareSliders,
+  editState,
 } from './module-base.js';
 import { filterSummary } from './module-summary.js';
 import { stateKindFor } from '../utils/card-caps.js';
@@ -60,7 +61,7 @@ export class FilterModule extends LitElement {
   private _emit(changes: Partial<FilterModuleState>) {
     this.dispatchEvent(
       new CustomEvent<FilterModuleState>('state-changed', {
-        detail: { ...this.state, ...changes },
+        detail: editState(this.state, changes),
       }),
     );
   }

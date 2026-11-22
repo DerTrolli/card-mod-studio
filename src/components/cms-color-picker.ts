@@ -194,6 +194,13 @@ const swatchStyles = css`
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-text-color, #212121) 22%, transparent);
   }
   .custom input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+  /* No colour set and none to show: a hatched chip, not the black that
+     <input type="color"> falls back to (it read as "black chosen" in dark mode). */
+  .custom input[type="color"].unset {
+    background: repeating-linear-gradient(45deg, transparent 0 4px, var(--divider-color, rgba(0, 0, 0, 0.18)) 4px 6px);
+  }
+  .custom input[type="color"].unset::-webkit-color-swatch { opacity: 0; }
+  .custom input[type="color"].unset::-moz-color-swatch { opacity: 0; }
   .custom input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 6px; }
   .custom input[type="color"]::-moz-color-swatch { border: 0; border-radius: 6px; }
   .custom input[type="text"] {
@@ -509,7 +516,7 @@ export class CmsColorPicker extends LitElement {
             })), t('picker.myColors'))
           : nothing}
         <div class="custom">
-          <input type="color" aria-label=${this._name(t('picker.pickCustom'))} .value=${this._toHex(this.value || (this.clearable ? this.placeholderColor : ''))} @input=${this._onColorInput} />
+          <input type="color" class=${!this.value && !(this.clearable && this.placeholderColor) ? 'unset' : ''} aria-label=${this._name(t('picker.pickCustom'))} .value=${this._toHex(this.value || (this.clearable ? this.placeholderColor : ''))} @input=${this._onColorInput} />
           <input type="text" aria-label=${this._name(t('picker.value'))} aria-invalid=${this._invalid ? 'true' : 'false'} aria-describedby=${this._invalid ? 'cms-color-hint' : nothing} spellcheck="false" autocomplete="off" .value=${this.value ?? ''} @input=${this._onTextInput} @keydown=${this._onTextKeydown} @change=${this._onTextChange} @blur=${this._onTextBlur} placeholder=${this.clearable ? (this.placeholder || t('base.default')) : t('picker.placeholder')} />
           ${this.clearable && this.value
             ? html`<button type="button" class="clear" aria-label=${t('picker.resetColor')} title=${t('base.resetToDefault')} @click=${this._onClear}>${t('base.default')}</button>`

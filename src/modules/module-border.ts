@@ -9,6 +9,7 @@ import {
   renderCondition,
   renderModuleHeader,
   guardSliderTouch, nameSwitches, prepareSliders,
+  editState,
 } from './module-base.js';
 import { borderSummary } from './module-summary.js';
 import '../components/cms-color-picker.js';
@@ -57,7 +58,7 @@ export class BorderModule extends LitElement {
   private _emit(changes: Partial<BorderModuleState>) {
     this.dispatchEvent(
       new CustomEvent<BorderModuleState>('state-changed', {
-        detail: { ...this.state, ...changes },
+        detail: editState(this.state, changes),
       }),
     );
   }

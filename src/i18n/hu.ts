@@ -179,7 +179,6 @@ export const hu: Record<MessageKey, string> = {
   'anim.preset.glow': 'Ragyogás (pulzáló árnyék)',
   'anim.preset.heartbeat': 'Szívverés (kettős ütés)',
   'anim.hintValue': 'Csak akkor futtatja az animációt, amíg a feltétel teljesül.',
-  'anim.stateDefault': 'Állapot (alapértelmezett)',
   'noun.animation': 'az animációt',
   'threshold.pointsLabel': 'Pontok — a szín simán átmegy közöttük; a tartományon kívüli értékek a legközelebbi végponton maradnak:',
   'threshold.legendIf': 'Ha az érték {op} {value}',

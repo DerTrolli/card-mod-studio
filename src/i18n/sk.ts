@@ -179,7 +179,6 @@ export const sk: Record<MessageKey, string> = {
   'anim.preset.glow': 'Žiara (pulzujúci tieň)',
   'anim.preset.heartbeat': 'Tlkot srdca (dvojitý úder)',
   'anim.hintValue': 'Prehráva animáciu len vtedy, keď je podmienka splnená.',
-  'anim.stateDefault': 'Stav (predvolené)',
   'noun.animation': 'animáciu',
   'threshold.pointsLabel': 'Body — farba medzi nimi plynulo prechádza; hodnoty mimo tohto rozsahu zostávajú na najbližšom konci:',
   'threshold.legendIf': 'Ak hodnota {op} {value}',

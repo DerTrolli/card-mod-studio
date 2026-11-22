@@ -46,6 +46,9 @@ const h = await D.launch({
 });
 const { page } = h;
 const HA = h.ha;
+// page errors with their stack, so a finding can be traced to its source
+const stacks = [];
+page.on('pageerror', (e) => stacks.push((e.stack || String(e)).split('\n').slice(0, 8).join(' | ')));
 await page.goto(`${HA}${START}`, { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(2500);
 
@@ -117,7 +120,7 @@ http.createServer((req, res) => {
         case '/goto': await page.goto(`${HA}${q.get('path') || '/'}`, { waitUntil: 'domcontentloaded' }); await settle(2500); return await answer(res);
         case '/reload': await page.reload({ waitUntil: 'domcontentloaded' }); await settle(2500); return await answer(res);
         case '/wait': await page.waitForTimeout(Math.min(num(q, 'ms') || 1000, 15000)); return await answer(res);
-        case '/errors': return res.end(JSON.stringify({ consoleErrors: errors() }));
+        case '/errors': return res.end(JSON.stringify({ consoleErrors: errors(), pageErrorStacks: stacks }));
         default: res.statusCode = 404; return res.end(JSON.stringify({ error: 'unknown action' }));
       }
     } catch (e) {

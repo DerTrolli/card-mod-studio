@@ -179,7 +179,6 @@ export const fr: Record<MessageKey, string> = {
   'anim.preset.glow': 'Lueur (ombre pulsée)',
   'anim.preset.heartbeat': 'Battement de cœur (double battement)',
   'anim.hintValue': 'Joue l\'animation seulement quand la condition est remplie.',
-  'anim.stateDefault': 'État (par défaut)',
   'noun.animation': 'l\'animation',
   'threshold.pointsLabel': 'Points — la couleur passe progressivement de l\'un à l\'autre ; les valeurs hors de cette plage restent sur l\'extrémité la plus proche :',
   'threshold.legendIf': 'Si valeur {op} {value}',

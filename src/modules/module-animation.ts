@@ -4,6 +4,7 @@ import type { AnimationModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ANIMATION } from '../parser/state-mapper.js';
 import { moduleStyles, renderOverrideHint, renderModuleHeader, offeredOnOff, guardSliderTouch, nameSwitches, prepareSliders,
   renderValueFields,
+  editState,
 } from './module-base.js';
 import { animationSummary } from './module-summary.js';
 import { stateKindFor } from '../utils/card-caps.js';
@@ -71,7 +72,7 @@ export class AnimationModule extends LitElement {
   private _emit(changes: Partial<AnimationModuleState>) {
     this.dispatchEvent(
       new CustomEvent<AnimationModuleState>('state-changed', {
-        detail: { ...this.state, ...changes },
+        detail: editState(this.state, changes),
       }),
     );
   }
@@ -255,7 +256,7 @@ export class AnimationModule extends LitElement {
   /** "A value matches": the shared value fields (a number comparison or,
    *  since v1.0.0, is / is not a text), on this module's flat state. */
   private _renderValueCondition() {
-    return renderValueFields(this.state, this.hass, (patch) => this._emit(patch), t('anim.stateDefault'));
+    return renderValueFields(this.state, this.hass, (patch) => this._emit(patch));
   }
 }
 

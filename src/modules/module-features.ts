@@ -17,6 +17,7 @@ import {
   guardSliderTouch,
   nameSwitches,
   prepareSliders,
+  editState,
 } from './module-base.js';
 import { featuresSummary } from './module-summary.js';
 import '../components/cms-color-picker.js';
@@ -60,7 +61,7 @@ export class FeaturesModule extends LitElement {
   }
 
   private _emit(changes: Partial<FeaturesModuleState>) {
-    this.dispatchEvent(new CustomEvent<FeaturesModuleState>('state-changed', { detail: { ...this.state, ...changes } }));
+    this.dispatchEvent(new CustomEvent<FeaturesModuleState>('state-changed', { detail: editState(this.state, changes) }));
   }
 
   override render() {

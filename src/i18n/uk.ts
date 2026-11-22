@@ -179,7 +179,6 @@ export const uk: Record<MessageKey, string> = {
   'anim.preset.glow': 'Сяйво (пульсувальна тінь)',
   'anim.preset.heartbeat': 'Серцебиття (подвійний удар)',
   'anim.hintValue': 'Програє анімацію лише поки виконується умова.',
-  'anim.stateDefault': 'Стан (за замовчуванням)',
   'noun.animation': 'анімацію',
   'threshold.pointsLabel': 'Точки — колір плавно переходить між ними; значення поза цим діапазоном лишаються на найближчому краю:',
   'threshold.legendIf': 'Якщо значення {op} {value}',

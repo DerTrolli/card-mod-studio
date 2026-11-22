@@ -63,8 +63,10 @@ const PRESET: Record<AnimationModuleState['preset'], MessageKey> = {
   heartbeat: 'anim.preset.heartbeat',
 };
 
-/** Font: its own switch, and Number size (cards with a big number) has its own. */
-export function fontSummary(s: FontModuleState, numberSize = false): SummaryPart[] {
+/** Font: its own switch, and Number size (cards with a big number) has its
+ *  own — % of Home Assistant's size on the gauge, px on the thermostat. It is
+ *  written only while Font is on. */
+export function fontSummary(s: FontModuleState, numberSize: '' | 'gauge' | 'thermostat' = ''): SummaryPart[] {
   const p: SummaryPart[] = [];
   if (s.enabled) {
     if (s.fontSize) p.push(`${s.fontSize}px`);
@@ -72,7 +74,9 @@ export function fontSummary(s: FontModuleState, numberSize = false): SummaryPart
     if (s.fontFamily) p.push(s.fontFamily.split(',')[0].replace(/['"]/g, '').trim());
     if (s.color) p.push({ color: s.color });
   }
-  if (numberSize && s.numberSizeEnabled) p.push(pair('font.numberSize', `${s.numberSize}px`));
+  if (numberSize && s.enabled && s.numberSizeEnabled) {
+    p.push(numberSize === 'gauge' ? pair('font.numberSize', `${s.numberSize}%`) : pair('font.tempSize', `${s.numberSize}px`));
+  }
   return p;
 }
 

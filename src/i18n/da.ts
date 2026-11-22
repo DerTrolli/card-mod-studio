@@ -179,7 +179,6 @@ export const da: Record<MessageKey, string> = {
   'anim.preset.glow': 'Glød (pulserende skygge)',
   'anim.preset.heartbeat': 'Hjerteslag (dobbeltslag)',
   'anim.hintValue': 'Kører animationen kun mens betingelsen er opfyldt.',
-  'anim.stateDefault': 'Tilstand (standard)',
   'noun.animation': 'animationen',
   'threshold.pointsLabel': 'Punkter — farven glider jævnt mellem dem; værdier uden for området bliver ved den nærmeste ende:',
   'threshold.legendIf': 'Hvis værdi {op} {value}',

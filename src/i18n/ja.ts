@@ -179,7 +179,6 @@ export const ja: Record<MessageKey, string> = {
   'anim.preset.glow': 'グロー（脈打つ影）',
   'anim.preset.heartbeat': 'ハートビート（二拍）',
   'anim.hintValue': '条件を満たす間のみアニメーションを再生します。',
-  'anim.stateDefault': '状態（デフォルト）',
   'noun.animation': 'アニメーション',
   'threshold.pointsLabel': 'ポイント — 色はポイント間でなめらかに変化します。この範囲外の値は近いほうの端の色のままです:',
   'threshold.legendIf': '値が {op} {value} なら',

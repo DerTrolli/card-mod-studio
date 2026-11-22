@@ -179,7 +179,6 @@ export const nl: Record<MessageKey, string> = {
   'anim.preset.glow': 'Gloeien (pulserende schaduw)',
   'anim.preset.heartbeat': 'Hartslag (dubbele slag)',
   'anim.hintValue': 'Speelt de animatie alleen af als aan de voorwaarde is voldaan.',
-  'anim.stateDefault': 'Status (standaard)',
   'noun.animation': 'animatie',
   'threshold.pointsLabel': 'Punten — de kleur loopt geleidelijk tussen de punten over; waarden buiten dit bereik blijven op het dichtstbijzijnde uiteinde:',
   'threshold.legendIf': 'Als waarde {op} {value}',

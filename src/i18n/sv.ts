@@ -179,7 +179,6 @@ export const sv: Record<MessageKey, string> = {
   'anim.preset.glow': 'Glöd (pulserande skugga)',
   'anim.preset.heartbeat': 'Hjärtslag (dubbelslag)',
   'anim.hintValue': 'Kör animeringen bara när villkoret är uppfyllt.',
-  'anim.stateDefault': 'Tillstånd (standard)',
   'noun.animation': 'animeringen',
   'threshold.pointsLabel': 'Punkter — färgen övergår mjukt mellan dem; värden utanför intervallet stannar vid närmaste ände:',
   'threshold.legendIf': 'Om värde {op} {value}',

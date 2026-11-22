@@ -179,7 +179,6 @@ export const zhHant: Record<MessageKey, string> = {
   'anim.preset.glow': '發光（脈動陰影）',
   'anim.preset.heartbeat': '心跳（雙拍）',
   'anim.hintValue': '僅當條件滿足時播放動畫。',
-  'anim.stateDefault': '狀態（預設）',
   'noun.animation': '動畫',
   'threshold.pointsLabel': '點——顏色在點之間平滑過渡；超出此範圍的值保持在最近的一端：',
   'threshold.legendIf': '如果值 {op} {value}',

@@ -78,10 +78,12 @@ describe('module summaries', () => {
     expect(borderSummary({ ...E.border, enabled: true, squareCorners: true })).toEqual(['Square corners']);
   });
 
-  it('Font: only what is set; Number size where the card has one', () => {
+  it('Font: only what is set; Number size (% on the gauge, px on the thermostat) while Font is on', () => {
     expect(fontSummary({ ...E.font, enabled: true, fontSize: 16, fontWeight: 'bold' })).toEqual(['16px', 'Bold']);
-    expect(fontSummary({ ...E.font, enabled: false, numberSizeEnabled: true, numberSize: 40 }, true)).toEqual(['Number size 40px']);
-    expect(fontSummary({ ...E.font, enabled: false, numberSizeEnabled: true, numberSize: 40 }, false)).toEqual([]);
+    expect(fontSummary({ ...E.font, enabled: true, numberSizeEnabled: true, numberSize: 120 }, 'gauge')).toEqual(['Number size 120%']);
+    expect(fontSummary({ ...E.font, enabled: true, numberSizeEnabled: true, numberSize: 40 }, 'thermostat')).toEqual(['Temperature size 40px']);
+    expect(fontSummary({ ...E.font, enabled: false, numberSizeEnabled: true, numberSize: 40 }, 'gauge')).toEqual([]); // not written while Font is off
+    expect(fontSummary({ ...E.font, enabled: true, numberSizeEnabled: true, numberSize: 40 }, '')).toEqual([]);
   });
 
   it('Advanced CSS: its first line, cut at 80 characters', () => {
@@ -89,6 +91,16 @@ describe('module summaries', () => {
     expect(advancedSummary('\n  ha-card { box-shadow: none; }\n.x {}')).toEqual([{ code: 'ha-card { box-shadow: none; }' }]);
     const long = `ha-card { --x: ${'a'.repeat(100)}; }`;
     expect((advancedSummary(long)[0] as { code: string }).code).toHaveLength(81);
+  });
+});
+
+describe('a change to a module that is off switches it on (editState)', () => {
+  it('switches it on, unless the change says `enabled` itself or the caller says no', async () => {
+    const { editState } = await import('../src/modules/module-base.js');
+    expect(editState({ enabled: false, color: '' }, { color: 'red' })).toEqual({ enabled: true, color: 'red' });
+    expect(editState({ enabled: false, color: '' }, { enabled: false, color: 'red' })).toEqual({ enabled: false, color: 'red' });
+    expect(editState({ enabled: true, color: 'red' }, { enabled: false })).toEqual({ enabled: false, color: 'red' });
+    expect(editState({ enabled: false, numberSizeEnabled: true }, { numberSizeEnabled: false }, false)).toEqual({ enabled: false, numberSizeEnabled: false });
   });
 });
 

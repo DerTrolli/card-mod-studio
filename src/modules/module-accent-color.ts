@@ -4,6 +4,7 @@ import type { AccentColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ACCENT_COLOR } from '../parser/state-mapper.js';
 import { accentColorsWithoutTriplet, tripletHint } from '../utils/rgb-triplet.js';
 import { moduleStyles, renderOverrideHint, renderThresholdOwnedHint, renderWatchHint, renderModuleHeader, nameSwitches,
+  editState,
 } from './module-base.js';
 import { accentSummary } from './module-summary.js';
 import { stateKindFor } from '../utils/card-caps.js';
@@ -57,7 +58,7 @@ export class AccentColorModule extends LitElement {
   private _emit(changes: Partial<AccentColorModuleState>) {
     this.dispatchEvent(
       new CustomEvent<AccentColorModuleState>('state-changed', {
-        detail: { ...this.state, ...changes },
+        detail: editState(this.state, changes),
       }),
     );
   }

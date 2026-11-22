@@ -5,6 +5,7 @@ import { DEFAULT_HEADING_STYLE } from '../parser/state-mapper.js';
 import {
   moduleStyles, renderOverrideHint, renderModuleHeader, renderResetButton, renderDefaultOption,
   guardSliderTouch, nameSwitches, prepareSliders,
+  editState,
 } from './module-base.js';
 import { headingSummary } from './module-summary.js';
 import { FONT_FAMILY_PRESETS } from './module-font.js';
@@ -71,7 +72,7 @@ export class HeadingStyleModule extends LitElement {
   private _emit(changes: Partial<HeadingStyleModuleState>) {
     this.dispatchEvent(
       new CustomEvent<HeadingStyleModuleState>('state-changed', {
-        detail: { ...this.state, ...changes },
+        detail: editState(this.state, changes),
       }),
     );
   }

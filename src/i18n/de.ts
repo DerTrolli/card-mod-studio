@@ -251,7 +251,6 @@ export const de: Record<MessageKey, string> = {
   'anim.preset.glow': 'Leuchten (pulsierender Schatten)',
   'anim.preset.heartbeat': 'Herzschlag (Doppelschlag)',
   'anim.hintValue': 'Spielt die Animation nur ab, solange die Bedingung zutrifft.',
-  'anim.stateDefault': 'Zustand (Standard)',
 
   // --- Advanced CSS -----------------------------------------------------------------------------
   'advanced.title': 'Erweitertes CSS',

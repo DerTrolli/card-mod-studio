@@ -179,7 +179,6 @@ export const fi: Record<MessageKey, string> = {
   'anim.preset.glow': 'Hehku (sykkivä varjo)',
   'anim.preset.heartbeat': 'Sydämenlyönti (kaksoislyönti)',
   'anim.hintValue': 'Toistaa animaation vain, kun ehto täyttyy.',
-  'anim.stateDefault': 'Tila (oletus)',
   'noun.animation': 'animaation',
   'threshold.pointsLabel': 'Pisteet — väri vaihtuu pehmeästi niiden välillä; alueen ulkopuoliset arvot jäävät lähimpään päähän:',
   'threshold.legendIf': 'Jos arvo {op} {value}',

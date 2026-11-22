@@ -6,6 +6,7 @@ import { isTextRule } from '../types/index.js';
 import { commitTextRuleValue, normalizeRule, rawRuleValue, revertTextRuleValue, withOperator } from '../utils/threshold-rules.js';
 import { DEFAULT_THRESHOLD } from '../parser/state-mapper.js';
 import { moduleStyles, renderOverrideHint, renderModuleHeader, guardSliderTouch, nameSwitches, prepareSliders,
+  editState,
 } from './module-base.js';
 import { thresholdSummary } from './module-summary.js';
 import { sortThresholdRules } from '../generator/css-generator.js';
@@ -95,7 +96,7 @@ export class ThresholdModule extends LitElement {
         max-width: 180px;
       }
       .now-value {
-        margin-top: 6px;
+        margin: 6px 0;
         overflow-wrap: anywhere;
       }
       .rule input.num,
@@ -303,9 +304,11 @@ export class ThresholdModule extends LitElement {
   }
 
   private _emit(changes: Partial<ThresholdModuleState>) {
-    const newState = { ...this.state, ...changes };
+    const newState = editState(this.state, changes);
+    // Switched on now — by its switch, or by a first change while it was off.
+    const enabling = newState.enabled && !this.state.enabled;
     // Auto-set entityId to cardEntity when enabling if empty
-    if (changes.enabled && !newState.entityId && this.cardEntity) {
+    if (enabling && !newState.entityId && this.cardEntity) {
       newState.entityId = this.cardEntity;
     }
     // Enabling fresh on a card where the default 'icon-color' does nothing
@@ -313,7 +316,7 @@ export class ThresholdModule extends LitElement {
     // the dial on a gauge, else the first one this card type supports.
     if (
       this.cardType &&
-      changes.enabled &&
+      enabling &&
       newState.rules.length === 0 &&
       newState.properties.length === 1 &&
       newState.properties[0] === 'icon-color' &&
@@ -506,7 +509,7 @@ export class ThresholdModule extends LitElement {
             .value=${this.state.attribute ?? ''}
             @change=${(e: Event) => this._emit({ attribute: (e.target as HTMLSelectElement).value })}
           >
-            <option value="" ?selected=${!this.state.attribute}>${t('anim.stateDefault')}</option>
+            <option value="" ?selected=${!this.state.attribute}>${t('cond.state')}</option>
             ${options.map(
               (name) => html`<option value=${name} ?selected=${this.state.attribute === name}>
                 ${t('cond.attribute', { name })}
@@ -622,7 +625,7 @@ export class ThresholdModule extends LitElement {
   private _renderNowValue() {
     if (!this.state.rules.some(isTextRule)) return nothing;
     const now = rawRuleValue(this.hass, this.state.entityId || this.cardEntity, this.state.attribute || undefined);
-    return html`<div class="hint now-value">${now === null ? t('threshold.textHint') : t('threshold.nowValue', { value: now })}</div>`;
+    return html`<div class="when-hint now-value">${now === null ? t('threshold.textHint') : t('threshold.nowValue', { value: now })}</div>`;
   }
 
   private _renderRule(rule: ThresholdRule, index: number) {

@@ -7,6 +7,7 @@ import { GAUGE_SIZE, NUMBER_SIZE_DEFAULT } from '../utils/owned-entries.js';
 import {
   moduleStyles, renderOverrideHint, renderModuleHeader, renderResetButton, renderDefaultOption,
   guardSliderTouch, renderThresholdOwnedHint, nameSwitches, prepareSliders,
+  editState,
 } from './module-base.js';
 import { fontSummary } from './module-summary.js';
 import '../components/cms-color-picker.js';
@@ -121,7 +122,7 @@ export class FontModule extends LitElement {
     if (changes.fontFamily !== undefined) this._emittedFamily = changes.fontFamily;
     this.dispatchEvent(
       new CustomEvent<FontModuleState>('state-changed', {
-        detail: { ...this.state, ...changes },
+        detail: editState(this.state, changes, changes.numberSizeEnabled !== false),
       }),
     );
   }
@@ -145,7 +146,7 @@ export class FontModule extends LitElement {
       <div class="module">
         ${renderModuleHeader({
           icon: 'mdi:format-text',
-          summary: fontSummary(this.state, !!this.numberSize),
+          summary: fontSummary(this.state, this.numberSize),
           title: t('font.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),

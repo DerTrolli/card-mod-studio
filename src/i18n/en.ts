@@ -197,7 +197,6 @@ export const en = {
   'anim.preset.glow': 'Glow (pulsing shadow)',
   'anim.preset.heartbeat': 'Heartbeat (double beat)',
   'anim.hintValue': 'Runs the animation only while the condition matches.',
-  'anim.stateDefault': 'State (default)',
   'noun.animation': 'animation',
   'threshold.pointsLabel':
     'Points — the color fades smoothly between them; values outside this range stay clamped to the nearest end:',

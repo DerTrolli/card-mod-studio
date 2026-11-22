@@ -179,7 +179,6 @@ export const cs: Record<MessageKey, string> = {
   'anim.preset.glow': 'Záře (pulzující stín)',
   'anim.preset.heartbeat': 'Tlukot srdce (dvojitý úder)',
   'anim.hintValue': 'Přehrává animaci jen tehdy, když je podmínka splněna.',
-  'anim.stateDefault': 'Stav (výchozí)',
   'noun.animation': 'animaci',
   'threshold.pointsLabel': 'Body — barva mezi nimi plynule přechází; hodnoty mimo tento rozsah zůstávají na nejbližším konci:',
   'threshold.legendIf': 'Pokud hodnota {op} {value}',

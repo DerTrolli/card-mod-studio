@@ -179,7 +179,6 @@ export const pl: Record<MessageKey, string> = {
   'anim.preset.glow': 'Poświata (pulsujący cień)',
   'anim.preset.heartbeat': 'Bicie serca (podwójne uderzenie)',
   'anim.hintValue': 'Odtwarza animację tylko wtedy, gdy warunek jest spełniony.',
-  'anim.stateDefault': 'Stan (domyślnie)',
   'noun.animation': 'animację',
   'threshold.pointsLabel': 'Punkty — kolor płynnie przechodzi między nimi; wartości spoza tego zakresu pozostają na najbliższym końcu:',
   'threshold.legendIf': 'Jeśli wartość {op} {value}',

@@ -128,7 +128,7 @@ export class CmsSettings extends SettingsView {
           </div>
         </div>
         <div class="when-hint">${t('settings.languageHint')}</div>
-        <div class="control-row">
+        <div class="control-row wide-label">
           <span class="control-label">${t('settings.writesUnder')}</span>
           <div class="control-right"><code>${pickOutputKey(this.hass)}:</code></div>
         </div>
