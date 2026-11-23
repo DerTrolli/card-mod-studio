@@ -169,6 +169,17 @@ The first stable release; plan and test record in
   styled cards open with their modules closed); "Apply when" everywhere;
   Advanced CSS last. Measured live: the tab bar fits 360px phones in all 22
   languages.
+- **Release run on one frozen build** (2026-11-22 … 23; record in
+  [`docs/research/2026-11-v1.0.0-release-run.md`](research/2026-11-v1.0.0-release-run.md)):
+  four rigs (HA 2026.11 with card-mod and with UIX, 2026.2.3, 2025.9.4);
+  every control 497/497 and 499/499 on 2026.11, 495/496 on 2026.2, all but
+  7 of 497 on 2025.9 (its tile Font and icon-circle gaps, and HA's Save
+  button on an unchanged mixed-form card, as on 2026.2); continuity from v0.8.1; user
+  simulations (updating from 0.11.0 / beta.1 / beta.2, the #42 case on all
+  four rigs, keyboard only, a 30-round session); 22 languages at 1440 /
+  390 / 360 px; light/dark at six sizes; nothing from the Studio in Home
+  Assistant's logs. Only harness fixes came out of it (the entity picker on
+  HA before 2026.11, two 2025.9 timing races); `src/` was not touched.
 
 ## Recently shipped (v1.0.0-beta.2) — 2026-11-19, pre-release
 

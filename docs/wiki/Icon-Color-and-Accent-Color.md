@@ -39,7 +39,9 @@ tile overflows its row), **picture-glance 40px**, **Mushroom 56px**,
 large) and 64px elsewhere. A larger size already stored on a card stays
 visible so you can reset it. On a tile, a size above 24px also enlarges the
 circle: a tile styled with a bigger size before v0.11.0-beta.3 looks bigger
-after the next save.
+after the next save. (On Home Assistant 2025.9 the circle keeps its size —
+the variable for it came later; measured present on 2026.2 — so a larger
+icon fills the circle there.)
 
 It's only offered where live probing shows the size variables reach
 exactly the main state icon. Deliberately absent: button (use the card's
