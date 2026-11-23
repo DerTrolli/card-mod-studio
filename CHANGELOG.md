@@ -125,6 +125,16 @@ From a final review in which a tester only looked at the screen and clicked:
 
 ### Known limitations
 
+- **card-mod 4.2.1 and UIX: cards unstyled for one page load, now and
+  then.** The style engine waits for Home Assistant's theme setting
+  (`hass.themes.theme`) before it applies a card's style. On a rare page
+  load that setting doesn't arrive; the engine then styles no card on that
+  page (also not one you save in the editor) and after 30 seconds logs
+  `themesReady: Timeout waiting for themes to become ready`. Reloading the
+  page brings the styles back. It comes from the engine, not from the
+  Studio, which neither reads nor sets that setting: 1 of 20 long editing
+  sessions on Home Assistant 2026.11 with card-mod, never in 200 plain
+  page loads with or without the Studio (see the Troubleshooting FAQ).
 - **Home Assistant 2025.9:** besides Font on a tile's text (as before), a
   larger tile icon (Icon Color → Icon size) fills the tile's icon circle
   instead of growing it — that Home Assistant version has no variable for

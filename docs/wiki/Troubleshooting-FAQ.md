@@ -45,9 +45,18 @@ this.
 
 ## The browser console shows "themesReady: Timeout waiting for themes to become ready"
 
-card-mod 4.2.1 on Home Assistant 2026.11 logs this about 30 seconds after a
-page load in light mode. It comes from card-mod, not from Card Style Studio, and
-card styles still apply.
+card-mod 4.2.1 (and UIX, which shares its code) logs this when it has waited
+30 seconds for Home Assistant's theme setting (`hass.themes.theme`) and
+gave up. It comes from the style engine, not from Card Style Studio: the
+Studio neither reads nor sets that setting.
+
+Most of the time the setting arrives well within a second and you never see
+the message. Now and then (on Home Assistant 2026.11, about 1 page load in
+20 in our longer test sessions, never in 200 plain page loads with and
+without the Studio) it doesn't arrive on that page load. The engine then
+applies no card styles on that page: cards show unstyled, and a style you
+save in the card editor doesn't appear on the dashboard. **Reload the page**
+(F5): the styles come back, and nothing in your configuration is lost.
 
 ## I can't find HACS on HA 2026.11
 
