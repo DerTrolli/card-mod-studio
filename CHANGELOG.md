@@ -94,6 +94,9 @@ options only change in a backward-compatible way within 1.x.
   larger tile icon (Icon Color → Icon size) fills the tile's icon circle
   instead of growing it — that Home Assistant version has no variable for
   the circle's size (2026.2 and newer do).
+- **Home Assistant 2025.9:** after each change in the editor, the preview
+  card can show unstyled for a second or two before the new style appears
+  (the dashboard itself is not affected). Seen with earlier versions too.
 - The history graph shows a **Threshold** accent colour from its next
   redraw (the sensor's next change), as before (see the wiki's Graph and
   Data Cards page).
@@ -107,18 +110,21 @@ on every line that isn't clean: `docs/research/2026-11-v1.0.0-release-run.md`.
 
 - **Static:** typecheck, 3,450 unit tests, the build reproducible, the
   HACS / hassfest workflow green.
-- **Every earlier release:** styles, rows, configs and presets of every
-  release since v0.8.1 (now with 1.0.0-beta.2) still load and save the
-  same, apart from the `cms-` → `cstudio-` names; 30,000 random hand-written
-  styles and the settings fuzz: nothing thrown, nothing unstable.
+- **Every earlier release:** styles, rows, configs and presets written by
+  every release since v0.8.1 (now with 1.0.0-beta.2) load and save in 1.0.0
+  exactly as in 1.0.0-beta.2. The one new difference: a hand-written
+  grayscale condition on a value is now taken over by Visual Filters and
+  gains its usual 300 ms fade. 30,000 random hand-written styles and the
+  settings fuzz: nothing thrown, nothing unstable.
 - **Every control, clicked through the real card editor:** 497 of 497
   (card-mod) and 499 of 499 (UIX); 495 of 496 on 2026.2; on 2025.9 all of
   the 497 but 7 — the two gaps above (6 checks) and, as on 2026.2, Home
   Assistant enabling Save on an unchanged mixed-form card.
 - **Feature checks on all four rigs** (renamed names, text in Threshold
   rules and in every condition, read-back, phone preview, presets; on
-  2026.11 also sections, containers, tile features, the integration and
-  the beta.2 fixes): all pass.
+  2026.11 with both engines also containers, tile features and the beta.2
+  fixes; sections and the integration on the card-mod rig, the integration
+  also on 2025.9): all pass.
 - **User simulations through the real UI:** updating from 0.11.0, 1.0.0-beta.1
   and 1.0.0-beta.2 (the dashboard looks the same, cards open with their
   modules on, presets load: 8 of 8 each); the issue #42 case — a vacuum's
@@ -131,8 +137,9 @@ on every line that isn't clean: `docs/research/2026-11-v1.0.0-release-run.md`.
   check in light and dark at six screen sizes: no clipped text, no low
   contrast, no touch target under 24 px on phones.
 - **Module-effect audit:** Mushroom and Bubble Card 0 controls without
-  effect on both engines; built-in cards 0 apart from the history-graph
-  timing above.
+  effect on both engines; built-in cards (card-mod rig) 0 apart from the
+  history-graph timing above, with the gauge's text colour inconclusive as
+  before.
 - **Home Assistant's own logs** on all four rigs: nothing from the Studio.
 
 ## [1.0.0-beta.2] — 2026-11-19
