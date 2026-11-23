@@ -114,8 +114,11 @@ async function styleButtonSection(T) {
   // switch would otherwise look like it did nothing); the edit made so far stays.
   await T.page.waitForFunction(() => !window.__fui.panel(), null, { timeout: 5000 }).catch(() => {});
   T.check('switching to HA\'s code editor closes the Studio and un-presses Style', !(await panelVisible(T)) && (await b.getAttribute('aria-pressed')) === 'false');
-  const yamlShown = await T.page.evaluate(() => { const Q = window.__fui; return Q.q(Q.dialog(), 'ha-code-editor').some((e) => Q.vis(e)); });
-  T.check('HA\'s own YAML editor is what the user now sees', yamlShown);
+  // HA loads its code editor on demand: give it up to 5 s, and record how long
+  // it took (a miss here is the editor never appearing, not a slow first load).
+  const t0 = Date.now();
+  const yamlShown = await T.page.waitForFunction(() => { const Q = window.__fui; return Q.q(Q.dialog(), 'ha-code-editor').some((e) => Q.vis(e)); }, null, { timeout: 5000 }).then(() => true, () => false);
+  T.check('HA\'s own YAML editor is what the user now sees', yamlShown, `${Date.now() - t0} ms`);
   T.check('the Studio edit is still in the config after the switch', S(T, await getCfg(T)).includes('font-size: 20px;'));
   await b.click();
   await openStudio(T);

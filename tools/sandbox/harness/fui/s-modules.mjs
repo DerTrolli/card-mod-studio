@@ -475,7 +475,8 @@ async function thresholdSection(T) {
   const hum = Number((await entityState(T, ENT)).state);
   T.check('enabling pre-fills the card\'s own entity', (await m.locator('cms-entity-picker').first().evaluate((p) => p.value)) === ENT);
   await expectCfg(T, 'no rules yet → nothing emitted', noStyle(T));
-  T.check('Result legend reads "Always" + default swatch', (await m.locator('.legend').textContent()).includes('Always'));
+  // 1.0.0 review: no "Result: Always" row (nothing is applied without a rule)
+  T.check('no rule yet: says nothing is applied (no "Always" result row)', (await m.locator('.module-body').first().textContent()).includes('No rules yet') && (await m.locator('.legend').count()) === 0);
 
   const addRule = btn(m, '+ Add Rule');
   await addRule.click();
@@ -686,7 +687,9 @@ async function animationSection(T) {
   const acOn = await isOn(T, 'switch.ac');
   await expectPage(T, 'preview: follows switch.ac', P_CARD, 0, (v) => v?.anim === (acOn ? 'cstudio-breathe' : 'none'));
   await choose(trig, 'value');
-  await expectCfg(T, 'value trigger without an entity → unconditional (W8)', has(T, 'animation: cstudio-breathe 4s ease-in-out infinite;'));
+  // 1.0.0 review: "A value matches" starts with the card's own entity (it used
+  // to be empty, which applied the animation all the time without saying so)
+  await expectCfg(T, "value trigger starts with the card's own entity (light.ceiling_lights > 0)", has(T, `if states('light.ceiling_lights') | float(0) > 0 else 'none'`));
   await pickEntity(T, rowOf(T, m, 'Entity').locator('cms-entity-picker'), 'sensor.outside_humidity');
   T.check('sensor without numeric attributes → no "Value read from" select', (await rowOf(T, m, 'Value read from').count()) === 0);
   await choose(rowOf(T, m, 'Condition').locator('select'), '<');
