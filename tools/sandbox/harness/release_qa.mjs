@@ -14,7 +14,9 @@
 //         that hides overflow, or past the panel itself);
 //       * light native controls rendered on a dark theme (white boxes);
 //       * touch targets under 24×24px (WCAG 2.5.8) on phone viewports;
-//       * page errors / console errors raised while driving the panel;
+//       * page errors / console errors raised while driving the panel
+//         (Home Assistant's / the engines' own, on harness-utils' KNOWN_NOISE
+//         list, are counted apart as knownNoise);
 //   - saves labeled screenshots, clipped to the dialog: the HA dialog before
 //     Style is clicked (footer), then scroll frames through the whole panel
 //     on "full capture" viewports, plus a color-popover and preview-picker
@@ -32,7 +34,7 @@ import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { waitForHassReady, ensureStorageDashboard, resetTheme } from './harness-utils.mjs';
+import { waitForHassReady, ensureStorageDashboard, resetTheme, isKnownNoise } from './harness-utils.mjs';
 
 /** The Studio asks once which language to use (v1.0): checks start with
  *  that answered (Auto-detect), unless CMS_FIRST_RUN=1 wants the question. */
@@ -422,10 +424,11 @@ const run = async () => {
       });
       for (const scen of SCEN) {
         const dir = resolve(OUT, theme, vpName); mkdirSync(dir, { recursive: true });
-        const rec = { theme, viewport: vpName, scenario: scen, errors: [] };
+        // Home Assistant's / the engines' own known errors (KNOWN_NOISE) are counted apart, not as errors
+        const rec = { theme, viewport: vpName, scenario: scen, errors: [], knownNoise: 0 };
         const page = await ctx.newPage();
-        page.on('pageerror', (e) => rec.errors.push('pageerror: ' + String(e.message || e).slice(0, 300)));
-        page.on('console', (m) => { if (m.type() === 'error') rec.errors.push('console: ' + m.text().slice(0, 300)); });
+        page.on('pageerror', (e) => { if (isKnownNoise(e.message || e, e.stack)) rec.knownNoise++; else rec.errors.push('pageerror: ' + String(e.message || e).slice(0, 300)); });
+        page.on('console', (m) => { if (m.type() !== 'error') return; if (isKnownNoise(m.text())) rec.knownNoise++; else rec.errors.push('console: ' + m.text().slice(0, 300)); });
         await page.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
         await page.addInitScript(SEED_SETTINGS);
         try {
@@ -514,7 +517,7 @@ const run = async () => {
         }
         report.runs.push(rec);
         const a = rec.audit || {};
-        console.log(`${RIG} ${theme} ${vpName} ${scen}: ${rec.failure ? 'FAIL ' + rec.failure : `contrast=${a.contrast?.length} clipped=${a.clipped?.length} lightCtrl=${a.lightCtrl?.length} tiny=${a.tiny?.length} errors=${rec.errors.length} narrow=${a.narrow} panelW=${a.panelWidth}${rec.popover ? ' popoverOnScreen=' + rec.popover.onScreen : ''}${rec.pickerLabel ? ' pickerLabelInside=' + rec.pickerLabel.withinPreview : ''}${rec.e2e ? ' e2e=' + (rec.e2e.persisted ? 'saved' : 'NOT-SAVED') : ''}`}`);
+        console.log(`${RIG} ${theme} ${vpName} ${scen}: ${rec.failure ? 'FAIL ' + rec.failure : `contrast=${a.contrast?.length} clipped=${a.clipped?.length} lightCtrl=${a.lightCtrl?.length} tiny=${a.tiny?.length} errors=${rec.errors.length}${rec.knownNoise ? ' (+' + rec.knownNoise + ' known noise)' : ''} narrow=${a.narrow} panelW=${a.panelWidth}${rec.popover ? ' popoverOnScreen=' + rec.popover.onScreen : ''}${rec.pickerLabel ? ' pickerLabelInside=' + rec.pickerLabel.withinPreview : ''}${rec.e2e ? ' e2e=' + (rec.e2e.persisted ? 'saved' : 'NOT-SAVED') : ''}`}`);
         await page.close();
       }
       await ctx.close();
