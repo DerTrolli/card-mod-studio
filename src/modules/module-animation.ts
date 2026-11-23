@@ -4,7 +4,7 @@ import type { AnimationModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ANIMATION } from '../parser/state-mapper.js';
 import { moduleStyles, renderOverrideHint, renderModuleHeader, offeredOnOff, guardSliderTouch, nameSwitches, prepareSliders,
   renderValueFields,
-  editState,
+  editState, seedEntity,
 } from './module-base.js';
 import { animationSummary } from './module-summary.js';
 import { stateKindFor } from '../utils/card-caps.js';
@@ -84,6 +84,8 @@ export class AnimationModule extends LitElement {
     if (trigger === 'value') {
       changes.valueOperator = this.state.valueOperator ?? '>';
       changes.valueThreshold = this.state.valueThreshold ?? 0;
+      // …watching the card's own entity until another is picked (seedEntity).
+      Object.assign(changes, seedEntity(this.cardEntity, this.state));
     }
     this._emit(changes);
   }

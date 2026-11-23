@@ -103,8 +103,20 @@ export class IconColorModule extends LitElement {
     this._open = !this._open;
   }
 
+  /** What the body shows: while the module is off, the state switching it on
+   *  would give (enableChanges — e.g. "Keep the card's colour" on a card with
+   *  an Icon size), so the controls don't change under the user's hand when
+   *  the switch flips or an edit switches it on. */
+  private get _view(): IconColorModuleState {
+    if (this.state.enabled) return this.state;
+    const on = enableChanges(this.state, this.allowSize, hasOwnEntity({ entity: this.cardEntity }), stateKindFor(this.stateAware, this.cardEntity));
+    return { ...this.state, ...on, enabled: false };
+  }
+
   private _emit(changes: Partial<IconColorModuleState>) {
-    const detail = editState(this.state, changes);
+    // An edit while off switches the module on from what the body showed.
+    const base = this.state.enabled || 'enabled' in changes ? this.state : this._view;
+    const detail = editState(base, changes);
     this.dispatchEvent(
       new CustomEvent<IconColorModuleState>('state-changed', { detail }),
     );
@@ -155,7 +167,7 @@ export class IconColorModule extends LitElement {
         </div>
       `;
     }
-    const mode = this.state.mode;
+    const mode = this._view.mode;
     // A card that offers no size can't use 'none' — but a stored one (preset)
     // still shows as itself rather than a blank select.
     const offerNone = this.allowSize || mode === 'none';
@@ -222,7 +234,7 @@ export class IconColorModule extends LitElement {
                 <div class="control-right">
                   <cms-entity-picker
                     .hass=${this.hass}
-                    .value=${this.state.entityId ?? ''}
+                    .value=${this._view.entityId ?? ''}
                     .includeDomains=${mode === 'light' ? ['light'] : TOGGLE_DOMAINS}
                     .placeholder=${this.stateAware ? this.cardEntity : 'binary_sensor.example'}
                     label=""
@@ -232,7 +244,7 @@ export class IconColorModule extends LitElement {
                   ></cms-entity-picker>
                 </div>
               </div>
-              ${renderWatchHint({ entityId: this.state.entityId, cardEntity: this.cardEntity, kind })}
+              ${renderWatchHint({ entityId: this._view.entityId, cardEntity: this.cardEntity, kind })}
             `
           : nothing}
 
@@ -245,7 +257,7 @@ export class IconColorModule extends LitElement {
                 <div class="control-right">
                   <cms-color-picker
                     label=${t('icon.iconColor')}
-                    .value=${this.state.color}
+                    .value=${this._view.color}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ color: e.detail.value })}
                   ></cms-color-picker>
@@ -259,7 +271,7 @@ export class IconColorModule extends LitElement {
                 <div class="control-right">
                   <cms-color-picker
                     label=${t('icon.iconColorOff')}
-                    .value=${this.state.colorOff}
+                    .value=${this._view.colorOff}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ colorOff: e.detail.value })}
                   ></cms-color-picker>
@@ -273,7 +285,7 @@ export class IconColorModule extends LitElement {
                 <div class="control-right">
                   <cms-color-picker
                     label=${t('icon.iconColorOn')}
-                    .value=${this.state.colorOn}
+                    .value=${this._view.colorOn}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ colorOn: e.detail.value })}
                   ></cms-color-picker>
@@ -284,7 +296,7 @@ export class IconColorModule extends LitElement {
                 <div class="control-right">
                   <cms-color-picker
                     label=${t('icon.iconColorOff')}
-                    .value=${this.state.colorOff}
+                    .value=${this._view.colorOff}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ colorOff: e.detail.value })}
                   ></cms-color-picker>
@@ -300,7 +312,7 @@ export class IconColorModule extends LitElement {
    *  the size switches between "Icon size" and "Size otherwise" (24px = the
    *  HA default when unset). */
   private _renderSize() {
-    const sizePx = this.state.sizePx ?? 0;
+    const sizePx = this._view.sizePx ?? 0;
     return html`
       <div class="control-row">
         <span class="control-label">${t('icon.size')}</span>
@@ -327,13 +339,14 @@ export class IconColorModule extends LitElement {
       ${sizePx > 0
         ? html`
             ${renderCondition({
-              condition: this.state.sizeWhen,
+              condition: this._view.sizeWhen,
               stateAware: this.stateAware,
+              cardEntity: this.cardEntity,
               noun: 'noun.iconSize',
               hass: this.hass,
               onChange: (c) => this._emit({ sizeWhen: c }),
             })}
-            ${this.state.sizeWhen && this.state.sizeWhen.when !== 'always'
+            ${this._view.sizeWhen && this._view.sizeWhen.when !== 'always'
               ? html`
                   <div class="control-row">
                     <span class="control-label">${t('icon.sizeOtherwise')}</span>
@@ -342,15 +355,15 @@ export class IconColorModule extends LitElement {
                         label=${t('icon.sizeOtherwise')}
                         aria-label=${t('icon.sizeOtherwise')}
                         min="16"
-                        max=${Math.max(this.sizeMax, this.state.sizeOffPx ?? 0)}
+                        max=${Math.max(this.sizeMax, this._view.sizeOffPx ?? 0)}
                         step="2"
-                        .value=${String(this.state.sizeOffPx ?? 24)}
+                        .value=${String(this._view.sizeOffPx ?? 24)}
                         @change=${(e: Event) =>
                           this._emit({
                             sizeOffPx: parseFloat((e.target as HTMLInputElement).value),
                           })}
                       ></ha-slider>
-                      <span class="value-label">${this.state.sizeOffPx ?? 24}px</span>
+                      <span class="value-label">${this._view.sizeOffPx ?? 24}px</span>
                     </div>
                   </div>
                 `

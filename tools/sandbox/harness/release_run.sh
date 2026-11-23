@@ -70,7 +70,7 @@ log "continuity rc=$?: $(grep -E 'FAIL|differ|DIFF|identical|same|ok' "$RUN/cont
 export HA_URL=http://127.0.0.1:8123 TOKENS_FILE="$H/tokens.json" STYLE_KEY=card_mod
 ( cd "$H" && bash run_suite.sh cm card-mod "$HA_URL" tokens.json "$RUN/suite-cm" ) > "$RUN/suite-cm.txt" 2>&1
 log "suite card-mod: $(tail -1 "$RUN/suite-cm.txt")"
-for c in rename_check threshold_text_check conditions_text_check beta2_check sections_check phone_preview_check readback_check language_check first_run_languages_check presets_check containers_check features_check integration_check reporter_case_sim keyboard_sim; do
+for c in rename_check threshold_text_check conditions_text_check beta2_check sections_check phone_preview_check readback_check language_check first_run_languages_check presets_check containers_check features_check integration_check reporter_case_sim keyboard_sim bubble_heal_check; do
   check "cm $c" "$RUN/cm-$c.log" node "$c.mjs"
 done
 check "cm long_session_sim" "$RUN/cm-long_session_sim.log" env ROUNDS=30 node long_session_sim.mjs
@@ -94,7 +94,7 @@ export HA_URL=http://127.0.0.1:8125 TOKENS_FILE="$SC/tokens-uix9.json" STYLE_KEY
 ( cd "$H" && bash run_suite.sh uix uix "$HA_URL" "$TOKENS_FILE" "$RUN/suite-uix" ) > "$RUN/suite-uix.txt" 2>&1
 log "suite UIX: $(tail -1 "$RUN/suite-uix.txt")"
 check "uix functional UI" "$RUN/uix-fui.log" env FUI_RIG=uix-release node functional_ui_check.mjs
-for c in rename_check threshold_text_check conditions_text_check beta2_check readback_check presets_check containers_check features_check phone_preview_check reporter_case_sim; do
+for c in rename_check threshold_text_check conditions_text_check beta2_check readback_check presets_check containers_check features_check phone_preview_check reporter_case_sim bubble_heal_check; do
   check "uix $c" "$RUN/uix-$c.log" node "$c.mjs"
 done
 check "uix module_effect_audit (custom)" "$RUN/uix-audit-custom.log" env AUDIT_TAG=release AUDIT_CUSTOM=1 node module_effect_audit.mjs
@@ -105,7 +105,7 @@ for pair in "2602 8127" "2509 8126"; do
   set -- $pair; tag=$1; port=$2
   export HA_URL=http://127.0.0.1:$port TOKENS_FILE="$SC/tokens-$tag.json" STYLE_KEY=card_mod
   check "$tag functional UI" "$RUN/$tag-fui.log" env FUI_RIG=$tag-release node functional_ui_check.mjs
-  for c in rename_check threshold_text_check conditions_text_check readback_check phone_preview_check presets_check reporter_case_sim; do
+  for c in rename_check threshold_text_check conditions_text_check readback_check phone_preview_check presets_check reporter_case_sim bubble_heal_check; do
     check "$tag $c" "$RUN/$tag-$c.log" node "$c.mjs"
   done
 done

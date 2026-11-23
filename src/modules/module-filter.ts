@@ -121,6 +121,7 @@ export class FilterModule extends LitElement {
           ? renderWhen({
               value: this.state.grayscaleWhen,
               stateAware: this.stateAware,
+              cardEntity: this.cardEntity,
               offOnly: stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
               noun: 'noun.grayscale',
               allowCustom: true,
@@ -205,6 +206,7 @@ export class FilterModule extends LitElement {
           ? renderCondition({
               condition: this.state.effectsWhen,
               stateAware: this.stateAware,
+              cardEntity: this.cardEntity,
               offOnly: stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
               noun: 'noun.effects',
               hass: this.hass,

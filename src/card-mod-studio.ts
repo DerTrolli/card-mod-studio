@@ -2,10 +2,11 @@
  * card-mod-studio.ts — Plugin entry point.
  *
  * This file is the single module that Home Assistant loads as a Lovelace resource.
- * It does three things:
+ * It does four things:
  *   1. Guards against being loaded twice (e.g. with different ?v= cache-busters)
  *   2. Registers our Lit web components with the browser
  *   3. Starts the injection engine that patches the HA card editor
+ *   4. Starts the Bubble Card repair (utils/bubble-heal.ts)
  *
  * To load this plugin in Home Assistant go to:
  *   Settings → Dashboards → ⋮ → Resources → + Add Resource
@@ -19,6 +20,7 @@ import './components/cms-color-picker.js';
 import { startInjector } from './editor/cms-injector.js';
 import { startSectionInjector } from './editor/cms-section-injector.js';
 import { isCardModInstalled, isUixInstalled } from './utils/dom-helpers.js';
+import { startBubbleHeal } from './utils/bubble-heal.js';
 import type { CardModStudioMeta } from './types/index.js';
 
 declare const __APP_VERSION__: string;
@@ -72,4 +74,7 @@ if (window.cardModStudio) {
   startSectionInjector().catch((err: unknown) => {
     console.error('[Card Style Studio] Section-dialog injection failed:', err);
   });
+  // Bubble cards whose style engine attached before the card was ready
+  // (a card-mod / UIX race with Bubble Card) get their style back.
+  startBubbleHeal();
 }

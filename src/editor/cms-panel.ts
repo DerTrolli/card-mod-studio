@@ -1600,7 +1600,7 @@ export class CmsPanel extends LitElement {
             class="btn-preset-save"
             ?disabled=${!name}
             @click=${this._saveCurrentAsPreset}
-          >${renderIcon('mdi:content-save-outline')}${exists ? t('preset.overwrite') : t('preset.save')}</button>
+          >${renderIcon('mdi:content-save-outline')}${exists ? t('preset.overwrite') : t('preset.savePreset')}</button>
           <button class="btn-preset-cancel" @click=${this._cancelNamingPreset}>${t('preset.cancel')}</button>
           ${hint ? html`<div class="preset-hint" id="preset-hint" role="status">${hint}</div>` : nothing}
         </div>

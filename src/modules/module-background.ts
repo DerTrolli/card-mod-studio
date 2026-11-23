@@ -178,6 +178,7 @@ export class BackgroundModule extends LitElement {
         ${renderWhen({
           value: this.state.applyWhen,
           stateAware: this.stateAware,
+          cardEntity: this.cardEntity,
           offOnly: stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
           noun: 'noun.background',
           allowCustom: true,

@@ -247,18 +247,18 @@ describe('accessible names', () => {
   it('every control names the entry it belongs to', () => {
     const tags = (row: string) => dom(el).filter((n) => n.row === row).map((n) => n.tag);
     const a = tags(A).join('\n');
-    expect(a).toContain(`aria-label=Colour of 'Brand blue'`);
+    expect(a).toContain(`aria-label=Color of 'Brand blue'`);
     expect(a).toContain(`aria-label=Hex value of 'Brand blue'`);
-    expect(a).toContain('aria-label=Name of colour 1');
+    expect(a).toContain('aria-label=Name of color 1');
     expect(a).toMatch(/aria-label=Remove 'Brand blue'\s/);
     const b = tags(B).join('\n'); // unnamed entry falls back to its position
-    expect(b).toContain(`aria-label=Colour of 'colour 2'`);
-    expect(b).toContain('aria-label=Name of colour 2');
-    expect(b).toMatch(/aria-label=Remove 'colour 2'\s/);
-    expect(tags('onColor').join('\n')).toContain('aria-label=Colour of default ON colour');
-    expect(tags('onColor').join('\n')).toContain('aria-label=Hex value of default ON colour');
-    expect(tags('onColor').join('\n')).toContain('aria-label=Reset default ON colour to built-in');
-    expect(tags('offColor').join('\n')).toContain('aria-label=Colour of default OFF colour');
+    expect(b).toContain(`aria-label=Color of 'color 2'`);
+    expect(b).toContain('aria-label=Name of color 2');
+    expect(b).toMatch(/aria-label=Remove 'color 2'\s/);
+    expect(tags('onColor').join('\n')).toContain('aria-label=Color of default ON color');
+    expect(tags('onColor').join('\n')).toContain('aria-label=Hex value of default ON color');
+    expect(tags('onColor').join('\n')).toContain('aria-label=Reset default ON color to built-in');
+    expect(tags('offColor').join('\n')).toContain('aria-label=Color of default OFF color');
   });
 
   it('is always open (its own tab since v1.0): a heading, not a button', () => {
@@ -270,7 +270,7 @@ describe('accessible names', () => {
 });
 
 describe('help line', () => {
-  const HELP = "Saved straight to your Home Assistant profile.";
+  const HELP = "Saved to your Home Assistant profile.";
   const flat = (t: unknown): string =>
     Array.isArray(t) ? t.map(flat).join('') :
       t && typeof t === 'object' ? ((t as { strings?: string[] }).strings ?? []).join('') +
@@ -278,7 +278,9 @@ describe('help line', () => {
       typeof t === 'string' ? t : '';
   it('is shown under the colours', () => {
     const text = flat(el.render()).replace(/\s+/g, ' ');
-    expect(text).toContain(`${HELP} Cards keep the colour they were given — changing an entry here doesn't restyle them.`);
+    expect(text).toContain(HELP);
+    // one sentence (1.0.0): the defaults hint above already says cards keep their colors
+    expect(text).not.toContain('restyle them');
   });
 });
 
@@ -317,7 +319,7 @@ describe('two-step remove', () => {
 
   it('arming one entry does not arm another', () => {
     del(A).on.click(ev(''));
-    expect(del(B).tag).toMatch(/aria-label=Remove 'colour 2'\s/);
+    expect(del(B).tag).toMatch(/aria-label=Remove 'color 2'\s/);
   });
 });
 

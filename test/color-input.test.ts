@@ -112,7 +112,7 @@ describe('colour text field', () => {
     expect(html()).not.toContain('Not a valid');
     expect(hint().tag).toContain('role=status');
     p._invalid = true;
-    expect(html()).toContain('Not a valid colour — try #ff8800 or var(--primary-color)');
+    expect(html()).toContain('Not a valid color — try #ff8800 or var(--primary-color)');
   });
 
   it('change with an invalid value emits nothing and keeps the cue', () => {

@@ -18,13 +18,13 @@
         "data": {
           "language": "Language",
           "ask_language": "Ask each user which language to use",
-          "on_color": "Default ON colour",
-          "off_color": "Default OFF colour"
+          "on_color": "Default ON color",
+          "off_color": "Default OFF color"
         },
         "data_description": {
           "language": "Auto-detect follows the language Home Assistant shows each user.",
           "ask_language": "The first time someone opens the Studio, a short question lets them pick a language. Off: everyone gets the language above.",
-          "on_color": "The colour a new Icon Color, Accent Color or threshold rule starts from while the entity is on. Studio default: the Studio's own.",
+          "on_color": "The color a new Icon Color, Accent Color or threshold rule starts from while the entity is on. Studio default: the Studio's own.",
           "off_color": "The same while the entity is off."
         }
       }

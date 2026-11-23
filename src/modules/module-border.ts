@@ -170,6 +170,7 @@ export class BorderModule extends LitElement {
               ${renderCondition({
                 condition: this.state.widthWhen,
                 stateAware: this.stateAware,
+                cardEntity: this.cardEntity,
                 offOnly: stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
                 noun: 'noun.border',
                 hass: this.hass,

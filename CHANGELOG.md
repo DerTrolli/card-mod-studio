@@ -77,6 +77,41 @@ options only change in a backward-compatible way within 1.x.
 - **Advanced CSS is always last**: on an entities card, Entity Rows now
   come before it.
 
+### Fixed
+
+From a final review in which a tester only looked at the screen and clicked:
+
+- **Bubble Card styles that didn't show.** On some page loads, and often
+  right after switching the dashboard to edit mode, card-mod or UIX attached
+  its style element to a Bubble card before the card was ready. The card
+  then showed unstyled, and a style saved in the editor didn't appear until
+  the page was reloaded. This comes from card-mod / UIX and Bubble Card
+  loading at the same time, with or without the Studio. The Studio now
+  moves the style element to where it belongs: a few seconds after a page
+  loads, after navigating, and after the card editor closes. It touches only
+  Bubble cards with a misplaced element, and does nothing when Bubble Card
+  isn't installed. Measured with card-mod 4.2.1 and UIX 9.0.0 on Home
+  Assistant 2026.11 and 2026.2; card-mod 3.4.5 isn't affected.
+- **"A value matches" with no entity applied all the time.** Picking it now
+  starts with the card's own entity (Background, Visual Filters, Border,
+  Icon size, Animation), as Threshold Colors already did. On a card without
+  an entity it says one is needed, instead of applying the style all the
+  time without saying so. Existing styles and presets are read as before.
+- **Icon Color changed its controls when switched on.** While it's off, it
+  now shows what switching it on gives (for example "Keep the card's color"
+  on cards with an Icon size), and an edit made while it's off starts from
+  that.
+- **Threshold Colors with no rule** said "Result: Always" with a color it
+  never applied. It now says nothing is applied until a rule is added.
+- **Text:**
+  - The condition list groups the number and the text comparisons.
+  - English spells "color" one way throughout, including in the
+    integration.
+  - The Palette tab has one sentence where it said the same thing twice.
+  - The preset name's button reads "Save preset", so it can't be mistaken
+    for Home Assistant's Save.
+  - The copy/paste note says what "Number size" is.
+
 ### Compatibility
 
 - Text conditions are stored in new fields (`valueText`,

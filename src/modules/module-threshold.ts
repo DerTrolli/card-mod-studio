@@ -590,15 +590,10 @@ export class ThresholdModule extends LitElement {
       style="background:${previewHexFor(this.state.defaultColor)}"
     ></span>`;
 
+    // No rule yet: nothing is written (not even the default colour), so say
+    // that instead of a "Result: Always" row that never applies.
     if (sorted.length === 0) {
-      return html`
-        <div class="legend">
-          <span class="legend-title">${t('threshold.result')}</span>
-          <div class="legend-row">
-            <span class="legend-cond">${t('when.always')}</span>${defaultSwatch}
-          </div>
-        </div>
-      `;
+      return html`<div class="when-hint">${t('threshold.noRules')}</div>`;
     }
 
     return html`

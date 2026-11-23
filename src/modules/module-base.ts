@@ -998,6 +998,8 @@ export interface WhenControlOptions {
   allowValue?: boolean;
   /** The stored value condition (when: 'value'), if any. */
   condition?: StyleCondition;
+  /** The card's own entity: "A value matches" starts watching it. */
+  cardEntity?: string;
   /** Sets / clears the value condition (undefined = back to `value`'s option). */
   onCondition?: (c: StyleCondition | undefined) => void;
 }
@@ -1106,6 +1108,7 @@ export function renderValueFields(
         ></cms-entity-picker>
       </div>
     </div>
+    ${c?.valueEntity ? nothing : html`<div class="when-hint warn">${t('cond.pickEntity')}</div>`}
     ${attrNames.length > 0 || c?.valueAttribute
       ? html`
           <div class="control-row">
@@ -1139,12 +1142,16 @@ export function renderValueFields(
             change(v === 'is' || v === 'is-not' ? toText(v) : toNumber(v as NonNullable<ValueFields['valueOperator']>));
           }}
         >
-          ${CONDITION_OPERATORS.map(
-            (o) => html`<option value=${o} ?selected=${op === o}>${t('cond.valueOp', { op: o })}</option>`,
-          )}
-          ${TEXT_OPERATORS.map(
-            (o) => html`<option value=${o} ?selected=${op === o}>${t(o === 'is' ? 'cond.valueIs' : 'cond.valueIsNot')}</option>`,
-          )}
+          <optgroup label=${t('cond.groupNumber')}>
+            ${CONDITION_OPERATORS.map(
+              (o) => html`<option value=${o} ?selected=${op === o}>${t('cond.valueOp', { op: o })}</option>`,
+            )}
+          </optgroup>
+          <optgroup label=${t('cond.groupText')}>
+            ${TEXT_OPERATORS.map(
+              (o) => html`<option value=${o} ?selected=${op === o}>${t(o === 'is' ? 'cond.valueIs' : 'cond.valueIsNot')}</option>`,
+            )}
+          </optgroup>
         </select>
       </div>
     </div>
@@ -1209,8 +1216,10 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
   if (o.allowValue) opts.push({ v: 'value', label: t('cond.valueMatches') });
   const pick = (v: string) => {
     if (v === 'value') {
-      // Seeded like the other value conditions (a number comparison, `> 0`).
-      o.onCondition?.({ when: 'value', valueOperator: '>', valueThreshold: 0 });
+      // Seeded like the other value conditions (a number comparison, `> 0`),
+      // watching the card's own entity until another is picked — only on this
+      // switch, never when a stored style or preset is read.
+      o.onCondition?.({ when: 'value', valueOperator: '>', valueThreshold: 0, ...seedEntity(o.cardEntity, o.condition) });
       return;
     }
     o.onChange(v as WhenValue);
@@ -1374,6 +1383,15 @@ export interface ConditionControlOptions {
   hass?: HomeAssistant;
   /** Emits the new condition — undefined when back to Always. */
   onChange: (c: StyleCondition | undefined) => void;
+  /** The card's own entity: "A value matches" starts watching it. */
+  cardEntity?: string;
+}
+
+/** On the switch to "A value matches": watch the card's own entity unless one
+ *  is already set (Threshold Colors starts the same way). Entity-less cards
+ *  get nothing here; the value fields then say an entity is needed. */
+export function seedEntity(cardEntity: string | undefined, c: { valueEntity?: string } | undefined): { valueEntity?: string } {
+  return cardEntity && !c?.valueEntity ? { valueEntity: cardEntity } : {};
 }
 
 /** Numeric attributes of an entity (the condition compares via float(), so
@@ -1440,7 +1458,7 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
     if (v === 'always') return o.onChange(undefined);
     // Seed value-mode defaults so generation is valid the moment an entity
     // is picked (same seeding as the Animation module's value trigger).
-    if (v === 'value') return change({ when: v, valueOperator: c?.valueOperator ?? '>', valueThreshold: c?.valueThreshold ?? 0 });
+    if (v === 'value') return change({ when: v, valueOperator: c?.valueOperator ?? '>', valueThreshold: c?.valueThreshold ?? 0, ...seedEntity(o.cardEntity, c) });
     change({ when: v });
   };
 

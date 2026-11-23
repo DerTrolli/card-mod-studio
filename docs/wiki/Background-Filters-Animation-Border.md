@@ -111,7 +111,9 @@ called "Speed" before v0.11.0-beta.3) and the trigger control: always / while th
 is ON / OFF / while *another* entity is ON — or, since v0.9.0,
 **"While a value matches…"**: pick an entity (or one of its attributes),
 an operator, and a number or (since 1.0) a text, and the animation runs
-only while the condition holds. The classic attention-indicator: *glow
+only while the condition holds. The entity starts as the card's own (since
+1.0, in every module's "A value matches"); on a card without one, the field
+says an entity is needed — until one is picked, the style applies always. The classic attention-indicator: *glow
 while `battery_level` < 15*, *pulse while the freezer is above −10°*, *spin
 while the vacuum is not `docked`*.
 
