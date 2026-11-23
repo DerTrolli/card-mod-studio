@@ -231,6 +231,17 @@ export async function launch(env, tokens) {
   return { browser, ctx, page };
 }
 
+/** page.goto that tries once more when the load is aborted (HA 2025.9 sometimes aborts a load right after a dashboard save). */
+export async function gotoPage(page, url) {
+  try {
+    return await page.goto(url, { waitUntil: 'domcontentloaded' });
+  } catch (e) {
+    if (!/ERR_ABORTED/.test(String(e?.message))) throw e;
+    await sleep(1500);
+    return page.goto(url, { waitUntil: 'domcontentloaded' });
+  }
+}
+
 export async function waitHass(page, timeout = 60000) {
   await page.waitForFunction(() => {
     const ha = document.querySelector('home-assistant');

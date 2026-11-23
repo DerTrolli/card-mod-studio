@@ -4,7 +4,7 @@
 import {
   sleep, openEditor, clickEditOn, openStudio, styleBtn, panelVisible, mod, enable, expand, setSlider, choose,
   pickSwatch, expectCfg, expectPage, getCfg, styleStr, waitCfg, rowOf, dialogButton, readDashboardCards,
-  resolveRgb, sameRgb, waitHass, saveDashboard, viewDashboard, pollPage, waitDialogClosed, expectDashboardCard,
+  resolveRgb, sameRgb, waitHass, gotoPage, saveDashboard, viewDashboard, pollPage, waitDialogClosed, expectDashboardCard,
 } from './lib.mjs';
 import { P_CARD, P_HIT, P_PANEL } from './probes.mjs';
 
@@ -213,7 +213,7 @@ async function saveCancelSection(T) {
     return { bg: cs.backgroundColor, bw: cs.borderTopWidth };
   };
   // Direct reload (informational): card-mod as a dashboard resource misses cards built during first load.
-  await T.page.goto(`${T.HA}/fui-save/0`, { waitUntil: 'domcontentloaded' });
+  await gotoPage(T.page, `${T.HA}/fui-save/0`);
   await waitHass(T.page);
   const direct = await pollPage(T, dashProbe, null, (v) => sameRgb(v?.bg, red), 8000);
   T.note(`saved card on a DIRECT page load of the dashboard: ${direct.ok ? 'styled' : 'NOT styled'} (${JSON.stringify(direct.v)}) — engine ${JSON.stringify(T.engines)}`);
@@ -221,7 +221,7 @@ async function saveCancelSection(T) {
   await expectDashboardCard(T, 'dashboard (navigated to, not edit mode): saved card renders red with a 2px border', 'fui-save', dashProbe, (v) => sameRgb(v?.bg, red) && v.bw === '2px');
 
   // Cancel discards a later edit
-  await T.page.goto(`${T.HA}/fui-save/0?edit=1`, { waitUntil: 'domcontentloaded' });
+  await gotoPage(T.page, `${T.HA}/fui-save/0?edit=1`);
   await waitHass(T.page);
   await T.page.waitForFunction(() => window.__fui.q(document.body, 'hui-card-options').length > 0, null, { timeout: 30000 });
   await clickEditOn(T, 0);
