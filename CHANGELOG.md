@@ -176,8 +176,9 @@ both, with a note on every line that isn't clean:
   Card styles after loading and after a save; on 2026.11 with both engines
   also containers, tile features and the beta.2 fixes; sections and the
   integration on the card-mod rig, the integration also on 2025.9): all
-  pass. Two first attempts that failed were the style engine waiting for
-  Home Assistant's theme setting (Known limitations); their retries passed.
+  pass. Two first attempts failed with the symptom of the style engine
+  waiting for Home Assistant's theme setting (Known limitations); their
+  retries passed.
 - **Bubble Card:** with the Studio, every load where card-mod / UIX
   attached its style in the wrong place was repaired and styled (20 of 20
   in 150 loads on UIX, alternating with the two builds below); the same
