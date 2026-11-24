@@ -91,7 +91,9 @@ From a final review in which a tester only looked at the screen and clicked:
   loads, after navigating, and after the card editor closes. It touches only
   Bubble cards with a misplaced element, and does nothing when Bubble Card
   isn't installed. Measured with card-mod 4.2.1 and UIX 9.0.0 on Home
-  Assistant 2026.11 and 2026.2; card-mod 3.4.5 isn't affected.
+  Assistant 2026.11 and 2026.2; card-mod 3.4.5 isn't affected. (A card
+  can still show unstyled for one page load when the style engine waits
+  for Home Assistant's theme setting: see Known limitations.)
 - **"A value matches" with no entity applied all the time.** Picking it now
   starts with the card's own entity (Background, Visual Filters, Border,
   Icon size, Animation), as Threshold Colors already did. On a card without
@@ -148,13 +150,17 @@ From a final review in which a tester only looked at the screen and clicked:
 
 ### Verified
 
-One build (sha256 `7d578dcf…c9f886a`), the same file on four Home Assistant
+One build (sha256 `8d12f579…a75f20a4`), the same file on four Home Assistant
 rigs: 2026.11.0 with card-mod 4.2.1, 2026.11.0 with UIX 9.0.0, 2026.2.3 with
-card-mod 4.2.1 and 2025.9.4 with card-mod 3.4.5. The full record, with a note
-on every line that isn't clean: `docs/research/2026-11-v1.0.0-release-run.md`.
+card-mod 4.2.1 and 2025.9.4 with card-mod 3.4.5. It is the second full run:
+the first passed too, and the fixes from the final review (above) changed
+the code, so everything was run again on a new build. The full record of
+both, with a note on every line that isn't clean:
+`docs/research/2026-11-v1.0.0-release-run.md`.
 
-- **Static:** typecheck, 3,450 unit tests, the build reproducible, the
-  HACS / hassfest workflow green.
+- **Static:** typecheck, 3,469 unit tests, the build reproducible (also with
+  the release workflow's Node 20 from a clean copy), the HACS / hassfest
+  workflow green.
 - **Every earlier release:** styles, rows, configs and presets written by
   every release since v0.8.1 (now with 1.0.0-beta.2) load and save in 1.0.0
   exactly as in 1.0.0-beta.2. The one new difference: a hand-written
@@ -162,14 +168,21 @@ on every line that isn't clean: `docs/research/2026-11-v1.0.0-release-run.md`.
   gains its usual 300 ms fade. 30,000 random hand-written styles and the
   settings fuzz: nothing thrown, nothing unstable.
 - **Every control, clicked through the real card editor:** 497 of 497
-  (card-mod) and 499 of 499 (UIX); 495 of 496 on 2026.2; on 2025.9 all of
+  (card-mod) and 499 of 499 (UIX); 496 of 497 on 2026.2; on 2025.9 all of
   the 497 but 7 — the two gaps above (6 checks) and, as on 2026.2, Home
   Assistant enabling Save on an unchanged mixed-form card.
 - **Feature checks on all four rigs** (renamed names, text in Threshold
-  rules and in every condition, read-back, phone preview, presets; on
-  2026.11 with both engines also containers, tile features and the beta.2
-  fixes; sections and the integration on the card-mod rig, the integration
-  also on 2025.9): all pass.
+  rules and in every condition, read-back, phone preview, presets, Bubble
+  Card styles after loading and after a save; on 2026.11 with both engines
+  also containers, tile features and the beta.2 fixes; sections and the
+  integration on the card-mod rig, the integration also on 2025.9): all
+  pass. Two first attempts that failed were the style engine waiting for
+  Home Assistant's theme setting (Known limitations); their retries passed.
+- **Bubble Card:** with the Studio, every load where card-mod / UIX
+  attached its style in the wrong place was repaired and styled (20 of 20
+  in 150 loads on UIX, alternating with the two builds below); the same
+  build without the repair, and 1.0.0-beta.2, left those loads unstyled
+  (11 % to 34 % of their loads).
 - **User simulations through the real UI:** updating from 0.11.0, 1.0.0-beta.1
   and 1.0.0-beta.2 (the dashboard looks the same, cards open with their
   modules on, presets load: 8 of 8 each); the issue #42 case — a vacuum's
@@ -182,9 +195,8 @@ on every line that isn't clean: `docs/research/2026-11-v1.0.0-release-run.md`.
   check in light and dark at six screen sizes: no clipped text, no low
   contrast, no touch target under 24 px on phones.
 - **Module-effect audit:** Mushroom and Bubble Card 0 controls without
-  effect on both engines; built-in cards (card-mod rig) 0 apart from the
-  history-graph timing above, with the gauge's text colour inconclusive as
-  before.
+  effect on both engines; built-in cards (card-mod rig) 0, with the gauge's
+  text colour inconclusive as before.
 - **Home Assistant's own logs** on all four rigs: nothing from the Studio.
 
 ## [1.0.0-beta.2] — 2026-11-19

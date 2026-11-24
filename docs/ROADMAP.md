@@ -2,7 +2,7 @@
 
 *Formerly Card-Mod Studio (renamed in v1.0.0-beta.2, issue #40).*
 
-**Last updated:** 2026-11-22 · **Current version:** v1.0.0 (2026-11-22) — the first stable release: text states in every value condition and "A value matches" for Background and grayscale (issue #42), and the panel in Home Assistant's own look — tabs Style / Presets / Palette / Settings, Material icons, a one-line summary on every closed module (styled cards open with their modules closed), "Apply when" for every condition, Advanced CSS always last; see "Recently shipped (v1.0.0)" · **Pre-releases that led up to it:** v1.0.0-beta.2 (2026-11-19) — Square corners, five more controls, "Let this module take over", the Studio in the Section configuration dialog, a pinned preview on phones, Threshold text rules (#41), the new name Card Style Studio (#40); v1.0.0-beta.1 (2026-11-18) — 22 languages, the optional integration, `conditional` / `entity-filter` cards, nested containers, tile Features, My Presets with copy/paste · **Previous stable:** v0.11.0 (2026-11-12) — "Reach": Mushroom and Bubble Card support (beta), Font → Number size, and the read-back fixes. Open GitHub issues: #40–#42, all done in 1.0 (replies drafted / pending). Plan of this cycle: [`docs/V1.0_FINAL_PLAN.md`](V1.0_FINAL_PLAN.md) (and [`docs/V1.0_PLAN.md`](V1.0_PLAN.md) for the betas). Plans of finished cycles (historical): [`docs/V0.11_PLAN.md`](V0.11_PLAN.md), [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
+**Last updated:** 2026-11-24 · **Current version:** v1.0.0 (2026-11-22) — the first stable release: text states in every value condition and "A value matches" for Background and grayscale (issue #42), and the panel in Home Assistant's own look — tabs Style / Presets / Palette / Settings, Material icons, a one-line summary on every closed module (styled cards open with their modules closed), "Apply when" for every condition, Advanced CSS always last; see "Recently shipped (v1.0.0)" · **Pre-releases that led up to it:** v1.0.0-beta.2 (2026-11-19) — Square corners, five more controls, "Let this module take over", the Studio in the Section configuration dialog, a pinned preview on phones, Threshold text rules (#41), the new name Card Style Studio (#40); v1.0.0-beta.1 (2026-11-18) — 22 languages, the optional integration, `conditional` / `entity-filter` cards, nested containers, tile Features, My Presets with copy/paste · **Previous stable:** v0.11.0 (2026-11-12) — "Reach": Mushroom and Bubble Card support (beta), Font → Number size, and the read-back fixes. Open GitHub issues: #40–#42, all done in 1.0 (replies drafted / pending). Plan of this cycle: [`docs/V1.0_FINAL_PLAN.md`](V1.0_FINAL_PLAN.md) (and [`docs/V1.0_PLAN.md`](V1.0_PLAN.md) for the betas). Plans of finished cycles (historical): [`docs/V0.11_PLAN.md`](V0.11_PLAN.md), [`docs/V0.10_PLAN.md`](V0.10_PLAN.md)
 
 Phases 1–7 are complete (scaffold → parser → visual modules → config
 integration → card-type awareness → 2-column layout + presets → entities per-row
@@ -169,17 +169,30 @@ The first stable release; plan and test record in
   styled cards open with their modules closed); "Apply when" everywhere;
   Advanced CSS last. Measured live: the tab bar fits 360px phones in all 22
   languages.
-- **Release run on one frozen build** (2026-11-22 … 23; record in
+- **Fixes from a final review** (one tester who only looked at the screen
+  and clicked, after the first release run): Bubble Card styles that
+  card-mod / UIX attached before the card was ready are moved where they
+  belong (`utils/bubble-heal.ts`: a few seconds after load, after
+  navigating, after the card editor closes; Bubble cards only); "A value
+  matches" starts with the card's own entity (`seedEntity`) and says when
+  none is picked; Icon Color shows while off what switching it on gives;
+  Threshold with no rule says nothing is applied; wording.
+- **Release runs on one frozen build each** (2026-11-22 … 24; record in
   [`docs/research/2026-11-v1.0.0-release-run.md`](research/2026-11-v1.0.0-release-run.md)):
+  run 1 passed; the review's fixes changed `src/`, so run 2 repeated
+  everything on a new build (sha256 `8d12f579…a75f20a4`, commit `0130119`):
   four rigs (HA 2026.11 with card-mod and with UIX, 2026.2.3, 2025.9.4);
-  every control 497/497 and 499/499 on 2026.11, 495/496 on 2026.2, all but
+  every control 497/497 and 499/499 on 2026.11, 496/497 on 2026.2, all but
   7 of 497 on 2025.9 (its tile Font and icon-circle gaps, and HA's Save
-  button on an unchanged mixed-form card, as on 2026.2); continuity from v0.8.1; user
-  simulations (updating from 0.11.0 / beta.1 / beta.2, the #42 case on all
-  four rigs, keyboard only, a 30-round session); 22 languages at 1440 /
-  390 / 360 px; light/dark at six sizes; nothing from the Studio in Home
-  Assistant's logs. Only harness fixes came out of it (the entity picker on
-  HA before 2026.11, two 2025.9 timing races); `src/` was not touched.
+  button on an unchanged mixed-form card, as on 2026.2); continuity from
+  v0.8.1; user simulations (updating from 0.11.0 / beta.1 / beta.2, the #42
+  case on all four rigs, keyboard only, a 30-round session); the Bubble
+  repair on all four rigs; 22 languages at 1440 / 390 / 360 px; light/dark
+  at six sizes; nothing from the Studio in Home Assistant's logs. Found on
+  the way, upstream: card-mod / UIX wait for `hass.themes.theme`, and on a
+  rare page load (about 1 in 20 long sessions) it never arrives, so that
+  page stays unstyled until a reload (Known limitations; the FAQ said
+  styles still apply, corrected). Harness-only changes after the freeze.
 
 ## Recently shipped (v1.0.0-beta.2) — 2026-11-19, pre-release
 
