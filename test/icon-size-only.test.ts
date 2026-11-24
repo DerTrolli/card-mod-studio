@@ -173,7 +173,7 @@ describe('the Icon Color panel', () => {
 
   it('mode none: the option is offered with a size control, no "Controlled by" row or hints, size row stays', () => {
     const t = templateText(make({ enabled: true, mode: 'none' }, true).el._renderBody());
-    expect(t).toContain("Keep the card's colour");
+    expect(t).toContain("Keep the card's color");
     expect(t).toContain('Icon size');
     expect(t).not.toContain('Controlled by');
     expect(t).not.toContain('on/off state');
@@ -181,8 +181,8 @@ describe('the Icon Color panel', () => {
   });
 
   it('without a size control the option is not offered, except to show a stored none', () => {
-    expect(templateText(make({ enabled: true, mode: 'plain' }, false).el._renderBody())).not.toContain("Keep the card's colour");
-    expect(templateText(make({ enabled: true, mode: 'none' }, false).el._renderBody())).toContain("Keep the card's colour");
+    expect(templateText(make({ enabled: true, mode: 'plain' }, false).el._renderBody())).not.toContain("Keep the card's color");
+    expect(templateText(make({ enabled: true, mode: 'none' }, false).el._renderBody())).toContain("Keep the card's color");
   });
 
   it('the select emits none', () => {

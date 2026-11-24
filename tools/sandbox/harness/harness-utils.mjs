@@ -19,8 +19,58 @@
  * waitForHassReady() installs this and pre-loads the lazy cards, so scripts
  * that use it need no extra call; others call installMountHelper(page).
  */
+/**
+ * Console / page errors that come from Home Assistant or an engine itself,
+ * not from the Studio — the release run's written allowlist. Each was traced
+ * (stack or a run with the Studio's file blocked). Anything else fails.
+ */
+export const KNOWN_NOISE = [
+  { re: /themesReady: Timeout/, why: "card-mod / UIX waiting for Home Assistant's themes" },
+  { re: /status of 50[02]/, why: "Home Assistant 2025.9's media / image proxy" },
+  { re: /Error getting Image Colors/, why: "Home Assistant's picture colour extraction" },
+  { re: /Transition was skipped|Cannot parse given Error object/, why: "Home Assistant 2026.2+ view transitions (an AbortError)" },
+  { re: /card alarm-panel Error: Invalid configuration/, why: 'Home Assistant 2025.9 alarm panel while its element loads' },
+  { re: /Failed to execute 'observe' on 'MutationObserver'/, stack: /card-mod\.js/, why: 'card-mod 3.4.5 on Home Assistant 2025.9 (every frame in card-mod.js)' },
+  // the Studio never reads recovery_mode; the stack must be Home Assistant's own and not name the Studio's file
+  { re: /reading 'recovery_mode'/, stack: /^(?![\s\S]*card-mod-studio)[\s\S]*\/frontend_(latest|es5)\//, why: "Home Assistant 2025.9's frontend, intermittently (hass.config still null), see docs/COMPATIBILITY_AUDIT.md" },
+];
+/** True for an error on the allowlist above (the stack must match too where one is given). */
+export function isKnownNoise(msg, stack = '') {
+  return KNOWN_NOISE.some((n) => n.re.test(String(msg)) && (!n.stack || n.stack.test(String(stack))));
+}
+
 export const MOUNT_HELPER_SRC = `(() => {
   if (window.__cmsMount) return;
+  // Since 1.0 a styled card opens with its modules closed (the summaries say
+  // what each does). The checks that mount a panel themselves, outside Home
+  // Assistant's card editor, inspect what is INSIDE a module (parsed state,
+  // pickers, rows); for them an enabled module opens on its first render, as
+  // before 1.0 — what a user gets by clicking its header. Panels in the real
+  // card / section dialog (click driver, functional UI check, simulations)
+  // are left alone, so those keep checking the shipped behaviour.
+  const MODULES = ['cms-font-module', 'cms-filter-module', 'cms-accent-color-module', 'cms-icon-color-module',
+    'cms-threshold-module', 'cms-background-module', 'cms-animation-module', 'cms-border-module',
+    'cms-features-module', 'cms-heading-style-module'];
+  const inRealDialog = (el) => {
+    for (let p = el; p; p = p.parentElement || (p.getRootNode && p.getRootNode().host)) {
+      if (p.tagName && p.tagName.startsWith('HUI-DIALOG')) return true;
+    }
+    return false;
+  };
+  for (const tag of MODULES) {
+    customElements.whenDefined(tag).then(() => {
+      const C = customElements.get(tag);
+      if (!C || C.prototype.__cmsHarnessOpen) return;
+      const orig = C.prototype.firstUpdated;
+      C.prototype.firstUpdated = function (...args) {
+        if (orig) orig.apply(this, args);
+        if (this.state && !inRealDialog(this)) {
+          this._open = !!(this.state.enabled || (this.numberSize && this.state.numberSizeEnabled));
+        }
+      };
+      C.prototype.__cmsHarnessOpen = true;
+    });
+  }
   window.__cmsMount = (host) => {
     const ha = document.querySelector('home-assistant');
     (ha?.shadowRoot || document.body).appendChild(host);

@@ -1,6 +1,24 @@
 The visual-effect modules. All of them support state conditions via the
 shared **"Apply when"** control where noted.
 
+**"A value matches"** — the condition every module here offers — compares
+the entity's state or one of its attributes with a **number** (`<` `<=` `>`
+`>=` `==` `!=`) or, since 1.0, a **text** (`is` / `is not`,
+[#42](https://github.com/DerTrolli/card-mod-studio/issues/42)): a
+thermostat's `heating`, a vacuum's `cleaning` or `docked`, a select's option.
+The text field starts with the entity's current value and shows it
+("Right now: …"); text is compared exactly as Home Assistant stores it
+(`heating`, not the translated "Heating" the dashboard shows). While a text
+operator is chosen, "Value read from" also lists text attributes such as
+`hvac_action`. A number typed as text is compared as a number (`==` / `!=`).
+Written as `states('climate.hall') == 'heating'` (an attribute:
+`state_attr('climate.hall', 'hvac_action') | string == 'heating'`), the
+same spelling as [Threshold text rules](Threshold-Colors).
+
+Older versions of the Studio don't know a text condition, or "A value
+matches" on Background and grayscale: opened there, such a condition
+applies always (nothing breaks, nothing is inverted).
+
 ## Background
 
 Background isn't offered on the picture cards, iframe, webpage, map, heading and media control: they either show an image or paint their own face over the card (media control since v0.11.0-beta.3, in every player state).
@@ -19,7 +37,8 @@ Background isn't offered on the picture cards, iframe, webpage, map, heading and
   no-repeat`), a `background-size` or other `background-*` property beside
   it, `!important`, a `data:` URI, and any Background on a markdown card.
 - **Apply when**: always / only while the entity is ON / only while OFF /
-  while *another* entity is ON — great for a "glow when active" effect. In
+  while *another* entity is ON / **while a value matches** *(1.0)* — great
+  for a "glow when active" effect, or *red while the vacuum is `cleaning`*. In
   the other state the card **keeps its own look** (its theme background): the
   Studio no longer writes `none`, which used to make the card transparent.
   A style saved with the older form is recognised and re-saved in the new one.
@@ -33,7 +52,8 @@ Background isn't offered on the picture cards, iframe, webpage, map, heading and
 CSS filter effects on the whole card:
 
 - **Grayscale** — with its own Apply when (making inactive devices look
-  "dead" is the classic use: grayscale *while OFF*). It starts as "Always"
+  "dead" is the classic use: grayscale *while OFF*; since 1.0 also *while a
+  value matches*, e.g. grey while `hvac_action` is `idle`). It starts as "Always"
   on cards where "while OFF" could never match (no entity, a sensor, a lock …)
 - **Brightness** — 0–200%
 - **Blur** — 0–20px
@@ -45,11 +65,11 @@ CSS filter effects on the whole card:
   so filter changes fade instead of snapping; a `transition` you write by
   hand in [Advanced CSS](Advanced-CSS) still wins.
 
-Since v0.9.0, brightness/blur/opacity share a **"Reacts to"**
-condition (shown while grayscale is off — grayscale keeps its own control):
-always / entity ON / entity OFF / another entity ON / **while a value
-matches…** (entity or numeric attribute + operator + threshold). Example:
-blur + fade a camera card only while the camera is off.
+Since v0.9.0, brightness/blur/opacity share an **"Apply when"** condition
+(called "Reacts to" before 1.0; grayscale keeps its own): always / entity
+ON / entity OFF / another entity ON / **while a value matches…** (entity or
+attribute + operator + a number or a text). Example: blur + fade a camera
+card only while the camera is off.
 
 ## Animation
 
@@ -67,34 +87,47 @@ A looping animation on the card:
 | Glow | Pulsing glow around the card |
 | Heartbeat | Double-beat scale, like a heartbeat |
 
-Animation is offered on every built-in card except heading, the energy
-cards, activity, webpage and shopping list (v0.11.0-beta.3 added alarm panel,
+Animation is offered on every built-in card except the energy cards,
+activity, webpage and shopping list (the heading card since
+v1.0.0-beta.2, without Glow, Spin and Gradient Shift — it has no box) (v0.11.0-beta.3 added alarm panel,
 calendar, gauge, history graph, humidifier, iframe, light, logbook, map, media
 control, picture, picture elements, picture entity, picture glance, statistic,
 statistics graph, thermostat, to-do list and weather forecast). A preset that
 can't work on a card is left out of its list, and a preset you load from the
-preset bar is dropped if the card can't use it.
+Presets tab is dropped if the card can't use it.
 
 A hand-written animation the module doesn't recognise (for example an
-iteration count typed by hand) keeps its generated `@keyframes cms-…` block
+iteration count typed by hand) keeps its generated `@keyframes cstudio-…` block
 on save, so it keeps running.
+
+**Names the Studio writes** *(v1.0.0-beta.2)*: its keyframes are called
+`cstudio-pulse`, `cstudio-glow` and so on (`cms-…` before the rename to Card
+Style Studio). A card with the old names keeps working and gets the new ones
+the next time you save it in the Studio; a rule of your own in Advanced CSS
+that uses an old `cms-…` name keeps its keyframes and is not rewritten.
 
 Plus a **Duration** slider (seconds per cycle — lower is faster; it was
 called "Speed" before v0.11.0-beta.3) and the trigger control: always / while the entity
 is ON / OFF / while *another* entity is ON — or, since v0.9.0,
-**"While a value matches…"**: pick an entity (or one of its numeric
-attributes), an operator, and a threshold, and the animation runs only
-while the condition holds. The classic attention-indicator: *glow while
-`battery_level` < 15*, *pulse while the freezer is above −10°*.
+**"While a value matches…"**: pick an entity (or one of its attributes),
+an operator, and a number or (since 1.0) a text, and the animation runs
+only while the condition holds. The entity starts as the card's own (since
+1.0, in every module's "A value matches"); on a card without one, the field
+says an entity is needed — until one is picked, the style applies always. The classic attention-indicator: *glow
+while `battery_level` < 15*, *pulse while the freezer is above −10°*, *spin
+while the vacuum is not `docked`*.
 
 ## Border & Radius
 
-- **Border radius** — round the card's corners (0–50px)
+- **Border radius** — round the card's corners (1–50px; 0 = the card's own
+  rounding, shown as "Card default")
+- **Square corners** *(v1.0.0-beta.2)* — sharp corners (`border-radius: 0px`);
+  the radius slider is off while it's on
 - **Border width** (0–8px) and **border color** — the color picker appears
   once width > 0
-- **"Reacts to"** *(since v0.9.0)* — the border can appear only
-  while a condition matches (entity ON/OFF, another entity ON, or a
-  numeric value comparison), with an optional **"Width otherwise"**
+- **"Apply when"** *(since v0.9.0; called "Reacts to" before 1.0)* — the
+  border can appear only while a condition matches (entity ON/OFF, another
+  entity ON, or a value comparison: a number or, since 1.0, a text), with an optional **"Width otherwise"**
   fallback; 0 means the card's own border. Example: a 3px red border while
   the freezer is above −10°, the card's normal border otherwise. The color is the same in both branches — for a
   state-driven border *color*, use Threshold Colors.

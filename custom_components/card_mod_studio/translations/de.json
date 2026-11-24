@@ -1,0 +1,77 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card Style Studio",
+        "description": "Fügt die Einstellungen von Card Style Studio auf dieser Seite hinzu. Card Style Studio selbst wird als Dashboard-Ressource installiert (HACS, Marketplace oder von Hand); dieser Eintrag enthält nur seine Einstellungen."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card Style Studio ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Einstellungen von Card Style Studio",
+        "description": "Standards für alle in diesem Home Assistant. Die eigene Wahl eines Benutzers im Studio (⚙️ Einstellungen, Meine Farbpalette) hat Vorrang.",
+        "data": {
+          "language": "Sprache",
+          "ask_language": "Jeden Benutzer nach der Sprache fragen",
+          "on_color": "Standardfarbe EIN",
+          "off_color": "Standardfarbe AUS"
+        },
+        "data_description": {
+          "language": "Automatisch folgt der Sprache, in der Home Assistant jedem Benutzer angezeigt wird.",
+          "ask_language": "Wenn jemand das Studio zum ersten Mal öffnet, kann er mit einer kurzen Frage eine Sprache wählen. Aus: Alle bekommen die Sprache oben.",
+          "on_color": "Die Farbe, mit der eine neue Symbolfarbe, Akzentfarbe oder Schwellenwertregel startet, solange die Entität eingeschaltet ist. Studio-Standard: die eigene des Studios.",
+          "off_color": "Dasselbe, solange die Entität ausgeschaltet ist."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Automatisch erkennen (empfohlen)",
+        "en": "English",
+        "de": "Deutsch",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "es": "Español",
+        "it": "Italiano",
+        "pl": "Polski",
+        "pt": "Português",
+        "pt-br": "Português (Brasil)",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "nb": "Norsk bokmål",
+        "cs": "Čeština",
+        "sk": "Slovenčina",
+        "hu": "Magyar",
+        "fi": "Suomi",
+        "ru": "Русский",
+        "uk": "Українська",
+        "zh-hans": "简体中文",
+        "zh-hant": "繁體中文",
+        "ja": "日本語",
+        "ko": "한국어"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Studio-Standard",
+        "red": "Rot",
+        "pink": "Rosa",
+        "purple": "Violett",
+        "blue": "Blau",
+        "cyan": "Cyan",
+        "teal": "Türkisblau",
+        "green": "Grün",
+        "yellow": "Gelb",
+        "orange": "Orange",
+        "grey": "Grau"
+      }
+    }
+  }
+}

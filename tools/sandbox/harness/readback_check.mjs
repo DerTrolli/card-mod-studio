@@ -58,7 +58,7 @@ const editAndSave = async (index, look) => {
   await D.setSectionEnabled(page, 'Animation', true);
   await D.saveCard(page);
   const css = await styleOf(index);
-  need(css.includes('cms-pulse'), 'the unrelated edit (Animation) was not saved');
+  need(css.includes('cstudio-pulse'), 'the unrelated edit (Animation) was not saved');
   return { css, seen };
 };
 
@@ -94,13 +94,15 @@ try {
     return 'rules read back, same order stored';
   });
 
-  await step('heading selectors and a zero radius on a tile stay as written', async () => {
+  // Since v1.0.0-beta.2 a hand-written `border-radius: 0px` is read as
+  // Border & Radius → Square corners and written back the same.
+  await step('heading selectors stay as written on a tile; a zero radius is read as Square corners', async () => {
     const { css, seen } = await editAndSave(3, async () => [await enabled('Border & Radius'), (await section('Heading Style'))?.enabled ?? null]);
-    need(seen[0] === false, 'Border & Radius took over border-radius: 0px');
+    need(seen[0] === true, 'Border & Radius did not take over border-radius: 0px (Square corners)');
     need(seen[1] !== true, 'Heading Style is on, on a tile');
     need(css.includes('.title p {\n  font-size: 30px;\n}') && css.includes('border-radius: 0px;'), `rule changed: ${css}`);
     need(!css.includes('--ha-heading-card') && !css.includes('12px'), `rewritten: ${css}`);
-    return '.title p and border-radius: 0px stored unchanged';
+    return '.title p unchanged, border-radius: 0px kept (Square corners)';
   });
 
   await step('entities row: a hand-written !important survives an edit of that row', async () => {

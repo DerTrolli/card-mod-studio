@@ -12,6 +12,7 @@
 | Background | ✅ | |
 | Animation | ✅ | |
 | Border & Radius | ✅ | |
+| Features | ✅ *(1.0)* | The feature rows under the tile: height, corner radius, colour — see below |
 | Advanced CSS | ✅ | |
 
 ## Card-specific behavior
@@ -25,6 +26,33 @@
   the bar gauge live.
 - **State awareness** follows the tile's entity: toggleable domains get the
   ON/OFF modes directly; sensors etc. can still use "Controlled by".
+
+## Features *(new in 1.0)*
+
+The **Features** module styles the feature rows under the tile (brightness
+slider, cover buttons, climate modes, …) — all rows of the card at once:
+
+- **Height** (24–96 px) — the height of each feature row.
+- **Corner radius** (0–40 px) — the rounding of sliders and buttons.
+- **Color** — the colour of the sliders and buttons. Left empty, they follow
+  the entity's state as Home Assistant does; a colour set here replaces it.
+
+It is offered only on the tile card. On a tile without features it says how
+to add them (the tile's own editor, *Features*). The generated CSS uses Home
+Assistant's own feature variables:
+
+```yaml
+card_mod:
+  style: |
+    hui-card-features {
+      --feature-height: 60px;
+      --feature-border-radius: 4px;
+      --feature-color: var(--red-color) !important;
+    }
+```
+
+Measured on Home Assistant 2026.11 (card-mod 4.2.1 and UIX 9.0.0) and
+2025.9 (card-mod 3.4.5).
 
 ## Example
 

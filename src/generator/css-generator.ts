@@ -13,6 +13,7 @@ import type {
   AnimationModuleState,
   BorderModuleState,
   HeadingStyleModuleState,
+  FeaturesModuleState,
   FontModuleState,
   ThresholdModuleState,
   ThresholdRule,
@@ -20,6 +21,7 @@ import type {
   ColorStop,
   StyleCondition,
 } from '../types/index.js';
+import { isTextRule } from '../types/index.js';
 import { capsFor, hasOwnEntity, type CardCaps } from '../utils/card-caps.js';
 import {
   getCustomCardProfile,
@@ -34,6 +36,7 @@ import {
 } from '../utils/custom-card-profiles.js';
 import { toRgbTriplet } from '../utils/rgb-triplet.js';
 import { jinjaStr } from '../utils/jinja-str.js';
+import { animationName, GRADIENT_MARKER_PROPERTY } from '../utils/studio-names.js';
 
 /**
  * Renders the entity reference used inside an `is_state(...)`/`state_attr(...)`
@@ -52,41 +55,41 @@ function entityRef(entityId?: string): string {
 // ---------------------------------------------------------------------------
 
 const KEYFRAMES: Record<string, string> = {
-  pulse: `@keyframes cms-pulse {
+  pulse: `@keyframes ${animationName('pulse')} {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
 }`,
-  breathe: `@keyframes cms-breathe {
+  breathe: `@keyframes ${animationName('breathe')} {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
 }`,
-  'gradient-shift': `@keyframes cms-gradient-shift {
+  'gradient-shift': `@keyframes ${animationName('gradient-shift')} {
   0% { background-position: 0% center; }
   50% { background-position: 100% center; }
   100% { background-position: 0% center; }
 }`,
-  blink: `@keyframes cms-blink {
+  blink: `@keyframes ${animationName('blink')} {
   0%, 49%, 100% { opacity: 1; }
   50%, 99% { opacity: 0.3; }
 }`,
-  bounce: `@keyframes cms-bounce {
+  bounce: `@keyframes ${animationName('bounce')} {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
 }`,
-  shake: `@keyframes cms-shake {
+  shake: `@keyframes ${animationName('shake')} {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-4px); }
   75% { transform: translateX(4px); }
 }`,
-  spin: `@keyframes cms-spin {
+  spin: `@keyframes ${animationName('spin')} {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }`,
-  glow: `@keyframes cms-glow {
+  glow: `@keyframes ${animationName('glow')} {
   0%, 100% { box-shadow: 0 0 2px 0 currentColor; }
   50% { box-shadow: 0 0 12px 2px currentColor; }
 }`,
-  heartbeat: `@keyframes cms-heartbeat {
+  heartbeat: `@keyframes ${animationName('heartbeat')} {
   0%, 28%, 70%, 100% { transform: scale(1); }
   14%, 42% { transform: scale(1.12); }
 }`,
@@ -131,11 +134,50 @@ export function conditionExpr(c: StyleCondition | undefined): string | null {
     return c.customEntity ? `is_state('${jinjaStr(c.customEntity)}', 'on')` : null;
   }
   // when === 'value'
-  if (!c.valueEntity || !c.valueOperator || c.valueThreshold === undefined) return null;
-  const src = c.valueAttribute
-    ? `state_attr('${jinjaStr(c.valueEntity)}', '${jinjaStr(c.valueAttribute)}') | float(0)`
-    : `states('${jinjaStr(c.valueEntity)}') | float(0)`;
-  return `${src} ${c.valueOperator} ${c.valueThreshold}`;
+  return valueConditionExpr(c);
+}
+
+/** A number or a text comparison of an entity's state / attribute (v1.0.0:
+ *  text for conditions and the Animation trigger, #42). null when incomplete
+ *  — callers write the unconditional form then. */
+export function valueConditionExpr(c: {
+  valueEntity?: string;
+  valueAttribute?: string;
+  valueOperator?: StyleCondition['valueOperator'];
+  valueThreshold?: number;
+  valueText?: string;
+  valueTextOperator?: StyleCondition['valueTextOperator'];
+}): string | null {
+  if (!c.valueEntity) return null;
+  if (c.valueText !== undefined) {
+    if (c.valueText === '') return null;
+    return valueComparison(c.valueEntity, c.valueAttribute, c.valueTextOperator ?? 'is', c.valueText);
+  }
+  if (!c.valueOperator || c.valueThreshold === undefined) return null;
+  return valueComparison(c.valueEntity, c.valueAttribute, c.valueOperator, c.valueThreshold);
+}
+
+/**
+ * The one spelling of "this entity's state (or attribute) compared with a
+ * value", shared by the Threshold rules, the conditions and the Animation
+ * trigger: `states('x') | float(0) > 5`, or for text (`is` / `is-not`)
+ * `states('x') == 'heating'` — an attribute as `state_attr('x', 'a') |
+ * string == '…'`, so a non-text attribute compares by its text too.
+ */
+export function valueComparison(
+  entityId: string,
+  attribute: string | undefined,
+  operator: ThresholdRule['operator'],
+  value: number | string,
+): string {
+  const src = attribute
+    ? `state_attr('${jinjaStr(entityId)}', '${jinjaStr(attribute)}')`
+    : `states('${jinjaStr(entityId)}')`;
+  if (operator === 'is' || operator === 'is-not') {
+    const left = attribute ? `${src} | string` : src;
+    return `${left} ${operator === 'is' ? '==' : '!='} '${jinjaStr(String(value))}'`;
+  }
+  return `${src} | float(0) ${operator} ${value}`;
 }
 
 function filterDecls(s: FilterModuleState, caps: CardCaps, rawCss = ''): string[] {
@@ -161,7 +203,11 @@ function filterDecls(s: FilterModuleState, caps: CardCaps, rawCss = ''): string[
     const grayVal = grayParts.join(' ');
     const otherVal = otherParts.length > 0 ? otherParts.join(' ') : 'none';
 
-    if (s.grayscaleWhen === 'always') {
+    if (s.grayscaleCondition?.when === 'value') {
+      // "A value matches" (v1.0.0, #42); incomplete → unconditional.
+      const cond = conditionExpr(s.grayscaleCondition);
+      decls.push(cond ? `filter: {{ '${grayVal}' if ${cond} else '${otherVal}' }};` : `filter: ${grayVal};`);
+    } else if (s.grayscaleWhen === 'always') {
       decls.push(`filter: ${grayVal};`);
     } else if (s.grayscaleWhen === 'off') {
       decls.push(
@@ -379,7 +425,8 @@ function borderDirectDecls(s: BorderModuleState, e: BorderEmitter, thresholdOwns
 function borderVarDecls(s: BorderModuleState, e: BorderEmitter, skipColor = false): string[] {
   if (!s.enabled) return [];
   const decls: string[] = [];
-  if (s.radiusPx > 0) for (const v of e.radius ?? []) decls.push(`${v}: ${s.radiusPx}px;`);
+  const radius = borderRadiusValue(s);
+  if (radius) for (const v of e.radius ?? []) decls.push(`${v}: ${radius};`);
   if (!skipColor && s.borderWidth > 0) {
     const cond = conditionExpr(s.widthWhen);
     // Variables take `inherit` (see ownLookBranch); with no "otherwise" width
@@ -481,6 +528,8 @@ function asImportant(decl: string, on: boolean): string {
 
 /** The condition a Background reacts to (null = unconditional). */
 function backgroundCondition(s: BackgroundModuleState): string | null {
+  // "A value matches" (v1.0.0, #42); incomplete → unconditional.
+  if (s.condition?.when === 'value') return conditionExpr(s.condition);
   if (s.applyWhen === 'always') return null;
   // 'custom' with no entity picked yet → unconditional. The old fallthrough
   // mapped an incomplete 'custom' to the 'off' branch — the background
@@ -511,10 +560,18 @@ function backgroundValueDecls(s: BackgroundModuleState, otherwise = ''): string[
  *   the two modules don't emit conflicting `border` declarations in the
  *   same `ha-card` block (border-radius still applies either way).
  */
+/** The radius the Border module writes: square corners (0px), a set radius,
+ *  or nothing (0 = the card's own rounding). */
+function borderRadiusValue(s: BorderModuleState): string | null {
+  if (s.squareCorners) return '0px';
+  return s.radiusPx > 0 ? `${s.radiusPx}px` : null;
+}
+
 function borderDecls(s: BorderModuleState, skipColor = false, important = false): string[] {
   if (!s.enabled) return [];
   const decls: string[] = [];
-  if (s.radiusPx > 0) decls.push(`border-radius: ${s.radiusPx}px;`);
+  const radius = borderRadiusValue(s);
+  if (radius) decls.push(`border-radius: ${radius};`);
   if (!skipColor && s.borderWidth > 0) {
     const cond = conditionExpr(s.widthWhen);
     if (cond) {
@@ -541,7 +598,7 @@ function animationKeyframes(s: AnimationModuleState): string {
 function animationDecls(s: AnimationModuleState): string[] {
   if (!s.enabled) return [];
 
-  const animValue = `cms-${s.preset} ${s.speedS}s ${ANIMATION_TIMING[s.preset]} infinite`;
+  const animValue = `${animationName(s.preset)} ${s.speedS}s ${ANIMATION_TIMING[s.preset]} infinite`;
   const decls: string[] = [];
 
   if (s.preset === 'gradient-shift') decls.push('background-size: 200% auto;');
@@ -566,15 +623,11 @@ function animationDecls(s: AnimationModuleState): string[] {
         : `animation: ${animValue};`,
     );
   } else if (s.trigger === 'value') {
-    if (s.valueEntity && s.valueOperator && s.valueThreshold !== undefined) {
-      // Same value-source expressions as buildThresholdJinja, so both
-      // features read a numeric state/attribute in the identical spelling.
-      const stateExpr = s.valueAttribute
-        ? `state_attr('${jinjaStr(s.valueEntity)}', '${jinjaStr(s.valueAttribute)}') | float(0)`
-        : `states('${jinjaStr(s.valueEntity)}') | float(0)`;
-      decls.push(
-        `animation: {{ '${animValue}' if ${stateExpr} ${s.valueOperator} ${s.valueThreshold} else 'none' }};`,
-      );
+    // Same comparison as the Threshold rules and the conditions (a number,
+    // or since v1.0.0 a text).
+    const cond = valueConditionExpr(s);
+    if (cond) {
+      decls.push(`animation: {{ '${animValue}' if ${cond} else 'none' }};`);
     } else {
       decls.push(`animation: ${animValue};`); // incomplete → unconditional (W8)
     }
@@ -601,6 +654,20 @@ function animationDecls(s: AnimationModuleState): string[] {
  */
 export const HEADING_FAMILY_SELECTOR = '.content p,\n.content .heading';
 export const HEADING_ICON_SELECTOR = '.content ha-icon';
+
+/**
+ * Features (v1.0, tile): HA's `hui-card-features` declares these variables
+ * on itself, so they're set there (a value on ha-card doesn't reach it); the
+ * colour needs `!important` over the tile's own. Only what was set is written.
+ */
+export function featuresBlock(s: FeaturesModuleState | undefined): string {
+  if (!s?.enabled) return '';
+  const decls: string[] = [];
+  if (s.heightPx > 0) decls.push(`  --feature-height: ${s.heightPx}px;`);
+  if (s.radiusPx >= 0) decls.push(`  --feature-border-radius: ${s.radiusPx}px;`);
+  if (s.color) decls.push(`  --feature-color: ${s.color} !important;`);
+  return decls.length ? `hui-card-features {\n${decls.join('\n')}\n}` : '';
+}
 
 function headingStyleBlocks(s: HeadingStyleModuleState): string {
   if (!s.enabled) return '';
@@ -973,18 +1040,30 @@ function iconColorBlock(s: IconColorModuleState): string {
 /**
  * Sorts threshold rules into evaluation order: highest value first for `>`/`>=`
  * (so the largest matching threshold wins), lowest first for `<`/`<=`. The first
- * rule's operator decides the direction. Exported so the editor can show the
+ * number rule's operator decides the direction. Text rules (`is` / `is-not`,
+ * v1.0.0-beta.2) come first, in the order they were entered: a number rule
+ * reads a text state as 0 (`| float(0)`), so `< 5` placed before them would
+ * also catch `heating` or `unavailable`. Exported so the editor can show the
  * exact same order it will generate. Returns a new array; input is untouched.
  */
 export function sortThresholdRules(rules: ThresholdRule[]): ThresholdRule[] {
-  const firstOp = rules[0]?.operator ?? '>';
-  const sorted = [...rules];
+  const text = rules.filter(isTextRule);
+  const sorted = rules.filter((r) => !isTextRule(r));
+  const firstOp = sorted[0]?.operator ?? '>';
+  const num = (r: ThresholdRule) => Number(r.value);
   if (firstOp === '>' || firstOp === '>=') {
-    sorted.sort((a, b) => b.value - a.value);
+    sorted.sort((a, b) => num(b) - num(a));
   } else if (firstOp === '<' || firstOp === '<=') {
-    sorted.sort((a, b) => a.value - b.value);
+    sorted.sort((a, b) => num(a) - num(b));
   }
-  return sorted;
+  return [...text, ...sorted];
+}
+
+/** One rule's condition: `states('x') | float(0) > 3`, or for a text rule
+ *  `states('x') == 'heating'` (an attribute: `state_attr('x', 'a') | string
+ *  == '…'`, so a non-text attribute compares by its text too). */
+export function thresholdCondition(rule: ThresholdRule, entityId: string, attribute?: string): string {
+  return valueComparison(entityId, attribute, rule.operator, rule.value);
 }
 
 /**
@@ -999,15 +1078,12 @@ export function buildThresholdJinja(
   /** Rewrites each colour before it is written (Mushroom: `R, G, B`). */
   mapColor: (color: string) => string = (c) => c,
 ): string {
-  const stateExpr = attribute
-    ? `state_attr('${jinjaStr(entityId)}', '${jinjaStr(attribute)}') | float(0)`
-    : `states('${jinjaStr(entityId)}') | float(0)`;
   const sortedRules = sortThresholdRules(rules);
   let jinja = '{{ ';
   for (let i = 0; i < sortedRules.length; i++) {
     const rule = sortedRules[i];
     if (i > 0) jinja += ' else (';
-    jinja += `'${jinjaStr(mapColor(rule.color))}' if ${stateExpr} ${rule.operator} ${rule.value}`;
+    jinja += `'${jinjaStr(mapColor(rule.color))}' if ${thresholdCondition(rule, entityId, attribute)}`;
   }
   jinja += ` else '${jinjaStr(mapColor(defaultColor))}'`;
   jinja += ')'.repeat(sortedRules.length - 1);
@@ -1027,8 +1103,10 @@ export function buildThresholdJinja(
 
 const GRADIENT_STEPS = 32;
 /** Custom property carrying the real anchor points, so re-opening the editor
- *  recovers your actual stops instead of GRADIENT_STEPS generated rules. */
-export const GRADIENT_MARKER_PROPERTY = '--cms-gradient-stops';
+ *  recovers your actual stops instead of GRADIENT_STEPS generated rules
+ *  (`--cstudio-gradient-stops`; `--cms-gradient-stops` before v1.0.0-beta.2 —
+ *  see studio-names.ts). */
+export { GRADIENT_MARKER_PROPERTY };
 
 function normalizeHex(value: string): string {
   if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
@@ -1321,7 +1399,7 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
   // A hand-written block of the same name already sits in Advanced CSS (kept
   // because an unadopted `animation:` names it): writing the preset's too
   // would define it twice.
-  if (kf && new RegExp(`@keyframes\\s+cms-${state.animation.preset}\\s*\\{`).test(state.advanced.rawCss)) kf = '';
+  if (kf && new RegExp(`@keyframes\\s+${animationName(state.animation.preset)}\\s*\\{`).test(state.advanced.rawCss)) kf = '';
   if (kf) parts.push(kf);
 
   // A property the Threshold module already drives is skipped in the
@@ -1429,6 +1507,9 @@ export function generateCss(state: StudioState, cardType?: string, opts?: Genera
 
   const headingStyle = headingStyleBlocks(state.headingStyle);
   if (headingStyle) parts.push(headingStyle);
+
+  const features = featuresBlock(state.features);
+  if (features) parts.push(features);
 
   const font = em?.font
     ? fontVarBlock(state.font, em.font, thresholdProps.has('text-color'))

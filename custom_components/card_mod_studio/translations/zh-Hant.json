@@ -1,0 +1,77 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card Style Studio",
+        "description": "將 Card Style Studio 的設定新增到此頁面。Studio 本身作為儀表板資源安裝（HACS、Marketplace 或手動）；此條目只儲存其設定。"
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card Style Studio 已設定。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Card Style Studio 設定",
+        "description": "此 Home Assistant 中所有人的預設值。使用者在 Studio 中自己的選擇（⚙️ 設定、我的調色盤）始終優先。",
+        "data": {
+          "language": "語言",
+          "ask_language": "詢問每位使用者要使用的語言",
+          "on_color": "預設開啟顏色",
+          "off_color": "預設關閉顏色"
+        },
+        "data_description": {
+          "language": "自動偵測跟隨 Home Assistant 為每位使用者顯示的語言。",
+          "ask_language": "有人首次開啟 Studio 時，會用一個簡短的問題讓其選擇語言。關閉：所有人都使用上方的語言。",
+          "on_color": "實體開啟時，新的圖示顏色、加重顏色或閾值規則的初始顏色。Studio 預設：Studio 自帶的顏色。",
+          "off_color": "實體關閉時同理。"
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "自動偵測（推薦）",
+        "en": "English",
+        "de": "Deutsch",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "es": "Español",
+        "it": "Italiano",
+        "pl": "Polski",
+        "pt": "Português",
+        "pt-br": "Português (Brasil)",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "nb": "Norsk bokmål",
+        "cs": "Čeština",
+        "sk": "Slovenčina",
+        "hu": "Magyar",
+        "fi": "Suomi",
+        "ru": "Русский",
+        "uk": "Українська",
+        "zh-hans": "简体中文",
+        "zh-hant": "繁體中文",
+        "ja": "日本語",
+        "ko": "한국어"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Studio 預設",
+        "red": "紅色",
+        "pink": "粉紅色",
+        "purple": "紫色",
+        "blue": "藍色",
+        "cyan": "青色",
+        "teal": "藍綠色",
+        "green": "綠色",
+        "yellow": "黃色",
+        "orange": "橘色",
+        "grey": "灰色"
+      }
+    }
+  }
+}

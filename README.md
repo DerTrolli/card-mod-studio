@@ -1,12 +1,14 @@
-# Card-Mod Studio
+# Card Style Studio
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-blue.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/v/release/dertrolli/card-mod-studio)](https://github.com/dertrolli/card-mod-studio/releases)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-☕-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/dertrolli)
 
-A visual GUI editor for [card-mod](https://github.com/thomasloven/lovelace-card-mod) CSS styles in Home Assistant. Also works with [UIX](https://uix.lf.technology/), card-mod's integration-based successor.
+**The visual style editor for [UIX](https://uix.lf.technology/) and [card-mod](https://github.com/thomasloven/lovelace-card-mod) in Home Assistant.** Style any dashboard card with color pickers, sliders and animation presets. It writes the `uix:` or `card_mod:` YAML for you, and both engines are supported equally.
 
-Instead of hand-writing YAML + CSS + Jinja2 templates, Card-Mod Studio gives you color pickers, sliders, and animation presets — and generates the correct `card_mod`/`uix` YAML automatically.
+*Formerly known as **Card-Mod Studio**. Renamed in 1.0 because it is just as much a UIX editor ([#40](https://github.com/DerTrolli/card-mod-studio/issues/40)). Nothing changes for your cards, resources or settings; see [the rename](#the-rename-card-mod-studio--card-style-studio).*
+
+Instead of hand-writing YAML + CSS + Jinja2 templates, Card Style Studio gives you color pickers, sliders, and animation presets — and generates the correct `uix`/`card_mod` YAML automatically.
 
 <img src="images/01%20Style%20button.png" alt="Style button in the card editor" width="1024">
 
@@ -14,7 +16,7 @@ Instead of hand-writing YAML + CSS + Jinja2 templates, Card-Mod Studio gives you
 reference, per-card support details, and troubleshooting. This README is the
 overview.
 
-> **Enjoying Card-Mod Studio?** A ⭐ on GitHub helps others find it — and if it
+> **Enjoying Card Style Studio?** A ⭐ on GitHub helps others find it — and if it
 > saved you an evening of CSS frustration, you can
 > [☕ buy me a coffee](https://ko-fi.com/dertrolli). It's built with a lot of
 > paid AI tooling, so coffees go straight back into development.
@@ -25,7 +27,7 @@ overview.
 
 ## What it does
 
-Card-Mod Studio adds a **🎨 Style button** to the Home Assistant card editor. Clicking it opens a two-column style panel alongside the native editor — no separate page, no copy-pasting YAML.
+Card Style Studio adds a **🎨 Style button** to the Home Assistant card editor. Clicking it opens a two-column style panel alongside the native editor — no separate page, no copy-pasting YAML.
 
 - **Left column** — scrollable list of style modules, each collapsible
 - **Right column** — always-visible live card preview that updates as you change settings, shown on your theme's own dashboard background
@@ -39,13 +41,13 @@ clicking jumps straight to it. A part that nothing styles names the card's
 Background (or Border or Visual Filters where Background is hidden). The
 preview stays safe — clicks and keys never reach your real entities.
 
-<img src="images/02%20Card-Mod%20Studio.png" alt="Card-Mod Studio panel" width="1024">
+<img src="images/02%20Card-Mod%20Studio.png" alt="Card Style Studio panel" width="1024">
 
 All changes are serialised to `card_mod` YAML and saved with the card config through HA's normal save flow. If you open a card that already has hand-written `card_mod` (or `uix`) CSS, the panel reads it back and pre-fills the controls.
 
 ### UIX support
 
-[UIX](https://uix.lf.technology/) is a card-mod-derived Home Assistant integration built by card-mod's own current maintainer. It reads a `uix:` key in preference to `card_mod:`, but fully supports `card_mod:` as a fallback — so **Card-Mod Studio writes `card_mod:` by default even when UIX is installed**, and it just works. The only time it writes `uix:` instead is when UIX is detected and card-mod is not (UIX's own installer refuses to run alongside a `card-mod.js` resource, so this is the common "UIX-only" case). Either way, the panel reads back whichever of `uix:`/`card_mod:` is actually present — including cards you styled by hand — and the "not detected" warning only shows when neither engine is found.
+[UIX](https://uix.lf.technology/) is a card-mod-derived Home Assistant integration built by card-mod's own current maintainer. It reads a `uix:` key in preference to `card_mod:`, but fully supports `card_mod:` as a fallback — so **Card Style Studio writes `card_mod:` by default even when UIX is installed**, and it just works. The only time it writes `uix:` instead is when UIX is detected and card-mod is not (UIX's own installer refuses to run alongside a `card-mod.js` resource, so this is the common "UIX-only" case). Either way, the panel reads back whichever of `uix:`/`card_mod:` is actually present — including cards you styled by hand — and the "not detected" warning only shows when neither engine is found.
 
 If you switch back from UIX to card-mod-only, card-mod never reads `uix:` at all, so a card styled only under `uix:` would otherwise go silently unstyled. The panel warns about that specific card and offers a one-click "copy to `card_mod:`" fix for plain CSS. `uix:` blocks using UIX-only macros/billets get a clear incompatibility warning instead — card-mod can't run those under any key, so there's no fix to offer, just a heads-up.
 
@@ -67,17 +69,17 @@ The Accent Color override targets the correct CSS variable per card type: `--til
 
 ### Background
 
-Apply a **solid color** or a **gradient** (with configurable angle) as the card background. Optionally restrict the background to only show when the entity is **on** or **off** — useful for making a card visually "glow" when a device is active.
+Apply a **solid color** or a **gradient** (with configurable angle) as the card background. Optionally restrict the background to only show when the entity is **on** or **off** — useful for making a card visually "glow" when a device is active — while another entity is on, or **while a value matches** *(new in 1.0)*: a number (`> 25`) or a state's text (`is cleaning`, `is not docked`), from the entity's state or one of its attributes.
 
 <img src="images/04%20Background%20Color.png" alt="Background color module" width="618">
 
 ### Threshold Colors
 
-The most powerful module. Define numeric rules that change visual properties based on a sensor's live value — no coding required.
+The most powerful module. Define rules that change visual properties based on an entity's live value — a number, or a state's text — no coding required.
 
 Each rule has three parts:
-- **Operator** — `<` `<=` `>` `>=` `==` `!=`
-- **Value** — the numeric threshold to compare against
+- **Operator** — `<` `<=` `>` `>=` `==` `!=` for numbers, or `is` / `is not` for text *(new in 1.0)*
+- **Value** — the number to compare against, or the state's text (`heating`, `docked`, …) exactly as Home Assistant stores it
 - **Color** — the color to apply when the rule matches
 
 You can add as many rules as you need, plus a **default color** that applies when no rule matches. At runtime, card-mod/UIX evaluates the rules as a Jinja2 ternary chain against the live sensor state.
@@ -104,13 +106,13 @@ Beyond the basics:
 ### Visual Filters
 
 Apply CSS filter effects to the entire card:
-- **Grayscale** — always on, only when entity is on, or only when off (great for making inactive devices look "dead")
+- **Grayscale** — always on, only when entity is on, or only when off (great for making inactive devices look "dead"), while another entity is on, or while a value matches (a number or a text, *new in 1.0*)
 - **Brightness** — brighten or dim the card
 - **Blur** — blur the card content
 - **Opacity** — fade the whole card
 - **Transition duration** — control how smoothly state changes animate (milliseconds; lower is faster)
 
-Brightness/blur/opacity can also **react to a state or value condition** — e.g. blur + fade a camera card only while it's off, or while a sensor crosses a threshold.
+Brightness/blur/opacity can also **apply only when** a state or value condition holds — e.g. blur + fade a camera card only while it's off, while a sensor crosses a threshold, or while a vacuum `is not cleaning`.
 
 ### Animation
 
@@ -130,11 +132,11 @@ Add a looping CSS animation to the card. Available presets:
 
 Animation is offered on nearly every built-in card. A preset that cannot work on a card is left out of its list: Spin on the thermostat, humidifier, light and map (it makes the handle or the map drift away from the pointer), Gradient Shift where there is no card background to shift (picture cards, iframe, map, media control, Bubble Card, the Mushroom title card). The **Duration** slider is seconds per cycle — lower is faster.
 
-Each animation can run **always**, only while the entity is **on**/**off**, while **another entity** is on — or only **while a value matches** (entity or numeric attribute + operator + threshold): *pulse while the freezer is above -10°, glow while `battery_level` < 15*.
+Each animation can run **always**, only while the entity is **on**/**off**, while **another entity** is on — or only **while a value matches** (entity or attribute + operator + a number or a text): *pulse while the freezer is above -10°, glow while `battery_level` < 15, spin while the vacuum `is cleaning`* (text: new in 1.0).
 
 ### Border
 
-Round the card corners with a configurable **corner radius**, and optionally add a colored **border** with adjustable width. The border can also **react to a state or value condition** — e.g. a 3px red border only while the freezer is above -10°, with an optional thinner fallback border otherwise. Works well combined with Threshold Colors targeting border color.
+Round the card corners with a configurable **corner radius**, and optionally add a colored **border** with adjustable width. The border can also **apply only when** a state or value condition holds (a number or, new in 1.0, a text) — e.g. a 3px red border only while the freezer is above -10°, with an optional thinner fallback border otherwise. Works well combined with Threshold Colors targeting border color.
 
 ### Font
 
@@ -146,7 +148,7 @@ Text size, weight, family (including a custom free-text family), and color for a
 
 *Gauge card: the Font module's Number size row makes the value number bigger.*
 
-<img src="images/09%20Font%20and%20Palette.png" alt="Font module and the Color Palette Manager" width="618">
+<img src="images/09%20Font%20and%20Palette.png" alt="Font module, with your palette colors in its color picker" width="618">
 
 ### Heading Style
 
@@ -160,25 +162,75 @@ A raw CSS editor for anything the visual modules don't cover. Your CSS is append
 
 Save the full style configuration of any card as a **named preset** and restore it on any other card in one click. Presets are stored per-user in HA's backend (`frontend/get_user_data`) so they sync automatically across every device and browser logged in as the same HA user. localStorage is also written as an instant local fallback.
 
+On the **Presets** tab, **My Presets** *(new in 1.0)* lists them: rename, move up/down, duplicate and delete. It can also **copy a card's style or all your presets as text** and paste them onto another card, for another user or into another Home Assistant (the text carries the Studio's settings, so the other side needs Card Style Studio too). See [Presets & My Color Palette](../../wiki/Presets-and-My-Color-Palette).
+
 ### My Color Palette
 
 Define named custom colors once and they appear as extra swatches in **every** color picker — card-level modules, threshold rules, and per-row controls alike. You can also override the built-in default ON/OFF colors that a freshly-enabled Icon Color/Accent Color module (and every new threshold rule) starts from. Stored per HA user, same cross-device sync as presets. Cards keep the colour they were given: changing or removing an entry doesn't restyle cards that already use it. A change made while Home Assistant can't be reached is kept and sent later.
+
+<img src="images/13%20Palette.png" alt="My Color Palette on the Studio's Palette tab" width="618">
+
+### Language *(new in 1.0)*
+
+The Studio's own text comes in **22 languages**: English, Deutsch, Nederlands, Français, Español, Italiano, Polski, Português, Português (Brasil), Svenska, Dansk, Norsk bokmål, Čeština, Slovenčina, Magyar, Suomi, Русский, Українська, 简体中文, 繁體中文, 日本語 and 한국어. English and German are written by hand; **the other 20 are machine translations, not yet read by native speakers**, that use Home Assistant's own word wherever Home Assistant has one (its translation of *entity*, *card*, *icon*, …), so the Studio reads like the rest of Home Assistant. Corrections are very welcome as issues.
+
+The first time you open it, a short notice asks which language to use — **Auto-detect** (recommended) follows the language Home Assistant shows for you — and you can change it any time on the Studio's **Settings** tab. The choice is stored per HA user, so it's asked once, not on every device. The generated YAML/CSS is the same in every language. See [Language & Settings](../../wiki/Language-and-Settings).
+
+### Settings page for administrators *(new in 1.0, optional)*
+
+An optional **Card Style Studio integration** adds an entry under **Settings → Devices & services** where an administrator sets defaults for everyone: the language, whether users are asked for one, and the default ON/OFF colours. A user's own choice still wins. It's installed by hand from the release's `card_mod_studio.zip` (see [Installation](#optional-the-settings-integration)) and is translated into the same 22 languages.
+
+### New in 1.0
+
+- **A panel that looks like Home Assistant**: modules are outlined panels with Home Assistant's icons, and tabs — **Style** (the modules), **Presets**, **Palette**, **Settings**. A closed module shows what it does on this card in one line (*Pulse · 2s · when vacuum.robo is “cleaning”*, colours as dots), and a styled card opens with its modules closed, so you can read the whole style at a glance.
+- **Text in every value condition** ([#42](https://github.com/DerTrolli/card-mod-studio/issues/42)): Animation, Visual Filters, Border and icon size compare a number *or* a state's text (`is` / `is not`); Background and grayscale get "A value matches" too.
+- **Threshold text rules** ([#41](https://github.com/DerTrolli/card-mod-studio/issues/41)): `is` / `is not` compare a state's text, e.g. `heating` → orange, `cooling` → blue, `error` → red.
+- **Square corners** in Border & Radius (sharp corners were only possible by hand).
+- **Five more controls**, measured: Font → Text color and Threshold → Text Color on the alarm panel (its title) and picture-elements (its labels); Animation on the heading card (without Glow, Spin and Gradient Shift).
+- **"Let this module take over"**: when hand-written CSS overrides a module, one button removes exactly the overriding declarations — after showing which.
+- **Sections**: the Style button in Home Assistant's Section configuration dialog (HA 2026.11) — every card in the section gets its own styling section; Advanced CSS styles the section itself with `:host { … }`.
+- **Phones**: the live preview is pinned at the top while you scroll the controls (Hide/Show).
+- **Settings** shows which key is written (`uix:` with UIX installed, else `card_mod:`) and whether the optional integration is installed.
+- **New name: Card Style Studio** (formerly Card-Mod Studio), see below.
+
+### The rename: Card-Mod Studio → Card Style Studio
+
+The Studio edits UIX styles as much as card-mod ones, so from 1.0 it carries a
+name that fits both ([#40](https://github.com/DerTrolli/card-mod-studio/issues/40)).
+
+- **What changes:** the name in the panel, in all 22 languages, in HACS / the
+  Marketplace and on the integration's entry (an entry added under the old
+  name is renamed when Home Assistant starts). The names the Studio writes
+  into your styles change prefix too, from `cms-` to `cstudio-`
+  (`@keyframes cstudio-pulse`, `--cstudio-gradient-stops`). Styles with the
+  old names are read exactly as before and get the new ones the next time you
+  save the card in the Studio; until then they keep working as they are.
+  Hand-written CSS in Advanced CSS is never rewritten: a rule of yours that
+  uses an old `cms-…` animation keeps its keyframes.
+- **What stays, on purpose:** the resource file `card-mod-studio.js` (it is in
+  everyone's dashboard resources), the repository and its URLs, the
+  integration's id (`card_mod_studio`), your presets, palette and settings,
+  and the copy/paste text format. Nothing to do after updating.
+
+### Tile Features *(new in 1.0)*
+
+On the tile card, a **Features** module styles the feature rows under it (brightness slider, cover buttons, …): row height, corner radius and colour. Empty colour = Home Assistant's state colour, as before. See [Tile](../../wiki/Tile-Card).
 
 ---
 
 ## Styling the cards inside a stack
 
-Vertical-stack, horizontal-stack, and grid cards show **one styling section per child card**, each with the full module set for that child's card type — a gauge child gets the gauge treatment, a tile child the tile treatment, and an entities-card child even gets its per-row section. Changes are written into that child's own `card_mod:`/`uix:` block inside the stack config — exactly the YAML you'd get styling it standalone — and the live preview shows the whole stack update as you edit.
+Vertical-stack, horizontal-stack, grid, `conditional` and `entity-filter` cards show **one styling section per child card**, each with the full module set for that child's card type — a gauge child gets the gauge treatment, a tile child the tile treatment, and an entities-card child even gets its per-row section. Changes are written into that child's own `card_mod:`/`uix:` block inside the stack config — exactly the YAML you'd get styling it standalone — and the live preview shows the whole stack update as you edit.
 
 <img src="images/08%20Stack%20Children.png" alt="Per-child styling sections on a vertical stack" width="1024">
 
-Not covered yet: containers nested inside containers, and `conditional` cards.
+New in 1.0: **containers inside containers** (a stack in a stack, a grid in a conditional, …) get nested sections at any depth, and `conditional` / `entity-filter` cards a section for the card inside them. Not covered yet: `sections` view containers and custom containers such as layout-card. See [Containers](../../wiki/Container-Cards).
 
 ---
 
 ## Entities card per-row styling
 
-For `type: entities` cards, Card-Mod Studio adds a dedicated section for each entity row in the list.
+For `type: entities` cards, Card Style Studio adds a dedicated section for each entity row in the list.
 
 <img src="images/05%20Entities%20Card.png" alt="Entities card styling" width="618">
 
@@ -201,7 +253,7 @@ Both row forms work — `- entity: sensor.x` and the plain-string shorthand `- s
 
 The panel adapts to the card type so you never see irrelevant controls:
 
-- **Container cards** (`grid`, `vertical-stack`, `horizontal-stack`) — per-child styling sections (see above); other containers (`sections`, `conditional`) show an explanatory banner
+- **Container cards** (`grid`, `vertical-stack`, `horizontal-stack`, `conditional`, `entity-filter`, and containers nested in them) — per-child styling sections (see above); other containers show an explanatory banner
 - **Heading cards** — replaces icon/accent controls with the Heading Style module
 - **Light cards** — Icon Color gains an automatic mode that mirrors the light's actual color
 - **Entities cards** — hides card-level Icon Color and Accent Color, and offers Threshold Colors for the card frame only (Background, Text Color, Border Color); icon and text colours per row live in the rows section
@@ -212,11 +264,11 @@ The panel adapts to the card type so you never see irrelevant controls:
 - **Accent Color** is only offered where a card actually draws with the accent colour (tile, gauge, entity, sensor, thermostat, media, calendar, history graph, …) — not on button, light, glance, markdown, picture, date, alert and similar cards; **Font's text colour** is hidden where a card colours its own text (HA 2026.11's date and alert cards included)
 - **Threshold Colors** offers exactly the colours the matching modules offer on that card
 
-<img src="images/10%20Mushroom%20Card.png" alt="Card-Mod Studio on a Mushroom light card" width="1024">
+<img src="images/10%20Mushroom%20Card.png" alt="Card Style Studio on a Mushroom light card" width="1024">
 
 *Mushroom light card: Font, Icon Color and Accent each change the preview.*
 
-<img src="images/11%20Bubble%20Card.png" alt="Card-Mod Studio on a Bubble slider button" width="1024">
+<img src="images/11%20Bubble%20Card.png" alt="Card Style Studio on a Bubble slider button" width="1024">
 
 *Bubble slider button: Accent colors the slider fill.*
 
@@ -230,7 +282,7 @@ Every module was checked on every built-in card type, with card-mod and with UIX
 - [card-mod](https://github.com/thomasloven/lovelace-card-mod) or [UIX](https://uix.lf.technology/) must be installed and working
 - The Marketplace (HA 2026.11 or newer) or HACS (older HA), for installation
 
-Card-Mod Studio **generates** the YAML. card-mod/UIX **applies** it. One of the two is required.
+Card Style Studio **generates** the YAML. card-mod/UIX **applies** it. One of the two is required.
 
 ---
 
@@ -242,7 +294,7 @@ Home Assistant 2026.11 folds HACS into core as the **Marketplace**; a separate
 HACS install is no longer possible there, and existing HACS installs migrate
 automatically (custom repositories and update entities carry over).
 
-1. Open the Marketplace → search for **Card-Mod Studio**
+1. Open the Marketplace → search for **Card Style Studio** (or *UIX* / *card-mod*; it can still be listed as *Card-Mod Studio* for a while after the rename)
 2. Click it → install
 3. The Marketplace installs the plugin into `www/community/card-mod-studio/`
    and adds it as a dashboard resource
@@ -253,9 +305,9 @@ automatically (custom repositories and update entities carry over).
 
 ### Via HACS (HA before 2026.11)
 
-Card-Mod Studio is in the **HACS default store** — no custom repository needed.
+Card Style Studio is in the **HACS default store** — no custom repository needed.
 
-1. Open HACS → search for **Card-Mod Studio**
+1. Open HACS → search for **Card Style Studio** (it can still be listed as *Card-Mod Studio* for a while after the rename)
 2. Click it → **Download**
 3. HACS registers the dashboard resource automatically on modern versions
 4. Reload the browser (Ctrl+Shift+R)
@@ -268,9 +320,20 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 1. Download `card-mod-studio.js` from the [latest release](../../releases/latest)
 2. Copy to `config/www/card-mod-studio.js` in your HA config directory
 3. Go to **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.11.0`
+   - URL: `/local/card-mod-studio.js?v=1.0.0`
    - Type: JavaScript Module
 4. Reload the browser (Ctrl+Shift+R)
+
+### Optional: the Settings integration
+
+*(new in 1.0)* For the administrator's defaults described [above](#settings-page-for-administrators-new-in-10-optional). HACS and the Marketplace install Card Style Studio as a dashboard plugin and can't add an integration from the same repository, so this part is manual:
+
+1. Download `card_mod_studio.zip` from the same release as the Studio
+2. Unzip it into your config folder, so that `config/custom_components/card_mod_studio/manifest.json` exists
+3. Restart Home Assistant
+4. **Settings → Devices & services → + Add integration → Card Style Studio → Submit**, then **Configure** on the entry
+
+Details: [Integration](../../wiki/Integration).
 
 > **Cards unstyled after a reload?** If styled cards show up unstyled after a
 > page reload and come right after you navigate away and back, card-mod is
@@ -306,11 +369,11 @@ Card-Mod Studio is in the **HACS default store** — no custom repository needed
 
 | HA Version | Engine | Status |
 |---|---|---|
-| 2026.11 | card-mod 4.2.1, UIX 9.0.0 | ✅ **Tested** — v0.10.2 targets **2026.11.0** (the first release with the Marketplace); the test rigs run HA 2026.11.0 with UIX v9.0.0 (UIX 9.0 requires HA ≥ 2026.11.0), and v0.11.0-beta.2 was verified there with card-mod and with UIX, including Mushroom 5.2.3 and Bubble Card 3.4.3 (module-effect audit: 0 controls without effect; click-to-edit 24/24). **v0.11.0-beta.3** was verified on HA 2026.11.0 with card-mod 4.2.1 and with UIX 9.0.0 (Mushroom 5.2.3, Bubble Card 3.4.3) with real mouse, keyboard and touch input through the real card editor: card-mod rig 21 of 21 checks, UIX rig 19 of 19; functional UI check 489 of 489 on the card-mod rig and 491 of 491 on the UIX rig; click-to-edit 24 of 24 on both; module-effect audit on card-mod: built-in cards 0 controls without effect (1 inconclusive), Mushroom and Bubble Card 0; on UIX: Mushroom and Bubble Card 0, built-in cards 1 (the history-graph line-colour timing, see the [wiki](../../wiki/Graph-and-Data-Cards)); visual check in light and dark at six screen sizes (360 px to 1920 px) found no clipped element, no touch target under 24 px on phones and no low-contrast text **v0.11.0** was verified there with the release build on both engines: read-back check 6/6, check suite 21/21 (card-mod) and 19/19 (UIX), every control 489/489 and 491/491. |
+| 2026.11 | card-mod 4.2.1, UIX 9.0.0 | ✅ **Tested** — v0.10.2 targets **2026.11.0** (the first release with the Marketplace); the test rigs run HA 2026.11.0 with UIX v9.0.0 (UIX 9.0 requires HA ≥ 2026.11.0), and v0.11.0-beta.2 was verified there with card-mod and with UIX, including Mushroom 5.2.3 and Bubble Card 3.4.3 (module-effect audit: 0 controls without effect; click-to-edit 24/24). **v0.11.0-beta.3** was verified on HA 2026.11.0 with card-mod 4.2.1 and with UIX 9.0.0 (Mushroom 5.2.3, Bubble Card 3.4.3) with real mouse, keyboard and touch input through the real card editor: card-mod rig 21 of 21 checks, UIX rig 19 of 19; functional UI check 489 of 489 on the card-mod rig and 491 of 491 on the UIX rig; click-to-edit 24 of 24 on both; module-effect audit on card-mod: built-in cards 0 controls without effect (1 inconclusive), Mushroom and Bubble Card 0; on UIX: Mushroom and Bubble Card 0, built-in cards 1 (the history-graph line-colour timing, see the [wiki](../../wiki/Graph-and-Data-Cards)); visual check in light and dark at six screen sizes (360 px to 1920 px) found no clipped element, no touch target under 24 px on phones and no low-contrast text **v0.11.0** was verified there with the release build on both engines: read-back check 6/6, check suite 21/21 (card-mod) and 19/19 (UIX), every control 489/489 and 491/491. **v1.0.0-beta.1** was verified there with card-mod and with UIX: check suite 21/21 and 19/19, every control 489/489 and 491/491, all 22 languages at 1440 px and 390 px, the integration, presets, containers and tile Features (the integration also on 2025.9.4). **v1.0.0** was verified there on one frozen build with card-mod and with UIX: check suite 21/21 and 19/19, every control 497/497 and 499/499, all 22 languages at 1440, 390 and 360 px, updating from 0.11.0, 1.0.0-beta.1 and 1.0.0-beta.2, the issue #42 text conditions, keyboard only, a 30-round editing session, light/dark at six screen sizes clean, module-effect audit on Mushroom and Bubble Card 0, and Bubble Card styles that card-mod / UIX attached in the wrong place repaired on every such load (see the [release run record](docs/research/2026-11-v1.0.0-release-run.md)). |
 | 2026.9 – 2026.10 | card-mod 4.2.1, UIX 8.3.1 | ✅ **Fully tested** — v0.10.0 was live-verified on **2026.9.4** and **2026.10.0b0**, each with card-mod and with UIX (v0.10.1 re-checked on the **2026.10.4** release): every control in the real card editor, every module on every built-in card type, light and dark mode, six screen sizes from phone to desktop |
-| 2026.2 – 2026.8 | card-mod 4.2.1 | 🟡 **Partially tested** — quick checks on **2026.2.3** and **2026.6.4**: every module's controls in the real card editor (397/397 checks each), the scripted live checks, and a light/dark × desktop/phone visual pass (all clean). v0.11.0-beta.3 was additionally verified on **2026.2.3** with real input (Enter no longer saves and closes the dialog there; tile, gauge, entities rows, thresholds, Mushroom, Bubble Card, conditional Background and Animation apply, survive a reload and read back; sliders are laid out and named correctly). UIX 8.x itself needs HA ≥ 2026.8, so UIX was only tested on the versions above **v0.11.0** on 2026.2.3: read-back check 6/6; the functional check passes 470 of 489 (18 misses are a page error this HA version raises from its own page transitions, 1 is the Save button being enabled on a mixed-form card whose config is unchanged; both the same with beta.3). |
-| 2025.9 – 2026.1 | card-mod 3.4.5 | 🟡 **Partially tested** — quick checks on **2025.9.4**: the Style button, live preview, colour pickers, entity pickers, presets and saving work (392/397 functional checks — the 5 misses are the gap below), the scripted live checks pass apart from the gaps below and the visual pass is clean. Known gap: on tile cards the Font module doesn't change the tile's name/state text there (HA added the tile text variables Studio uses after 2025.9) — everything else on the tile, and Font on other cards, works. **Correction:** earlier versions of this table also said the gauge Accent colour doesn't recolour the arc on 2025.9.4; that was wrong — it does (`ha-gauge { --gauge-color: … !important }`), the threshold gradient recolours it live, and so does the needle (confirmed again with v0.11.0-beta.3, verified on 2025.9.4 with card-mod 3.4.5, Mushroom 5.2.3 and Bubble Card 3.4.2 with real input: Enter no longer saves and closes the dialog there; tile, gauge, entities rows, thresholds, Mushroom, Bubble Card, conditional Background and Animation apply, survive a reload and read back; sliders are laid out and named correctly) **v0.11.0** on 2025.9.4: read-back check 6/6; functional check 458 of 466 (the 5 tile Font misses of the gap above, the Save button on a mixed-form card as on 2026.2.3, and 2 steps the check itself cannot drive reliably there). |
-| Older than 2025.9 | — | ❌ **Not supported** — on 2025.3 the Style button doesn't appear (HA's older card-editor dialog), so Card-Mod Studio is only offered from 2025.9 (`hacs.json` declares 2025.9.0 as the minimum) |
+| 2026.2 – 2026.8 | card-mod 4.2.1 | 🟡 **Partially tested** — quick checks on **2026.2.3** and **2026.6.4**: every module's controls in the real card editor (397/397 checks each), the scripted live checks, and a light/dark × desktop/phone visual pass (all clean). v0.11.0-beta.3 was additionally verified on **2026.2.3** with real input (Enter no longer saves and closes the dialog there; tile, gauge, entities rows, thresholds, Mushroom, Bubble Card, conditional Background and Animation apply, survive a reload and read back; sliders are laid out and named correctly). UIX 8.x itself needs HA ≥ 2026.8, so UIX was only tested on the versions above **v0.11.0** on 2026.2.3: read-back check 6/6; the functional check passes 470 of 489 (18 misses are a page error this HA version raises from its own page transitions, 1 is the Save button being enabled on a mixed-form card whose config is unchanged; both the same with beta.3). **v1.0.0** on 2026.2.3: every control 496/497 (the same Save-button miss), text conditions, read-back, presets and the phone preview pass. |
+| 2025.9 – 2026.1 | card-mod 3.4.5 | 🟡 **Partially tested** — quick checks on **2025.9.4**: the Style button, live preview, colour pickers, entity pickers, presets and saving work (392/397 functional checks — the 5 misses are the gap below), the scripted live checks pass apart from the gaps below and the visual pass is clean. Known gap: on tile cards the Font module doesn't change the tile's name/state text there (HA added the tile text variables Studio uses after 2025.9) — everything else on the tile, and Font on other cards, works. Also on tile cards, a larger icon (Icon Color → Icon size) fills the icon circle instead of growing it (no `--tile-icon-size` there yet). **Correction:** earlier versions of this table also said the gauge Accent colour doesn't recolour the arc on 2025.9.4; that was wrong — it does (`ha-gauge { --gauge-color: … !important }`), the threshold gradient recolours it live, and so does the needle (confirmed again with v0.11.0-beta.3, verified on 2025.9.4 with card-mod 3.4.5, Mushroom 5.2.3 and Bubble Card 3.4.2 with real input: Enter no longer saves and closes the dialog there; tile, gauge, entities rows, thresholds, Mushroom, Bubble Card, conditional Background and Animation apply, survive a reload and read back; sliders are laid out and named correctly) **v0.11.0** on 2025.9.4: read-back check 6/6; functional check 458 of 466 (the 5 tile Font misses of the gap above, the Save button on a mixed-form card as on 2026.2.3, and 2 steps the check itself cannot drive reliably there). **v1.0.0** on 2025.9.4: every control except 7 of 497 (the 5 tile Font misses and the icon circle below, the Save button as on 2026.2.3); text conditions, read-back, presets, the phone preview and the integration pass. |
+| Older than 2025.9 | — | ❌ **Not supported** — on 2025.3 the Style button doesn't appear (HA's older card-editor dialog), so Card Style Studio is only offered from 2025.9 (`hacs.json` declares 2025.9.0 as the minimum) |
 
 Card-mod compatibility follows card-mod's own compatibility table. See [card-mod releases](https://github.com/thomasloven/lovelace-card-mod/releases).
 
@@ -321,9 +384,9 @@ Card-mod compatibility follows card-mod's own compatibility table. See [card-mod
 | Bubble Card | 3.4.3 | 🧪 **Beta** — v0.11.0-beta.2 verified on HA 2026.11.0 with card-mod 4.2.1 and UIX 9.0.0: button, slider button, separator and cover audited, 0 controls without effect. v0.11.0-beta.3 re-verified on HA 2026.11.0 with both engines (module-effect audit: the 4 kinds, 0 controls without effect; Bubble Card 3.4.2 on HA 2025.9.4) and with real input on HA 2026.2.3 and 2025.9.4 **v0.11.0:** audit repeated with the release build, 0 controls without effect on both engines. |
 | UIX | 8.3.1, 8.4.0, 9.0.0 | ✅ Tested against a real running integration in Docker — v0.10 with UIX 8.3.1 on HA 2026.9.4 and 2026.10.0b0, v0.11.0-beta.1 with UIX 8.4.0 on HA 2026.10.4, and v0.10.2 and v0.11.0-beta.2 with UIX 9.0.0 on HA 2026.11.0 (note: UIX 8.x itself requires HA ≥ 2026.8.0, UIX 8.4.0 requires HA ≥ 2026.10.0 and UIX 9.0.0 requires HA ≥ 2026.11.0; the `uix:`/`card_mod:` styling contract is unchanged from 7.x), see [`docs/COMPATIBILITY_AUDIT.md` §9](docs/COMPATIBILITY_AUDIT.md) and [`tools/sandbox/run-uix.sh`](tools/sandbox/run-uix.sh). v0.11.0-beta.3 was verified with UIX 9.0.0 on HA 2026.11.0: check suite 19 of 19, functional UI check 491 of 491, click-to-edit 24 of 24; module-effect audit 0 controls without effect on Mushroom and Bubble Card, and 1 on the built-in cards (Threshold "Accent Color" on the history graph — the line-colour timing, not a dead control) **v0.11.0** was verified with UIX 9.0.0 on HA 2026.11.0 (suite 19/19, every control 491/491, read-back check 6/6). |
 
-> **card-mod caveat — consider UIX:** card-mod 4.2.1 still works with Card-Mod Studio on the HA versions above, but it is effectively unmaintained: on HA ≥ 2026.8 it hangs if your active *theme* defines `card-mod-*-yaml` variables ([card-mod #606](https://github.com/thomasloven/lovelace-card-mod/issues/606), [#617](https://github.com/thomasloven/lovelace-card-mod/issues/617)). If your theme does, [UIX](https://uix.lf.technology/) is a drop-in replacement for card-mod, and Card-Mod Studio supports both equally.
+> **card-mod caveat — consider UIX:** card-mod 4.2.1 still works with Card Style Studio on the HA versions above, but it is effectively unmaintained: on HA ≥ 2026.8 it hangs if your active *theme* defines `card-mod-*-yaml` variables ([card-mod #606](https://github.com/thomasloven/lovelace-card-mod/issues/606), [#617](https://github.com/thomasloven/lovelace-card-mod/issues/617)). If your theme does, [UIX](https://uix.lf.technology/) is a drop-in replacement for card-mod, and Card Style Studio supports both equally.
 
-> **Note on HA updates:** Card-Mod Studio injects into the card editor using the `hui-dialog-edit-card` element. If a HA update renames this element, the Style button will not appear and a console warning will be shown. Check [GitHub Issues](../../issues) for status after major HA releases.
+> **Note on HA updates:** Card Style Studio injects into the card editor using the `hui-dialog-edit-card` element. If a HA update renames this element, the Style button will not appear and a console warning will be shown. Check [GitHub Issues](../../issues) for status after major HA releases.
 
 > **YAML-mode dashboards (HA 2026.8+):** HA 2026.8 removed the ability to enter edit mode on `mode: yaml` dashboards entirely — the visual card editor (and therefore the Style button) can only be opened on normal storage-mode dashboards there. Cards on YAML dashboards keep rendering their existing `card_mod:`/`uix:` styling unchanged.
 
@@ -343,7 +406,7 @@ Card-mod compatibility follows card-mod's own compatibility table. See [card-mod
 
 ## Support the project
 
-Card-Mod Studio is free and always will be. If it saves you time, two
+Card Style Studio is free and always will be. If it saves you time, two
 things genuinely help:
 
 - **⭐ Star the repo** — stars are how people discover HACS projects, and
@@ -466,6 +529,15 @@ tools/sandbox/              Real HA + real card-mod/UIX in Docker, Playwright
 | 25 | Mushroom (5.2.3) and Bubble Card (3.x: button, slider button, separator, cover) support via per-card profiles, click-to-edit for their parts, entities-card row labels follow HA 2026.11 naming, Alert card gating | ✅ v0.11.0 (beta.2; Mushroom and Bubble Card support stays a beta) |
 | 26 | Release-review round: controls you switch on but don't touch write nothing (Heading Style, Font, Icon Color incl. a "Keep the card's colour" mode); a conditional Background/Border keeps the card's own look while off; no entity-based conditions on entity-less cards or for entities that are never on/off; gauge Number size 50–130 % with 100 % = Home Assistant's size; Animation on nearly every built-in card (presets left out where they can't work), card-level Threshold Colors on the entities card, Icon Color on the statistic card, a per-card maximum icon size; Font reaches more text; a notice on custom cards without a profile; Advanced CSS, colour and number input checks; keyboard, screen-reader and touch work; click-to-edit for more card parts; palette and presets keep changes made while Home Assistant is unreachable; Enter no longer saves the dialog on HA 2025.9–2026.2 | ✅ v0.11.0 (beta.3; verified on four rigs, see Compatibility) |
 | 27 | Read-back fixes found by replaying 217,000 styles of every release since v0.8.1 and by fuzzing: a Font without a size next to Threshold Colors and Threshold rules pointing both ways are read back into their modules; hand-written `!important`, `border-radius: 0px`, `border: 0px solid …` and heading-card selectors on other cards are no longer rewritten on save (cards and entities rows); repeatable checks in `tools/continuity/` | ✅ v0.11.0 |
+| 28 | The Studio in 22 languages: every text through one dictionary (about 390 messages; English and German by hand, 20 more machine-translated with Home Assistant's own terms), a one-time language question (Auto-detect recommended, follows Home Assistant's language), a Settings section with the language selector that switches the open panel at once, stored per HA user | ✅ v1.0.0 |
+| 29 | Optional integration (Settings → Devices & services): site-wide language, language question on/off, default ON/OFF colours, pushed live to open Studios; translated into the same 22 languages | ✅ v1.0.0 |
+| 30 | Structure: `conditional` and `entity-filter` cards, containers nested inside containers (any depth, entities rows and tile Features inside), tile **Features** module (height, corner radius, colour) | ✅ v1.0.0 |
+| 31 | My Presets: rename, reorder, duplicate, delete; copy/paste a card's style or all presets as text | ✅ v1.0.0 |
+| 32 | Square corners in Border & Radius; Font/Threshold text colour on alarm-panel and picture-elements and Animation on the heading card (measured); "Let this module take over" removes exactly the overriding Advanced CSS; the Studio in Home Assistant's Section configuration dialog (HA 2026.11); a pinned preview on phones; Settings shows the written key and the integration's status; large Jinja styles open fast again | ✅ v1.0.0 |
+| 33 | New name **Card Style Studio** (formerly Card-Mod Studio): UI in 22 languages, HACS name, integration title; Studio-written names `cms-` → `cstudio-` (old ones read, new ones written on save) | ✅ v1.0.0 |
+| 34 | Threshold Colors text rules `is` / `is not` (states like `heating`, `docked`; text attributes), checked before number rules; also per entities row | ✅ v1.0.0 |
+| 35 | Text in every value condition (`is` / `is not`: Animation, Visual Filters, Border, icon size) and "A value matches" for Background and grayscale ([#42](https://github.com/DerTrolli/card-mod-studio/issues/42)); stored in fields older versions ignore | ✅ v1.0.0 |
+| 36 | Panel in Home Assistant's look: outlined modules with HA icons, tabs Style / Presets / Palette / Settings, a one-line summary on every closed module (styled cards open with their modules closed), "Apply when" for every condition, Advanced CSS always last | ✅ v1.0.0 |
 
 For everything after a given release, [`CHANGELOG.md`](CHANGELOG.md) has full
 detail and [`docs/ROADMAP.md`](docs/ROADMAP.md) has what's planned next.
@@ -489,4 +561,4 @@ MIT — see [LICENSE](LICENSE)
 
 ## Attribution
 
-The concept, UX design, and product direction for Card-Mod Studio were created by [DerTrolli](https://github.com/dertrolli). The implementation was coded by [Claude](https://claude.ai) (AI assistant by [Anthropic](https://anthropic.com)).
+The concept, UX design, and product direction for Card Style Studio were created by [DerTrolli](https://github.com/dertrolli). The implementation was coded by [Claude](https://claude.ai) (AI assistant by [Anthropic](https://anthropic.com)).

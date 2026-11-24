@@ -105,6 +105,6 @@ describe('the "keep the card\'s colour" hint is true on a card with no size cont
   it('without one (a preset): says no colour is written, not "the size below"', () => {
     const t = make(Icon, { enabled: true, mode: 'none' }, { stateAware: true, entity: 'light.a', allowSize: false }).text();
     expect(t).not.toContain('size below');
-    expect(t).toContain('writes no colour');
+    expect(t).toContain('writes no color');
   });
 });

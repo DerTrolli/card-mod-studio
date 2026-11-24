@@ -3,22 +3,37 @@
 1. Edit any card (pencil icon in dashboard edit mode)
 2. Click the **🎨 Style** button in the editor footer (icon-only on narrow
    screens)
-3. The Card-Mod Studio panel opens in place of the card's normal config form
+3. The Card Style Studio panel opens in place of the card's normal config form
 
 <img src="https://raw.githubusercontent.com/DerTrolli/card-mod-studio/main/images/02%20Card-Mod%20Studio.png" alt="The panel" width="1024">
 
 The layout:
 
-- **Left column** — the preset bar, [My Color Palette](Presets-and-My-Color-Palette),
-  and the style modules. Only modules that can actually do something on this
-  card type are shown (see [Card Support](Card-Support)).
+- **Tabs** *(1.0)* — **Style** holds the style modules; **Presets** the
+  preset bar and [My Presets](Presets-and-My-Color-Palette) with copy/paste;
+  **Palette** [My Color Palette](Presets-and-My-Color-Palette); **Settings**
+  the [language and the written key](Language-and-Settings). Every editor
+  opens on Style. A module you opened stays open while you look at another
+  tab. The tab list works with the arrow keys, Home and End.
+- **Left column** — the open tab. On Style, only modules that can actually
+  do something on this card type are shown (see [Card Support](Card-Support)),
+  in a fixed order with Advanced CSS last.
 - **Right column** — a live preview of the real card that re-renders on every
   change, shown on your theme's own dashboard background. When the panel is
   narrower than about 720px (phones, small windows, tablet split view) the
-  preview stacks below the controls instead.
+  preview moves to the top and stays pinned there while the controls scroll
+  under it *(v1.0.0-beta.2)*; **Hide** folds it away (remembered on that
+  device), **Show** brings it back.
 
-The panel follows your theme in light and dark mode. Each module has a
-**toggle** (enables its output) and a collapsible body. A module that's off
+The panel follows your theme in light and dark mode and uses Home
+Assistant's own look *(1.0)*: each module is an outlined panel with an icon,
+its **toggle** (enables its output) and a chevron that opens its body. A
+closed module shows **what it does on this card** in one line under its
+title — *Pulse · 2s · when vacuum.robo is “cleaning”*, colours as dots, a
+fade as a bar, the first line of Advanced CSS — and a styled card opens with
+its modules closed, so the whole style can be read at a glance. A module
+opens when you click it, switch it on, or click its part of the preview.
+Changing a setting of a module that is off switches it on *(1.0)*. A module that's off
 contributes nothing to the generated YAML, and a module that's on but where you
 haven't set anything writes nothing either — Heading Style, Font and Icon
 Color start from "Default", the card's own look.
@@ -96,7 +111,7 @@ card_mod:
 ```
 
 You can inspect it any time via **Show code editor** — the generated YAML is
-plain card-mod/UIX syntax with no runtime dependency on Card-Mod Studio.
+plain card-mod/UIX syntax with no runtime dependency on Card Style Studio.
 **If you uninstall the Studio, every styled card keeps working** — the engine
 (card-mod/UIX) is what renders the styles.
 

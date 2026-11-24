@@ -1,14 +1,17 @@
-Welcome to the **Card-Mod Studio** wiki — the detailed manual. The
+Welcome to the **Card Style Studio** wiki — the detailed manual. The
 [README](https://github.com/DerTrolli/card-mod-studio#readme) covers what the
 project is and how to install it; these pages cover how everything works,
 module by module, plus recipes, troubleshooting, and exact per-card support.
 
-**Current version:** v0.11.0.
+**Current version:** v1.0.0 (2026-11-22) — the first stable release. New in 1.0.0: [text in every value condition](Background-Filters-Animation-Border) (`is` / `is not` for Animation, Visual Filters, Border, icon size; "A value matches" for Background and grayscale) and the panel in Home Assistant's look — [tabs, icons and a summary on every closed module](Getting-Started). Also new in 1.0 (from the pre-releases): the new name, [Threshold text rules](Threshold-Colors#text-rules-is--is-not-v100-beta2), Square corners, "Let this module take over", the Studio in the Section configuration dialog, a pinned preview on phones, [22 languages](Language-and-Settings), an optional [Settings integration](Integration), [conditional, entity-filter and nested containers](Container-Cards), [tile Features](Tile-Card#features-new-in-10) and [My Presets with copy/paste](Presets-and-My-Color-Palette).
 
-## What is Card-Mod Studio?
+## What is Card Style Studio?
 
-A visual GUI editor for [card-mod](https://github.com/thomasloven/lovelace-card-mod)
-/ [UIX](https://uix.lf.technology/) styles in Home Assistant. It adds a
+The visual style editor for [UIX](https://uix.lf.technology/) and
+[card-mod](https://github.com/thomasloven/lovelace-card-mod) in Home Assistant.
+*Formerly known as Card-Mod Studio* — renamed in 1.0 because it is just as
+much a UIX editor; see [The rename](https://github.com/DerTrolli/card-mod-studio#the-rename-card-mod-studio--card-style-studio).
+Your cards, resource, presets and settings carry over unchanged. It adds a
 **🎨 Style** button to the normal card editor; instead of hand-writing
 YAML + CSS + Jinja2, you use color pickers, sliders, and rule builders — and
 the correct `card_mod:`/`uix:` YAML is generated, previewed live, and saved
@@ -19,6 +22,7 @@ through HA's normal save flow.
 **Setup**
 - [Installation](Installation) — Marketplace, HACS, manual, requirements
 - [Getting Started](Getting-Started) — the panel, saving, how the YAML works
+- [Integration (Settings page)](Integration) — optional site-wide defaults, *new in 1.0*
 
 **Style modules**
 - [Icon Color & Accent Color](Icon-Color-and-Accent-Color)
@@ -34,6 +38,7 @@ through HA's normal save flow.
 **Workflow**
 - [Recipes](Recipes) — practical walkthroughs (battery rows, fading gauges, pulse-while-running, …)
 - [Presets & My Color Palette](Presets-and-My-Color-Palette)
+- [Language & Settings](Language-and-Settings) — 22 languages, *new in 1.0*
 
 **Per-card guides** — exactly what's styleable on each card and why
 - [Tile](Tile-Card) · [Gauge](Gauge-Card) · [Thermostat & Humidifier](Thermostat-and-Humidifier-Cards) · [Light](Light-Card) · [Button](Button-Card)

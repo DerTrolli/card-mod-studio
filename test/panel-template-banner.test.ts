@@ -31,7 +31,7 @@ const list = (style: string, type = 'tile') => {
   return { p, text: templateText(p._renderModuleList(p._studioState!)) };
 };
 const BANNER = 'This style uses template statements ({% … %}), so the Studio keeps all of it as written in';
-const GENERIC = "Some existing styles weren't recognised";
+const GENERIC = "Some of this card's styles aren't controlled by a module";
 
 describe('template-statement info banner', () => {
   it('shows for a top-level {% if %} wrapper — modules are off, rules sit in Advanced CSS', () => {

@@ -5,6 +5,474 @@ All notable changes to Card-Mod Studio are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] — 2026-11-22
+
+Card Style Studio 1.0: the first stable release. Every condition that
+compares a value can now compare a text state as well as a number (#42),
+Background and grayscale get "A value matches", and the panel takes Home
+Assistant's own look: tabs, icons and a summary on every closed module.
+
+From here on, the generated `card_mod:` / `uix:` YAML, the stored preset,
+palette and settings formats, the copy/paste text and the integration's
+options only change in a backward-compatible way within 1.x.
+
+### Added
+
+- **Text states in "A value matches"**
+  ([#42](https://github.com/DerTrolli/card-mod-studio/issues/42)): the
+  Animation trigger, Visual Filters (effects), Border & Radius (width) and
+  Icon Color (size) offer `is` / `is not` next to `<` … `!=`, for states
+  that are words: a thermostat's `heating`, a vacuum's `cleaning` or
+  `docked`, a select's option. The text field starts from the entity's
+  current value and shows it ("Right now: …"), and "Value read from" offers
+  text attributes (e.g. `hvac_action`) while a text operator is chosen.
+  Written as `states('climate.hall') == 'heating'` (an attribute:
+  `state_attr('…', '…') | string == '…'`), the same spelling as Threshold
+  text rules (#41), so it is compared exactly as Home Assistant stores it.
+  A number typed as text becomes the number comparison `==` / `!=`.
+- **Background and grayscale: "A value matches"**: their "Apply when" now
+  also offers a value condition (a number or a text), e.g. the background
+  red while a vacuum is `cleaning`. The other branch is the card's own
+  look. Mushroom and Bubble cards get it through their background
+  variables.
+- **Icon Color and Accent Color** (ON / OFF colours) point to Threshold
+  Colors for colours by a number or a text state, which writes exactly that
+  (a colour per value, or a fade).
+- **Tabs: Style / Presets / Palette / Settings.** The modules have the
+  Style tab to themselves. The preset bar (load, save, delete) moved onto
+  the Presets tab next to My Presets and copy/paste; My Color Palette and
+  Settings have their own tabs and are always open there. Every editor
+  opens on Style; a module you opened stays open while you visit another
+  tab; a click on the preview from any tab goes back to Style and opens the
+  module. The tab list works with the arrow keys, Home and End. On phones
+  the four tabs share the width (they fit 360px in all 22 languages).
+- **A summary on every closed module**: what it does on this card, under
+  its title — colours as dots, a fade as a bar, conditions in words
+  ("when climate.hall is “heating”"), sizes and the first line of Advanced
+  CSS. Screen readers get it as the header's description; the header's
+  name stays the module's title.
+
+### Changed
+
+- **Home Assistant's own look**: modules are outlined panels like Home
+  Assistant's card editors, with Material Design icons, the switch and a
+  chevron on the right, and no filled header. Emoji in headers, banners and
+  buttons are replaced by Home Assistant's icons.
+- **A styled card opens with its modules closed**, each showing its
+  summary, so the whole style can be read at a glance; a module opens when
+  you click it, switch it on, or click its part of the preview. Advanced
+  CSS still opens by itself when the card brings CSS the modules didn't
+  take over.
+- **Changing a setting of a module that is off switches it on.** Before,
+  the change was kept but nothing showed until the switch was flipped too,
+  which read as broken. The switch itself still turns a module off.
+- **Phones: a shorter pinned preview** (about a fifth of the screen) without
+  the hint line; picking a part of the preview works the same.
+- **One wording for every condition: "Apply when"** (some said "Reacts
+  to"), and "State" for the entity's own value in every "Value read from".
+- **A calmer note for CSS no module controls**: "Some of this card's
+  styles aren't controlled by a module — they're kept, unchanged, in
+  Advanced CSS" (was "Some existing styles weren't recognised — preserved
+  in Advanced CSS", which read like something had broken).
+- **Advanced CSS is always last**: on an entities card, Entity Rows now
+  come before it.
+
+### Fixed
+
+From a final review in which a tester only looked at the screen and clicked:
+
+- **Bubble Card styles that didn't show.** On some page loads, and often
+  right after switching the dashboard to edit mode, card-mod or UIX attached
+  its style element to a Bubble card before the card was ready. The card
+  then showed unstyled, and a style saved in the editor didn't appear until
+  the page was reloaded. This comes from card-mod / UIX and Bubble Card
+  loading at the same time and happens without the Studio too, but
+  loading the Studio made it more frequent: on UIX, about 1 page load in
+  13 with the Studio against 1 in 70 without it (and 1.0.0-beta.2 left
+  those cards unstyled). The Studio now
+  moves the style element to where it belongs: a few seconds after a page
+  loads, after navigating, and after the card editor closes. It touches only
+  Bubble cards with a misplaced element, and does nothing when Bubble Card
+  isn't installed. Measured with card-mod 4.2.1 and UIX 9.0.0 on Home
+  Assistant 2026.11 and 2026.2; card-mod 3.4.5 isn't affected. (A card
+  can still show unstyled for one page load when the style engine waits
+  for Home Assistant's theme setting: see Known limitations.)
+- **"A value matches" with no entity applied all the time.** Picking it now
+  starts with the card's own entity (Background, Visual Filters, Border,
+  Icon size, Animation), as Threshold Colors already did. On a card without
+  an entity it says one is needed, instead of applying the style all the
+  time without saying so. Existing styles and presets are read as before.
+- **Icon Color changed its controls when switched on.** While it's off, it
+  now shows what switching it on gives (for example "Keep the card's color"
+  on cards with an Icon size), and an edit made while it's off starts from
+  that.
+- **Threshold Colors with no rule** said "Result: Always" with a color it
+  never applied. It now says nothing is applied until a rule is added.
+- **Text:**
+  - The condition list groups the number and the text comparisons.
+  - English spells "color" one way throughout, including in the
+    integration.
+  - The Palette tab has one sentence where it said the same thing twice.
+  - The preset name's button reads "Save preset", so it can't be mistaken
+    for Home Assistant's Save.
+  - The copy/paste note says what "Number size" is.
+
+### Compatibility
+
+- Text conditions are stored in new fields (`valueText`,
+  `valueTextOperator`), and the Background / grayscale value condition in
+  `condition` / `grayscaleCondition`, with "Apply when" itself left at
+  Always. Measured against 1.0.0-beta.2 and 0.11.0: going back to an older
+  version, such a condition applies always (no broken template, no
+  inverted condition) and the rest of the style is unchanged.
+- Styles, presets, palettes, settings and copied text from every earlier
+  version read unchanged.
+
+### Known limitations
+
+- **card-mod 4.2.1 and UIX: cards unstyled for one page load, now and
+  then.** The style engine waits for Home Assistant's theme setting
+  (`hass.themes.theme`) before it applies a card's style. On a rare page
+  load that setting doesn't arrive; the engine then styles no card on that
+  page (also not one you save in the editor) and after 30 seconds logs
+  `themesReady: Timeout waiting for themes to become ready`. Reloading the
+  page brings the styles back. It comes from the engine, not from the
+  Studio, which neither reads nor sets that setting, and it happens with
+  the Studio's file replaced by an empty one too. Measured on Home
+  Assistant 2026.11: about 1 page load in 100 (1 in 217 without the
+  Studio), 1 of 20 long editing sessions (see the Troubleshooting FAQ).
+- **Home Assistant 2025.9:** besides Font on a tile's text (as before), a
+  larger tile icon (Icon Color → Icon size) fills the tile's icon circle
+  instead of growing it — that Home Assistant version has no variable for
+  the circle's size (2026.2 and newer do).
+- **Home Assistant 2025.9:** after each change in the editor, the preview
+  card can show unstyled for a second or two before the new style appears
+  (the dashboard itself is not affected). Seen with earlier versions too.
+- The history graph shows a **Threshold** accent colour from its next
+  redraw (the sensor's next change), as before (see the wiki's Graph and
+  Data Cards page).
+
+### Verified
+
+One build (sha256 `8d12f579…a75f20a4`), the same file on four Home Assistant
+rigs: 2026.11.0 with card-mod 4.2.1, 2026.11.0 with UIX 9.0.0, 2026.2.3 with
+card-mod 4.2.1 and 2025.9.4 with card-mod 3.4.5. It is the second full run:
+the first passed too, and the fixes from the final review (above) changed
+the code, so everything was run again on a new build. The full record of
+both, with a note on every line that isn't clean:
+`docs/research/2026-11-v1.0.0-release-run.md`.
+
+- **Static:** typecheck, 3,469 unit tests, the build reproducible (also with
+  the release workflow's Node 20 from a clean copy), the HACS / hassfest
+  workflow green.
+- **Every earlier release:** styles, rows, configs and presets written by
+  every release since v0.8.1 (now with 1.0.0-beta.2) load and save in 1.0.0
+  exactly as in 1.0.0-beta.2. The one new difference: a hand-written
+  grayscale condition on a value is now taken over by Visual Filters and
+  gains its usual 300 ms fade. 30,000 random hand-written styles and the
+  settings fuzz: nothing thrown, nothing unstable.
+- **Every control, clicked through the real card editor:** 497 of 497
+  (card-mod) and 499 of 499 (UIX); 496 of 497 on 2026.2; on 2025.9 all of
+  the 497 but 7 — the two gaps above (6 checks) and, as on 2026.2, Home
+  Assistant enabling Save on an unchanged mixed-form card.
+- **Feature checks on all four rigs** (renamed names, text in Threshold
+  rules and in every condition, read-back, phone preview, presets, Bubble
+  Card styles after loading and after a save; on 2026.11 with both engines
+  also containers, tile features and the beta.2 fixes; sections and the
+  integration on the card-mod rig, the integration also on 2025.9): all
+  pass. Two first attempts failed with the symptom of the style engine
+  waiting for Home Assistant's theme setting (Known limitations); their
+  retries passed.
+- **Bubble Card:** with the Studio, every load where card-mod / UIX
+  attached its style in the wrong place was repaired and styled (20 of 20
+  in 150 loads on UIX, alternating with the two builds below); the same
+  build without the repair, and 1.0.0-beta.2, left those loads unstyled
+  (11 % to 34 % of their loads).
+- **User simulations through the real UI:** updating from 0.11.0, 1.0.0-beta.1
+  and 1.0.0-beta.2 (the dashboard looks the same, cards open with their
+  modules on, presets load: 8 of 8 each); the issue #42 case — a vacuum's
+  text states driving Background, Animation, grayscale and the icon colour —
+  on all four rigs (7 of 7); keyboard only, from the Style button to a saved
+  card (9 of 9); a 30-round editing session (the Studio adds about 0.3 MB
+  per opened card editor to what Home Assistant itself keeps; no panel left
+  behind, every save landed).
+- **All 22 languages** at 1440, 390 and 360 px (23 of 23 each); the visual
+  check in light and dark at six screen sizes: no clipped text, no low
+  contrast, no touch target under 24 px on phones.
+- **Module-effect audit:** Mushroom and Bubble Card 0 controls without
+  effect on both engines; built-in cards (card-mod rig) 0, with the gauge's
+  text colour inconclusive as before.
+- **Home Assistant's own logs** on all four rigs: nothing from the Studio.
+
+## [1.0.0-beta.2] — 2026-11-19
+
+The second 1.0 pre-release: the new name **Card Style Studio** (formerly
+Card-Mod Studio, #40), Threshold text rules (`is` / `is not`, #41), Square
+corners, "Let this module take over", the Studio in Home Assistant's Section
+configuration dialog, a pinned preview on phones, five more controls, and
+fast reading of large Jinja styles.
+
+### Changed
+
+- **New name: Card Style Studio** (formerly Card-Mod Studio), the visual
+  style editor for UIX and card-mod
+  ([#40](https://github.com/DerTrolli/card-mod-studio/issues/40)). The name
+  changes in the panel, in all 22 languages, in `hacs.json` (HACS / the
+  Marketplace), on the integration and in the docs. An integration entry
+  added under the old name is renamed when Home Assistant starts.
+- **The names the Studio writes into a style** change prefix from `cms-` to
+  `cstudio-`: `@keyframes cstudio-pulse` (and the other presets), the
+  `animation: cstudio-…` value, and `--cstudio-gradient-stops`. Styles with
+  the old names are read exactly as before (the controls show the same
+  thing) and are written with the new names the next time the card is saved
+  in the Studio; opening a card doesn't change it. Hand-written CSS in
+  Advanced CSS is never rewritten: a rule of yours that uses an old `cms-…`
+  animation keeps its keyframes block. Going back to an older version: it
+  doesn't know the new names, but the card looks and animates the same. A
+  saved animation opens there as hand-written CSS in Advanced CSS (written
+  back unchanged); a Threshold gradient (Fade) opens as a Threshold with its
+  32 steps, its marker kept in Advanced CSS, so its stops can't be edited as
+  stops there.
+- **Unchanged, on purpose:** the resource file `card-mod-studio.js`, the
+  repository and its URLs, the integration's id `card_mod_studio`, the
+  stored presets / palette / settings and the copy/paste text. Nothing to do
+  after updating.
+
+### Added
+
+- **Square corners** in Border & Radius: a switch that writes
+  `border-radius: 0px` (before, the radius slider's 0 meant "not set", so
+  sharp corners were only possible by hand). A hand-written
+  `border-radius: 0px` is now read into the module as Square corners
+  instead of being kept in Advanced CSS; the card looks the same. A radius
+  of 0 without the switch still means the card's own rounding, so presets
+  and copied styles from earlier versions read unchanged. When no radius
+  is set, the slider says "Card default" instead of "0px".
+- **Controls that were hidden although they work** (each measured on Home
+  Assistant 2026.11 with card-mod and UIX, and on 2025.9):
+  - alarm panel: Font → Text color and Threshold → Text Color (they colour
+    the card's title);
+  - picture-elements: Font → Text color and Threshold → Text Color (they
+    colour the state labels);
+  - heading: Animation, without Glow (it outlined a full-width pill around
+    the bare text), Spin (it swung the whole row across the view) and
+    Gradient Shift (nothing to move). A preset with one of those, loaded
+    onto a heading, leaves Animation off.
+
+  Still hidden, on purpose: Accent and Threshold → Accent on the entities
+  card (they only recolour row icons that have no state colour of their
+  own — the per-row Icon color does that properly), and Font / Font family
+  on the heading card (Heading Style already sets size, weight, family and
+  colour there; two controls for one property would fight).
+- **⚙️ Settings shows which key styles are written under** — `uix:` when
+  UIX is installed (UIX's own key; a card styled under `card_mod:` moves to
+  `uix:` the next time it is saved), else `card_mod:` (read by card-mod and
+  by UIX) — and whether the optional integration is installed: with it,
+  that an administrator sets the defaults; without it, for administrators,
+  a link to how to install it (HACS / the Marketplace don't install it).
+- **"Let this module take over"**: when hand-written CSS in Advanced CSS
+  overrides a module (the ⚠️ "Custom CSS is overriding this setting" note),
+  a button in that note removes exactly the overriding declarations — it
+  first shows what it will remove, and only Remove removes it. A rule (or
+  `@media` block) left empty goes with them; the rest of Advanced CSS stays
+  byte for byte. Not offered on styles with Jinja statements (`{% … %}`) or
+  CSS it can't follow safely. Cancel the card editor to undo.
+- **Sections (sections views)**: the 🎨 Style button now also appears in Home
+  Assistant's **Section configuration** dialog (section menu → Edit). Every
+  card in the section gets its own styling section, saved into that card;
+  Advanced CSS at this level styles the section itself with `:host { … }`
+  (for example `:host { background: … }` — both engines). While the Studio
+  is open the dialog grows to fit it and shows the Studio's own preview.
+  Verified on Home Assistant 2026.11 with card-mod and UIX. On older Home
+  Assistant (checked: 2025.9, 2026.2) the section dialog is the small
+  "Edit section" one without a preview, and the Style button isn't offered
+  there; the cards in a section still each have their own Style button.
+- **Threshold text rules** ([#41](https://github.com/DerTrolli/card-mod-studio/issues/41)):
+  next to `<` … `!=`, a rule can be `is` / `is not` a text, for states that
+  are words: a thermostat's `heating` / `cooling` / `idle`, a vacuum's
+  `cleaning` / `docked` / `error`, a select's option. Written as
+  `states('…') == 'heating'` (an attribute: `state_attr('…', '…') | string ==
+  '…'`), so it is compared exactly as Home Assistant stores it, not as the
+  translated text the dashboard shows; the editor shows the current value
+  and starts a new text rule from it. Text rules are checked before the
+  number rules (which read a text state as 0), in the order entered, so
+  `is unavailable` works next to `< 5`. "Value read from" also offers text
+  attributes (e.g. `hvac_action`) while a text rule exists. A number typed
+  into `is` becomes the number rule `==`. The same in an entities card's
+  per-row rules. Fade stays numbers-only. A hand-written chain in exactly
+  this spelling is now read into Threshold Colors instead of staying in
+  Advanced CSS. Older versions keep a style with text rules as hand-written
+  CSS in Advanced CSS (it works unchanged); a preset or copied style with
+  text rules loses those rules there.
+- **A pinned preview on phones**: on a narrow panel the live preview now
+  comes first and stays at the top while the modules scroll under it (a
+  strip of at most about a quarter of the screen; a tall card scrolls
+  inside it), so a change is visible as it is made. **Hide** folds it away
+  — remembered on that device — and **Show** brings it back.
+
+### Fixed
+
+- **Large styles with many Jinja templates open fast again.** Reading a
+  style back restored every `{{ … }}` placeholder by walking all of them
+  for every value — 4,000 templated rules took about 5 seconds to open
+  (and as long again for the "overridden" check). It is one pass now:
+  39 ms for the same style. Plain styles were never slow (5,000 rules
+  read in ~60 ms).
+
+## [1.0.0-beta.1] — 2026-11-18
+
+The first 1.0 pre-release: it completes the roadmap's "Path to v1.0" —
+the Studio in 22 languages, an optional Settings page for administrators,
+and the structure items planned for v1.0: `conditional` and `entity-filter`
+cards, containers inside containers, tile Features, and a preset manager
+with copy/paste. A pre-release because 20 of the languages are machine
+translations nobody has read yet, and the new features want real-world use.
+
+From 1.0 on, the generated `card_mod:`/`uix:` YAML, the stored preset,
+palette and settings formats, the copy/paste text and the integration's
+options only change in a backward-compatible way within 1.x.
+
+### Added
+
+- **22 languages.** Every module, label, hint, warning, notice and the CSS
+  checks in Advanced CSS: English, Deutsch, Nederlands, Français, Español,
+  Italiano, Polski, Português, Português (Brasil), Svenska, Dansk, Norsk
+  bokmål, Čeština, Slovenčina, Magyar, Suomi, Русский, Українська, 简体中文,
+  繁體中文, 日本語, 한국어. English and German are written by hand. **The
+  other 20 are machine translations, not yet read by native speakers**;
+  each uses Home Assistant's own word wherever Home Assistant has one (its
+  translation of *entity*, *card*, *icon*, *background*, *opacity*,
+  *features*, the colour names, …, taken from Home Assistant's translation
+  files) and Home Assistant's register for that language. The generated
+  YAML/CSS is the same in every language.
+- **A one-time language question.** The first time the Studio opens, a
+  notice at the top of the panel asks which language to use, with
+  **Auto-detect (recommended)** preselected: it follows the language Home
+  Assistant shows for you, including regional variants (de-CH → Deutsch,
+  zh-TW → 繁體中文, pt-PT → Português, es-419 → Español, no/nn → Norsk
+  bokmål), else English, and names what it picked. The notice takes no
+  focus and blocks nothing; until it is answered the Studio uses
+  Auto-detect.
+- **⚙️ Settings**, a new section right below My Color Palette, with the
+  **Language** selector. A change applies to the open panel at once; open
+  sections stay open. The choice is stored **per Home Assistant user**
+  (like presets and the palette), so it is asked once, not on every device;
+  a copy in the browser covers the moments Home Assistant can't be reached,
+  and a choice made then is sent up later. On another device the question
+  waits until Home Assistant's copy has been read, so it isn't asked again.
+- **An optional integration** — a Card-Mod Studio entry under **Settings →
+  Devices & services** where an administrator sets defaults for everyone:
+  the language, whether users are asked for one, and the default ON/OFF
+  colours (one of Home Assistant's named colours, or the Studio's own). A
+  user's own choice still wins. Changes reach every open Studio at once.
+  The options dialog is translated into the same 22 languages. Installed by
+  hand from `card_mod_studio.zip`, attached to the release (HACS and the
+  Marketplace install the Studio as a dashboard plugin and can't add an
+  integration from the same repository).
+- **`conditional` and `entity-filter` cards** get a styling section for the
+  card inside them, saved into that card. An `entity-filter` without its
+  own `card:` shows Home Assistant's default entities card, and styling it
+  writes that `card:` so the style has somewhere to live.
+- **Containers inside containers** — a stack in a stack, a grid in a
+  conditional, … — get nested sections at any depth, each saved into
+  exactly its card; entities rows and tile Features work inside them too.
+- **Tile Features**: a Features module on the tile card styles the feature
+  rows under it (brightness slider, cover buttons, …) — height (24–96 px),
+  corner radius (0–40 px) and colour (empty = Home Assistant's state colour,
+  as before). Measured on card-mod and UIX on Home Assistant 2026.11 and
+  on 2025.9 before it was built.
+- **📚 My Presets**: a list of your presets with rename, move up/down,
+  duplicate and delete (press twice).
+- **Copy / paste styles**: copy a card's style or all your presets as text
+  and paste it onto another card, for another user or into another Home
+  Assistant. The text carries the Studio's settings (not CSS), so the other
+  side needs Card-Mod Studio; it doesn't carry the card's own hand-written
+  entries or number sizes. Where the browser doesn't allow copying (Home
+  Assistant without https), the text is shown selected for Ctrl+C / ⌘C.
+  Anything that isn't a Studio text is refused with an explanation.
+
+### Changed
+
+- Overwriting a preset keeps its place in the list (it used to move to the
+  end).
+- A word longer than the label column (some languages) is hyphenated
+  instead of running into the control next to it, and a "Default (…)" value
+  label wraps when the row is squeezed; the panel carries its language
+  (`lang`), which hyphenation and screen readers use.
+- The Default ON/OFF rows of My Color Palette show the administrator's
+  default when one is set ("for everyone: …").
+- The bundle doubles with the languages: 553 → 1,131 kB (133 → 276 kB
+  gzipped). All languages are in the one file, as HACS installs one file.
+- English text is unchanged apart from the new features and two notices
+  reworded for them (the container banner, and the one on a container the
+  Studio can't enter).
+
+### Known limits
+
+- The 20 machine translations may read awkwardly in places; corrections
+  are welcome as issues or pull requests.
+- `sections` view containers and custom containers (layout-card, …) still
+  show a banner instead of per-card sections.
+- With Home Assistant in a language with long words, on a phone, Home
+  Assistant's own dialog footer labels can wrap; that is Home Assistant's
+  text, not the Studio's.
+
+### Verified
+
+With the release build (the same file on every rig) unless noted. Not
+covered by the live checks: the first-run question in each of the 20 new
+languages (it is the same component as in German, checked in
+`language_check.mjs`).
+
+- **Every language, live:** a new check
+  (`tools/sandbox/harness/languages_sweep_check.mjs`) switches through all
+  22 languages with the real Settings selector, on a vertical stack holding
+  a heading, a tile with a feature row and an entities card, with all 17
+  modules on, all 30 sections open (asserted), two rules in each Threshold
+  module and two saved presets, and fails on panel text that sticks
+  out sideways, is cut off, or runs out of its own box: 23 of 23 at 1440 px
+  and at 390 px, on Home Assistant 2026.11.0 with card-mod 4.2.1 and with
+  UIX 9.0.0. It found two layout problems that are fixed above (a Russian
+  label 5 px too wide for the label column at 1440 px; a Ukrainian
+  "Default (…)" label at 390 px).
+- **Home Assistant's own terms:** every short message of every language was
+  compared with Home Assistant's translations of the same word
+  (`tools/i18n/glossary_diff.py`) and switched to Home Assistant's word where
+  it has a clear one; the differences left are nouns inflected for their
+  sentence, words Home Assistant leaves in English, words with few votes,
+  words kept to match their pair (primary/secondary text, the durations),
+  and a few Home Assistant phrases that mean something else here (a plural
+  "reset the values" for one control's reset, a verb "preview" for the
+  preview heading).
+- **The integration** (`integration_check.mjs`, Home Assistant's own UI with
+  real input): add it, a second add is refused, Configure → Português
+  (Brasil) / ON colour Green / ask off → the Studio follows (Portuguese, no
+  question, Icon Color starts green): 7 of 7 on Home Assistant 2026.11.0
+  and on 2025.9.4. Home Assistant serves the options dialog's own
+  translations (checked in Japanese and Korean, all 23 language options).
+  With the build before the last two changes (label wrapping and a few
+  translation words); the integration files themselves are unchanged
+  since.
+- **The one-time question and Settings** (`language_check.mjs`) 13 of 13,
+  **presets** (`presets_check.mjs`) 11 of 11, **containers**
+  (`containers_check.mjs`) 6 of 6, **tile Features** (`features_check.mjs`)
+  5 of 5 — each with card-mod and with UIX on 2026.11.0, with the build
+  before the last two changes (label wrapping and a few translation
+  words), which these checks don't touch.
+- **In English**, on 2026.11.0: the check suite 21 of 21 (card-mod) and 19
+  of 19 (UIX); the functional check of every control in the real card
+  editor 489 of 489 (card-mod) and 491 of 491 (UIX). With the build before
+  the last change, which only changed words in the Swedish, Japanese,
+  Russian, Traditional Chinese and German dictionaries.
+- Unit tests 3,277 of 3,277, including every language's completeness and
+  placeholders, a scan that renders the panel, every module and the pickers
+  in a pseudo-language and fails on any English text outside the
+  dictionary, and the integration's files in step with the Studio
+  (version, languages, translation keys).
+- Not rerun for this beta: Home Assistant 2026.2.3 and 2025.9.4 beyond the
+  integration check, and the Mushroom / Bubble Card audits (nothing in
+  their profiles changed).
+
 ## [0.11.0] — 2026-11-12
 
 The "Reach" release: the v0.11 cycle consolidated (three betas, in use since
@@ -1750,6 +2218,9 @@ documentation. No new features.
 Earlier version history (Phases 1–6) is documented in
 [`README.md`](README.md#implementation-status) and the files under `docs/`.
 
+[1.0.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v1.0.0
+[1.0.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v1.0.0-beta.2
+[1.0.0-beta.1]: https://github.com/dertrolli/card-mod-studio/releases/tag/v1.0.0-beta.1
 [0.11.0]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0
 [0.11.0-beta.3]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.3
 [0.11.0-beta.2]: https://github.com/dertrolli/card-mod-studio/releases/tag/v0.11.0-beta.2

@@ -7,9 +7,12 @@
 
 import { LitElement, html, css } from 'lit';
 import { property } from 'lit/decorators.js';
+import { LangController, t } from '../i18n/index.js';
 
 export class CmsTabButton extends LitElement {
   /** Whether the Style panel is currently open. */
+  protected readonly i18n = new LangController(this);
+
   @property({ type: Boolean, reflect: true }) active = false;
 
   static override styles = css`
@@ -59,8 +62,8 @@ export class CmsTabButton extends LitElement {
     }
 
     .icon {
-      font-size: 16px;
-      line-height: 1;
+      --mdc-icon-size: 18px;
+      display: inline-flex;
     }
 
     @media (pointer: coarse) {
@@ -99,12 +102,12 @@ export class CmsTabButton extends LitElement {
     return html`
       <button
         @click=${this._handleClick}
-        title="${this.active ? 'Close Card-Mod Studio' : 'Open Card-Mod Studio style editor'}"
-        aria-label="Style"
+        title=${this.active ? t('tab.close') : t('tab.open')}
+        aria-label=${t('tab.style')}
         aria-pressed="${this.active}"
       >
-        <span class="icon" aria-hidden="true">🎨</span>
-        <span class="label">Style</span>
+        <ha-icon class="icon" icon="mdi:palette" aria-hidden="true"></ha-icon>
+        <span class="label">${t('tab.style')}</span>
       </button>
     `;
   }

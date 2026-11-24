@@ -115,10 +115,10 @@ describe('humidifier: the mode label follows the weight', () => {
 });
 
 describe('alarm-panel: the title follows the size', () => {
-  it('offers the size row (header variables reach the title); colour stays hidden', () => {
+  it('offers the size row and (v1.0) the colour: the header variables reach the title', () => {
     expect(capsFor('alarm-panel').fontSize).toBe(true);
     expect(capsFor('alarm-panel').headerTitle).toBe(true);
-    expect(capsFor('alarm-panel').fontColor).toBe(false);
+    expect(capsFor('alarm-panel').fontColor).toBe(true);
     expect(gen(SIZE, 'alarm-panel')).toContain('--ha-card-header-font-size: calc(20px * 1.5);');
   });
 });

@@ -30,6 +30,7 @@
  */
 
 import type { CssTarget, CssProperty } from '../types/index.js';
+import { ANY_PREFIX_SRC } from '../utils/studio-names.js';
 import { JINJA_STR_BODY, JINJA_STR_BODY_1, endOfTag, hasForeignEscape, unescapeJinjaStr } from '../utils/jinja-str.js';
 
 // ---------------------------------------------------------------------------
@@ -99,14 +100,15 @@ export function isBareDeclarations(css: string): boolean {
   return cleaned.trim() !== '' && !/[{}]/.test(cleaned) && !STATEMENT_OR_COMMENT_RE.test(cleaned);
 }
 
-/** Restores placeholder tokens to their original Jinja2 strings. */
+/** Every placeholder token extractJinja writes (`__CMS_J3__`, `__CMS_S0__`, `__CMS_C1__`). */
+const ANY_PLACEHOLDER_RE = /__CMS_[JSC]\d+__/g;
+
+/** Restores placeholder tokens to their original Jinja2 strings — one pass
+ *  over the value (v1.0: it used to walk the whole map for every value,
+ *  O(templates²): ~5 s to open a style with 4,000 Jinja templates). */
 function restoreJinja(value: string, map: Map<string, string>): string {
-  let result = value;
-  for (const [key, original] of map) {
-    // A value might reference the same placeholder multiple times in theory.
-    result = result.split(key).join(original);
-  }
-  return result;
+  if (!map.size || !value.includes('__CMS_')) return value;
+  return value.replace(ANY_PLACEHOLDER_RE, (token) => map.get(token) ?? token);
 }
 
 // ---------------------------------------------------------------------------
@@ -494,10 +496,12 @@ export function parseCssDetailed(css: string): { targets: CssTarget[]; passthrou
   return { targets: coalesceBySelector(targets), passthroughCss, tailCss };
 }
 
-const CMS_KEYFRAMES_RE = /^@keyframes\s+cms-/;
+// The Studio's own keyframes: `cstudio-*`, or `cms-*` written before
+// v1.0.0-beta.2 (see studio-names.ts).
+const CMS_KEYFRAMES_RE = new RegExp(`^@keyframes\\s+${ANY_PREFIX_SRC}`);
 
 /**
- * The studio-named `@keyframes cms-*` blocks of the claimable head, verbatim,
+ * The studio-named `@keyframes cstudio-*` (or legacy `cms-*`) blocks of the claimable head, verbatim,
  * in source order — the ones parseCssDetailed leaves out of `passthroughCss`
  * because the Animation module regenerates them. When the module does NOT
  * adopt the `animation:` declaration that uses one, the declaration stays
@@ -512,7 +516,7 @@ export function cmsKeyframesOf(css: string): { name: string; text: string }[] {
   const out: { name: string; text: string }[] = [];
   for (const block of keyframes) {
     const text = restoreJinja(block, map);
-    const m = /^@keyframes\s+(cms-[^\s{]+)/.exec(text);
+    const m = new RegExp(`^@keyframes\\s+(${ANY_PREFIX_SRC}[^\\s{]+)`).exec(text);
     if (m) out.push({ name: m[1], text });
   }
   return out;

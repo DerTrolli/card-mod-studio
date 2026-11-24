@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { IconColorModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
-import { getCachedPalette } from '../utils/palette-storage.js';
+import { colorDefaults } from '../utils/palette-storage.js';
 import { hasOwnEntity, stateKindFor, type OwnStateKind } from '../utils/card-caps.js';
 import {
   moduleStyles,
@@ -12,16 +12,19 @@ import {
   renderCondition,
   renderModuleHeader,
   guardSliderTouch, nameSwitches, prepareSliders,
+  editState,
 } from './module-base.js';
+import { iconSummary } from './module-summary.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
+import { LangController, t } from '../i18n/index.js';
 
 /** True once the user (or the loaded style) has made a colour choice — a mode
  *  other than the factory one, a watched entity, or colours off the defaults
  *  (palette overrides count as defaults). */
 function hasColourIntent(s: IconColorModuleState): boolean {
-  const { onColor, offColor } = getCachedPalette().defaults;
+  const { onColor, offColor } = colorDefaults();
   return (
     s.mode !== DEFAULT_ICON_COLOR.mode ||
     !!s.entityId ||
@@ -52,6 +55,7 @@ export function enableChanges(
 }
 
 export class IconColorModule extends LitElement {
+  protected readonly i18n = new LangController(this);
   @property({ attribute: false }) state: IconColorModuleState = {
     ...DEFAULT_ICON_COLOR,
   };
@@ -77,16 +81,14 @@ export class IconColorModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** v1.0: offer "Let this module take over" (plain Advanced CSS only). */
+  @property({ attribute: false }) takeOver = false;
   /** Threshold Colors is currently writing this module's property. */
   @property({ attribute: false }) thresholdOwned = false;
 
   @state() private _open = false;
 
   static override styles = [moduleStyles];
-
-  override firstUpdated() {
-    this._open = this.state.enabled;
-  }
 
   override updated(changed: Map<PropertyKey, unknown>) {
     nameSwitches(this.renderRoot);
@@ -101,8 +103,20 @@ export class IconColorModule extends LitElement {
     this._open = !this._open;
   }
 
+  /** What the body shows: while the module is off, the state switching it on
+   *  would give (enableChanges — e.g. "Keep the card's colour" on a card with
+   *  an Icon size), so the controls don't change under the user's hand when
+   *  the switch flips or an edit switches it on. */
+  private get _view(): IconColorModuleState {
+    if (this.state.enabled) return this.state;
+    const on = enableChanges(this.state, this.allowSize, hasOwnEntity({ entity: this.cardEntity }), stateKindFor(this.stateAware, this.cardEntity));
+    return { ...this.state, ...on, enabled: false };
+  }
+
   private _emit(changes: Partial<IconColorModuleState>) {
-    const detail = { ...this.state, ...changes };
+    // An edit while off switches the module on from what the body showed.
+    const base = this.state.enabled || 'enabled' in changes ? this.state : this._view;
+    const detail = editState(base, changes);
     this.dispatchEvent(
       new CustomEvent<IconColorModuleState>('state-changed', { detail }),
     );
@@ -117,8 +131,9 @@ export class IconColorModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '🎨',
-          title: 'Icon Color',
+          icon: 'mdi:brush-variant',
+          summary: this.state.enabled ? iconSummary(this.state) : undefined,
+          title: t('icon.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),
           overridden: this.overridden,
@@ -146,13 +161,13 @@ export class IconColorModule extends LitElement {
     if (!this.allowColor) {
       return html`
         <div class="module-body" id="module-body">
-          ${renderOverrideHint(this.overridden, this.overriddenDetail)}
-          <div class="when-hint">This card's icons can't take a colour from a style — only their size.</div>
+          ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'iconColor' : undefined)}
+          <div class="when-hint">${t('icon.sizeOnly')}</div>
           ${this.allowSize ? this._renderSize() : nothing}
         </div>
       `;
     }
-    const mode = this.state.mode;
+    const mode = this._view.mode;
     // A card that offers no size can't use 'none' — but a stored one (preset)
     // still shows as itself rather than a blank select.
     const offerNone = this.allowSize || mode === 'none';
@@ -165,10 +180,10 @@ export class IconColorModule extends LitElement {
 
     return html`
       <div class="module-body" id="module-body">
-        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
-        ${renderThresholdOwnedHint(this.thresholdOwned, 'icon color', 'Icon Color')}
+        ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'iconColor' : undefined)}
+        ${renderThresholdOwnedHint(this.thresholdOwned, 'noun.iconColor', 'threshold.prop.iconColor')}
         <div class="control-row">
-          <span class="control-label" id="lbl-color-mode">Color mode</span>
+          <span class="control-label" id="lbl-color-mode">${t('accent.colorMode')}</span>
           <div class="control-right">
             <select
               aria-labelledby="lbl-color-mode"
@@ -184,18 +199,18 @@ export class IconColorModule extends LitElement {
             >
               ${offerNone
                 ? html`<option value="none" ?selected=${mode === 'none'}>
-                    Keep the card's colour
+                    ${t('icon.keep')}
                   </option>`
                 : nothing}
               <option value="plain" ?selected=${mode === 'plain'}>
-                One fixed color
+                ${t('accent.oneFixed')}
               </option>
               <option value="conditional" ?selected=${mode === 'conditional'}>
-                Different for ON / OFF
+                ${t('accent.onOff')}
               </option>
               ${this.isLightCard || mode === 'light'
                 ? html`<option value="light" ?selected=${mode === 'light'}>
-                    Match the light's color
+                    ${t('icon.matchLight')}
                   </option>`
                 : nothing}
             </select>
@@ -204,32 +219,32 @@ export class IconColorModule extends LitElement {
         <div class="when-hint">
           ${mode === 'none'
             ? this.allowSize
-              ? "The card's own icon colour stays as it is — only the size below changes."
-              : "The card's own icon colour stays as it is — this mode writes no colour."
+              ? t('icon.hintKeepSize')
+              : t('icon.hintKeep')
             : mode === 'plain'
-            ? 'One color, shown all the time.'
+            ? t('accent.hintPlain')
             : mode === 'light'
-            ? "Uses the light's real color while on; your chosen color while off."
-            : 'One color while the controlling entity is on, another while off.'}
+            ? t('icon.hintLight')
+            : html`${t('accent.hintOnOff')} ${t('accent.hintByValue', { module: t('threshold.title') })}`}
         </div>
         ${watches
           ? html`
               <div class="control-row">
-                <span class="control-label">Controlled by</span>
+                <span class="control-label">${t('accent.controlledBy')}</span>
                 <div class="control-right">
                   <cms-entity-picker
                     .hass=${this.hass}
-                    .value=${this.state.entityId ?? ''}
+                    .value=${this._view.entityId ?? ''}
                     .includeDomains=${mode === 'light' ? ['light'] : TOGGLE_DOMAINS}
                     .placeholder=${this.stateAware ? this.cardEntity : 'binary_sensor.example'}
                     label=""
-                    accessible-name="Entity to watch"
+                    accessible-name=${t('base.entityToWatch')}
                     @value-changed=${(e: CustomEvent<{ value: string }>) =>
                       this._emit({ entityId: e.detail.value.trim() })}
                   ></cms-entity-picker>
                 </div>
               </div>
-              ${renderWatchHint({ entityId: this.state.entityId, cardEntity: this.cardEntity, kind })}
+              ${renderWatchHint({ entityId: this._view.entityId, cardEntity: this.cardEntity, kind })}
             `
           : nothing}
 
@@ -238,11 +253,11 @@ export class IconColorModule extends LitElement {
           : mode === 'plain'
           ? html`
               <div class="control-row">
-                <span class="control-label">Color</span>
+                <span class="control-label">${t('accent.color')}</span>
                 <div class="control-right">
                   <cms-color-picker
-                    label="Icon color"
-                    .value=${this.state.color}
+                    label=${t('icon.iconColor')}
+                    .value=${this._view.color}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ color: e.detail.value })}
                   ></cms-color-picker>
@@ -252,36 +267,36 @@ export class IconColorModule extends LitElement {
           : mode === 'light'
           ? html`
               <div class="control-row">
-                <span class="control-label">Color when OFF</span>
+                <span class="control-label">${t('accent.colorOff')}</span>
                 <div class="control-right">
                   <cms-color-picker
-                    label="Icon color when OFF"
-                    .value=${this.state.colorOff}
+                    label=${t('icon.iconColorOff')}
+                    .value=${this._view.colorOff}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ colorOff: e.detail.value })}
                   ></cms-color-picker>
                 </div>
               </div>
-              <div class="when-hint">When ON: uses the light's actual color automatically.</div>
+              <div class="when-hint">${t('icon.lightOn')}</div>
             `
           : html`
               <div class="control-row">
-                <span class="control-label">Color when ON</span>
+                <span class="control-label">${t('accent.colorOn')}</span>
                 <div class="control-right">
                   <cms-color-picker
-                    label="Icon color when ON"
-                    .value=${this.state.colorOn}
+                    label=${t('icon.iconColorOn')}
+                    .value=${this._view.colorOn}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ colorOn: e.detail.value })}
                   ></cms-color-picker>
                 </div>
               </div>
               <div class="control-row">
-                <span class="control-label">Color when OFF</span>
+                <span class="control-label">${t('accent.colorOff')}</span>
                 <div class="control-right">
                   <cms-color-picker
-                    label="Icon color when OFF"
-                    .value=${this.state.colorOff}
+                    label=${t('icon.iconColorOff')}
+                    .value=${this._view.colorOff}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ colorOff: e.detail.value })}
                   ></cms-color-picker>
@@ -297,14 +312,14 @@ export class IconColorModule extends LitElement {
    *  the size switches between "Icon size" and "Size otherwise" (24px = the
    *  HA default when unset). */
   private _renderSize() {
-    const sizePx = this.state.sizePx ?? 0;
+    const sizePx = this._view.sizePx ?? 0;
     return html`
       <div class="control-row">
-        <span class="control-label">Icon size</span>
+        <span class="control-label">${t('icon.size')}</span>
         <div class="control-right">
           <ha-slider
-            label="Icon size"
-            aria-label="Icon size"
+            label=${t('icon.size')}
+            aria-label=${t('icon.size')}
             min="0"
             max=${Math.max(this.sizeMax, sizePx)}
             step="2"
@@ -318,36 +333,37 @@ export class IconColorModule extends LitElement {
               );
             }}
           ></ha-slider>
-          <span class="value-label">${sizePx > 0 ? `${sizePx}px` : 'theme'}</span>
+          <span class="value-label">${sizePx > 0 ? `${sizePx}px` : t('icon.theme')}</span>
         </div>
       </div>
       ${sizePx > 0
         ? html`
             ${renderCondition({
-              condition: this.state.sizeWhen,
+              condition: this._view.sizeWhen,
               stateAware: this.stateAware,
-              noun: 'icon size',
+              cardEntity: this.cardEntity,
+              noun: 'noun.iconSize',
               hass: this.hass,
               onChange: (c) => this._emit({ sizeWhen: c }),
             })}
-            ${this.state.sizeWhen && this.state.sizeWhen.when !== 'always'
+            ${this._view.sizeWhen && this._view.sizeWhen.when !== 'always'
               ? html`
                   <div class="control-row">
-                    <span class="control-label">Size otherwise</span>
+                    <span class="control-label">${t('icon.sizeOtherwise')}</span>
                     <div class="control-right">
                       <ha-slider
-                        label="Size otherwise"
-                        aria-label="Size otherwise"
+                        label=${t('icon.sizeOtherwise')}
+                        aria-label=${t('icon.sizeOtherwise')}
                         min="16"
-                        max=${Math.max(this.sizeMax, this.state.sizeOffPx ?? 0)}
+                        max=${Math.max(this.sizeMax, this._view.sizeOffPx ?? 0)}
                         step="2"
-                        .value=${String(this.state.sizeOffPx ?? 24)}
+                        .value=${String(this._view.sizeOffPx ?? 24)}
                         @change=${(e: Event) =>
                           this._emit({
                             sizeOffPx: parseFloat((e.target as HTMLInputElement).value),
                           })}
                       ></ha-slider>
-                      <span class="value-label">${this.state.sizeOffPx ?? 24}px</span>
+                      <span class="value-label">${this._view.sizeOffPx ?? 24}px</span>
                     </div>
                   </div>
                 `

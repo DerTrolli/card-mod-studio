@@ -1,0 +1,77 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card Style Studio",
+        "description": "Додає налаштування Card Style Studio на цю сторінку. Сам Studio встановлюється як ресурс панелі (HACS, Marketplace або вручну); цей запис зберігає лише його налаштування."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card Style Studio вже налаштовано."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Налаштування Card Style Studio",
+        "description": "Типові значення для всіх у цьому Home Assistant. Власний вибір користувача в Studio (⚙️ Налаштування, Моя палітра) завжди має пріоритет.",
+        "data": {
+          "language": "Мова",
+          "ask_language": "Питати кожного користувача про мову",
+          "on_color": "Типовий колір УВІМК.",
+          "off_color": "Типовий колір ВИМК."
+        },
+        "data_description": {
+          "language": "Автовизначення слідує мові, якою Home Assistant показується кожному користувачеві.",
+          "ask_language": "Коли хтось уперше відкриває Studio, коротке запитання дає змогу вибрати мову. Вимкнено: усі отримують мову, вказану вище.",
+          "on_color": "Колір, з якого починають новий Колір значка, Колір акценту або порогове правило, поки сутність увімкнена. Типовий Studio: власний колір Studio.",
+          "off_color": "Те саме, поки сутність вимкнена."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Визначати автоматично (рекомендовано)",
+        "en": "English",
+        "de": "Deutsch",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "es": "Español",
+        "it": "Italiano",
+        "pl": "Polski",
+        "pt": "Português",
+        "pt-br": "Português (Brasil)",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "nb": "Norsk bokmål",
+        "cs": "Čeština",
+        "sk": "Slovenčina",
+        "hu": "Magyar",
+        "fi": "Suomi",
+        "ru": "Русский",
+        "uk": "Українська",
+        "zh-hans": "简体中文",
+        "zh-hant": "繁體中文",
+        "ja": "日本語",
+        "ko": "한국어"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Типовий Studio",
+        "red": "Червоний",
+        "pink": "Рожевий",
+        "purple": "Фіолетовий",
+        "blue": "Блакитний",
+        "cyan": "Ціан",
+        "teal": "Бірюзовий",
+        "green": "Зелений",
+        "yellow": "Жовтий",
+        "orange": "Помаранчевий",
+        "grey": "Сірий"
+      }
+    }
+  }
+}

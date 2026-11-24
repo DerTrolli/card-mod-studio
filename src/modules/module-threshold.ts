@@ -2,24 +2,35 @@ import { LitElement, html, css, nothing } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { property, state } from 'lit/decorators.js';
 import type { ThresholdModuleState, ThresholdProperty, ThresholdRule, ColorStop, HomeAssistant } from '../types/index.js';
+import { isTextRule } from '../types/index.js';
+import { commitTextRuleValue, normalizeRule, rawRuleValue, revertTextRuleValue, withOperator } from '../utils/threshold-rules.js';
 import { DEFAULT_THRESHOLD } from '../parser/state-mapper.js';
 import { moduleStyles, renderOverrideHint, renderModuleHeader, guardSliderTouch, nameSwitches, prepareSliders,
+  editState,
 } from './module-base.js';
+import { thresholdSummary } from './module-summary.js';
 import { sortThresholdRules } from '../generator/css-generator.js';
 import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
 import { previewHexFor } from '../components/cms-color-picker.js';
 import { thresholdPropertyAllowed } from '../utils/card-caps.js';
 import { thresholdColorsWithoutTriplet, tripletHint } from '../utils/rgb-triplet.js';
-import { getCachedPalette } from '../utils/palette-storage.js';
+import { colorDefaults } from '../utils/palette-storage.js';
 import '../components/cms-color-picker.js';
 import '../components/cms-entity-picker.js';
+import { LangController, t, type MessageKey } from '../i18n/index.js';
 
-const PROPERTY_OPTIONS: Array<{ value: ThresholdProperty; label: string }> = [
-  { value: 'icon-color', label: 'Icon Color' },
-  { value: 'accent-color', label: 'Accent Color' },
-  { value: 'background', label: 'Background' },
-  { value: 'text-color', label: 'Text Color' },
-  { value: 'border-color', label: 'Border Color' },
+/** The legend's {op} and {value} for a rule: a text rule reads `is "heating"`. */
+export function legendParts(r: ThresholdRule): { op: string; value: string } {
+  if (!isTextRule(r)) return { op: r.operator, value: String(r.value) };
+  return { op: t(r.operator === 'is' ? 'threshold.opIs' : 'threshold.opIsNot'), value: `“${r.value}”` };
+}
+
+const PROPERTY_OPTIONS: Array<{ value: ThresholdProperty; label: MessageKey }> = [
+  { value: 'icon-color', label: 'threshold.prop.iconColor' },
+  { value: 'accent-color', label: 'threshold.prop.accentColor' },
+  { value: 'background', label: 'threshold.prop.background' },
+  { value: 'text-color', label: 'threshold.prop.textColor' },
+  { value: 'border-color', label: 'threshold.prop.borderColor' },
 ];
 
 /** Default property order when the module is first switched on: the first
@@ -27,6 +38,7 @@ const PROPERTY_OPTIONS: Array<{ value: ThresholdProperty; label: string }> = [
 const DEFAULT_PROPERTY_ORDER: ThresholdProperty[] = ['icon-color', 'background', 'text-color', 'accent-color', 'border-color'];
 
 export class ThresholdModule extends LitElement {
+  protected readonly i18n = new LangController(this);
   @property({ attribute: false }) state: ThresholdModuleState = {
     ...DEFAULT_THRESHOLD,
   };
@@ -46,6 +58,8 @@ export class ThresholdModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** v1.0: offer "Let this module take over" (plain Advanced CSS only). */
+  @property({ attribute: false }) takeOver = false;
 
   @state() private _open = false;
 
@@ -68,6 +82,22 @@ export class ThresholdModule extends LitElement {
       .rule select {
         width: 64px;
         flex: 0 0 auto;
+      }
+      /* "is not" (and its translations) needs more than a symbol's width. */
+      .rule select.text-op {
+        width: auto;
+        min-width: 64px;
+        max-width: 132px;
+      }
+      .rule input.text-value {
+        flex: 1 1 96px;
+        width: auto;
+        min-width: 72px;
+        max-width: 180px;
+      }
+      .now-value {
+        margin: 6px 0;
+        overflow-wrap: anywhere;
       }
       .rule input.num,
       .stop input.num {
@@ -256,10 +286,6 @@ export class ThresholdModule extends LitElement {
     `,
   ];
 
-  override firstUpdated() {
-    this._open = this.state.enabled;
-  }
-
   override updated(changed: Map<PropertyKey, unknown>) {
     nameSwitches(this.renderRoot);
     prepareSliders(this.renderRoot);
@@ -278,9 +304,11 @@ export class ThresholdModule extends LitElement {
   }
 
   private _emit(changes: Partial<ThresholdModuleState>) {
-    const newState = { ...this.state, ...changes };
+    const newState = editState(this.state, changes);
+    // Switched on now — by its switch, or by a first change while it was off.
+    const enabling = newState.enabled && !this.state.enabled;
     // Auto-set entityId to cardEntity when enabling if empty
-    if (changes.enabled && !newState.entityId && this.cardEntity) {
+    if (enabling && !newState.entityId && this.cardEntity) {
       newState.entityId = this.cardEntity;
     }
     // Enabling fresh on a card where the default 'icon-color' does nothing
@@ -288,7 +316,7 @@ export class ThresholdModule extends LitElement {
     // the dial on a gauge, else the first one this card type supports.
     if (
       this.cardType &&
-      changes.enabled &&
+      enabling &&
       newState.rules.length === 0 &&
       newState.properties.length === 1 &&
       newState.properties[0] === 'icon-color' &&
@@ -315,8 +343,9 @@ export class ThresholdModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '🎯',
-          title: 'Threshold Colors',
+          icon: 'mdi:stairs',
+          summary: this.state.enabled ? thresholdSummary(this.state) : undefined,
+          title: t('threshold.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),
           overridden: this.overridden,
@@ -340,7 +369,7 @@ export class ThresholdModule extends LitElement {
   /** PROPERTY_OPTIONS filtered/relabelled for this card type. A property
    *  already selected (e.g. parsed from existing YAML) is always shown so
    *  it stays visible and un-checkable rather than invisibly stuck on. */
-  private _propertyOptions(): Array<{ value: ThresholdProperty; label: string }> {
+  private _propertyOptions(): Array<{ value: ThresholdProperty; label: MessageKey }> {
     return PROPERTY_OPTIONS.filter(
       (opt) =>
         !this.cardType ||
@@ -348,7 +377,7 @@ export class ThresholdModule extends LitElement {
         this.state.properties.includes(opt.value),
     ).map((opt) =>
       opt.value === 'accent-color' && this.cardType === 'gauge'
-        ? { ...opt, label: 'Gauge / Accent Color' }
+        ? { ...opt, label: 'threshold.prop.gaugeAccent' as MessageKey }
         : opt,
     );
   }
@@ -356,19 +385,19 @@ export class ThresholdModule extends LitElement {
   private _renderBody() {
     return html`
       <div class="module-body" id="module-body">
-        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'threshold' : undefined)}
         ${this.tripletAccent && thresholdColorsWithoutTriplet(this.state).length
           ? html`<div class="when-hint warn">${tripletHint(thresholdColorsWithoutTriplet(this.state))}</div>`
           : nothing}
         <div class="control-row">
-          <span class="control-label">Entity</span>
+          <span class="control-label">${t('base.entity')}</span>
           <div class="control-right">
             <cms-entity-picker
               .hass=${this.hass}
               .value=${this.state.entityId}
               .placeholder=${this.cardEntity || 'sensor.temperature'}
               label=""
-              accessible-name="Entity to read the value from"
+              accessible-name=${t('cond.valueEntity')}
               @value-changed=${(e: CustomEvent<{ value: string }>) =>
                 this._emit({ entityId: e.detail.value.trim(), attribute: '' })}
             ></cms-entity-picker>
@@ -378,7 +407,7 @@ export class ThresholdModule extends LitElement {
         ${this._renderAttributeSelect()}
 
         <div class="control-row">
-          <span class="control-label">Apply to</span>
+          <span class="control-label">${t('threshold.applyTo')}</span>
         </div>
         <div class="property-checks">
           ${this._propertyOptions().map(
@@ -390,23 +419,23 @@ export class ThresholdModule extends LitElement {
                   @change=${(e: Event) =>
                     this._toggleProperty(opt.value, (e.target as HTMLInputElement).checked)}
                 />
-                ${opt.label}
+                ${t(opt.label)}
               </label>
             `,
           )}
         </div>
         ${this.state.properties.length === 0
-          ? html`<div class="when-hint">Select at least one property above to apply these rules.</div>`
+          ? html`<div class="when-hint">${t('threshold.selectOne')}</div>`
           : nothing}
 
         ${this.state.properties.includes('border-color')
           ? html`
               <div class="control-row">
-                <span class="control-label">Border width</span>
+                <span class="control-label">${t('border.width')}</span>
                 <div class="control-right">
                   <ha-slider
-                    label="Border width"
-                    aria-label="Border width"
+                    label=${t('border.width')}
+                    aria-label=${t('border.width')}
                     min="1"
                     max="16"
                     step="1"
@@ -423,7 +452,7 @@ export class ThresholdModule extends LitElement {
           : nothing}
 
         <div class="control-row" style="margin-top: 12px;">
-          <span class="control-label" id="lbl-value-mode">Value mode</span>
+          <span class="control-label" id="lbl-value-mode">${t('threshold.valueMode')}</span>
           <div class="control-right">
             <select
               aria-labelledby="lbl-value-mode"
@@ -434,10 +463,10 @@ export class ThresholdModule extends LitElement {
                 })}
             >
               <option value="switch" ?selected=${this.state.valueMode === 'switch'}>
-                Step — color switches at each rule
+                ${t('threshold.step')}
               </option>
               <option value="gradient" ?selected=${this.state.valueMode === 'gradient'}>
-                Fade — color blends smoothly between points
+                ${t('threshold.fade')}
               </option>
             </select>
           </div>
@@ -448,15 +477,19 @@ export class ThresholdModule extends LitElement {
     `;
   }
 
-  /** Numeric attributes of the picked entity (rules compare via float(),
-   *  so string/list attributes would always read 0). The stored attribute
-   *  is always offered even when it's not currently numeric — an entity
-   *  that's unavailable right now shouldn't hide the active selection. */
+  /** Numeric attributes of the picked entity (number rules compare via
+   *  float(), so string/list attributes would always read 0) — plus text
+   *  attributes (`hvac_action`, …) while a text rule exists (v1.0.0-beta.2).
+   *  The stored attribute is always offered even when it's not currently
+   *  numeric — an entity that's unavailable right now shouldn't hide the
+   *  active selection. */
   private _numericAttributes(): string[] {
     const entityId = this.state.entityId || this.cardEntity;
     const attrs = this.hass?.states?.[entityId]?.attributes ?? {};
+    const text = this.state.valueMode !== 'gradient' && this.state.rules.some(isTextRule);
     const names = Object.keys(attrs).filter((k) => {
       const v = (attrs as Record<string, unknown>)[k];
+      if (text && (typeof v === 'string' || typeof v === 'boolean')) return true;
       return typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v)));
     });
     const current = this.state.attribute;
@@ -469,17 +502,17 @@ export class ThresholdModule extends LitElement {
     if (options.length === 0 && !this.state.attribute) return nothing;
     return html`
       <div class="control-row" style="margin-top: 8px;">
-        <span class="control-label" id="lbl-value-read-from">Value read from</span>
+        <span class="control-label" id="lbl-value-read-from">${t('cond.valueReadFrom')}</span>
         <div class="control-right">
           <select
             aria-labelledby="lbl-value-read-from"
             .value=${this.state.attribute ?? ''}
             @change=${(e: Event) => this._emit({ attribute: (e.target as HTMLSelectElement).value })}
           >
-            <option value="" ?selected=${!this.state.attribute}>State (default)</option>
+            <option value="" ?selected=${!this.state.attribute}>${t('cond.state')}</option>
             ${options.map(
               (name) => html`<option value=${name} ?selected=${this.state.attribute === name}>
-                Attribute: ${name}
+                ${t('cond.attribute', { name })}
               </option>`,
             )}
           </select>
@@ -491,16 +524,17 @@ export class ThresholdModule extends LitElement {
   private _renderSwitchBody() {
     return html`
       <div class="rules-container">
-        <span class="rules-label">Rules — order doesn't matter, they're sorted automatically:</span>
+        <span class="rules-label">${t('threshold.rulesLabel')}</span>
         ${this.state.rules.map((rule, i) => this._renderRule(rule, i))}
-        <button class="add-btn" @click=${this._addRule}>+ Add Rule</button>
+        <button class="add-btn" @click=${this._addRule}>${t('threshold.addRule')}</button>
+        ${this._renderNowValue()}
       </div>
 
       <div class="control-row" style="margin-top: 12px;">
-        <span class="control-label" id="lbl-default-color">Default color</span>
+        <span class="control-label" id="lbl-default-color">${t('threshold.defaultColor')}</span>
         <div class="control-right">
           <cms-color-picker
-            label="Default color"
+            label=${t('threshold.defaultColor')}
             compact
             .value=${this.state.defaultColor}
             @color-changed=${(e: CustomEvent) => this._emit({ defaultColor: e.detail.value })}
@@ -517,16 +551,13 @@ export class ThresholdModule extends LitElement {
     const stops = [...this.state.colorStops].sort((a, b) => a.value - b.value);
     return html`
       <div class="rules-container">
-        <span class="rules-label">
-          Points — the color fades smoothly between them; values outside this range stay
-          clamped to the nearest end:
-        </span>
+        <span class="rules-label">${t('threshold.pointsLabel')}</span>
         ${repeat(
           stops,
           (stop) => stop.id,
           (stop, sortedIndex) => this._renderStop(stop, sortedIndex, stops.length),
         )}
-        <button class="add-btn" @click=${this._addStop}>+ Add Point</button>
+        <button class="add-btn" @click=${this._addStop}>${t('threshold.addPoint')}</button>
       </div>
       ${this._renderGradientPreview(stops)}
     `;
@@ -534,7 +565,7 @@ export class ThresholdModule extends LitElement {
 
   private _renderGradientPreview(stops: ColorStop[]) {
     if (stops.length < 2) {
-      return html`<div class="when-hint">Add at least 2 points to see a preview.</div>`;
+      return html`<div class="when-hint">${t('threshold.previewNeeds2')}</div>`;
     }
     const hexStops = stops.map((s) => `${previewHexFor(s.color)} ${(
       ((s.value - stops[0].value) / (stops[stops.length - 1].value - stops[0].value || 1)) * 100
@@ -559,43 +590,48 @@ export class ThresholdModule extends LitElement {
       style="background:${previewHexFor(this.state.defaultColor)}"
     ></span>`;
 
+    // No rule yet: nothing is written (not even the default colour), so say
+    // that instead of a "Result: Always" row that never applies.
     if (sorted.length === 0) {
-      return html`
-        <div class="legend">
-          <span class="legend-title">Result</span>
-          <div class="legend-row">
-            <span class="legend-cond">Always</span>${defaultSwatch}
-          </div>
-        </div>
-      `;
+      return html`<div class="when-hint">${t('threshold.noRules')}</div>`;
     }
 
     return html`
       <div class="legend">
-        <span class="legend-title">Result — first match wins (top to bottom)</span>
+        <span class="legend-title">${t('threshold.resultFirst')}</span>
         ${sorted.map(
           (r, i) => html`
             <div class="legend-row">
               <span class="legend-cond">
-                ${i === 0 ? 'If' : 'else if'} value ${r.operator} ${r.value}
+                ${t(i === 0 ? 'threshold.legendIf' : 'threshold.legendElseIf', legendParts(r))}
               </span>
               <span class="legend-sw" style="background:${previewHexFor(r.color)}"></span>
             </div>
           `,
         )}
         <div class="legend-row">
-          <span class="legend-cond">otherwise (default)</span>${defaultSwatch}
+          <span class="legend-cond">${t('threshold.otherwise')}</span>${defaultSwatch}
         </div>
       </div>
     `;
   }
 
+  /** Text rules compare the raw state: show what it is right now. */
+  private _renderNowValue() {
+    if (!this.state.rules.some(isTextRule)) return nothing;
+    const now = rawRuleValue(this.hass, this.state.entityId || this.cardEntity, this.state.attribute || undefined);
+    return html`<div class="when-hint now-value">${now === null ? t('threshold.textHint') : t('threshold.nowValue', { value: now })}</div>`;
+  }
+
   private _renderRule(rule: ThresholdRule, index: number) {
+    const text = isTextRule(rule);
+    const now = text ? rawRuleValue(this.hass, this.state.entityId || this.cardEntity, this.state.attribute || undefined) : null;
     return html`
       <div class="rule">
-        <span class="rule-label">If value</span>
+        <span class="rule-label">${t('threshold.ifValue')}</span>
         <select
-          aria-label="Rule ${index + 1} operator"
+          class=${text ? 'text-op' : ''}
+          aria-label=${t('threshold.ruleOperator', { n: index + 1 })}
           .value=${rule.operator}
           @change=${(e: Event) =>
             this._onOperatorChange(index, (e.target as HTMLSelectElement).value)}
@@ -606,27 +642,42 @@ export class ThresholdModule extends LitElement {
           <option value=">=" ?selected=${rule.operator === '>='}>&gt;=</option>
           <option value="==" ?selected=${rule.operator === '=='}>==</option>
           <option value="!=" ?selected=${rule.operator === '!='}>!=</option>
+          <option value="is" ?selected=${rule.operator === 'is'}>${t('threshold.opIs')}</option>
+          <option value="is-not" ?selected=${rule.operator === 'is-not'}>${t('threshold.opIsNot')}</option>
         </select>
-        <input
-          type="text"
-          class="num"
-          aria-label="Rule ${index + 1} value"
-          aria-invalid="false"
-          spellcheck="false"
-          autocomplete="off"
-          .value=${String(rule.value)}
-          @input=${markNumberInput}
-          @change=${(e: Event) => this._onValueChange(index, e)}
-          @blur=${(e: Event) => revertNumberInput(e, rule.value)}
-        />
+        ${text
+          ? html`<input
+              type="text"
+              class="text-value"
+              aria-label=${t('threshold.ruleText', { n: index + 1 })}
+              aria-invalid="false"
+              spellcheck="false"
+              autocomplete="off"
+              placeholder=${now ?? ''}
+              .value=${String(rule.value)}
+              @change=${(e: Event) => this._onTextValueChange(index, e)}
+              @blur=${(e: Event) => revertTextRuleValue(e, String(rule.value))}
+            />`
+          : html`<input
+              type="text"
+              class="num"
+              aria-label=${t('threshold.ruleValue', { n: index + 1 })}
+              aria-invalid="false"
+              spellcheck="false"
+              autocomplete="off"
+              .value=${String(rule.value)}
+              @input=${markNumberInput}
+              @change=${(e: Event) => this._onValueChange(index, e)}
+              @blur=${(e: Event) => revertNumberInput(e, Number(rule.value))}
+            />`}
         <span class="rule-label">→</span>
         <cms-color-picker
-          label="Rule ${index + 1} color"
+          label=${t('threshold.ruleColor', { n: index + 1 })}
           compact
           .value=${rule.color}
           @color-changed=${(e: CustomEvent) => this._onRuleColorChange(index, e.detail.value)}
         ></cms-color-picker>
-        <button aria-label="Remove rule ${index + 1}" title="Remove rule" @click=${() => this._removeRule(index)}>×</button>
+        <button aria-label=${t('threshold.removeRuleN', { n: index + 1 })} title=${t('threshold.removeRule')} @click=${() => this._removeRule(index)}>×</button>
       </div>
     `;
   }
@@ -640,22 +691,22 @@ export class ThresholdModule extends LitElement {
             class="move-btn"
             @click=${() => this._swapStop(sortedIndex, -1)}
             ?disabled=${sortedIndex === 0}
-            title="Swap with the point above"
-            aria-label="Move fade point ${index + 1} up"
+            title=${t('threshold.swapUp')}
+            aria-label=${t('threshold.stopUp', { n: index + 1 })}
           >▲</button>
           <button
             class="move-btn"
             @click=${() => this._swapStop(sortedIndex, 1)}
             ?disabled=${sortedIndex === sortedCount - 1}
-            title="Swap with the point below"
-            aria-label="Move fade point ${index + 1} down"
+            title=${t('threshold.swapDown')}
+            aria-label=${t('threshold.stopDown', { n: index + 1 })}
           >▼</button>
         </div>
-        <span class="rule-label">At value</span>
+        <span class="rule-label">${t('threshold.atValue')}</span>
         <input
           type="text"
           class="num"
-          aria-label="Fade point ${index + 1} value"
+          aria-label=${t('threshold.stopValue', { n: index + 1 })}
           aria-invalid="false"
           spellcheck="false"
           autocomplete="off"
@@ -666,7 +717,7 @@ export class ThresholdModule extends LitElement {
         />
         <span class="rule-label">→</span>
         <cms-color-picker
-          label="Fade point ${index + 1} color"
+          label=${t('threshold.stopColor', { n: index + 1 })}
           compact
           .value=${stop.color}
           @color-changed=${(e: CustomEvent) => this._onStopColorChange(index, e.detail.value)}
@@ -674,8 +725,8 @@ export class ThresholdModule extends LitElement {
         <button
           @click=${() => this._removeStop(index)}
           ?disabled=${this.state.colorStops.length <= 2}
-          title=${this.state.colorStops.length <= 2 ? 'At least 2 points are required' : 'Remove point'}
-          aria-label="Remove fade point ${index + 1}"
+          title=${this.state.colorStops.length <= 2 ? t('threshold.minPoints') : t('threshold.removePoint')}
+          aria-label=${t('threshold.removeStopN', { n: index + 1 })}
         >×</button>
       </div>
     `;
@@ -688,7 +739,7 @@ export class ThresholdModule extends LitElement {
       value: 0,
       // Same "what a fresh control starts with" convention as the row-level
       // builder and the Icon/Accent modules: palette ON-default when set.
-      color: getCachedPalette().defaults.onColor ?? '#2196F3',
+      color: colorDefaults().onColor ?? '#2196F3',
     };
     this._emit({ rules: [...this.state.rules, newRule] });
   }
@@ -701,10 +752,22 @@ export class ThresholdModule extends LitElement {
 
   private _onOperatorChange(index: number, operator: string) {
     const rules = [...this.state.rules];
-    rules[index] = {
-      ...rules[index],
-      operator: operator as ThresholdRule['operator'],
-    };
+    let next = withOperator(rules[index], operator as ThresholdRule['operator']);
+    // A new text rule starts from the state right now (e.g. `heating`) when
+    // that is text; a number state would make it a number rule (normalizeRule).
+    if (isTextRule(next) && !isTextRule(rules[index])) {
+      const now = rawRuleValue(this.hass, this.state.entityId || this.cardEntity, this.state.attribute || undefined);
+      if (now && isTextRule(normalizeRule({ ...next, value: now }))) next = { ...next, value: now };
+    }
+    rules[index] = next;
+    this._emit({ rules });
+  }
+
+  private _onTextValueChange(index: number, e: Event) {
+    const value = commitTextRuleValue(e);
+    if (value === undefined) return;
+    const rules = [...this.state.rules];
+    rules[index] = normalizeRule({ ...rules[index], value });
     this._emit({ rules });
   }
 
@@ -733,7 +796,7 @@ export class ThresholdModule extends LitElement {
       value: nextValue,
       // Stops need concrete hex (interpolation) — previewHexFor resolves a
       // palette var() ON-default the same way stop color picks resolve.
-      color: previewHexFor(getCachedPalette().defaults.onColor ?? '#2196F3'),
+      color: previewHexFor(colorDefaults().onColor ?? '#2196F3'),
     };
     this._emit({ colorStops: [...this.state.colorStops, newStop] });
   }

@@ -148,7 +148,7 @@ async function filterSection(T) {
   await expectCfg(T, 'Grayscale on (default "OFF") → conditional grayscale on own entity off', has(T, "filter: {{ 'grayscale(100%)' if is_state(config.entity, 'off') else 'none' }};"));
   const applyWhen = rowOf(T, m, 'Apply when').locator('select');
   const opts = await applyWhen.locator('option').evaluateAll((os) => os.map((o) => o.value));
-  T.check('grayscale "Apply when" offers Always / ON / OFF / another entity', JSON.stringify(opts) === JSON.stringify(['always', 'on', 'off', 'custom']), JSON.stringify(opts));
+  T.check('grayscale "Apply when" offers Always / ON / OFF / another entity / a value matches (v1.0, #42)', JSON.stringify(opts) === JSON.stringify(['always', 'on', 'off', 'custom', 'value']), JSON.stringify(opts));
   await expectPage(T, `preview: grayscale-when-OFF follows the light (${lightOn ? 'on → none' : 'off → gray'})`, P_CARD, 0, (v) => (lightOn ? v?.filter === 'none' : v?.filter?.includes('grayscale(1)')));
   await choose(applyWhen, 'always');
   // tile: the transition is !important (the tile's own stylesheet overrides a plain one)
@@ -183,21 +183,22 @@ async function filterSection(T) {
   await expectCfg(T, 'Transition duration 600 → transition: filter 600ms ease !important (tile)', has(T, 'transition: filter 600ms ease !important;'));
   await expectPage(T, 'preview: transition-duration 0.6s on filter', P_CARD, 0, (v) => v?.transDur === '0.6s' && v.transProp === 'filter');
 
-  // ---- "Reacts to" (effects condition) ----
-  const reacts = rowOf(T, m, 'Reacts to').locator('select');
+  // ---- "Apply when" (effects condition) ----
+  const reacts = m.locator('select[aria-labelledby="cond-label"]');
+  T.check('the effects condition is labelled "Apply when" (one wording for every condition)', ((await m.locator('#cond-label').textContent()) || '').trim() === 'Apply when');
   const ropts = await reacts.locator('option').evaluateAll((os) => os.map((o) => o.value));
-  T.check('"Reacts to" offers Always / ON / OFF / another entity / value', JSON.stringify(ropts) === JSON.stringify(['always', 'on', 'off', 'custom', 'value']), JSON.stringify(ropts));
+  T.check('"Apply when" offers Always / ON / OFF / another entity / value', JSON.stringify(ropts) === JSON.stringify(['always', 'on', 'off', 'custom', 'value']), JSON.stringify(ropts));
   const FX = 'brightness(150%) blur(4px) opacity(50%)';
   const FXV = 'brightness(1.5) blur(4px) opacity(0.5)';
   await choose(reacts, 'on');
-  await expectCfg(T, 'Reacts to ON → ternary on own entity', has(T, `filter: {{ '${FX}' if is_state(config.entity, 'on') else 'none' }};`));
+  await expectCfg(T, 'Apply when ON → ternary on own entity', has(T, `filter: {{ '${FX}' if is_state(config.entity, 'on') else 'none' }};`));
   await expectPage(T, 'preview: effects follow the light (ON)', P_CARD, 0, (v) => (lightOn ? v?.filter === FXV : v?.filter === 'none'));
   await choose(reacts, 'off');
-  await expectCfg(T, 'Reacts to OFF → ternary on own entity off', has(T, `if is_state(config.entity, 'off') else 'none'`));
+  await expectCfg(T, 'Apply when OFF → ternary on own entity off', has(T, `if is_state(config.entity, 'off') else 'none'`));
   await expectPage(T, 'preview: effects follow the light (OFF)', P_CARD, 0, (v) => (!lightOn ? v?.filter === FXV : v?.filter === 'none'));
   await choose(reacts, 'custom');
   await pickEntity(T, rowOf(T, m, 'Entity').locator('cms-entity-picker'), 'switch.decorative_lights');
-  await expectCfg(T, 'Reacts to another entity (switch.decorative_lights)', has(T, `if is_state('switch.decorative_lights', 'on') else 'none'`));
+  await expectCfg(T, 'Apply when another entity (switch.decorative_lights)', has(T, `if is_state('switch.decorative_lights', 'on') else 'none'`));
   const decoOn = await isOn(T, 'switch.decorative_lights');
   await expectPage(T, 'preview: effects follow switch.decorative_lights', P_CARD, 0, (v) => (decoOn ? v?.filter === FXV : v?.filter === 'none'));
   await choose(reacts, 'value');
@@ -217,7 +218,7 @@ async function filterSection(T) {
   await expectCfg(T, 'operator <= and threshold 1000 typed', has(T, `| float(0) <= 1000 else 'none'`));
   await expectPage(T, 'preview: <= 1000 holds → effects on', P_CARD, 0, (v) => v?.filter === FXV);
   await choose(reacts, 'always');
-  await expectCfg(T, 'Reacts to Always → unconditional again', has(T, `filter: ${FX};`));
+  await expectCfg(T, 'Apply when Always → unconditional again', has(T, `filter: ${FX};`));
 
   // transition speed on a sensor card (0.10.2: !important on sensor, entity, area and tile alike)
   await openEditor(T, 'fui-filter-sensor', [{ type: 'sensor', entity: 'sensor.outside_temperature' }]);
@@ -228,8 +229,8 @@ async function filterSection(T) {
   await setSlider(T, rowOf(T, m2, 'Transition duration').locator('ha-slider'), 1000);
   await expectCfg(T, 'sensor card: brightness 50 + transition 1000ms', has(T, 'filter: brightness(50%);', 'transition: filter 1000ms ease !important;'));
   await expectPage(T, 'sensor card preview: filter + 1s filter transition applied', P_CARD, 0, (v) => v?.filter === 'brightness(0.5)' && v.transDur === '1s' && v.transProp === 'filter');
-  const opts2 = await rowOf(T, m2, 'Reacts to').locator('select option').evaluateAll((os) => os.map((o) => o.value));
-  T.check('non-state card (sensor): "Reacts to" hides the ON/OFF options', JSON.stringify(opts2) === JSON.stringify(['always', 'custom', 'value']), JSON.stringify(opts2));
+  const opts2 = await m2.locator('select[aria-labelledby="cond-label"] option').evaluateAll((os) => os.map((o) => o.value));
+  T.check('non-state card (sensor): "Apply when" hides the ON/OFF options', JSON.stringify(opts2) === JSON.stringify(['always', 'custom', 'value']), JSON.stringify(opts2));
 }
 
 // ---------------------------------------------------------------------------
@@ -344,16 +345,23 @@ async function iconSection(T) {
   T.check('tile: Icon size control offered', (await size.count()) === 1);
   T.check('Icon size starts at "theme"', (await size.locator('.value-label').textContent()).trim() === 'theme');
   // The tile's circle grows with the icon, so the slider stops at 36px (the largest that still fits).
-  T.check('tile: the Icon size slider stops at 36px', (await size.locator('ha-slider #slider').getAttribute('aria-valuemax')) === '36' || (await size.locator('ha-slider input[type="range"]').getAttribute('max')) === '36');
+  // HA 2026.x's Web Awesome slider has #slider; 2025.x's Material slider a range input (no #slider to wait for)
+  const sliderMax = async (row) => {
+    const wa = row.locator('ha-slider #slider');
+    if (await wa.count()) return wa.first().getAttribute('aria-valuemax');
+    const md = row.locator('ha-slider input[type="range"]');
+    return (await md.count()) ? md.first().getAttribute('max') : null;
+  };
+  T.check('tile: the Icon size slider stops at 36px', (await sliderMax(size)) === '36', await sliderMax(size));
   await setSlider(T, size.locator('ha-slider'), 36);
   // …and the circle around the icon grows with it: three halves of the icon size.
   await expectCfg(T, 'Icon size 36 → ha-tile-icon { --tile-icon-size: 54px; --mdc-icon-size: 36px }', has(T, 'ha-tile-icon {\n  --tile-icon-size: 54px;\n  --mdc-icon-size: 36px;\n}'));
   await expectPage(T, 'tile preview: icon renders 36px', P_CARD, 0, (v) => v?.svgW === 36);
   // (the circle's box also has its own padding: measured against the unstyled card, it grows by 54 - 36 = 18px)
   await expectPage(T, 'tile preview: the icon circle (ha-tile-icon) grew from 36px to 54px (+18px)', P_EL, { within: 'hui-tile-card', sel: 'ha-tile-icon', props: ['width'] }, (v) => !!baseCircle && v?.width === baseCircle + 18);
-  const sizeReacts = m.locator('.control-row').filter({ hasText: 'Reacts to' }).locator('select');
+  const sizeReacts = m.locator('select[aria-labelledby="cond-label"]');
   await choose(sizeReacts, 'off');
-  await expectCfg(T, 'size Reacts to OFF → ternary with 24px fallback', has(T, `--mdc-icon-size: {{ '36px' if is_state(config.entity, 'off') else '24px' }};`));
+  await expectCfg(T, 'size Apply when OFF → ternary with 24px fallback', has(T, `--mdc-icon-size: {{ '36px' if is_state(config.entity, 'off') else '24px' }};`));
   await expectPage(T, `tile preview: size follows the light (${lightOn ? '24' : '36'}px)`, P_CARD, 0, (v) => v?.svgW === (lightOn ? 24 : 36));
   await setSlider(T, rowOf(T, m, 'Size otherwise').locator('ha-slider'), 32);
   await expectCfg(T, 'Size otherwise 32', has(T, `else '32px' }}`));
@@ -453,7 +461,7 @@ function fadeExpected(stops, x) {
   return `rgb(${c.join(', ')})`;
 }
 function decodeMarker(style) {
-  const m = style.match(/--cms-gradient-stops: '([^']+)'/);
+  const m = style.match(/--(?:cstudio|cms)-gradient-stops: '([^']+)'/);
   if (!m) return null;
   return m[1].split(',').map((p) => { const [v, c] = p.split(':'); return { value: Number(v), color: c }; });
 }
@@ -467,7 +475,8 @@ async function thresholdSection(T) {
   const hum = Number((await entityState(T, ENT)).state);
   T.check('enabling pre-fills the card\'s own entity', (await m.locator('cms-entity-picker').first().evaluate((p) => p.value)) === ENT);
   await expectCfg(T, 'no rules yet → nothing emitted', noStyle(T));
-  T.check('Result legend reads "Always" + default swatch', (await m.locator('.legend').textContent()).includes('Always'));
+  // 1.0.0 review: no "Result: Always" row (nothing is applied without a rule)
+  T.check('no rule yet: says nothing is applied (no "Always" result row)', (await m.locator('.module-body').first().textContent()).includes('No rules yet') && (await m.locator('.legend').count()) === 0);
 
   const addRule = btn(m, '+ Add Rule');
   await addRule.click();
@@ -549,7 +558,7 @@ async function thresholdSection(T) {
 
   // Fade mode
   await choose(rowOf(T, m, 'Value mode').locator('select'), 'gradient');
-  await expectCfg(T, 'Fade mode → 32-step rules + stops marker', has(T, "--cms-gradient-stops: '0:#9e9e9e,100:#f44336';"));
+  await expectCfg(T, 'Fade mode → 32-step rules + stops marker', has(T, "--cstudio-gradient-stops: '0:#9e9e9e,100:#f44336';"));
   let stops = decodeMarker(S(T, await getCfg(T)));
   await expectPage(T, `preview: fade colour at ${hum}`, P_CARD, 0, (v) => sameRgb(v?.iconColor, fadeExpected(stops, hum)));
   T.check('gradient preview bar + min/max labels', (await m.locator('.gradient-bar').count()) === 1 && (await m.locator('.gradient-labels').textContent()).replace(/\s+/g, ' ').trim() === '0 100');
@@ -646,15 +655,15 @@ async function animationSection(T) {
   await openStudio(T);
   const m = mod(T, 'cms-animation-module');
   await enable(m);
-  await expectCfg(T, 'enable → pulse 2s always + keyframes', has(T, '@keyframes cms-pulse', 'animation: cms-pulse 2s ease-in-out infinite;'));
-  await expectPage(T, 'preview: animation cms-pulse 2s', P_CARD, 0, (v) => v?.anim === 'cms-pulse' && v.animDur === '2s');
+  await expectCfg(T, 'enable → pulse 2s always + keyframes', has(T, '@keyframes cstudio-pulse', 'animation: cstudio-pulse 2s ease-in-out infinite;'));
+  await expectPage(T, 'preview: animation cstudio-pulse 2s', P_CARD, 0, (v) => v?.anim === 'cstudio-pulse' && v.animDur === '2s');
   const preset = rowOf(T, m, 'Preset').locator('select');
   const presets = await preset.locator('option').evaluateAll((os) => os.map((o) => o.value));
   T.check('9 presets offered', presets.length === 9, JSON.stringify(presets));
   for (const p of presets) {
     await choose(preset, p);
-    await expectCfg(T, `preset ${p} → @keyframes cms-${p} + animation`, has(T, `@keyframes cms-${p}`, `animation: cms-${p} 2s ${p === 'spin' ? 'linear' : 'ease-in-out'} infinite;`));
-    await expectPage(T, `preview: animation-name cms-${p}`, P_CARD, 0, (v) => v?.anim === `cms-${p}`);
+    await expectCfg(T, `preset ${p} → @keyframes cstudio-${p} + animation`, has(T, `@keyframes cstudio-${p}`, `animation: cstudio-${p} 2s ${p === 'spin' ? 'linear' : 'ease-in-out'} infinite;`));
+    await expectPage(T, `preview: animation-name cstudio-${p}`, P_CARD, 0, (v) => v?.anim === `cstudio-${p}`);
     if (p === 'gradient-shift') {
       T.check('gradient-shift shows the "requires gradient bg" warning', (await m.locator('.when-hint').allTextContents()).some((t) => t.includes('Gradient Shift requires a gradient background')));
       await expectCfg(T, 'gradient-shift adds background-size: 200% auto', has(T, 'background-size: 200% auto;'));
@@ -663,29 +672,31 @@ async function animationSection(T) {
   await choose(preset, 'breathe');
   T.check('the speed slider is named "Duration" with the hint "Seconds per cycle — lower is faster."', ((await m.locator('.when-hint').allTextContents()).join(' ')).includes('Seconds per cycle — lower is faster.') && (await rowOf(T, m, 'Speed').count()) === 0);
   await setSlider(T, rowOf(T, m, 'Duration').locator('ha-slider'), 4);
-  await expectCfg(T, 'Speed 4s', has(T, 'animation: cms-breathe 4s ease-in-out infinite;'));
+  await expectCfg(T, 'Speed 4s', has(T, 'animation: cstudio-breathe 4s ease-in-out infinite;'));
   await expectPage(T, 'preview: animation-duration 4s', P_CARD, 0, (v) => v?.animDur === '4s');
   const lightOn = await isOn(T, 'light.ceiling_lights');
   const trig = rowOf(T, m, 'Apply when').locator('select');
   await choose(trig, 'on');
-  await expectCfg(T, 'trigger ON', has(T, `animation: {{ 'cms-breathe 4s ease-in-out infinite' if is_state(config.entity, 'on') else 'none' }};`));
-  await expectPage(T, `preview: ON → ${lightOn ? 'animating' : 'none'}`, P_CARD, 0, (v) => v?.anim === (lightOn ? 'cms-breathe' : 'none'));
+  await expectCfg(T, 'trigger ON', has(T, `animation: {{ 'cstudio-breathe 4s ease-in-out infinite' if is_state(config.entity, 'on') else 'none' }};`));
+  await expectPage(T, `preview: ON → ${lightOn ? 'animating' : 'none'}`, P_CARD, 0, (v) => v?.anim === (lightOn ? 'cstudio-breathe' : 'none'));
   await choose(trig, 'off');
-  await expectPage(T, `preview: OFF → ${lightOn ? 'none' : 'animating'}`, P_CARD, 0, (v) => v?.anim === (!lightOn ? 'cms-breathe' : 'none'));
+  await expectPage(T, `preview: OFF → ${lightOn ? 'none' : 'animating'}`, P_CARD, 0, (v) => v?.anim === (!lightOn ? 'cstudio-breathe' : 'none'));
   await choose(trig, 'custom');
   await pickEntity(T, rowOf(T, m, 'Entity').locator('cms-entity-picker'), 'switch.ac');
   await expectCfg(T, 'trigger another entity (switch.ac)', has(T, `if is_state('switch.ac', 'on') else 'none'`));
   const acOn = await isOn(T, 'switch.ac');
-  await expectPage(T, 'preview: follows switch.ac', P_CARD, 0, (v) => v?.anim === (acOn ? 'cms-breathe' : 'none'));
+  await expectPage(T, 'preview: follows switch.ac', P_CARD, 0, (v) => v?.anim === (acOn ? 'cstudio-breathe' : 'none'));
   await choose(trig, 'value');
-  await expectCfg(T, 'value trigger without an entity → unconditional (W8)', has(T, 'animation: cms-breathe 4s ease-in-out infinite;'));
+  // 1.0.0 review: "A value matches" starts with the card's own entity (it used
+  // to be empty, which applied the animation all the time without saying so)
+  await expectCfg(T, "value trigger starts with the card's own entity (light.ceiling_lights > 0)", has(T, `if states('light.ceiling_lights') | float(0) > 0 else 'none'`));
   await pickEntity(T, rowOf(T, m, 'Entity').locator('cms-entity-picker'), 'sensor.outside_humidity');
   T.check('sensor without numeric attributes → no "Value read from" select', (await rowOf(T, m, 'Value read from').count()) === 0);
   await choose(rowOf(T, m, 'Condition').locator('select'), '<');
   await typeInto(rowOf(T, m, 'Threshold').locator('input'), '60');
   await expectCfg(T, 'value condition states(sensor.outside_humidity) < 60', has(T, `if states('sensor.outside_humidity') | float(0) < 60 else 'none'`));
   const hum = Number((await entityState(T, 'sensor.outside_humidity')).state);
-  await expectPage(T, `preview: ${hum} < 60 → ${hum < 60 ? 'animating' : 'none'}`, P_CARD, 0, (v) => v?.anim === (hum < 60 ? 'cms-breathe' : 'none'));
+  await expectPage(T, `preview: ${hum} < 60 → ${hum < 60 ? 'animating' : 'none'}`, P_CARD, 0, (v) => v?.anim === (hum < 60 ? 'cstudio-breathe' : 'none'));
   await pickEntity(T, rowOf(T, m, 'Entity').locator('cms-entity-picker'), 'light.ceiling_lights');
   await choose(rowOf(T, m, 'Value read from').locator('select'), 'brightness');
   await choose(rowOf(T, m, 'Condition').locator('select'), '>=');
@@ -706,7 +717,7 @@ async function borderSection(T) {
   await enable(m);
   await expectCfg(T, 'enable → border-radius: 12px (width 0 → no border)', (c) => S(T, c).includes('border-radius: 12px;') && !/\bborder:/.test(S(T, c)));
   await expectPage(T, 'preview: radius 12px', P_CARD, 0, (v) => v?.radius === '12px');
-  T.check('width 0 hides colour + Reacts to', (await rowOf(T, m, 'Border color').count()) === 0);
+  T.check('width 0 hides colour + Apply when', (await rowOf(T, m, 'Border color').count()) === 0);
   await setSlider(T, rowOf(T, m, 'Border radius').locator('ha-slider'), 20);
   await expectCfg(T, 'radius slider 20', has(T, 'border-radius: 20px;'));
   await expectPage(T, 'preview: radius 20px', P_CARD, 0, (v) => v?.radius === '20px');
@@ -717,10 +728,10 @@ async function borderSection(T) {
   const red = await resolveRgb(T, 'var(--red-color)');
   await expectPage(T, 'swatch Red → preview border red', P_CARD, 0, (v) => sameRgb(v?.bc, red));
   const lightOn = await isOn(T, 'light.ceiling_lights');
-  const reacts = rowOf(T, m, 'Reacts to').locator('select');
+  const reacts = m.locator('select[aria-labelledby="cond-label"]');
   await choose(reacts, 'off');
   // The other branch is empty: the card keeps its OWN border (never `none`, which would remove it).
-  await expectCfg(T, 'Reacts to OFF → border while OFF, the card\'s own border otherwise (empty branch, no `none`)', (c) => has(T, `border: {{ '3px solid var(--red-color)' if is_state(config.entity, 'off') else '' }};`)(c) && lacks(T, `else 'none'`)(c));
+  await expectCfg(T, 'Apply when OFF → border while OFF, the card\'s own border otherwise (empty branch, no `none`)', (c) => has(T, `border: {{ '3px solid var(--red-color)' if is_state(config.entity, 'off') else '' }};`)(c) && lacks(T, `else 'none'`)(c));
   const ownBorder = (v) => v?.bw === own.bw && v.bs === own.bs && v.bc === own.bc;
   await expectPage(T, `preview: OFF condition → ${lightOn ? `the card's own border (${own.bw}, unchanged)` : '3px'}`, P_CARD, 0, (v) => (lightOn ? ownBorder(v) : v?.bw === '3px'));
   const other = rowOf(T, m, 'Width otherwise');
@@ -737,14 +748,14 @@ async function borderSection(T) {
   await choose(reacts, 'custom');
   await pickEntity(T, rowOf(T, m, 'Entity').locator('cms-entity-picker'), 'switch.ac');
   const acOn = await isOn(T, 'switch.ac');
-  await expectCfg(T, 'Reacts to switch.ac', has(T, `if is_state('switch.ac', 'on') else '1px solid var(--red-color)'`));
+  await expectCfg(T, 'Apply when switch.ac', has(T, `if is_state('switch.ac', 'on') else '1px solid var(--red-color)'`));
   await expectPage(T, 'preview: follows switch.ac', P_CARD, 0, (v) => v?.bw === (acOn ? '3px' : '1px'));
   await choose(reacts, 'value');
   await pickEntity(T, rowOf(T, m, 'Entity').locator('cms-entity-picker'), 'sensor.outside_humidity');
   await choose(rowOf(T, m, 'Condition').locator('select'), '>');
   await typeInto(rowOf(T, m, 'Threshold').locator('input'), '50');
   const hum = Number((await entityState(T, 'sensor.outside_humidity')).state);
-  await expectCfg(T, 'Reacts to value: humidity > 50', has(T, `if states('sensor.outside_humidity') | float(0) > 50 else`));
+  await expectCfg(T, 'Apply when value: humidity > 50', has(T, `if states('sensor.outside_humidity') | float(0) > 50 else`));
   await expectPage(T, `preview: ${hum} > 50 → ${hum > 50 ? '3px' : '1px'}`, P_CARD, 0, (v) => v?.bw === (hum > 50 ? '3px' : '1px'));
 }
 
@@ -760,12 +771,13 @@ async function headingSection(T) {
   await openEditor(T, 'fui-heading', cards, 0);
   await openStudio(T);
   const pv = await T.page.evaluate(P_PANEL);
-  const want = ['cms-heading-style-module', 'cms-filter-module', 'cms-advanced-module'];
+  // Animation is offered on the heading since v1.0.0-beta.2 (measured).
+  const want = ['cms-heading-style-module', 'cms-filter-module', 'cms-animation-module', 'cms-advanced-module'];
   // Threshold is hidden too (v0.10.0): none of its colours reaches a heading
   // (measured on a real dashboard — no box for background/border, and the
   // title has its own colour variable).
-  const hidden = ['cms-font-module', 'cms-background-module', 'cms-border-module', 'cms-animation-module', 'cms-icon-color-module', 'cms-accent-color-module', 'cms-threshold-module'];
-  T.check('heading: Heading Style shown; Font/Background/Border/Animation/Icon/Accent/Threshold hidden', want.every((t) => pv.modules.includes(t)) && hidden.every((t) => !pv.modules.includes(t)), JSON.stringify(pv.modules));
+  const hidden = ['cms-font-module', 'cms-background-module', 'cms-border-module', 'cms-icon-color-module', 'cms-accent-color-module', 'cms-threshold-module'];
+  T.check('heading: Heading Style and Animation shown; Font/Background/Border/Icon/Accent/Threshold hidden', want.every((t) => pv.modules.includes(t)) && hidden.every((t) => !pv.modules.includes(t)), JSON.stringify(pv.modules));
   const base = await T.page.evaluate(P_HEADING);
   const m = mod(T, 'cms-heading-style-module');
   await enable(m);
@@ -857,7 +869,7 @@ async function advancedSection(T) {
   await typeCode(T, m, ' ha-card { background: rgb(9, 8, 7); }');
   await expectCfg(T, 'conflicting custom rule emitted after the module output', has(T, 'ha-card { background: rgb(9, 8, 7); }'));
   await bg.locator('.override-badge').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
-  T.check('Background header shows the ⚠️ "overriding" badge', (await bg.locator('.override-badge').count()) === 1);
+  T.check('Background header shows the "overriding" badge', (await bg.locator('.override-badge').count()) === 1);
   await expand(bg);
   const hint = (await bg.locator('.override-hint').textContent().catch(() => '')) || '';
   T.check('Background body explains the override (names ha-card { background })', hint.includes('Custom CSS is currently overriding this control') && hint.includes('ha-card { background }'), hint.replace(/\s+/g, ' ').slice(0, 200));

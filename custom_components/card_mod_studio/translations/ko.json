@@ -1,0 +1,77 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card Style Studio",
+        "description": "이 페이지에 Card Style Studio 설정을 추가합니다. Studio 자체는 대시보드 리소스로 설치합니다(HACS, Marketplace 또는 수동). 이 항목에는 설정만 저장됩니다."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card Style Studio가 이미 구성되어 있습니다."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Card Style Studio 설정",
+        "description": "이 Home Assistant의 모든 사용자에게 적용되는 기본값입니다. Studio에서 사용자 자신이 고른 설정(⚙️ 설정, 내 색상 팔레트)이 항상 우선합니다.",
+        "data": {
+          "language": "언어",
+          "ask_language": "각 사용자에게 사용할 언어 묻기",
+          "on_color": "켜짐 기본 색상",
+          "off_color": "꺼짐 기본 색상"
+        },
+        "data_description": {
+          "language": "자동 감지는 Home Assistant가 각 사용자에게 표시하는 언어를 따릅니다.",
+          "ask_language": "처음 Studio를 열 때 짧은 질문으로 언어를 고를 수 있습니다. 끄면: 모든 사용자에게 위의 언어가 사용됩니다.",
+          "on_color": "엔티티가 켜져 있을 때 새 아이콘 색상, 강조 색상, 임계값 규칙이 처음 사용하는 색입니다. Studio 기본값: Studio 자체 색상.",
+          "off_color": "엔티티가 꺼져 있을 때도 마찬가지입니다."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "자동 감지(권장)",
+        "en": "English",
+        "de": "Deutsch",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "es": "Español",
+        "it": "Italiano",
+        "pl": "Polski",
+        "pt": "Português",
+        "pt-br": "Português (Brasil)",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "nb": "Norsk bokmål",
+        "cs": "Čeština",
+        "sk": "Slovenčina",
+        "hu": "Magyar",
+        "fi": "Suomi",
+        "ru": "Русский",
+        "uk": "Українська",
+        "zh-hans": "简体中文",
+        "zh-hant": "繁體中文",
+        "ja": "日本語",
+        "ko": "한국어"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Studio 기본값",
+        "red": "빨간색",
+        "pink": "분홍색",
+        "purple": "보라색",
+        "blue": "파란색",
+        "cyan": "청록색",
+        "teal": "틸색",
+        "green": "초록색",
+        "yellow": "노란색",
+        "orange": "주황색",
+        "grey": "회색"
+      }
+    }
+  }
+}

@@ -4,6 +4,7 @@ import { getCachedPalette, PALETTE_CHANGED_EVENT } from '../utils/palette-storag
 import { isValidCssColor, type ColorMode } from '../utils/css-color.js';
 import { keepEnterInStudio } from '../utils/enter-guard.js';
 import { rovingTarget, tabStopIndex } from '../utils/roving-focus.js';
+import { LangController, t, type MessageKey } from '../i18n/index.js';
 
 /**
  * Walks up through shadow-root hosts *and* slot assignments — the
@@ -74,6 +75,11 @@ export const HA_COLOR_PRESETS: ColorPreset[] = [
  * "red" (the third form `parseThresholdJinja` also recognises, for
  * round-tripping hand-written CSS) — to a hex preview color.
  */
+/** Message key of a palette swatch's name ("Red" → picker.color.red). */
+function presetKey(p: ColorPreset): MessageKey {
+  return `picker.color.${p.variable.slice(6, -7)}` as MessageKey;
+}
+
 export function previewHexFor(value: string): string {
   const preset = HA_COLOR_PRESETS.find((p) => p.variable === value);
   if (preset) return preset.hex;
@@ -188,6 +194,13 @@ const swatchStyles = css`
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-text-color, #212121) 22%, transparent);
   }
   .custom input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+  /* No colour set and none to show: a hatched chip, not the black that
+     <input type="color"> falls back to (it read as "black chosen" in dark mode). */
+  .custom input[type="color"].unset {
+    background: repeating-linear-gradient(45deg, transparent 0 4px, var(--divider-color, rgba(0, 0, 0, 0.18)) 4px 6px);
+  }
+  .custom input[type="color"].unset::-webkit-color-swatch { opacity: 0; }
+  .custom input[type="color"].unset::-moz-color-swatch { opacity: 0; }
   .custom input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 6px; }
   .custom input[type="color"]::-moz-color-swatch { border: 0; border-radius: 6px; }
   .custom input[type="text"] {
@@ -276,6 +289,8 @@ const popoverStyles = css`
 
 @customElement('cms-color-picker')
 export class CmsColorPicker extends LitElement {
+  protected readonly i18n = new LangController(this);
+
   @property() value = '#ffffff';
   /** What this picker sets (e.g. "Color when ON"): prefixes the names of its
    *  trigger and fields so several pickers in one module read differently. */
@@ -407,7 +422,7 @@ export class CmsColorPicker extends LitElement {
 
   /** An accessible name for one of this picker's controls, led by `label`. */
   private _name(text: string): string {
-    return this.label ? `${this.label}: ${text}` : text;
+    return this.label ? t('picker.named', { label: this.label, what: text }) : text;
   }
 
   render() {
@@ -421,7 +436,7 @@ export class CmsColorPicker extends LitElement {
         class="swatch-trigger"
         style="background: ${previewHexFor(this.value)}"
         title="${this.value}"
-        aria-label="${this._name(`Color ${this.value} — change`)}"
+        aria-label=${this._name(t('picker.change', { value: this.value }))}
         aria-haspopup="dialog"
         aria-expanded="${this._popoverOpen}"
         @click=${this._toggleCompactPopover}
@@ -490,21 +505,21 @@ export class CmsColorPicker extends LitElement {
     const customColors = getCachedPalette().colors;
     return html`
       <div class="container">
-        ${this._renderSwatchRow('presets', 'Palette colors', HA_COLOR_PRESETS.map((p) => ({
-          hex: p.hex, title: `${p.name} (${p.variable})`, name: p.name,
+        ${this._renderSwatchRow('presets', t('picker.paletteColors'), HA_COLOR_PRESETS.map((p) => ({
+          hex: p.hex, title: `${t(presetKey(p))} (${p.variable})`, name: t(presetKey(p)),
           selected: this.value === p.variable, pick: () => this._selectPreset(p),
         })))}
         ${customColors.length > 0
-          ? this._renderSwatchRow('custom', 'My colors', customColors.map((c) => ({
+          ? this._renderSwatchRow('custom', t('picker.myColors'), customColors.map((c) => ({
               hex: c.hex, title: c.name || c.hex, name: c.name || c.hex,
               selected: this.value === c.hex, pick: () => this._selectCustom(c.hex),
-            })), 'My colors')
+            })), t('picker.myColors'))
           : nothing}
         <div class="custom">
-          <input type="color" aria-label="${this._name('Pick a custom color')}" .value=${this._toHex(this.value || (this.clearable ? this.placeholderColor : ''))} @input=${this._onColorInput} />
-          <input type="text" aria-label="${this._name('Color value')}" aria-invalid=${this._invalid ? 'true' : 'false'} aria-describedby=${this._invalid ? 'cms-color-hint' : nothing} spellcheck="false" autocomplete="off" .value=${this.value ?? ''} @input=${this._onTextInput} @keydown=${this._onTextKeydown} @change=${this._onTextChange} @blur=${this._onTextBlur} placeholder=${this.clearable ? (this.placeholder || 'Default') : 'Color or var(--name)'} />
+          <input type="color" class=${!this.value && !(this.clearable && this.placeholderColor) ? 'unset' : ''} aria-label=${this._name(t('picker.pickCustom'))} .value=${this._toHex(this.value || (this.clearable ? this.placeholderColor : ''))} @input=${this._onColorInput} />
+          <input type="text" aria-label=${this._name(t('picker.value'))} aria-invalid=${this._invalid ? 'true' : 'false'} aria-describedby=${this._invalid ? 'cms-color-hint' : nothing} spellcheck="false" autocomplete="off" .value=${this.value ?? ''} @input=${this._onTextInput} @keydown=${this._onTextKeydown} @change=${this._onTextChange} @blur=${this._onTextBlur} placeholder=${this.clearable ? (this.placeholder || t('base.default')) : t('picker.placeholder')} />
           ${this.clearable && this.value
-            ? html`<button type="button" class="clear" aria-label="Reset color to default" title="Reset to default" @click=${this._onClear}>Default</button>`
+            ? html`<button type="button" class="clear" aria-label=${t('picker.resetColor')} title=${t('base.resetToDefault')} @click=${this._onClear}>${t('base.default')}</button>`
             : nothing}
         </div>
         <div class="invalid-hint" id="cms-color-hint" role="status">${this._invalid ? this._hint() : nothing}</div>
@@ -576,7 +591,7 @@ export class CmsColorPicker extends LitElement {
         <div
           class="popover"
           role="dialog"
-          aria-label=${this._name('Color picker')}
+          aria-label=${this._name(t('picker.dialog'))}
           style="top: ${this._popoverPos.top}px; left: ${this._popoverPos.left}px;"
           @click=${(e: Event) => e.stopPropagation()}
         >
@@ -729,9 +744,9 @@ export class CmsColorPicker extends LitElement {
   }
 
   private _hint(): string {
-    if (this.validation === 'background') return 'Not a valid colour or image — try #ff8800, var(--primary-color) or linear-gradient(…)';
-    if (this.validation === 'stop') return 'Not a valid gradient colour — try #ff8800 or red 40%';
-    return 'Not a valid colour — try #ff8800 or var(--primary-color)';
+    if (this.validation === 'background') return t('picker.invalidBackground');
+    if (this.validation === 'stop') return t('picker.invalidStop');
+    return t('picker.invalid');
   }
 
   /** Empty is valid only where it means "not set" (clearable). */

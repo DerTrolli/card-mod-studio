@@ -28,6 +28,7 @@
 
 import { MUSHROOM_PROFILES } from './profiles/mushroom.js';
 import { BUBBLE_PROFILES } from './profiles/bubble.js';
+import { t } from '../i18n/index.js';
 
 /** The panel modules a profile can show or hide. `filter` was always shown
  *  for built-ins; a profile may hide it (Mushroom's empty card has no box). */
@@ -437,5 +438,6 @@ export function isUnprofiledCustomCard(
 }
 
 /** The notice text for an unprofiled custom card (panel and child section). */
-export const UNPROFILED_CARD_NOTICE =
-  "Card-Mod Studio doesn't know this custom card yet — some controls may not reach it; Advanced CSS always works.";
+export function unprofiledCardNotice(): string {
+  return t('panel.unprofiled');
+}

@@ -4,8 +4,7 @@ import {
   sleep, openEditor, clickEditOn, openStudio, mod, isOpen, expand, enable, setSwitch, choose, setSlider,
   typeInto, pickSwatch, pickCompact, pickEntity, expectCfg, expectPage, pollPage, getCfg, styleStr, styleOf, rowOf, btn,
   resolveRgb, sameRgb, entityState, panelLoc, dialogButton, readDashboardCards, viewDashboard,
-  waitDialogClosed, expectDashboardCard,
-} from './lib.mjs';
+  waitDialogClosed, expectDashboardCard, tab, collapse } from './lib.mjs';
 import { P_CARD, P_ROWS, P_PANEL, P_GAUGE } from './probes.mjs';
 import { cancelDialog } from './s-core.mjs';
 
@@ -27,6 +26,7 @@ async function entitiesSection(T) {
   // The card-level Threshold Colors module is offered here (Background, Text Color, Border Color);
   // Accent and Icon Color stay off (the rows have their own icon colour).
   T.check('entities: card-level Threshold offered; no card-level Accent / Icon modules; rows module present', !pv.modules.includes('cms-accent-color-module') && !pv.modules.includes('cms-icon-color-module') && pv.modules.includes('cms-threshold-module') && pv.modules.includes('cms-entities-rows-module'), JSON.stringify(pv.modules));
+  T.check('entities: Entity Rows come before Advanced CSS, which is last', pv.modules.indexOf('cms-entities-rows-module') >= 0 && pv.modules.indexOf('cms-entities-rows-module') < pv.modules.indexOf('cms-advanced-module') && pv.modules[pv.modules.length - 1] === 'cms-advanced-module', JSON.stringify(pv.modules));
   const thr = mod(T, 'cms-threshold-module');
   await enable(thr);
   const thrProps = (await thr.locator('label.property-check').allTextContents()).map((t) => t.trim());
@@ -178,8 +178,8 @@ async function stackSection(T) {
   await child(0).locator('.child-header').click();
   const anim = mod(T, 'cms-animation-module', child(0));
   await enable(anim);
-  await expectCfg(T, 'grid child 0 animation → cards[0]', (c) => rowStyle(T, c.cards?.[0]).includes('animation: cms-pulse 2s ease-in-out infinite;') && !c.cards[1][T.KEY], { show: (c) => JSON.stringify(c) });
-  await expectPage(T, 'preview: first grid child pulses', P_CARD, 0, (v) => v?.anim === 'cms-pulse');
+  await expectCfg(T, 'grid child 0 animation → cards[0]', (c) => rowStyle(T, c.cards?.[0]).includes('animation: cstudio-pulse 2s ease-in-out infinite;') && !c.cards[1][T.KEY], { show: (c) => JSON.stringify(c) });
+  await expectPage(T, 'preview: first grid child pulses', P_CARD, 0, (v) => v?.anim === 'cstudio-pulse');
 }
 
 // ---------------------------------------------------------------------------
@@ -202,14 +202,16 @@ async function presetsSection(T) {
   const border = mod(T, 'cms-border-module');
   await enable(border);
   await setSlider(T, rowOf(T, border, 'Border radius').locator('ha-slider'), 20);
-  await expectCfg(T, 'source card styled (bg, animation, icon, radius)', has(T, 'background: var(--red-color);', 'cms-pulse', 'color: var(--pink-color) !important;', 'border-radius: 20px;'));
+  await expectCfg(T, 'source card styled (bg, animation, icon, radius)', has(T, 'background: var(--red-color);', 'cstudio-pulse', 'color: var(--pink-color) !important;', 'border-radius: 20px;'));
 
+  // the preset bar is on the Presets tab (v1.0)
+  await tab(T, 'presets');
   const presetSel = panelLoc(T).locator('.preset-bar select');
   // "Save preset" swaps the bar for an inline name field (no window.prompt —
   // unreliable in the Companion app). Escape cancels without closing HA's dialog.
   await panelLoc(T).locator('.btn-preset-save').click();
   const nameField = panelLoc(T).locator('.preset-bar .preset-name');
-  T.check('💾 Save preset shows an inline name field (focused), Save disabled while empty', (await nameField.isVisible()) && (await nameField.evaluate((e) => e.getRootNode().activeElement === e)) && (await panelLoc(T).locator('.preset-bar .btn-preset-save').isDisabled()));
+  T.check('Save preset shows an inline name field (focused), Save disabled while empty', (await nameField.isVisible()) && (await nameField.evaluate((e) => e.getRootNode().activeElement === e)) && (await panelLoc(T).locator('.preset-bar .btn-preset-save').isDisabled()));
   await nameField.press('Escape');
   T.check('Escape cancels naming — the dropdown is back and HA\'s dialog stays open', (await presetSel.isVisible()) && !!(await T.page.evaluate(() => window.__fui.dialog())));
   await panelLoc(T).locator('.btn-preset-save').click();
@@ -233,22 +235,33 @@ async function presetsSection(T) {
   // load onto a heading: hidden modules must not leak
   await clickEditOn(T, 1);
   await openStudio(T);
+  T.check('a new editor opens on the Style tab', (await panelLoc(T).locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'style');
+  await tab(T, 'presets');
   await choose(panelLoc(T).locator('.preset-bar select'), NAME);
   await sleep(800);
   const hc = await getCfg(T);
   const hs = S(T, hc);
-  T.check('preset loaded onto a HEADING: no hidden-module styling leaks (bg/animation/icon/border)', !/background|animation|ha-state-icon|border-radius|@keyframes/.test(hs), hs.slice(0, 300) || '(no style — correct)');
+  // Pulse is offered on the heading since v1.0.0-beta.2: the preset's
+  // animation comes along; the hidden modules' styling must not.
+  T.check('preset loaded onto a HEADING: its Pulse comes along, no hidden-module styling leaks (bg/icon/border)', !/background|ha-state-icon|border-radius/.test(hs) && hs.includes('animation: cstudio-pulse'), hs.slice(0, 300) || '(no style)');
   await cancelDialog(T);
 
   // load onto another tile
   await clickEditOn(T, 2);
   await openStudio(T);
+  await tab(T, 'presets');
   await choose(panelLoc(T).locator('.preset-bar select'), NAME);
-  await expectCfg(T, 'preset loaded onto another tile reproduces the styling', has(T, 'background: var(--red-color);', 'animation: cms-pulse', 'color: var(--pink-color) !important;', 'border-radius: 20px;'));
+  await expectCfg(T, 'preset loaded onto another tile reproduces the styling', has(T, 'background: var(--red-color);', 'animation: cstudio-pulse', 'color: var(--pink-color) !important;', 'border-radius: 20px;'));
   const red = await resolveRgb(T, 'var(--red-color)');
   const pink = await resolveRgb(T, 'var(--pink-color)');
-  await expectPage(T, 'preview: preset look (red bg, pulse, pink icon, 20px radius)', P_CARD, 0, (v) => sameRgb(v?.bg, red) && v.anim === 'cms-pulse' && sameRgb(v.iconColor, pink) && v.radius === '20px');
+  await expectPage(T, 'preview: preset look (red bg, pulse, pink icon, 20px radius)', P_CARD, 0, (v) => sameRgb(v?.bg, red) && v.anim === 'cstudio-pulse' && sameRgb(v.iconColor, pink) && v.radius === '20px');
+  await tab(T, 'style');
   T.check('modules reflect the loaded preset (Background switch on)', await mod(T, 'cms-background-module').locator('.module-header ha-switch').evaluate((e) => e.checked));
+  const borderM = mod(T, 'cms-border-module');
+  await expand(borderM);
+  const rv = await rowOf(T, borderM, 'Border radius').locator('ha-slider').evaluate((e) => Number(e.value));
+  T.check('…a module opened after the load shows the preset\'s values (Border radius slider at 20)', rv === 20, String(rv));
+  await tab(T, 'presets');
 
   // delete: two steps — the first click arms the button, the second one deletes
   const del = panelLoc(T).locator('.btn-preset-delete');
@@ -287,8 +300,8 @@ async function paletteSection(T) {
     const cards = [{ type: 'tile', entity: 'light.ceiling_lights' }];
     await openEditor(T, 'fui-palette', cards, 0);
     await openStudio(T);
+    await tab(T, 'palette');
     const pm = mod(T, 'cms-palette-manager');
-    await pm.locator('.module-header').click();
     await btn(pm, '+ Add Color').click();
     const row = pm.locator('.color-row').first();
     // Each colour row has a name field, a hex field and a native swatch.
@@ -309,6 +322,7 @@ async function paletteSection(T) {
     let stored = await T.ws.call({ type: 'frontend/get_user_data', key: 'cms_palette' });
     T.check('renamed + recoloured (by typing the hex) custom colour saved to HA user data', (stored?.value?.colors || []).some((c) => c.name === 'FUI Magenta' && c.hex === '#ab12cd'), JSON.stringify(stored?.value));
 
+    await tab(T, 'style');
     const bg = mod(T, 'cms-background-module');
     await enable(bg);
     const bgPicker = rowOf(T, bg, 'Color').locator('cms-color-picker');
@@ -328,16 +342,20 @@ async function paletteSection(T) {
     await enable(thr, false);
 
     // removing a colour takes two clicks: the first arms the button ("Remove?"), the second removes
+    await tab(T, 'palette');
     await row.locator('.del-btn').click();
-    T.check('first × click only arms the button ("Remove?") — the colour is still there', ((await row.locator('.del-btn').textContent()) || '').trim() === 'Remove?' && (await bgPicker.locator('button.preset[aria-label="FUI Magenta"]').count()) === 1);
+    T.check('first × click only arms the button ("Remove?") — the colour is still there', ((await row.locator('.del-btn').textContent()) || '').trim() === 'Remove?' && (await row.locator('input.name-input').inputValue()) === 'FUI Magenta');
     await row.locator('.del-btn').click();
     await sleep(400);
-    T.check('second click removes the custom colour and its swatch from the pickers', (await bgPicker.locator('button.preset[aria-label="FUI Magenta"]').count()) === 0);
+    T.check('second click removes the custom colour', (await pm.locator('input.name-input').count()) === 0);
+    await tab(T, 'style');
+    T.check('…and its swatch from the pickers', (await bgPicker.locator('button.preset[aria-label="FUI Magenta"]').count()) === 0);
     T.check('…without touching styling that already uses it', S(T, await getCfg(T)).includes('background: #ab12cd;'));
     stored = await T.ws.call({ type: 'frontend/get_user_data', key: 'cms_palette' });
     T.check('…and from HA user data', (stored?.value?.colors || []).length === 0, JSON.stringify(stored?.value));
 
     // ON / OFF default overrides
+    await tab(T, 'palette');
     const onRow = pm.locator('.color-row').filter({ hasText: 'ON default' });
     const offRow = pm.locator('.color-row').filter({ hasText: 'OFF default' });
     T.check('ON/OFF default rows show the built-in values', ((await onRow.textContent()) || '').includes('built-in #2196F3') && ((await offRow.textContent()) || '').includes('built-in #6b6b6b'));
@@ -349,6 +367,7 @@ async function paletteSection(T) {
     T.check('overrides saved to HA user data', stored?.value?.defaults?.onColor === '#112233' && stored?.value?.defaults?.offColor === '#445566', JSON.stringify(stored?.value));
     // same session: freshly enable Icon Color / Accent Color
     // Icon Color now starts as "Keep the card's colour" (writes nothing); its ON/OFF mode is what takes the palette defaults.
+    await tab(T, 'style');
     const iconMod = mod(T, 'cms-icon-color-module');
     await enable(iconMod);
     await sleep(300);
@@ -368,9 +387,9 @@ async function paletteSection(T) {
     await expectCfg(T, 'after reopening: Icon Color in ON/OFF mode starts from the ON/OFF defaults', has(T, `{{ '#112233' if is_state(config.entity, 'on') else '#445566' }}`));
     await enable(mod(T, 'cms-accent-color-module'));
     await expectCfg(T, 'after reopening: Accent Color starts from the ON default', has(T, '--accent-color: #112233;'));
+    await tab(T, 'palette');
     const pm2 = mod(T, 'cms-palette-manager');
-    T.check('collapsed palette header summarises "defaults set"', ((await pm2.locator('.header-summary').textContent().catch(() => '')) || '').includes('defaults set'));
-    await pm2.locator('.module-header').click();
+    T.check('the palette heading summarises "defaults set"', ((await pm2.locator('.module-summary').textContent().catch(() => '')) || '').includes('defaults set'));
     await pm2.locator('.color-row').filter({ hasText: 'ON default' }).locator('.reset-btn').click();
     await pm2.locator('.color-row').filter({ hasText: 'OFF default' }).locator('.reset-btn').click();
     await sleep(500);
@@ -442,6 +461,15 @@ async function pickerSection(T) {
   await T.page.mouse.click(pt.x, pt.y);
   await sleep(900);
   T.check('click → Font module opened + in view', (await isOpen(mod(T, 'cms-font-module'))) && (await moduleInView(T, 'cms-font-module')));
+  // from another tab: a click on the preview goes back to Style and opens the module
+  await collapse(mod(T, 'cms-font-module'));
+  await tab(T, 'palette');
+  await T.page.mouse.click(pt.x, pt.y);
+  await sleep(900);
+  T.check('click on the preview from the Palette tab → back on Style, Font opened + in view', (await panelLoc(T).locator('[role="tab"][aria-selected="true"]').getAttribute('data-tab')) === 'style' && (await isOpen(mod(T, 'cms-font-module'))) && (await moduleInView(T, 'cms-font-module')));
+  await tab(T, 'settings');
+  await tab(T, 'style');
+  T.check('an open module is still open after a trip to another tab (Settings → Style)', await isOpen(mod(T, 'cms-font-module')));
   // card surface
   // a point on the card's own surface: inside ha-card, outside icon + info blocks
   pt = await T.page.evaluate(() => {
@@ -513,6 +541,10 @@ async function dictSection(T) {
   const adv = mod(T, 'cms-advanced-module');
   T.check('Advanced CSS opens itself and lists the pierced entry read-only', (await isOpen(adv)) && ((await adv.locator('.pierced pre').textContent()) || '').includes('"ha-gauge$"') && ((await adv.locator('.pierced pre').textContent()) || '').includes('font-weight: 700;'));
   const border = mod(T, 'cms-border-module');
+  // a styled card opens with its modules closed (v1.0); the summary says what Border does
+  const bsum = ((await border.locator('.module-summary').textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+  T.check('…Border is closed, its summary reads "Border radius 20px"', bsum === 'Border radius 20px', bsum);
+  await expand(border);
   T.check('the `.` entry was adopted: Border on at 20px', (await border.locator('.module-header ha-switch').evaluate((e) => e.checked)) && ((await rowOf(T, border, 'Border radius').locator('.value-label').textContent()) || '').trim() === '20px');
   await setSlider(T, rowOf(T, border, 'Border radius').locator('ha-slider'), 8);
   const bg = mod(T, 'cms-background-module');

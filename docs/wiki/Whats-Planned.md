@@ -5,7 +5,7 @@ out of scope. Source of truth:
 
 ## The v1.0 goal
 
-Not "every card-mod/UIX feature" — the goal is that Card-Mod Studio is a
+Not "every card-mod/UIX feature" — the goal is that Card Style Studio is a
 confident, professional default for styling HA's built-in cards without
 touching CSS or Jinja2 by hand: state-driven styling off any entity or
 attribute, a real color system, and correct editing inside nested layouts.
@@ -62,14 +62,33 @@ effects, icon size).
 - Glance icon color stays out: even shadow-piercing styles don't reach it
   ([why](Glance-Card#why-no-icon-color)).
 
-## v1.0 — structural completeness
+## v1.0 (shipped 2026-11-22) — languages, a Settings page, structural completeness and a new panel
 
-- `conditional` cards and containers nested inside containers
-  ([current status](Container-Cards#not-covered-yet))
-- Tile **feature-row** styling (trend graph, bar gauge, controls) with
-  dedicated controls
-- Preset management UX (rename/duplicate/reorder) and style
-  **import/export** (copy a card's style to the clipboard, paste elsewhere)
+- **The panel in Home Assistant's look** (1.0.0): tabs Style / Presets /
+  Palette / Settings, Material icons, a one-line summary on every closed
+  module, "Apply when" for every condition — see
+  [Getting Started](Getting-Started).
+- **Text in every value condition** (1.0.0, issue #42): `is` / `is not`
+  next to the number operators, and "A value matches" for Background and
+  grayscale — see [Background, Filters, Animation & Border](Background-Filters-Animation-Border).
+- **22 languages**, with a one-time language question (Auto-detect
+  recommended) and a **Settings** tab to change it; English and German
+  by hand, the other 20 machine-translated with Home Assistant's own terms
+  and not yet read by native speakers — see
+  [Language & Settings](Language-and-Settings).
+- **An optional integration** (Settings → Devices & services) for site-wide
+  defaults: language, whether users are asked, default ON/OFF colours — see
+  [Integration](Integration).
+- **`conditional` and `entity-filter` cards, and containers nested inside
+  containers** — see [Containers](Container-Cards).
+- **Tile Features** — height, corner radius and colour of the feature rows;
+  see [Tile](Tile-Card#features-new-in-10).
+- **📚 My Presets** — rename, reorder, duplicate, delete; and **copy / paste**
+  a card's style or all presets as text — see
+  [Presets](Presets-and-My-Color-Palette).
+
+Ships as **1.0.0-beta.1**. What's left before 1.0.0 final: real-world
+reports on the betas, and corrections to the machine translations.
 
 ## Post-1.0 stretch
 

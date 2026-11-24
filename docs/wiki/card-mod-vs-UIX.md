@@ -1,4 +1,4 @@
-Card-Mod Studio works with **both** style engines and behaves sensibly in
+Card Style Studio works with **both** style engines and behaves sensibly in
 every combination. This page explains exactly what it writes and when.
 
 ## The engines

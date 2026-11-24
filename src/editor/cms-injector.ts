@@ -1,5 +1,5 @@
 /**
- * cms-injector — the core injection engine for Card-Mod Studio.
+ * cms-injector — the core injection engine for Card Style Studio.
  *
  * Strategy (verified against card-mod source and HA frontend source)
  * ------------------------------------------------------------------
@@ -25,6 +25,8 @@
 
 import { HA_DIALOG_ELEMENT, HA_CARD_EDITOR_ELEMENT } from '../utils/dom-helpers.js';
 import type { CardModCardConfig, HomeAssistant } from '../types/index.js';
+import { languageOfHass, setHomeAssistantLanguage } from '../i18n/index.js';
+import { initSettings } from '../utils/settings-storage.js';
 
 const CMS_BUTTON_ATTR = 'data-cms-injected';
 const CMS_PANEL_ID = 'cms-style-panel';
@@ -255,7 +257,7 @@ function injectButton(dialog: HuiDialogEditCard): void {
         (el.getAttribute('slot') ? `[slot=${el.getAttribute('slot')}]` : ''),
     );
     console.warn(
-      '[Card-Mod Studio] Could not find ha-button[slot=secondaryAction] in ' +
+      '[Card Style Studio] Could not find ha-button[slot=secondaryAction] in ' +
         'hui-dialog-edit-card shadow root. Style button will not appear. ' +
         'This may be caused by a Home Assistant update. ' +
         'Shadow root direct children: ' +
@@ -265,6 +267,9 @@ function injectButton(dialog: HuiDialogEditCard): void {
     return;
   }
 
+  // The Style button is shown before the panel exists: settle its language here.
+  setHomeAssistantLanguage(languageOfHass(dialog.hass));
+  void initSettings(dialog.hass);
   const tabButton = document.createElement('cms-tab-button');
   tabButton.setAttribute(CMS_BUTTON_ATTR, 'true');
   // Must carry slot="secondaryAction" so it appears in the same footer area
@@ -292,7 +297,7 @@ function patchDialogElement(DialogClass: CustomElementConstructor): void {
 
   if (proto._cmsPatched) {
     console.info(
-      '[Card-Mod Studio] Dialog already patched by another CMS instance, skipping.',
+      '[Card Style Studio] Dialog already patched by another Studio instance, skipping.',
     );
     return;
   }
@@ -312,7 +317,7 @@ function patchDialogElement(DialogClass: CustomElementConstructor): void {
     try {
       closeStudioOnModeSwitch(this, changedProps);
     } catch (err) {
-      console.error('[Card-Mod Studio] Error closing Studio on editor switch:', err);
+      console.error('[Card Style Studio] Error closing Studio on editor switch:', err);
     }
 
     // Defer by one animation frame so the shadow DOM is fully settled.
@@ -332,12 +337,12 @@ function patchDialogElement(DialogClass: CustomElementConstructor): void {
           panel.hass = this.hass;
         }
       } catch (err) {
-        console.error('[Card-Mod Studio] Error during injection:', err);
+        console.error('[Card Style Studio] Error during injection:', err);
       }
     });
   };
 
-  console.info('[Card-Mod Studio] hui-dialog-edit-card patched successfully.');
+  console.info('[Card Style Studio] hui-dialog-edit-card patched successfully.');
 }
 
 // ---------------------------------------------------------------------------
@@ -350,7 +355,7 @@ function injectIntoExistingDialogs(): void {
       try {
         injectButton(dialog);
       } catch (err) {
-        console.error('[Card-Mod Studio] Error injecting into existing dialog:', err);
+        console.error('[Card Style Studio] Error injecting into existing dialog:', err);
       }
     });
   });
@@ -417,7 +422,7 @@ async function patchFormEditor(): Promise<void> {
     }
   };
 
-  console.info('[Card-Mod Studio] hui-form-editor patched (uix:/card_mod: tolerated by visual editor).');
+  console.info('[Card Style Studio] hui-form-editor patched (uix:/card_mod: tolerated by visual editor).');
 }
 
 /**
@@ -426,12 +431,12 @@ async function patchFormEditor(): Promise<void> {
  * card editor is opened), then patches its prototype.
  */
 export async function startInjector(): Promise<void> {
-  console.info('[Card-Mod Studio] Waiting for hui-dialog-edit-card...');
+  console.info('[Card Style Studio] Waiting for hui-dialog-edit-card...');
 
   // Independent of the dialog patch: hui-form-editor is defined lazily when
   // the first form-based card editor loads.
   void patchFormEditor().catch((err) =>
-    console.error('[Card-Mod Studio] hui-form-editor patch failed:', err),
+    console.error('[Card Style Studio] hui-form-editor patch failed:', err),
   );
 
   await customElements.whenDefined(HA_DIALOG_ELEMENT);
@@ -439,7 +444,7 @@ export async function startInjector(): Promise<void> {
   const DialogClass = customElements.get(HA_DIALOG_ELEMENT);
   if (!DialogClass) {
     console.error(
-      '[Card-Mod Studio] hui-dialog-edit-card was defined but could not be retrieved. ' +
+      '[Card Style Studio] hui-dialog-edit-card was defined but could not be retrieved. ' +
         'This is unexpected — please report this issue.',
     );
     return;

@@ -4,7 +4,7 @@
  * (Escape, Cancel, a successful save) instead of falling to <body>.
  */
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { FakeCustomElementRegistry, templateText } from './v010-audit-helpers.js';
+import { FakeCustomElementRegistry, renderedText, templateText } from './v010-audit-helpers.js';
 import { mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseCardModConfig } from '../src/parser/yaml-parser.js';
 import type { CardModCardConfig } from '../src/types/index.js';
@@ -51,12 +51,12 @@ function make() {
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
 describe('preset bar naming: accessible names', () => {
-  it('the floppy emoji is hidden from assistive technology on Save and Overwrite', () => {
+  it('the save icon is hidden from assistive technology on Save and Overwrite', () => {
     const { p } = make();
     p._namingPreset = true;
-    const text = templateText(p._renderPresetBar());
-    expect(text).toContain('<span aria-hidden="true">💾</span>');
-    expect(text).not.toMatch(/(?<!aria-hidden="true")>\s*💾/); // no bare emoji left inside a button's name
+    const text = renderedText(p._renderPresetBar());
+    expect(text).toContain('icon="mdi:content-save-outline" aria-hidden="true"');
+    expect(text).not.toMatch(/💾/u); // no emoji left inside a button's name
   });
 });
 

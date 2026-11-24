@@ -1,6 +1,6 @@
 # Development Guide
 
-This document explains how to set up a local development environment and test Card-Mod Studio against a real Home Assistant instance.
+This document explains how to set up a local development environment and test Card Style Studio against a real Home Assistant instance.
 
 ---
 
@@ -108,7 +108,7 @@ If you have n8n running alongside HA, you can create a workflow that watches the
 3. In HA: open any card editor
 4. Open browser DevTools → Console tab
 5. Edit a .ts file → Vite rebuilds → copy dist file → Ctrl+Shift+R in HA
-6. Check console for "[Card-Mod Studio]" log messages
+6. Check console for "[Card Style Studio]" log messages
 7. Verify the 🎨 Style button appears in the editor header
 ```
 
@@ -119,7 +119,7 @@ If you have n8n running alongside HA, you can create a workflow that watches the
 If the Style button doesn't appear:
 
 1. Open browser DevTools (F12) → Console
-2. Look for `[Card-Mod Studio]` messages:
+2. Look for `[Card Style Studio]` messages:
    - `Waiting for hui-dialog-edit-card...` — plugin loaded, waiting for HA to define the element
    - `hui-dialog-edit-card patched successfully.` — injection worked
    - `Could not find ha-button[slot=secondaryAction]...` — HA's internal structure changed, see below
@@ -167,6 +167,93 @@ separate ports and run side by side; the env overrides (`CFG`, `CONTAINER`,
 HA `:beta` image. For release-readiness work, `release_qa.mjs` drives the real
 card-edit dialog per theme × viewport × scenario and measures contrast,
 clipping and touch targets (details in the sandbox README).
+
+---
+
+## Translations
+
+Since v1.0 every piece of interface text goes through `src/i18n/`:
+
+- `en.ts` is the source: one key per message (`'font.title': 'Font'`),
+  grouped by module. `MessageKey` is derived from it, so `t('font.titel')`
+  is a type error.
+- Each other language is a `Record<MessageKey, string>` (`de.ts`, `pt-BR.ts`,
+  …), named by **Home Assistant's own language code** (`nb`, `pt-BR`,
+  `zh-Hans`, `zh-Hant`): a missing key fails `npm run typecheck`. 22
+  languages ship (v0.12); German is hand-written, the other 20 are machine
+  translations not yet read by native speakers (each file's header says
+  so). `supportedLanguage()` matches Home Assistant's code exactly (any
+  case, `_` or `-`), then `FALLBACKS` (zh-TW → zh-Hant, pt-PT → pt, no/nn →
+  nb, es-419 → es), then the base language, else English.
+- **Use Home Assistant's own words.** `tools/i18n/ha_glossary.py` reads Home
+  Assistant's frontend translation files (copy them out of a rig, see the
+  script's header) and lists, per language, Home Assistant's most common
+  translation of each short Studio term (*Entity*, *Card*, *Icon*,
+  *Background*, *Opacity*, *Features*, the colour names, …) with evidence
+  keys. A translation uses those words, and Home Assistant's register for
+  that language (informal in nl/es/it/pl/pt-BR/sv/da/nb/fi like Home
+  Assistant, formal in fr/pt/cs/sk/hu/ru/uk, polite in zh/ja/ko).
+  `tools/i18n/glossary_diff.py <glossary.json> [lang …]` then lists every
+  short message that differs from Home Assistant's word, with its vote
+  count, for review (inflected nouns and words Home Assistant leaves in
+  English are expected differences). Keep pairs consistent when switching
+  one word (primary/secondary text, left/centre/right, the durations).
+- **Adding a language:** copy `en.ts` to `<code>.ts` and translate it;
+  register it in `LANGUAGES` in `src/i18n/index.ts` with its own name; add
+  the lower-case code to `LANGUAGE_OPTIONS` in
+  `custom_components/card_mod_studio/const.py` and the name to
+  `selector.language.options` in `strings.json`, `translations/en.json` and
+  every other `translations/*.json`; add
+  `custom_components/card_mod_studio/translations/<code>.json` (the
+  integration's options dialog, same keys as `strings.json`).
+  `test/integration-files.test.ts` fails until all of that is in step.
+  (Home Assistant only allows lower-case option keys, so the integration
+  sends `pt-br`; `toLanguageSetting()` maps it back to `pt-BR`.)
+- **Correcting a translation:** edit the `.ts` file (and the integration's
+  `translations/<code>.json` for the options dialog); the tests below catch
+  a lost placeholder.
+- `t(key, { name })` fills `{name}` placeholders (Jinja's `{{ }}` / `{% %}`
+  are left alone). A sentence with markup inside (`<code>`) uses
+  `tParts(key, { name: html\`…\` })`. Translate whole sentences; for a noun
+  inserted into a sentence, use the `noun.*` keys (they carry the article).
+- `test/i18n.test.ts` checks every language has every key, nothing empty,
+  and the same placeholders as English (a deliberate omission goes in its
+  `OMITTED` list). `test/i18n-coverage.test.ts` renders the panel, every
+  module and the pickers with a pseudo language that wraps every message in
+  ⟦…⟧ and fails on any English left outside — new UI text that bypasses
+  `t()` is caught there.
+- A view re-renders on a language change through
+  `protected readonly i18n = new LangController(this);` (not `lang`, which
+  is an `HTMLElement` property).
+- All languages are bundled (about 20–30 KB of text each; the bundle is
+  1,131 kB, 276 kB gzipped, with 22); there is no lazy loading — HACS
+  installs one file.
+- Live checks: the shared launchers (`click-driver.mjs`, `fui/lib.mjs`,
+  `release_qa.mjs`, …) pre-answer the one-time language question with
+  Auto-detect; `CMS_FIRST_RUN=1` keeps it. `language_check.mjs` covers the
+  question, the Settings selector, the per-user setting and German Home
+  Assistant — it changes the rig user's Studio settings (and clears them
+  again), so run it on its own. `languages_sweep_check.mjs` switches
+  through every language with the real Settings selector, with every module
+  on and every section open, and fails on panel text that sticks out
+  sideways or is cut off (`PHONE=1` for 390 px; `ONLY=de,ja` for some).
+
+## The integration
+
+`custom_components/card_mod_studio/` is an optional Home Assistant
+integration (one config entry, options only, no entities): site-wide
+language, whether users are asked, default ON/OFF colours. The Studio reads
+them over the websocket commands `card_mod_studio/config` and
+`card_mod_studio/subscribe` (pushed on every options change), only when
+`hass.config.components` includes `card_mod_studio`. Precedence: the user's
+own choice → the site default → Auto-detect / the Studio's colours.
+`manifest.json`'s version must equal `package.json`'s (a test and the
+release workflow check it); the release attaches it as
+`card_mod_studio.zip`. To try it on a rig, copy the folder into the rig's
+`config/custom_components/` (gitignored in `tools/sandbox/config`), restart
+the container, and run `integration_check.mjs` (`TOKENS_FILE=` for another
+rig): add the entry, change the options in Home Assistant's own dialog, and
+watch the Studio follow.
 
 ---
 
@@ -600,7 +687,7 @@ picker needs the same.
 Gradient mode (`v0.7.0-beta.3`) needed to smuggle its real anchor points
 through the generated CSS so reopening the editor could recover them —
 see `encodeGradientStops` in `css-generator.ts`. The first attempt encoded
-them as JSON in a custom property: `--cms-gradient-stops: '[{"v":0,...}]';`.
+them as JSON in a custom property: `--cstudio-gradient-stops: '[{"v":0,...}]';` (`--cms-gradient-stops` before v1.0.0-beta.2, still read; every name the Studio writes is defined in `src/utils/studio-names.ts`).
 This is entirely valid CSS — the braces sit safely inside a single-quoted
 string, which a spec-compliant CSS tokenizer treats as opaque text, exactly
 like this project's own `css-parser.ts` already does (see its

@@ -1,0 +1,77 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card Style Studio",
+        "description": "Legger til innstillingene for Card Style Studio på denne siden. Selve Studio installeres som en dashbordressurs (HACS, Marketplace eller manuelt); denne oppføringen inneholder bare innstillingene."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card Style Studio er allerede satt opp."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Innstillinger for Card Style Studio",
+        "description": "Standarder for alle i denne Home Assistant. En brukers eget valg i Studio (⚙️ Innstillinger, Min fargepalett) vinner alltid.",
+        "data": {
+          "language": "Språk",
+          "ask_language": "Spør hver bruker hvilket språk de vil bruke",
+          "on_color": "Standardfarge for PÅ",
+          "off_color": "Standardfarge for AV"
+        },
+        "data_description": {
+          "language": "Automatisk oppdaging følger språket Home Assistant vises på for hver bruker.",
+          "ask_language": "Første gang noen åpner Studio, lar et kort spørsmål dem velge språk. Av: alle får språket ovenfor.",
+          "on_color": "Fargen en ny Ikonfarge, Aksentfarge eller terskelregel starter med mens entiteten er på. Studio-standard: Studios egen.",
+          "off_color": "Det samme mens entiteten er av."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Oppdag automatisk (anbefalt)",
+        "en": "English",
+        "de": "Deutsch",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "es": "Español",
+        "it": "Italiano",
+        "pl": "Polski",
+        "pt": "Português",
+        "pt-br": "Português (Brasil)",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "nb": "Norsk bokmål",
+        "cs": "Čeština",
+        "sk": "Slovenčina",
+        "hu": "Magyar",
+        "fi": "Suomi",
+        "ru": "Русский",
+        "uk": "Українська",
+        "zh-hans": "简体中文",
+        "zh-hant": "繁體中文",
+        "ja": "日本語",
+        "ko": "한국어"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Studio-standard",
+        "red": "Rød",
+        "pink": "Rosa",
+        "purple": "Lilla",
+        "blue": "Blå",
+        "cyan": "Cyan",
+        "teal": "Blågrønn",
+        "green": "Grønn",
+        "yellow": "Gul",
+        "orange": "Oransje",
+        "grey": "Grå"
+      }
+    }
+  }
+}

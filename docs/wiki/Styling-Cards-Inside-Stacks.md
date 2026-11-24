@@ -1,4 +1,5 @@
-Vertical-stack, horizontal-stack, and grid cards are containers — they paint
+Vertical-stack, horizontal-stack, grid, conditional and entity-filter
+cards are containers — they paint
 no card box of their own, so styling "the stack" mostly means styling the
 cards inside it. Opening a container in the Studio shows **one styling
 section per child card**.
@@ -52,12 +53,17 @@ The container itself only offers [Advanced CSS](Advanced-CSS) — background/
 border/etc. at container level have no visual effect (there's no `ha-card`
 box), which is why those modules aren't shown there.
 
+## Containers inside containers *(new in 1.0)*
+
+A container inside a container (a stack in a stack, a grid inside a
+conditional, …) gets its own section, with one nested section per card
+inside it, at any depth. A `conditional` or `entity-filter` card shows a
+section for the card inside it (`card:`). Each card's style is saved into
+exactly that card. See [Containers](Container-Cards) for the details.
+
 ## Not covered yet
 
-- Containers nested inside containers (a stack in a stack) — open the inner
-  stack as its own card to style its children.
-- `conditional` cards (single `card:` instead of `cards:`).
-- `sections` view containers.
+- (Sections are covered since 1.0.0-beta.2 — see [Containers](Container-Cards#sections-new-in-100-beta2).)
+- Custom containers such as layout-card.
 
-See the [roadmap](https://github.com/DerTrolli/card-mod-studio/blob/main/docs/ROADMAP.md)
-— these are planned for the path to v1.0.
+See the [roadmap](https://github.com/DerTrolli/card-mod-studio/blob/main/docs/ROADMAP.md).

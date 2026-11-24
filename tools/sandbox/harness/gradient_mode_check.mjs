@@ -1,7 +1,7 @@
 // Verifies Threshold's new "Fade" (gradient) mode: switching to gradient
 // mode shows a colorStops editor instead of the switch-rule list, the
 // generated CSS is a discrete approximation carrying a recoverable marker
-// (--cms-gradient-stops), the live preview actually shows a different
+// (--cstudio-gradient-stops), the live preview actually shows a different
 // interpolated color at an in-between value than at either endpoint, and
 // closing + reopening the dialog round-trips back into gradient mode with
 // the same stops (not ~32 confusing generated rules).
@@ -118,7 +118,7 @@ const run = async () => {
   record('Gradient mode shows a colorStops editor, not the rule list', setup.hasStopsUI, JSON.stringify({ hasStopsUI: setup.hasStopsUI }));
   record('Gradient mode shows a live CSS-gradient preview bar', setup.hasGradientPreview, JSON.stringify({ hasGradientPreview: setup.hasGradientPreview }));
   record('valueMode actually switched to gradient', setup.valueModeInState === 'gradient', setup.valueModeInState);
-  record('Emitted CSS contains the recoverable gradient marker', !!setup.emittedStyle?.includes('--cms-gradient-stops'), setup.emittedStyle?.slice(0, 200));
+  record('Emitted CSS contains the recoverable gradient marker', !!setup.emittedStyle?.includes('--cstudio-gradient-stops'), setup.emittedStyle?.slice(0, 200));
   record('Emitted CSS is a discrete >= approximation (many rules), not literal stop count', (setup.emittedStyle?.match(/>=/g) ?? []).length > 10, `count=${(setup.emittedStyle?.match(/>=/g) ?? []).length}`);
   await page.screenshot({ path: resolve(SHOTS, 'gradient-01-setup.png') });
 

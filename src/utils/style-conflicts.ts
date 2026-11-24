@@ -28,6 +28,7 @@ export type ConflictableModule =
   | 'border'
   | 'filter'
   | 'animation'
+  | 'features'
   | 'threshold';
 
 export type ModuleConflicts = Partial<Record<ConflictableModule, string[]>>;
@@ -97,6 +98,7 @@ const RULES: Rule[] = [
   { module: 'border', selector: 'ha-card', props: ['border', 'border-radius', 'border-width', 'border-color'] },
   { module: 'filter', selector: 'ha-card', props: ['filter', '-webkit-filter'] },
   { module: 'animation', selector: 'ha-card', props: ['animation', 'animation-name'] },
+  { module: 'features', selector: 'hui-card-features', props: ['--feature-height', '--feature-border-radius', '--feature-color'] },
 ];
 
 /** The properties Threshold drives, per selected target property. */
@@ -126,6 +128,15 @@ function isWritten(state: StudioState, module: ConflictableModule, prop: string,
     if (/font-family$/.test(prop)) return !!f.fontFamily?.trim();
     if (prop === 'color' || /-color$|^--primary-text-color$/.test(prop)) return !!f.color;
   }
+  if (module === 'border' && prop === 'border-radius') {
+    return !!state.border.squareCorners || state.border.radiusPx > 0;
+  }
+  if (module === 'features') {
+    const f = state.features;
+    if (prop === '--feature-height') return (f?.heightPx ?? 0) > 0;
+    if (prop === '--feature-border-radius') return (f?.radiusPx ?? -1) >= 0;
+    if (prop === '--feature-color') return !!f?.color;
+  }
   if (module === 'headingStyle') {
     const h = state.headingStyle;
     if (/font-size$/.test(prop)) return h.fontSize != null;
@@ -147,6 +158,7 @@ function isEnabled(state: StudioState, module: ConflictableModule): boolean {
     case 'border': return state.border.enabled;
     case 'filter': return state.filter.enabled || state.filter.grayscale;
     case 'animation': return state.animation.enabled;
+    case 'features': return !!state.features?.enabled;
     case 'threshold': return state.threshold.enabled;
   }
 }
@@ -175,6 +187,30 @@ export function findAdvancedCssConflicts(
     return {};
   }
 
+  const match = conflictMatcher(state, profileKey);
+  if (!match) return {};
+
+  const out: ModuleConflicts = {};
+  for (const target of targets) {
+    for (const prop of target.properties) {
+      for (const module of match(target.selector, prop.property)) {
+        (out[module] ??= []).push(`${target.selector} { ${prop.property} }`);
+      }
+    }
+  }
+  // Dedupe descriptions per module
+  for (const k of Object.keys(out) as ConflictableModule[]) {
+    out[k] = [...new Set(out[k])];
+  }
+  return out;
+}
+
+/** The modules a hand-written `selector { property }` overrides, or null when
+ *  no module that could be overridden is on. */
+function conflictMatcher(
+  state: StudioState,
+  profileKey?: string,
+): ((selector: string, property: string) => ConflictableModule[]) | null {
   const extra: Rule[] = (profileKey ? getCustomCardProfile(profileKey)?.conflicts ?? [] : [])
     .map((c) => ({ module: c.module, selector: c.selector, props: c.props, property: c.property, tokens: c.tokens }));
   const activeRules: Rule[] = [...RULES, ...extra].filter(
@@ -188,25 +224,156 @@ export function findAdvancedCssConflicts(
       activeRules.push(...(THRESHOLD_PROPS[p] ?? []));
     }
   }
-  if (activeRules.length === 0) return {};
-
-  const out: ModuleConflicts = {};
-  for (const target of targets) {
-    const sel = target.selector.toLowerCase();
-    for (const prop of target.properties) {
-      const name = prop.property.toLowerCase();
-      for (const rule of activeRules) {
-        if (rule.selector && !(rule.tokens ? hasTokenRun(sel, rule.selector) : sel.includes(rule.selector))) continue;
-        if (!rule.props.includes(name)) continue;
-        if (!isWritten(state, rule.module, name, sel)) continue;
-        (out[rule.module] ??= []).push(`${target.selector} { ${prop.property} }`);
-      }
+  if (activeRules.length === 0) return null;
+  return (selector, property) => {
+    const sel = selector.toLowerCase();
+    const name = property.toLowerCase();
+    const hits: ConflictableModule[] = [];
+    for (const rule of activeRules) {
+      if (rule.selector && !(rule.tokens ? hasTokenRun(sel, rule.selector) : sel.includes(rule.selector))) continue;
+      if (!rule.props.includes(name)) continue;
+      if (!isWritten(state, rule.module, name, sel)) continue;
+      if (!hits.includes(rule.module)) hits.push(rule.module);
     }
-  }
-  // Dedupe descriptions per module
-  for (const k of Object.keys(out) as ConflictableModule[]) {
-    out[k] = [...new Set(out[k])];
-  }
+    return hits;
+  };
+}
+
+/**
+ * "Let this module take over" (v1.0): Advanced CSS without the declarations
+ * that override `module` — exactly the ones findAdvancedCssConflicts names —
+ * and without a rule they leave empty. Everything else stays byte for byte.
+ * null when it can't be done safely: Jinja statements (`{% … %}`) or CSS the
+ * scanner can't follow; then the panel doesn't offer it.
+ */
+export function removeAdvancedCssConflicts(
+  rawCss: string,
+  state: StudioState,
+  module: ConflictableModule,
+  profileKey?: string,
+): { css: string; removed: string[] } | null {
+  if (!rawCss.trim() || rawCss.includes('{%')) return null;
+  const match = conflictMatcher(state, profileKey);
+  if (!match) return null;
+  const removed: string[] = [];
+  const css = editDeclarations(rawCss, (selector, property) => {
+    if (!match(selector, property).includes(module)) return false;
+    removed.push(`${selector} { ${property} }`);
+    return true;
+  });
+  if (css === null || removed.length === 0) return null;
+  return { css, removed: [...new Set(removed)] };
+}
+
+/** Whether removeAdvancedCssConflicts would work for this Advanced CSS at all. */
+export function canTakeOver(rawCss: string): boolean {
+  return !!rawCss.trim() && !rawCss.includes('{%') && editDeclarations(rawCss, () => false) === rawCss;
+}
+
+/**
+ * Text-level declaration removal: walks rules (into @media / @supports
+ * blocks), splits each body at top-level `;` (outside strings, comments,
+ * parentheses and Jinja `{{ }}` / `{# #}`) and drops the declarations
+ * `remove` accepts, then a rule left with nothing but whitespace/comments.
+ * A body holding a nested rule is left alone. null on unbalanced input.
+ */
+function editDeclarations(css: string, remove: (selector: string, property: string) => boolean): string | null {
+  // Index after the construct starting at i (string, comment, Jinja), or i.
+  const skip = (i: number): number => {
+    const c = css[i];
+    if (c === '"' || c === "'") {
+      let j = i + 1;
+      while (j < css.length && css[j] !== c) j += css[j] === '\\' ? 2 : 1;
+      return j + 1;
+    }
+    if (css.startsWith('/*', i)) { const e = css.indexOf('*/', i + 2); return e < 0 ? css.length : e + 2; }
+    if (css.startsWith('{{', i)) { const e = css.indexOf('}}', i + 2); return e < 0 ? -1 : e + 2; }
+    if (css.startsWith('{#', i)) { const e = css.indexOf('#}', i + 2); return e < 0 ? -1 : e + 2; }
+    return i;
+  };
+  // The `}` that closes the `{` at `open`.
+  const closeOf = (open: number): number => {
+    let depth = 0;
+    for (let i = open; i < css.length; ) {
+      const j = skip(i);
+      if (j < 0) return -1;
+      if (j !== i) { i = j; continue; }
+      if (css[i] === '{') depth++;
+      else if (css[i] === '}' && --depth === 0) return i;
+      i++;
+    }
+    return -1;
+  };
+  const cuts: Array<[number, number]> = [];
+  let ok = true;
+  // Rules between [from, to).
+  const walk = (from: number, to: number) => {
+    let i = from;
+    let preludeStart = from;
+    while (i < to && ok) {
+      const j = skip(i);
+      if (j < 0) { ok = false; return; }
+      if (j !== i) { i = j; continue; }
+      if (css[i] === '}') { ok = false; return; }
+      if (css[i] === ';') { i++; preludeStart = i; continue; } // @import …;
+      if (css[i] !== '{') { i++; continue; }
+      const close = closeOf(i);
+      if (close < 0 || close >= to) { ok = false; return; }
+      const prelude = css.slice(preludeStart, i).trim();
+      if (prelude.startsWith('@')) {
+        const before = cuts.length;
+        walk(i + 1, close);
+        // an @-block left with nothing but whitespace/comments goes too
+        const inner = cuts.slice(before);
+        if (inner.length) {
+          let rest = css.slice(i + 1, close);
+          for (const [a, b] of [...inner].sort((x, y) => y[0] - x[0])) rest = rest.slice(0, a - i - 1) + rest.slice(b - i - 1);
+          if (!rest.replace(/\/\*[\s\S]*?\*\//g, '').trim()) cuts.splice(before, inner.length, [preludeStart, close + 1]);
+        }
+      } else ruleBody(preludeStart, prelude, i, close);
+      i = close + 1;
+      preludeStart = i;
+    }
+  };
+  const ruleBody = (ruleStart: number, selector: string, open: number, close: number) => {
+    const segs: Array<[number, number, number]> = []; // [start, end (excl. ;), next]
+    let start = open + 1;
+    let paren = 0;
+    for (let i = open + 1; i < close; ) {
+      const j = skip(i);
+      if (j < 0) { ok = false; return; }
+      if (j !== i) { i = j; continue; }
+      const c = css[i];
+      if (c === '{') return; // nested rule: leave the whole body alone
+      if (c === '(') paren++;
+      else if (c === ')') paren--;
+      else if (c === ';' && paren === 0) { segs.push([start, i, i + 1]); start = i + 1; }
+      i++;
+    }
+    segs.push([start, close, close]);
+    const kept: string[] = [];
+    const local: Array<[number, number]> = [];
+    for (const [a, b, next] of segs) {
+      const text = css.slice(a, b);
+      const colon = text.indexOf(':');
+      const prop = colon > 0 ? text.slice(0, colon).replace(/\/\*[\s\S]*?\*\//g, '').trim() : '';
+      if (prop && /^[-\w]+$/.test(prop) && remove(selector, prop)) {
+        // drop the declaration with the whitespace before it and its `;`
+        // (the last one, without `;`, keeps the line break before `}`)
+        local.push([a, next === close ? a + text.trimEnd().length : next]);
+      } else kept.push(text);
+    }
+    if (!local.length) return;
+    const left = kept.join('').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+    if (!left) {
+      // the rule is empty now: drop it with the whitespace before it
+      cuts.push([ruleStart, close + 1]);
+    } else cuts.push(...local);
+  };
+  walk(0, css.length);
+  if (!ok) return null;
+  let out = css;
+  for (const [a, b] of cuts.sort((x, y) => y[0] - x[0])) out = out.slice(0, a) + out.slice(b);
   return out;
 }
 

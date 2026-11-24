@@ -5,7 +5,7 @@
 | Module | Available | Notes |
 |---|---|---|
 | Icon Color | ✅ | Verified working on both (they were wrongly hidden pre-v0.5.0) |
-| Font | ✅ | Size/weight/family. **Text color is hidden** — both cards colour their text themselves (measured, v0.10.0). On the alarm panel, size and family reach the title, the code field and keypad, and weight reaches the title plus other text drawn with Home Assistant's normal weight (state label, arm buttons). Threshold's Text Color on the alarm panel also recolours its title |
+| Font | ✅ | Size/weight/family. **Text color**: on the alarm panel it colours the title (v1.0.0-beta.2, measured on HA 2026.11 and 2025.9); hidden on media-control, which colours its text itself (measured, v0.10.0). On the alarm panel, size and family reach the title, the code field and keypad, and weight reaches the title plus other text drawn with Home Assistant's normal weight (state label, arm buttons). Threshold's Text Color on the alarm panel also recolours its title |
 | Visual Filters | ✅ | |
 | Accent Color | media-control only | alarm-panel never reads the accent colour (measured, v0.10.0) |
 | Threshold Colors | ✅ | Icon / Border Color (+ Accent on media-control), and Background on the alarm panel only; no Text Color (see Font) |

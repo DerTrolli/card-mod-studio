@@ -31,7 +31,7 @@ describe('filterPresetStateForCardType: hidden Font rows', () => {
 
   it('the four named cards lose what they hide', () => {
     expect(filterPresetStateForCardType(preset(), 'date').font).toMatchObject({ color: undefined, fontSize: undefined });
-    expect(filterPresetStateForCardType(preset(), 'alarm-panel').font.color).toBeUndefined();
+    expect(filterPresetStateForCardType(preset(), 'alarm-panel').font.color).toBe('#ff0000'); // v1.0: shown there
     expect(filterPresetStateForCardType(preset(), 'area').font).toMatchObject({ color: undefined, fontSize: undefined, fontWeight: undefined });
     expect(filterPresetStateForCardType(preset(), 'alert').font.fontWeight).toBeUndefined();
   });

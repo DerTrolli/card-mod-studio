@@ -39,13 +39,14 @@ const OLD_CONTAINER_CARD_TYPES = new Set<string>([
   'grid', 'vertical-stack', 'horizontal-stack', 'sections', 'conditional',
   'entity-filter',
 ]);
+// v1.0: conditional and entity-filter (a single `card:`) joined.
 const OLD_STYLABLE_CHILDREN_CARD_TYPES = new Set<string>([
-  'grid', 'vertical-stack', 'horizontal-stack',
+  'grid', 'vertical-stack', 'horizontal-stack', 'conditional', 'entity-filter',
 ]);
 // v0.11: shrunk after animations were operated with real input on 10 of the
 // listed types (see card-caps.ts). Everything else is the old set verbatim.
 const OLD_NO_ANIMATION_TYPES = new Set<string>([
-  'heading',
+  // v1.0: heading offers Animation (without Glow, Spin, Gradient Shift)
   'energy-distribution', 'energy-usage-graph', 'activity', 'webpage', 'shopping-list',
 ]);
 // media-control joined later: its own colour block covers the whole face (card-caps.ts).
@@ -92,7 +93,9 @@ const OLD_NO_FONT_SIZE_TYPES = new Set<string>([
   // in v0102-font-gating.test.ts / font-reach.test.ts.
 ]);
 const OLD_NO_TEXT_COLOR_TYPES = new Set<string>([
-  'alarm-panel', 'area', 'media-control', 'picture-elements', 'picture-entity',
+  // v1.0: alarm-panel (its title) and picture-elements (its state labels)
+  // take the text colour — measured on HA 2026.11, so no longer listed
+  'area', 'media-control', 'picture-entity',
   'picture-glance',
   'date',
 ]);

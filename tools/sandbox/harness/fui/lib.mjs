@@ -1,6 +1,7 @@
+import { isKnownNoise } from '../harness-utils.mjs';
 // Functional UI check — shared library (see ../functional_ui_check.mjs).
 //
-// Everything here drives Card-Mod Studio the way a user does: Playwright
+// Everything here drives Card Style Studio the way a user does: Playwright
 // locators (which pierce open shadow roots) + real mouse clicks, keyboard
 // input and <select> choices on the REAL controls inside HA's REAL
 // card-edit dialog. State is only ever READ directly (the dialog's
@@ -9,6 +10,14 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, isAbsolute } from 'node:path';
+
+/** The Studio asks once which language to use (v1.0): checks start with
+ *  that answered (Auto-detect), unless CMS_FIRST_RUN=1 wants the question. */
+const SEED_SETTINGS = () => {
+  if (!localStorage.getItem('cms-settings')) {
+    localStorage.setItem('cms-settings', JSON.stringify({ language: 'auto', languageChosen: true, updatedAt: 0 }));
+  }
+};
 
 export const HARNESS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -215,10 +224,22 @@ export async function launch(env, tokens) {
   const browser = await chromium.launch({ executablePath: env.CHROME, headless: !env.headed, args: ['--no-sandbox'] });
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, colorScheme: 'light' });
   await ctx.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
+  if (process.env.CMS_FIRST_RUN !== '1') await ctx.addInitScript(SEED_SETTINGS);
   await ctx.addInitScript(INIT);
   const page = await ctx.newPage();
   page.setDefaultTimeout(15000);
   return { browser, ctx, page };
+}
+
+/** page.goto that tries once more when the load is aborted (HA 2025.9 sometimes aborts a load right after a dashboard save). */
+export async function gotoPage(page, url) {
+  try {
+    return await page.goto(url, { waitUntil: 'domcontentloaded' });
+  } catch (e) {
+    if (!/ERR_ABORTED/.test(String(e?.message))) throw e;
+    await sleep(1500);
+    return page.goto(url, { waitUntil: 'domcontentloaded' });
+  }
 }
 
 export async function waitHass(page, timeout = 60000) {
@@ -252,7 +273,10 @@ export function makeT({ page, env, record, shotsDir, ws }) {
     }
     return d.dismiss();
   });
-  page.on('pageerror', (e) => T.pageErrors.push({ section: T.section, msg: String(e?.message || e).slice(0, 400), stack: String(e?.stack || '').slice(0, 800) }));
+  page.on('pageerror', (e) => {
+    if (isKnownNoise(e?.message || e, e?.stack)) { T.notes.push(`[${T.section}] known noise: ${String(e?.message || e).slice(0, 120)}`); return; }
+    T.pageErrors.push({ section: T.section, msg: String(e?.message || e).slice(0, 400), stack: String(e?.stack || '').slice(0, 800) });
+  });
   T.check = (name, pass, detail) => record(`[${T.section}] ${name}`, !!pass, detail === undefined ? undefined : typeof detail === 'string' ? detail.slice(0, 1500) : JSON.stringify(detail).slice(0, 1500));
   T.note = (msg) => T.notes.push(`[${T.section}] ${msg}`);
   return T;
@@ -410,6 +434,15 @@ export async function clickEditOn(T, cardIndex = 0) {
 
 export const styleBtn = (T) => T.page.locator('cms-tab-button').filter({ visible: true }).first().locator('button');
 export const panelLoc = (T) => T.page.locator('cms-panel').filter({ visible: true }).first();
+
+/** v1.0 panel tabs: a real click on Style / Presets / Palette / Settings (by id), then waits until it is selected. */
+export async function tab(T, id) {
+  const t = panelLoc(T).locator(`[role="tab"][data-tab="${id}"]`);
+  if ((await t.getAttribute('aria-selected')) === 'true') return;
+  await t.click();
+  await panelLoc(T).locator(`[role="tab"][data-tab="${id}"][aria-selected="true"]`).waitFor({ timeout: 5000 });
+  await sleep(150);
+}
 
 export async function panelVisible(T) {
   return T.page.evaluate(() => !!window.__fui.panel());
@@ -720,6 +753,21 @@ export async function pickEntity(T, cmsPicker, entityId) {
       return walk(document).some((n) => n.tagName === 'VAADIN-COMBO-BOX-OVERLAY' && n.opened);
     });
     if (!listed) throw new Error(`entity ${entityId} (${friendly}) not offered by the picker`);
+    // the row for exactly this entity (each overlay row carries its entity), once
+    // the filter has caught up; the first row by keyboard picked a different
+    // entity when it hadn't (2025.9.4, Border "Apply when" in the 1.0.0 run)
+    let row = null;
+    for (let i = 0; i < 40 && !row; i++) {
+      row = await page.evaluate((id) => {
+        const walk = (r, o = []) => { for (const e of r.querySelectorAll('*')) { o.push(e); if (e.shadowRoot) walk(e.shadowRoot, o); } return o; };
+        const n = walk(document).find((x) => x.tagName === 'VAADIN-COMBO-BOX-ITEM' && (x.item?.entity_id ?? x.item?.id) === id && x.getBoundingClientRect().height > 0);
+        if (!n) return null;
+        const r = n.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      }, entityId);
+      if (!row) await sleep(150);
+    }
+    if (row) { await page.mouse.click(row.x, row.y); await sleep(300); return friendly; }
     await page.keyboard.press('ArrowDown'); await sleep(150);
     await page.keyboard.press('Enter'); await sleep(300);
     return friendly;

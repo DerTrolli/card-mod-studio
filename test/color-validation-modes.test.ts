@@ -115,9 +115,9 @@ describe('picker validation property', () => {
     expect(p._textOk('none')).toBe(false);
     p.validation = 'background';
     expect(p._textOk('none')).toBe(true);
-    expect(p._hint()).toContain('colour or image');
+    expect(p._hint()).toContain('color or image');
     p.validation = 'stop';
     expect(p._textOk('red 0%')).toBe(true);
-    expect(p._hint()).toContain('gradient colour');
+    expect(p._hint()).toContain('gradient color');
   });
 });

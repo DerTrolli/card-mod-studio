@@ -38,6 +38,7 @@ import {
   DEFAULT_FILTER,
   DEFAULT_FONT,
   DEFAULT_HEADING_STYLE,
+  DEFAULT_FEATURES,
   DEFAULT_ICON_COLOR,
   DEFAULT_THRESHOLD,
 } from '../parser/state-mapper.js';
@@ -84,6 +85,7 @@ export function filterPresetStateForCardType(
   const next: StudioState = { ...state };
 
   if (!mods.headingStyle) next.headingStyle = { ...DEFAULT_HEADING_STYLE };
+  if (!caps.features) next.features = { ...DEFAULT_FEATURES };
   if (!mods.iconColor) next.iconColor = { ...DEFAULT_ICON_COLOR };
   if (!mods.accentColor) next.accentColor = { ...DEFAULT_ACCENT_COLOR };
   if (!mods.threshold) {

@@ -439,7 +439,7 @@ describe('generateCss — animation', () => {
         animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'pulse', speedS: 2, trigger: 'always' },
       }),
     );
-    const kfIdx = css.indexOf('@keyframes cms-pulse');
+    const kfIdx = css.indexOf('@keyframes cstudio-pulse');
     const cardIdx = css.indexOf('ha-card');
     expect(kfIdx).toBeGreaterThanOrEqual(0);
     expect(kfIdx).toBeLessThan(cardIdx);
@@ -451,7 +451,7 @@ describe('generateCss — animation', () => {
         animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'breathe', speedS: 3, trigger: 'always' },
       }),
     );
-    expect(css).toContain('animation: cms-breathe 3s ease-in-out infinite;');
+    expect(css).toContain('animation: cstudio-breathe 3s ease-in-out infinite;');
   });
 
   it('emits conditional animation for trigger=on', () => {
@@ -461,7 +461,7 @@ describe('generateCss — animation', () => {
       }),
     );
     expect(css).toContain("is_state(config.entity, 'on')");
-    expect(css).toContain('cms-blink');
+    expect(css).toContain('cstudio-blink');
   });
 
   it('adds background-size for gradient-shift preset', () => {
@@ -1158,7 +1158,7 @@ describe('gradient color math', () => {
         ],
       },
     }));
-    const markerLine = css.split('\n').find((l) => l.includes('--cms-gradient-stops'));
+    const markerLine = css.split('\n').find((l) => l.includes('--cstudio-gradient-stops'));
     expect(markerLine).toBeDefined();
     expect(markerLine).not.toContain('{');
     expect(markerLine).not.toContain('}');
@@ -1180,7 +1180,7 @@ describe('generateCss — threshold gradient mode', () => {
       },
     }));
     expect(css).toContain('ha-state-icon');
-    expect(css).toContain('--cms-gradient-stops:');
+    expect(css).toContain('--cstudio-gradient-stops:');
     expect(css).toContain("states('sensor.temp')");
   });
 
@@ -1792,50 +1792,50 @@ describe('round-trip', () => {
 // ---------------------------------------------------------------------------
 
 describe('generateCss — animation pack presets', () => {
-  it('shake: emits cms-shake keyframes (horizontal ±4px) and the animation decl', () => {
+  it('shake: emits cstudio-shake keyframes (horizontal ±4px) and the animation decl', () => {
     const css = generateCss(
       makeState({
         animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'shake', speedS: 1, trigger: 'always' },
       }),
     );
-    expect(css).toContain('@keyframes cms-shake');
+    expect(css).toContain('@keyframes cstudio-shake');
     expect(css).toContain('translateX(-4px)');
     expect(css).toContain('translateX(4px)');
-    expect(css).toContain('animation: cms-shake 1s ease-in-out infinite;');
+    expect(css).toContain('animation: cstudio-shake 1s ease-in-out infinite;');
   });
 
-  it('spin: emits cms-spin keyframes (360° rotate) with LINEAR timing', () => {
+  it('spin: emits cstudio-spin keyframes (360° rotate) with LINEAR timing', () => {
     const css = generateCss(
       makeState({
         animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'spin', speedS: 2, trigger: 'always' },
       }),
     );
-    expect(css).toContain('@keyframes cms-spin');
+    expect(css).toContain('@keyframes cstudio-spin');
     expect(css).toContain('rotate(360deg)');
-    expect(css).toContain('animation: cms-spin 2s linear infinite;');
+    expect(css).toContain('animation: cstudio-spin 2s linear infinite;');
   });
 
-  it('glow: emits cms-glow keyframes pulsing a currentColor box-shadow', () => {
+  it('glow: emits cstudio-glow keyframes pulsing a currentColor box-shadow', () => {
     const css = generateCss(
       makeState({
         animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'glow', speedS: 3, trigger: 'always' },
       }),
     );
-    expect(css).toContain('@keyframes cms-glow');
+    expect(css).toContain('@keyframes cstudio-glow');
     expect(css).toContain('box-shadow');
     expect(css).toContain('currentColor');
-    expect(css).toContain('animation: cms-glow 3s ease-in-out infinite;');
+    expect(css).toContain('animation: cstudio-glow 3s ease-in-out infinite;');
   });
 
-  it('heartbeat: emits cms-heartbeat keyframes (double-beat scale)', () => {
+  it('heartbeat: emits cstudio-heartbeat keyframes (double-beat scale)', () => {
     const css = generateCss(
       makeState({
         animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'heartbeat', speedS: 2, trigger: 'always' },
       }),
     );
-    expect(css).toContain('@keyframes cms-heartbeat');
+    expect(css).toContain('@keyframes cstudio-heartbeat');
     expect(css).toContain('scale(1.12)');
-    expect(css).toContain('animation: cms-heartbeat 2s ease-in-out infinite;');
+    expect(css).toContain('animation: cstudio-heartbeat 2s ease-in-out infinite;');
   });
 
   it('new presets round-trip byte-stable (parse → map → regenerate)', () => {
@@ -1873,7 +1873,7 @@ describe('generateCss — value-conditional animation trigger', () => {
       }),
     );
     expect(css).toContain(
-      "animation: {{ 'cms-pulse 2s ease-in-out infinite' if states('sensor.power') | float(0) > 1500 else 'none' }};",
+      "animation: {{ 'cstudio-pulse 2s ease-in-out infinite' if states('sensor.power') | float(0) > 1500 else 'none' }};",
     );
   });
 
@@ -1894,7 +1894,7 @@ describe('generateCss — value-conditional animation trigger', () => {
       }),
     );
     expect(css).toContain(
-      "animation: {{ 'cms-shake 1s ease-in-out infinite' if state_attr('climate.thermostat', 'current_temperature') | float(0) >= 25 else 'none' }};",
+      "animation: {{ 'cstudio-shake 1s ease-in-out infinite' if state_attr('climate.thermostat', 'current_temperature') | float(0) >= 25 else 'none' }};",
     );
   });
 
@@ -1912,8 +1912,8 @@ describe('generateCss — value-conditional animation trigger', () => {
         },
       }),
     );
-    expect(css).toContain('animation: cms-pulse 2s ease-in-out infinite;');
-    expect(css).toContain('@keyframes cms-pulse');
+    expect(css).toContain('animation: cstudio-pulse 2s ease-in-out infinite;');
+    expect(css).toContain('@keyframes cstudio-pulse');
   });
 
   it('value trigger (states form) round-trips byte-stable', () => {

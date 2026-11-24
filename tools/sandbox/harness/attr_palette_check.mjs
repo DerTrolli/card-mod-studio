@@ -160,6 +160,7 @@ const run = async () => {
     // give it a beat, then re-init state so the override is visible.
     await new Promise((r) => setTimeout(r, 800));
     panel.config = { type: 'light', entity: 'light.ceiling_lights', card_mod: { style: '' } };
+    panel._tab = 'palette'; // its own tab since v1.0
     await panel.updateComplete;
     await new Promise((r) => setTimeout(r, 400));
     const manager = panel.shadowRoot?.querySelector('cms-palette-manager') ?? null;

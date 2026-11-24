@@ -3,10 +3,13 @@ import { property, state } from 'lit/decorators.js';
 import type { BackgroundModuleState, HomeAssistant } from '../types/index.js';
 import { DEFAULT_BACKGROUND } from '../parser/state-mapper.js';
 import { moduleStyles, renderWhen,  renderOverrideHint, renderThresholdOwnedHint, renderModuleHeader, guardSliderTouch, nameSwitches, prepareSliders,
+  editState,
 } from './module-base.js';
+import { backgroundSummary } from './module-summary.js';
 import '../components/cms-color-picker.js';
 import { stateKindFor } from '../utils/card-caps.js';
 import { isValidCssColor } from '../utils/css-color.js';
+import { LangController, t } from '../i18n/index.js';
 
 export class BackgroundModule extends LitElement {
   @property({ attribute: false }) state: BackgroundModuleState = {
@@ -24,17 +27,17 @@ export class BackgroundModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** v1.0: offer "Let this module take over" (plain Advanced CSS only). */
+  @property({ attribute: false }) takeOver = false;
   /** Threshold Colors is currently writing this module's property. */
   @property({ attribute: false }) thresholdOwned = false;
+
+  protected readonly i18n = new LangController(this);
 
   @state() private _open = false;
   @state() private _angle = DEFAULT_BACKGROUND.angle;
 
   static override styles = [moduleStyles, css``];
-
-  override firstUpdated() {
-    this._open = this.state.enabled;
-  }
 
   override updated(changed: Map<PropertyKey, unknown>) {
     nameSwitches(this.renderRoot);
@@ -53,7 +56,7 @@ export class BackgroundModule extends LitElement {
   private _emit(changes: Partial<BackgroundModuleState>) {
     this.dispatchEvent(
       new CustomEvent<BackgroundModuleState>('state-changed', {
-        detail: { ...this.state, ...changes },
+        detail: editState(this.state, changes),
       }),
     );
   }
@@ -80,8 +83,9 @@ export class BackgroundModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '🖼️',
-          title: 'Background',
+          icon: 'mdi:format-paint',
+          summary: this.state.enabled ? backgroundSummary(this.state) : undefined,
+          title: t('background.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),
           overridden: this.overridden,
@@ -98,10 +102,10 @@ export class BackgroundModule extends LitElement {
   private _renderBody() {
     return html`
       <div class="module-body" id="module-body">
-        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
-        ${renderThresholdOwnedHint(this.thresholdOwned, 'background', 'Background')}
+        ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'background' : undefined)}
+        ${renderThresholdOwnedHint(this.thresholdOwned, 'noun.background', 'threshold.prop.background')}
         <div class="control-row">
-          <span class="control-label" id="lbl-type">Type</span>
+          <span class="control-label" id="lbl-type">${t('background.type')}</span>
           <div class="control-right">
             <select
               aria-labelledby="lbl-type"
@@ -109,9 +113,9 @@ export class BackgroundModule extends LitElement {
               @change=${(e: Event) =>
                 this._changeType((e.target as HTMLSelectElement).value as 'solid' | 'gradient')}
             >
-              <option value="solid" ?selected=${this.state.type === 'solid'}>Solid color</option>
+              <option value="solid" ?selected=${this.state.type === 'solid'}>${t('background.solid')}</option>
               <option value="gradient" ?selected=${this.state.type === 'gradient'}>
-                Gradient
+                ${t('background.gradient')}
               </option>
             </select>
           </div>
@@ -119,11 +123,11 @@ export class BackgroundModule extends LitElement {
 
         <div class="control-row">
           <span class="control-label">
-            ${this.state.type === 'gradient' ? 'Color 1' : 'Color'}
+            ${this.state.type === 'gradient' ? t('background.color1') : t('background.color')}
           </span>
           <div class="control-right">
             <cms-color-picker
-              label=${this.state.type === 'gradient' ? 'Gradient color 1' : 'Background color'}
+              label=${this.state.type === 'gradient' ? t('background.gradientColor1') : t('background.backgroundColor')}
               .validation=${this.state.type === 'gradient' ? 'stop' : 'background'}
               .value=${this.state.color1}
               @color-changed=${(e: CustomEvent) =>
@@ -135,10 +139,10 @@ export class BackgroundModule extends LitElement {
         ${this.state.type === 'gradient'
           ? html`
               <div class="control-row">
-                <span class="control-label">Color 2</span>
+                <span class="control-label">${t('background.color2')}</span>
                 <div class="control-right">
                   <cms-color-picker
-                    label="Gradient color 2"
+                    label=${t('background.gradientColor2')}
                     .validation=${'stop'}
                     .value=${this.state.color2}
                     @color-changed=${(e: CustomEvent) =>
@@ -148,11 +152,11 @@ export class BackgroundModule extends LitElement {
               </div>
 
               <div class="control-row">
-                <span class="control-label">Angle</span>
+                <span class="control-label">${t('background.angle')}</span>
                 <div class="control-right">
                   <ha-slider
-                    label="Angle"
-                    aria-label="Angle"
+                    label=${t('background.angle')}
+                    aria-label=${t('background.angle')}
                     min="0"
                     max="360"
                     step="5"
@@ -174,13 +178,19 @@ export class BackgroundModule extends LitElement {
         ${renderWhen({
           value: this.state.applyWhen,
           stateAware: this.stateAware,
+          cardEntity: this.cardEntity,
           offOnly: stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
-          noun: 'background',
+          noun: 'noun.background',
           allowCustom: true,
           customEntity: this.state.customEntity,
           hass: this.hass,
-          onChange: (v) => this._emit({ applyWhen: v as BackgroundModuleState['applyWhen'] }),
+          onChange: (v) => this._emit({ applyWhen: v as BackgroundModuleState['applyWhen'], condition: undefined }),
           onCustomEntity: (id) => this._emit({ customEntity: id }),
+          // "A value matches" (v1.0.0, #42): applyWhen stays 'always' (what
+          // versions before 1.0.0 then show).
+          allowValue: true,
+          condition: this.state.condition,
+          onCondition: (c) => this._emit({ condition: c, applyWhen: 'always' }),
         })}
       </div>
     `;

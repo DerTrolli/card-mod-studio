@@ -2,6 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
 import type {
+  FeaturesModuleState,
   CardModCardConfig,
   HomeAssistant,
   StudioState,
@@ -34,7 +35,7 @@ import {
   capsFor,
   panelStateAware,
 } from '../utils/card-caps.js';
-import { profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
+import { profileKeyOf, isUnprofiledCustomCard, unprofiledCardNotice } from '../utils/custom-card-profiles.js';
 import { buildMergedStudioState, initEntityRowStyles, applyEntityRowStyles, refreshPaletteDefaults, applyStudioState, refreshCarrier } from './studio-state.js';
 import { withCardNumberSize, userEntries, numberSizeKind } from '../utils/owned-entries.js';
 import './cms-child-card-section.js';
@@ -46,10 +47,15 @@ import { ArmGuard } from '../utils/arm-guard.js';
 import { filterPresetStateForCardType, presetFont } from '../utils/preset-caps.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
 import { initPaletteCache, PALETTE_CHANGED_EVENT } from '../utils/palette-storage.js';
-import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
+import { canTakeOver, findAdvancedCssConflicts, removeAdvancedCssConflicts, type ConflictableModule } from '../utils/style-conflicts.js';
 import './cms-palette-manager.js';
+import './cms-settings.js';
+import { childSlots, withChild, type ChildSlot } from '../utils/child-slots.js';
+import '../modules/module-features.js';
+import { DEFAULT_FEATURES } from '../parser/state-mapper.js';
+import './cms-preset-manager.js';
 import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
-import { cmsTokens } from '../modules/module-base.js';
+import { cmsTokens, renderIcon } from '../modules/module-base.js';
 import { hasTopLevelJinjaStatement, templateStatementNote, anyModuleOn } from '../utils/css-lint.js';
 import { uixStyleUsesMacro } from '../utils/uix-macro-use.js';
 
@@ -64,6 +70,7 @@ import '../modules/module-advanced.js';
 import '../modules/module-heading-style.js';
 import '../modules/module-font.js';
 import '../modules/module-entities-rows.js';
+import { LangController, currentLanguage, languageOfHass, setHomeAssistantLanguage, t, tParts, type MessageKey } from '../i18n/index.js';
 
 declare const __APP_VERSION__: string;
 const VERSION = __APP_VERSION__;
@@ -92,13 +99,38 @@ function isDarkTheme(hass: HomeAssistant | undefined): boolean {
 /** A locked card renders only the entity rows module, so only it can be picked. */
 const LOCKED_PICK_MODULES = ['cms-entities-rows-module'] as const;
 
+/** v1.0: the panel's tabs. Style holds the modules; the others what is not
+ *  about this card's look (they used to sit above the modules). */
+export type PanelTab = 'style' | 'presets' | 'palette' | 'settings';
+const TABS: ReadonlyArray<{ id: PanelTab; label: MessageKey }> = [
+  { id: 'style', label: 'tab.style' },
+  { id: 'presets', label: 'tabs.presets' },
+  { id: 'palette', label: 'tabs.palette' },
+  { id: 'settings', label: 'settings.title' },
+];
+
+/** Per-device convenience: the phone preview's folded state. */
+const PREVIEW_FOLD_KEY = 'cms-preview-folded';
+function readPreviewFolded(): boolean {
+  try {
+    return localStorage.getItem(PREVIEW_FOLD_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export class CmsPanel extends LitElement {
+  protected readonly i18n = new LangController(this);
   @property({ attribute: false }) config?: CardModCardConfig;
   @property({ attribute: false }) hass?: HomeAssistant;
+  /** v1.0: shown in Home Assistant's section dialog (the config is the section's grid). */
+  @property({ type: Boolean }) section = false;
 
   @state() private _cardModPresent = false;
   @state() private _uixPresent = false;
   @state() private _studioState: StudioState | null = null;
+  /** The open tab; every new editor starts on Style. */
+  @state() private _tab: PanelTab = 'style';
   @state() private _previewConfig: CardModCardConfig | undefined = undefined;
   @state() private _previewKey = 0;
   @state() private _presets: StylePreset[] = [];
@@ -132,6 +164,17 @@ export class CmsPanel extends LitElement {
   @state() private _loadedWholeStyleKept = false;
   /** True when the panel is too narrow for the side-by-side preview. */
   @state() private _narrow = false;
+  /** Narrow layout: the pinned preview folded away (remembered on this device). */
+  @state() private _previewFolded = readPreviewFolded();
+
+  private _togglePreviewFold = () => {
+    this._previewFolded = !this._previewFolded;
+    try {
+      localStorage.setItem(PREVIEW_FOLD_KEY, this._previewFolded ? '1' : '0');
+    } catch {
+      // storage blocked: the choice lasts for this panel only
+    }
+  };
 
   /** Own-echo guard: skips state rebuilds for configs we ourselves just
    *  emitted, while advancing its baseline on every genuine external
@@ -144,6 +187,7 @@ export class CmsPanel extends LitElement {
     // One place for every field the Studio renders (modules, stack children,
     // palette manager and preset bar all live in this subtree).
     this.addEventListener('keydown', keepEnterInStudio);
+    this.addEventListener('take-over', this._onTakeOver as EventListener);
     this._cardModPresent = isCardModInstalled();
     this._uixPresent = isUixInstalled();
     // Load from localStorage immediately (sync); HA sync happens when hass arrives
@@ -171,6 +215,7 @@ export class CmsPanel extends LitElement {
   override disconnectedCallback() {
     super.disconnectedCallback();
     this.removeEventListener('keydown', keepEnterInStudio);
+    this.removeEventListener('take-over', this._onTakeOver as EventListener);
     window.removeEventListener(PALETTE_CHANGED_EVENT, this._onPaletteChanged);
     this._deleteGuard.stop(); // an armed panel leaving the page keeps no window listener
     this._resizeObserver?.disconnect();
@@ -179,7 +224,13 @@ export class CmsPanel extends LitElement {
 
   override updated(changed: Map<PropertyKey, unknown>) {
     super.updated(changed);
+    // The panel's language, for screen readers and for hyphenating long
+    // words in narrow label columns (Russian "Продолжительность").
+    const lang = currentLanguage();
+    if (this.getAttribute('lang') !== lang) this.setAttribute('lang', lang);
     if (changed.has('hass')) {
+      // "Auto" follows the language Home Assistant shows for this user.
+      setHomeAssistantLanguage(languageOfHass(this.hass));
       // HA's own dark-mode flag (not prefers-color-scheme — a user can run a
       // dark HA theme on a light OS). HA sets no color-scheme on the page,
       // so without this, browser-drawn parts of the panel (scrollbars,
@@ -455,6 +506,23 @@ export class CmsPanel extends LitElement {
     this._emitConfigChanged();
   }
 
+  private _onFeaturesChanged(e: CustomEvent<FeaturesModuleState>) {
+    if (!this._studioState) return;
+    this._studioState = { ...this._studioState, features: e.detail };
+    this._emitConfigChanged();
+  }
+
+  /** "Let this module take over" (cms-take-over): remove exactly the
+   *  overriding declarations from Advanced CSS (child sections handle their own). */
+  private _onTakeOver = (e: CustomEvent<{ module: ConflictableModule }>) => {
+    const s = this._studioState;
+    if (!s) return;
+    const r = removeAdvancedCssConflicts(s.advanced.rawCss, s, e.detail.module, this._profileKey);
+    if (!r) return;
+    this._studioState = { ...s, advanced: { ...s.advanced, rawCss: r.css } };
+    this._emitConfigChanged();
+  };
+
   private _onAdvancedChanged(e: CustomEvent<AdvancedModuleState>) {
     if (!this._studioState) return;
     this._studioState = { ...this._studioState, advanced: e.detail };
@@ -627,11 +695,17 @@ export class CmsPanel extends LitElement {
     // preset must never carry it (audit v0.10 #8).
     // Nor Number size: its units differ per card and it can sit under a
     // hand-written entry (v0.11) — it stays the card's own setting.
-    const { dictSource: _cardDict, ...cardState } = this._studioState;
-    const presetState = { ...cardState, font: presetFont(cardState.font) };
-    const preset = { name: trimmed, state: presetState };
+    const preset = { name: trimmed, state: this._portableState()! };
     this._selectedPreset = trimmed;
     this._commitPresetChange({ kind: 'save', preset });
+  }
+
+  /** This card's styling as a preset stores it: without the card's own
+   *  pierced entries (dictSource) and Number size. */
+  private _portableState(): StudioState | undefined {
+    if (!this._studioState) return undefined;
+    const { dictSource: _cardDict, ...cardState } = this._studioState;
+    return { ...cardState, font: presetFont(cardState.font) } as StudioState;
   }
 
   /** Shows the change at once, writes it against the STORED list (another
@@ -667,6 +741,27 @@ export class CmsPanel extends LitElement {
     if (!name) return;
     const preset = this._presets.find((p) => p.name === name);
     if (!preset) return;
+    this._applyStyleState(preset.state);
+  }
+
+  /** A pasted style (My Presets → Paste) is applied exactly like a preset. */
+  private _onStylePaste(e: CustomEvent<{ state: StudioState }>) {
+    e.stopPropagation();
+    this._selectedPreset = '';
+    this._applyStyleState(e.detail.state);
+  }
+
+  private _onPresetManagerChange(e: CustomEvent<{ change: PresetChange }>) {
+    e.stopPropagation();
+    const change = e.detail.change;
+    if (change.kind === 'rename' && this._selectedPreset === change.from) this._selectedPreset = change.to;
+    if (change.kind === 'delete' && this._selectedPreset === change.name) this._selectedPreset = '';
+    this._commitPresetChange(change);
+  }
+
+  /** Puts a stored or pasted style on this card. */
+  private _applyStyleState(incoming: StudioState) {
+    const preset = { state: incoming };
     // Keep THIS card's preserved Advanced CSS unless the preset itself
     // carries some — the parser went to lengths to preserve unrecognised
     // hand-authored CSS, and a preset from a different card shouldn't be
@@ -752,6 +847,60 @@ export class CmsPanel extends LitElement {
     }
 
     .header h2 { margin: 0; font-size: 16px; font-weight: 500; }
+    .header-icon {
+      --mdc-icon-size: 22px;
+      color: var(--primary-color, #03a9f4);
+      display: inline-flex;
+    }
+
+    /* ---- Tabs (Home Assistant's own: text, the open one underlined) ---- */
+
+    .tabs {
+      flex-shrink: 0;
+      display: flex;
+      overflow-x: auto;
+      scrollbar-width: none;
+      border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      padding: 0 8px;
+    }
+    .tab {
+      flex: 0 0 auto;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      min-height: 44px;
+      padding: 0 16px;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      background: none;
+      color: var(--secondary-text-color, #727272);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .tab:hover {
+      color: var(--primary-text-color, #212121);
+    }
+    /* The open tab: its label in the normal text colour (Home Assistant's
+       light-theme primary blue is under 3:1 on white for 14px text), marked
+       by the primary-colour underline. */
+    .tab.active {
+      color: var(--primary-text-color, #212121);
+      border-bottom-color: var(--primary-color, #03a9f4);
+    }
+    .tab:focus-visible {
+      outline: 2px solid var(--primary-color, #03a9f4);
+      outline-offset: -2px;
+    }
+    /* Phones: the four tabs share the width (measured: they fit 360px in
+       every language with this padding). */
+    .tabs.narrow .tab {
+      flex: 1 0 auto;
+      padding: 0 10px;
+    }
+    .tab-style[hidden] {
+      display: none;
+    }
     .header .version {
       font-size: 11px;
       color: var(--secondary-text-color, #727272);
@@ -803,13 +952,52 @@ export class CmsPanel extends LitElement {
     .panel-body.narrow .modules-col {
       overflow: visible;
     }
+    /* v1.0: on a narrow panel (phones) the preview comes FIRST and stays
+       pinned while the modules scroll under it, so a change can be seen as
+       it is made. It is capped to a strip (the card scrolls inside) and can
+       be folded away (remembered on this device). */
     .panel-body.narrow .preview-col {
+      order: -1;
+      position: sticky;
+      top: 0;
+      z-index: 3;
       border-left: none;
-      border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      background: var(--card-background-color, var(--ha-card-background, #fff));
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+      padding: 6px 10px 8px;
+      gap: 6px;
       overflow: visible;
     }
     .panel-body.narrow .preview-card-wrapper {
       min-height: 72px;
+      max-height: 22vh;
+    }
+    /* Phones: the pinned strip keeps to the card (the hint cost a second
+       line in long languages; picking parts works the same without it). */
+    .panel-body.narrow .preview-hint {
+      display: none;
+    }
+    .panel-body.narrow.preview-folded .preview-card-wrapper,
+    .panel-body.narrow.preview-folded .preview-hint {
+      display: none;
+    }
+    .preview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .preview-toggle {
+      font: inherit;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      background: transparent;
+      color: var(--primary-color, #03a9f4);
+      cursor: pointer;
     }
 
     /* ---- Left column: modules ---- */
@@ -1097,32 +1285,35 @@ export class CmsPanel extends LitElement {
     const hasPreview = !!(this.config && this.hass);
     return html`
       <div class="header">
-        <span aria-hidden="true">🎨</span>
-        <h2>Card-Mod Studio</h2>
+        <ha-icon class="header-icon" icon="mdi:palette" aria-hidden="true"></ha-icon>
+        <h2 id="cms-title">Card Style Studio</h2>
         <span class="version">v${VERSION}</span>
       </div>
+      ${this._renderTabs()}
 
-      <div class="panel-body ${hasPreview ? '' : 'no-preview'} ${this._narrow ? 'narrow' : ''}">
-        <div class="modules-col">
+      <div class="panel-body ${hasPreview ? '' : 'no-preview'} ${this._narrow ? 'narrow' : ''} ${this._narrow && this._previewFolded ? 'preview-folded' : ''}">
+        <div class="modules-col" id="cms-tabpanel" role="tabpanel" aria-labelledby="cms-tab-${this._tab}">
+          <cms-language-notice .hass=${this.hass}></cms-language-notice>
           ${this._renderCompatBanner()}
-
-          ${this._studioState
-            ? html`
-                ${this._isLocked || this._nothingToStyle ? nothing : this._renderPresetBar()}
-                <cms-palette-manager .hass=${this.hass}></cms-palette-manager>
-                ${this._renderNothingToStyleNote()}
-                ${this._renderUnprofiledNotice()}
-                ${this._renderModuleList(settleEntityless(this._studioState, this.config as unknown as Record<string, unknown>))}
-              `
-            : html`<div class="no-config">No card selected.</div>`}
+          ${this._renderTabContent()}
         </div>
 
         ${hasPreview
           ? html`
               <div class="preview-col">
-                <span class="preview-col-label">Preview</span>
+                <div class="preview-head">
+                  <span class="preview-col-label">${t('panel.preview')}</span>
+                  ${this._narrow
+                    ? html`<button
+                        type="button"
+                        class="preview-toggle"
+                        aria-expanded=${this._previewFolded ? 'false' : 'true'}
+                        @click=${this._togglePreviewFold}
+                      >${t(this._previewFolded ? 'panel.previewShow' : 'panel.previewHide')}</button>`
+                    : nothing}
+                </div>
                 ${this._pickerActive
-                  ? html`<span class="preview-hint">Click any part of the preview to jump to its control</span>`
+                  ? html`<span class="preview-hint">${t('panel.previewHint')}</span>`
                   : nothing}
                 <div class="preview-card-wrapper">
                   ${this._renderPreviewContent()}
@@ -1132,6 +1323,87 @@ export class CmsPanel extends LitElement {
           : nothing}
       </div>
     `;
+  }
+
+  /** Style / Presets / Palette / Settings, as an ARIA tab list: arrow keys,
+   *  Home and End move between the tabs and open them. */
+  private _renderTabs() {
+    return html`<div class="tabs ${this._narrow ? 'narrow' : ''}" role="tablist" aria-labelledby="cms-title" @keydown=${this._onTabKeydown}>
+      ${TABS.map((tab) => {
+        const on = tab.id === this._tab;
+        return html`<button
+          type="button"
+          role="tab"
+          class="tab ${on ? 'active' : ''}"
+          id="cms-tab-${tab.id}"
+          data-tab=${tab.id}
+          aria-selected=${on ? 'true' : 'false'}
+          aria-controls="cms-tabpanel"
+          tabindex=${on ? '0' : '-1'}
+          @click=${() => this._selectTab(tab.id)}
+        >${t(tab.label)}</button>`;
+      })}
+    </div>`;
+  }
+
+  private _selectTab(tab: PanelTab, focus = false) {
+    this._tab = tab;
+    if (focus) {
+      void this.updateComplete.then(() => (this.shadowRoot?.getElementById(`cms-tab-${tab}`) as HTMLElement | null)?.focus());
+    }
+  }
+
+  private _onTabKeydown = (e: KeyboardEvent) => {
+    const i = TABS.findIndex((x) => x.id === this._tab);
+    const next = e.key === 'ArrowRight' ? (i + 1) % TABS.length
+      : e.key === 'ArrowLeft' ? (i - 1 + TABS.length) % TABS.length
+        : e.key === 'Home' ? 0
+          : e.key === 'End' ? TABS.length - 1
+            : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    this._selectTab(TABS[next].id, true);
+  };
+
+  /** The Style tab stays in the page while another tab is open (hidden), so
+   *  the modules a user opened are still open when they come back; the other
+   *  tabs are drawn only while open. */
+  private _renderTabContent() {
+    return html`
+      <div class="tab-style" ?hidden=${this._tab !== 'style'}>${this._renderStyleTab()}</div>
+      ${this._tab === 'style' ? nothing : this._renderOtherTab()}
+    `;
+  }
+
+  private _renderStyleTab() {
+    return this._studioState
+      ? html`
+          ${this._renderNothingToStyleNote()}
+          ${this._renderUnprofiledNotice()}
+          ${this._renderModuleList(settleEntityless(this._studioState, this.config as unknown as Record<string, unknown>))}
+        `
+      : html`<div class="no-config">${t('panel.noCard')}</div>`;
+  }
+
+  private _renderOtherTab() {
+    switch (this._tab) {
+      case 'presets':
+        return html`
+          ${this._studioState && !this._isLocked && !this._nothingToStyle ? this._renderPresetBar() : nothing}
+          <cms-preset-manager
+            .presets=${this._presets}
+            .cardState=${this._isLocked || !this._studioState ? undefined : this._portableState()}
+            @preset-change=${this._onPresetManagerChange}
+            @style-paste=${this._onStylePaste}
+          ></cms-preset-manager>
+        `;
+      case 'palette':
+        return html`<cms-palette-manager .hass=${this.hass}></cms-palette-manager>`;
+      case 'settings':
+        return html`<cms-settings .hass=${this.hass}></cms-settings>`;
+      default:
+        return nothing;
+    }
   }
 
   /** True when the click-to-edit picker overlays the preview. Container
@@ -1152,7 +1424,7 @@ export class CmsPanel extends LitElement {
     if (!this.config || !this.hass) return nothing;
     const hasHuiCard = Boolean(customElements.get('hui-card'));
     if (!hasHuiCard) {
-      return html`<p class="preview-unavailable">Preview unavailable — open a card editor first.</p>`;
+      return html`<p class="preview-unavailable">${t('panel.previewUnavailable')}</p>`;
     }
     const previewConfig = this._previewConfig ?? this.config;
     // The picker re-queries its parent for `hui-card` on every hit-test, so
@@ -1170,7 +1442,7 @@ export class CmsPanel extends LitElement {
     // (outside the inert card) is what tells a screen-reader user it exists.
     return html`
       <div class="preview-stage">
-        <span class="preview-sr-note">Live preview of the card (not interactive)</span>
+        <span class="preview-sr-note">${t('panel.previewSr')}</span>
         ${keyed(
           this._previewKey,
           html`<hui-card inert .hass=${this.hass} .config=${previewConfig}></hui-card>`,
@@ -1197,8 +1469,12 @@ export class CmsPanel extends LitElement {
   }
 
   /** Click-to-edit: scroll to the picked module, open it, flash it. */
-  private _onPreviewPick(e: CustomEvent<PickEventDetail>) {
+  private async _onPreviewPick(e: CustomEvent<PickEventDetail>) {
     const { module, rowEntity, rowIndex } = e.detail;
+    if (this._tab !== 'style') {
+      this._tab = 'style';
+      await this.updateComplete;
+    }
     const el = this.shadowRoot?.querySelector(module) as
       | (HTMLElement & { _open?: boolean; open?: boolean; _openRows?: Set<string> })
       | null;
@@ -1248,7 +1524,7 @@ export class CmsPanel extends LitElement {
     // read it either), and hide the fact that nothing renders regardless.
     if (!this._cardModPresent && !this._uixPresent) {
       return html`<div class="warning-banner">
-        ⚠️ card-mod/UIX not detected — install one of them first or styles won't apply.
+        ${renderIcon('mdi:alert-outline')}${t('panel.noEngine')}
       </div>`;
     }
 
@@ -1256,33 +1532,29 @@ export class CmsPanel extends LitElement {
     if (atRisk) {
       if (this._uixOnlyUsesMacros) {
         return html`<div class="warning-banner">
-          ⚠️ This card's styling uses UIX-only features (macros/billets, or $$/&amp; selectors) and UIX
-          isn't detected — it won't apply, and card-mod cannot run these features under any key.
-          Reinstall UIX, or restyle this card manually.
+          ${renderIcon('mdi:alert-outline')}${t('panel.uixOnlyMacros')}
         </div>`;
       }
       const what = this._uixOnlyAtRisk && this._uixOnlyRowsAtRisk
-        ? "This card's styling, and one or more entity rows,"
+        ? t('panel.uixOnlyCardAndRows')
         : this._uixOnlyRowsAtRisk
-          ? 'One or more entity rows on this card'
-          : "This card's styling";
+          ? t('panel.uixOnlyRows')
+          : t('panel.uixOnlyCard');
       return html`<div class="warning-banner">
-        ⚠️ ${what} is only under uix: and UIX isn't detected — it won't apply.
-        <button class="btn-banner-action" @click=${this._copyUixStyleToCardMod}>Copy to card_mod</button>
+        ${renderIcon('mdi:alert-outline')}${what}
+        <button class="btn-banner-action" @click=${this._copyUixStyleToCardMod}>${t('panel.copyToCardMod')}</button>
       </div>`;
     }
 
     if (this._uixMacrosCoexist) {
       return html`<div class="info-banner">
-        ℹ️ This card also has uix: macros/billets — studio edits update card_mod:, but UIX will keep
-        rendering your uix: styling unchanged (macros/billets can't be auto-synced).
+        ${renderIcon('mdi:information-outline')}${t('panel.uixMacrosCoexist')}
       </div>`;
     }
 
     if (this._uixMacroStyleKept) {
       return html`<div class="info-banner">
-        ℹ️ This card's uix: style uses macros/billets. They are kept as they are — the part of the style
-        that calls them stays in Advanced CSS.
+        ${renderIcon('mdi:information-outline')}${t('panel.uixMacroKept')}
       </div>`;
     }
 
@@ -1293,13 +1565,13 @@ export class CmsPanel extends LitElement {
    *  hint that some may not reach it. Not shown over the lock banner. */
   private _renderUnprofiledNotice() {
     if (this._isLocked || !isUnprofiledCustomCard(this.config)) return nothing;
-    return html`<div class="info-banner">ℹ️ ${UNPROFILED_CARD_NOTICE}</div>`;
+    return html`<div class="info-banner">${renderIcon('mdi:information-outline')}${unprofiledCardNotice()}</div>`;
   }
 
   /** A card that renders nothing: say so instead of an empty preview. */
   private _renderNothingToStyleNote() {
     if (this._isLocked || !this._nothingToStyle) return nothing;
-    return html`<div class="info-banner">ℹ️ This card renders nothing, so there is nothing to style — Advanced CSS still applies.</div>`;
+    return html`<div class="info-banner">${renderIcon('mdi:information-outline')}${t('panel.nothingToStyle')}</div>`;
   }
 
   private _renderPresetBar() {
@@ -1307,18 +1579,18 @@ export class CmsPanel extends LitElement {
       const name = this._presetName.trim();
       const exists = !!this._presetNamed(name);
       const hint = !name && (this._presetName.length > 0 || this._presetNameTried)
-        ? 'Type a name to save this preset.'
+        ? t('preset.typeName')
         : exists
-          ? `Replaces the existing preset "${name}".`
+          ? t('preset.replaces', { name })
           : '';
       return html`
         <div class="preset-bar ${hint ? 'has-hint' : ''}">
           <input
             class="preset-name"
             type="text"
-            aria-label="Preset name"
+            aria-label=${t('preset.name')}
             aria-describedby=${hint ? 'preset-hint' : nothing}
-            placeholder="Preset name"
+            placeholder=${t('preset.name')}
             maxlength=${PRESET_NAME_MAX}
             .value=${this._presetName}
             @input=${this._onPresetNameInput}
@@ -1328,17 +1600,17 @@ export class CmsPanel extends LitElement {
             class="btn-preset-save"
             ?disabled=${!name}
             @click=${this._saveCurrentAsPreset}
-          ><span aria-hidden="true">💾</span> ${exists ? 'Overwrite' : 'Save'}</button>
-          <button class="btn-preset-cancel" @click=${this._cancelNamingPreset}>Cancel</button>
+          >${renderIcon('mdi:content-save-outline')}${exists ? t('preset.overwrite') : t('preset.savePreset')}</button>
+          <button class="btn-preset-cancel" @click=${this._cancelNamingPreset}>${t('preset.cancel')}</button>
           ${hint ? html`<div class="preset-hint" id="preset-hint" role="status">${hint}</div>` : nothing}
         </div>
       `;
     }
-    const armedLabel = `Delete '${this._selectedPreset}'?`;
+    const armedLabel = t('preset.deleteArmed', { name: this._selectedPreset });
     return html`
       <div class="preset-bar ${this._presetsLocalOnly || this._presetsUnsaved ? 'has-hint' : ''}">
-        <select aria-label="Load preset" .value=${this._selectedPreset} @change=${this._onPresetSelect}>
-          <option value="">Load preset…</option>
+        <select aria-label=${t('preset.load')} .value=${this._selectedPreset} @change=${this._onPresetSelect}>
+          <option value="">${t('preset.loadEllipsis')}</option>
           ${this._presets.map(
             (p) => html`<option value=${p.name} ?selected=${p.name === this._selectedPreset}>${p.name}</option>`,
           )}
@@ -1346,18 +1618,18 @@ export class CmsPanel extends LitElement {
         ${this._selectedPreset
           ? html`<button
               class="btn-preset-delete ${this._deleteArmed ? 'armed' : ''}"
-              title=${this._deleteArmed ? armedLabel : 'Delete preset'}
-              aria-label=${this._deleteArmed ? armedLabel : `Delete preset '${this._selectedPreset}'`}
+              title=${this._deleteArmed ? armedLabel : t('preset.delete')}
+              aria-label=${this._deleteArmed ? armedLabel : t('preset.deleteNamed', { name: this._selectedPreset })}
               @click=${this._deleteSelectedPreset}
               @blur=${this._disarmDelete}
               @keydown=${this._onPresetDeleteKeydown}
-            >${this._deleteArmed ? 'Delete?' : '×'}</button>`
+            >${this._deleteArmed ? t('preset.deleteQ') : '×'}</button>`
           : nothing}
-        <button class="btn-preset-save" title="Save the current styling as a preset" @click=${this._startNamingPreset}><span aria-hidden="true">💾</span> Save preset</button>
+        <button class="btn-preset-save" title=${t('preset.saveTitle')} @click=${this._startNamingPreset}>${renderIcon('mdi:content-save-outline')}${t('preset.savePreset')}</button>
         ${this._presetsUnsaved
-          ? html`<div class="preset-hint" role="status">Couldn't save this preset — this browser's storage is full.</div>`
+          ? html`<div class="preset-hint" role="status">${t('preset.storageFull')}</div>`
           : this._presetsLocalOnly
-            ? html`<div class="preset-hint" role="status">Couldn't reach your Home Assistant profile — saved on this device only.</div>`
+            ? html`<div class="preset-hint" role="status">${t('preset.localOnly')}</div>`
             : nothing}
       </div>
     `;
@@ -1380,22 +1652,12 @@ export class CmsPanel extends LitElement {
       return html`
         <div class="container-banner">
           ${hasUnsupportedDictRoot(this.config?.card_mod?.style) || hasUnsupportedDictRoot(this.config?.uix?.style)
-            ? html`<strong>🔒 Dictionary-form styling — preserved as-is</strong>
-                This card's dictionary-form (<code>$</code> shadow-piercing)
-                style has a <code>.</code> entry that isn't plain CSS, so the
-                Studio can't rebuild it faithfully. Nothing here will
-                overwrite it — your styling is preserved exactly as written.
-                Make <code>.</code> a plain CSS string in YAML to edit it
-                visually.`
-            : html`<strong>🔒 Mixed-form styling — preserved as-is</strong>
-                This card carries a hand-written dictionary-form
-                (<code>$</code> shadow-piercing) style alongside a different
-                style on the other engine key. The Studio can't rewrite that
-                combination faithfully, so nothing here will overwrite it —
-                your styling is preserved exactly as written. Consolidate to
-                one key in YAML to edit it visually.`}
+            ? html`<strong>${renderIcon('mdi:lock-outline')}${t('lock.dictTitle')}</strong>
+                ${tParts('lock.dictBody', { dollar: html`<code>$</code>`, dot: html`<code>.</code>` })}`
+            : html`<strong>${renderIcon('mdi:lock-outline')}${t('lock.mixedTitle')}</strong>
+                ${tParts('lock.mixedBody', { dollar: html`<code>$</code>` })}`}
           ${this._isEntitiesCard
-            ? html`Per-row styling below still works as usual.`
+            ? html`${t('lock.rowsStillWork')}`
             : nothing}
         </div>
         ${this._renderEntityRowsModule()}
@@ -1414,16 +1676,17 @@ export class CmsPanel extends LitElement {
     const hasUnrecognisedCss = loadedCss && !this._nothingToStyle;
     // "Custom CSS is overriding this control" warnings (style-conflicts.ts)
     const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s, this._profileKey);
+    const takeOver = canTakeOver(s.advanced.rawCss);
     const thresholdOwned = cardThresholdOwned(s.threshold, this._caps);
 
     return html`
       ${hasUnrecognisedCss && this._loadedWholeStyleKept
         ? html`<div class="info-banner">
-            ℹ️ ${templateStatementNote(anyModuleOn(s))}
+            ${renderIcon('mdi:information-outline')}${templateStatementNote(anyModuleOn(s))}
           </div>`
         : hasUnrecognisedCss
           ? html`<div class="info-banner">
-              ℹ️ Some existing styles weren't recognised — preserved in Advanced CSS.
+              ${renderIcon('mdi:information-outline')}${t('panel.unrecognised')}
             </div>`
           : nothing}
 
@@ -1431,6 +1694,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-heading-style-module
             .headingStyle=${(this.config as unknown as Record<string, unknown> | undefined)?.heading_style as string | undefined}
             .overridden=${!!conflicts.headingStyle}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.headingStyle ?? []).join(", ")}
             .state=${s.headingStyle}
             @state-changed=${this._onHeadingStyleChanged}
@@ -1445,6 +1709,7 @@ export class CmsPanel extends LitElement {
             .numberSize=${numberSizeKind(this._profileKey)}
             .cardType=${this._profileKey}
             .overridden=${!!conflicts.font}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.font ?? []).join(", ")}
             .state=${s.font}
             @state-changed=${this._onFontChanged}
@@ -1455,6 +1720,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-filter-module
             .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.filter}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
             .state=${s.filter}
             .stateAware=${stateAware}
@@ -1466,6 +1732,7 @@ export class CmsPanel extends LitElement {
       ${this._caps.modules.accentColor
         ? html`<cms-accent-color-module
             .overridden=${!!conflicts.accentColor}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.accentColor ?? []).join(", ")}
             .thresholdOwned=${thresholdOwned.has('accent-color')}
             .state=${s.accentColor}
@@ -1481,6 +1748,7 @@ export class CmsPanel extends LitElement {
       ${showIconColor
         ? html`<cms-icon-color-module
             .overridden=${!!conflicts.iconColor}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.iconColor ?? []).join(", ")}
             .thresholdOwned=${thresholdOwned.has('icon-color')}
             .state=${s.iconColor}
@@ -1498,6 +1766,7 @@ export class CmsPanel extends LitElement {
       ${this._caps.modules.threshold
         ? html`<cms-threshold-module
               .overridden=${!!conflicts.threshold}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.threshold ?? []).join(", ")}
               .state=${s.threshold}
               .cardEntity=${this.config?.entity ?? ''}
@@ -1513,6 +1782,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-background-module
             .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.background}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.background ?? []).join(", ")}
             .thresholdOwned=${thresholdOwned.has('background')}
             .state=${s.background}
@@ -1526,6 +1796,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-animation-module
             .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.animation}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.animation ?? []).join(", ")}
             .state=${s.animation}
             .hiddenPresets=${this._caps.noAnimationPresets}
@@ -1539,6 +1810,7 @@ export class CmsPanel extends LitElement {
         ? html`<cms-border-module
             .cardEntity=${this.config?.entity ?? ''}
             .overridden=${!!conflicts.border}
+            .takeOver=${takeOver}
             .overriddenDetail=${(conflicts.border ?? []).join(", ")}
             .thresholdOwned=${thresholdOwned.has('border-color')}
             .state=${s.border}
@@ -1548,14 +1820,25 @@ export class CmsPanel extends LitElement {
           ></cms-border-module>`
         : nothing}
 
+      ${this._caps.features
+        ? html`<cms-features-module
+            .state=${s.features ?? DEFAULT_FEATURES}
+            .noFeatures=${!Array.isArray((this.config as unknown as { features?: unknown[] })?.features) || !(this.config as unknown as { features: unknown[] }).features.length}
+            .overridden=${!!conflicts.features}
+            .takeOver=${takeOver}
+            .overriddenDetail=${(conflicts.features ?? []).join(", ")}
+            @state-changed=${this._onFeaturesChanged}
+          ></cms-features-module>`
+        : nothing}
+
+      ${this._renderEntityRowsModule()}
+
       <cms-advanced-module
         .state=${s.advanced}
         .pierced=${userEntries(s.dictSource)}
         .autoOpen=${loadedCss || userEntries(s.dictSource).length > 0}
         @state-changed=${this._onAdvancedChanged}
       ></cms-advanced-module>
-
-      ${this._renderEntityRowsModule()}
     `;
   }
 
@@ -1570,40 +1853,33 @@ export class CmsPanel extends LitElement {
       : nothing;
   }
 
-  private _onChildConfigChanged(e: CustomEvent<{ index: number; config: CardModCardConfig }>) {
+  private _onChildConfigChanged(e: CustomEvent<{ slot: ChildSlot; config: CardModCardConfig }>) {
     e.stopPropagation();
     if (!this.config) return;
-    const cards = (this.config as unknown as { cards?: CardModCardConfig[] }).cards;
-    if (!Array.isArray(cards) || !cards[e.detail.index]) return;
-    const updatedCards = cards.map((c, i) => (i === e.detail.index ? e.detail.config : c));
-    const newConfig = { ...(this.config as unknown as object), cards: updatedCards } as unknown as CardModCardConfig;
-
-    this._emitConfig(newConfig);
+    // Only this card's own children: a nested container section folds its
+    // children in and re-emits for its own slot (see cms-child-card-section).
+    if (!childSlots(this.config)?.some((c) => c.slot === e.detail.slot)) return;
+    this._emitConfig(withChild(this.config, e.detail.slot, e.detail.config));
   }
 
   private _renderContainerCard(s: StudioState) {
     const cardType = this.config?.type ?? 'layout';
     // Its CSS all lives in Advanced CSS by design — nothing was "unrecognised".
     const loadedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
-    const childCards = this._caps.stylableChildren
-      ? ((this.config as unknown as { cards?: CardModCardConfig[] }).cards ?? [])
-      : null;
+    const childCards = this._caps.stylableChildren ? childSlots(this.config) : null;
 
     return html`
       ${childCards
         ? html`
             <div class="container-banner">
-              <strong>🗂️ Layout card — style each child card below</strong>
-              "${cardType}" is a container: styles at this level have no
-              visual effect, so every card inside it gets its own styling
-              section here. Changes are saved into that child's own
-              configuration — exactly what you'd get styling it as a
-              standalone card.
+              <strong>${renderIcon('mdi:view-dashboard-outline')}${t(this.section ? 'layout.sectionTitle' : 'layout.childrenTitle')}</strong>
+              ${this.section ? t('layout.sectionBody') : t('layout.childrenBody', { type: cardType })}
             </div>
             ${childCards.map(
-              (child, i) => html`<cms-child-card-section
-                .childConfig=${child}
-                .index=${i}
+              (child) => html`<cms-child-card-section
+                .childConfig=${child.config}
+                .childSlot=${child.slot}
+                .implicit=${!!child.implicit}
                 .hass=${this.hass}
                 @child-config-changed=${this._onChildConfigChanged}
               ></cms-child-card-section>`,
@@ -1611,12 +1887,8 @@ export class CmsPanel extends LitElement {
           `
         : html`
             <div class="container-banner">
-              <strong>🗂️ Layout card — child styling isn't supported here yet</strong>
-              "${cardType}" is a container: card-mod styles applied at this
-              level have no visual effect, and this container type doesn't
-              carry an editable <code>cards:</code> list the Studio can offer
-              per-child sections for yet. To style a card inside it today,
-              add the child's <code>card_mod:</code> in YAML by hand.
+              <strong>${renderIcon('mdi:view-dashboard-outline')}${t('layout.unsupportedTitle')}</strong>
+              ${tParts('layout.unsupportedBody', { type: cardType, cards: html`<code>cards:</code>`, cardMod: html`<code>card_mod:</code>` })}
             </div>
           `}
 

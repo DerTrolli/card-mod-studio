@@ -179,7 +179,15 @@ import { chromium } from 'playwright';
 import { readFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
-import { waitForHassReady, ensureStorageDashboard } from './harness-utils.mjs';
+import { waitForHassReady, ensureStorageDashboard, isKnownNoise } from './harness-utils.mjs';
+
+/** The Studio asks once which language to use (v1.0): checks start with
+ *  that answered (Auto-detect), unless CMS_FIRST_RUN=1 wants the question. */
+const SEED_SETTINGS = () => {
+  if (!localStorage.getItem('cms-settings')) {
+    localStorage.setItem('cms-settings', JSON.stringify({ language: 'auto', languageChosen: true, updatedAt: 0 }));
+  }
+};
 
 export { chromium };
 
@@ -234,9 +242,11 @@ export async function launch({ rig = 'cm', viewport = { width: 1440, height: 900
   const context = await browser.newContext({ viewport, deviceScaleFactor, hasTouch, isMobile, ...(colorScheme ? { colorScheme } : {}) });
   const page = await context.newPage();
   const errors = [];
-  page.on('pageerror', (e) => errors.push('pageerror: ' + String(e.message || e).slice(0, 400)));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text().slice(0, 400)); });
+  // Home Assistant's / the engines' own known errors (KNOWN_NOISE) are left out here.
+  page.on('pageerror', (e) => { if (!isKnownNoise(e.message || e, e.stack)) errors.push('pageerror: ' + String(e.message || e).slice(0, 400)); });
+  page.on('console', (m) => { if (m.type() === 'error' && !isKnownNoise(m.text())) errors.push('console: ' + m.text().slice(0, 400)); });
   await page.addInitScript((t) => localStorage.setItem('hassTokens', JSON.stringify(t)), tokens);
+  if (process.env.CMS_FIRST_RUN !== '1') await page.addInitScript(SEED_SETTINGS);
   await page.goto(`${ha}/lovelace/0`, { waitUntil: 'domcontentloaded' });
   await waitForHassReady(page);
   const styleKey = rig === 'uix' ? 'uix' : 'card_mod';
@@ -597,6 +607,17 @@ const footerBtn = (page, name) => dialogOf(page)
   .getByRole('button', { name, exact: true });
 
 export async function openCardEditor(page, ref) {
+  // HA 2025.9 ignores an Edit click that comes right after its dialog closed
+  // (measured: also with the Studio's file blocked; a 1.5 s pause after Cancel
+  // always works) — so when the editor doesn't open, click once more.
+  try {
+    return await openCardEditorOnce(page, ref, 8000);
+  } catch {
+    return openCardEditorOnce(page, ref, 20000);
+  }
+}
+
+async function openCardEditorOnce(page, ref, timeout) {
   const card = await findCard(page, ref);
   await card.locator.waitFor({ state: 'visible', timeout: 15000 });
   const opts = card.locator.locator('xpath=ancestor::hui-card-options');
@@ -612,7 +633,7 @@ export async function openCardEditor(page, ref) {
     if (!(await wrap.count())) throw new Error('card has no edit wrapper - call enterEditMode(page) first');
     if (state.get(page)?.hasTouch) await tap(wrap); else await wrap.click();
   }
-  await footerBtn(page, 'Save').waitFor({ state: 'visible', timeout: 20000 });
+  await footerBtn(page, 'Save').waitFor({ state: 'visible', timeout });
   await page.locator('cms-tab-button').first().waitFor({ state: 'visible', timeout: 20000 });
   return dialogOf(page);
 }
@@ -849,10 +870,54 @@ function matchSection(sections, key, { within } = {}) {
   return null;
 }
 
+/** v1.0 panel tabs (Style / Presets / Palette / Settings): [{id, selected}], empty for a panel without tabs. */
+export async function listTabs(page) {
+  return page.locator('cms-panel').first().locator('[role="tab"][data-tab]')
+    .evaluateAll((els) => els.map((e) => ({ id: e.dataset.tab, label: (e.textContent || '').trim(), selected: e.getAttribute('aria-selected') === 'true' })))
+    .catch(() => []);
+}
+
+/** Real click on a panel tab (by id: style | presets | palette | settings); waits until it is selected. */
+export async function selectTab(page, id) {
+  const tab = page.locator('cms-panel').first().locator(`[role="tab"][data-tab="${id}"]`);
+  if ((await tab.getAttribute('aria-selected')) === 'true') return;
+  await tab.click();
+  for (let i = 0; i < 40; i++) {
+    if ((await tab.getAttribute('aria-selected')) === 'true') { await wait(100); return; }
+    await wait(50);
+  }
+  throw new Error(`tab "${id}" did not open`);
+}
+
+/** The section on the open tab, else on the first other tab that has it (the panel is left on that tab). */
+async function findSectionAnyTab(page, key, opts) {
+  let sections = await listSections(page);
+  let s = matchSection(sections, key, opts);
+  if (s && s.visible) return { s, sections };
+  const tabs = await listTabs(page);
+  if (s && !tabs.length) return { s, sections };
+  const hiddenHere = !!s; // found, but not shown: on a tab that isn't open (or hidden for another reason)
+  const start = tabs.find((t) => t.selected)?.id;
+  const seen = [sections.map((x) => x.name).join(' | ')];
+  for (const tab of tabs) {
+    if (tab.selected) continue;
+    await selectTab(page, tab.id);
+    sections = await listSections(page);
+    s = matchSection(sections, key, opts);
+    if (s && s.visible) return { s, sections };
+    seen.push(`[${tab.id}] ` + sections.map((x) => x.name).join(' | '));
+  }
+  if (start) await selectTab(page, start);
+  if (hiddenHere) {
+    sections = await listSections(page);
+    return { s: matchSection(sections, key, opts), sections };
+  }
+  return { s: null, sections, seen };
+}
+
 async function sectionFor(page, key, opts) {
-  const sections = await listSections(page);
-  const s = matchSection(sections, key, opts);
-  if (!s) throw new Error(`no section "${key}" among: ${sections.map((x) => x.name).join(' | ')}`);
+  const { s, seen } = await findSectionAnyTab(page, key, opts);
+  if (!s) throw new Error(`no section "${key}" among: ${seen.join(' || ')}`);
   return s;
 }
 
@@ -893,6 +958,11 @@ export async function setSectionEnabled(page, key, on = true, opts) {
 
 /** OBSERVE: controls of the Studio panel (all, or of one section by key). Hidden ones are included with visible:false. */
 export async function listControls(page, section, { within, deep = false } = {}) {
+  if (section !== undefined && section !== null) {
+    // on its tab, and open: a styled card opens with its modules closed (v1.0)
+    const { s } = await findSectionAnyTab(page, section, { within });
+    if (s && s.collapsible && !s.open) await expandSection(page, s.index);
+  }
   const { sections, controls } = await scan(page);
   let list = controls;
   if (section !== undefined && section !== null) {
@@ -1024,7 +1094,8 @@ export async function pickEntity(ctrl, entityId, { custom = false, timeout = 120
   if (await fallback.count()) { await typeText(fallback, entityId, { commit: 'Tab' }); return read(); }
   if ((await read()) === entityId) return entityId;
   await loc.scrollIntoViewIfNeeded();
-  await loc.locator('ha-picker-field').first().click();
+  const field = loc.locator('ha-picker-field').filter({ visible: true });
+  await ((await field.count()) ? field.first() : loc.locator('ha-picker-field').first()).click();
   const combo = loc.locator('ha-picker-combo-box');
   await combo.waitFor({ state: 'visible', timeout: 8000 });
   // ready = options rendered and the search field focused (typing earlier loses the first characters)
@@ -1035,12 +1106,19 @@ export async function pickEntity(ctrl, entityId, { custom = false, timeout = 120
     return false;
   });
   const deadline = Date.now() + timeout;
+  let focusedSince = 0;
   while (Date.now() < deadline) {
-    if ((await focused()) && (await loc.locator('ha-list-item-option').count())) break;
+    if (await focused()) {
+      if (await loc.locator('ha-list-item-option').count()) break;
+      // HA before 2026.11 has no ha-list-item-option (see pickEntityOlderHa): focus is enough
+      focusedSince ||= Date.now();
+      if (Date.now() - focusedSince > 1500) break;
+    }
     await wait(100);
   }
   if (!(await focused())) throw new Error('entity picker: the search field never took focus');
   await wait(150);
+  if (!(await loc.locator('ha-list-item-option').count())) return pickEntityOlderHa(page, loc, entityId, read, deadline);
   const typed = () => loc.locator('ha-input-search').evaluate((e) => e.value ?? e.shadowRoot?.querySelector('input')?.value ?? '').catch(() => null);
   await page.keyboard.type(entityId, { delay: 25 });
   if ((await typed()) !== entityId) {
@@ -1083,6 +1161,62 @@ export async function pickEntity(ctrl, entityId, { custom = false, timeout = 120
     await wait(100);
   }
   throw new Error(`entity picker: value is "${await read()}" after choosing "${entityId}"`);
+}
+
+/**
+ * The rest of pickEntity on Home Assistant before 2026.11 (measured on 2026.2.3
+ * and 2025.9.4): the search field is a plain input (no ha-input-search), and
+ * the results are
+ *   - 2026.2: ha-combo-box-item rows in the picker, named by friendly name
+ *     (no entity id on the row);
+ *   - 2025.9: vaadin-combo-box-item rows in a vaadin overlay outside the
+ *     picker, each carrying its entity (`item.entity_id`).
+ * The row for exactly this entity is clicked; the picker's value is checked.
+ */
+async function pickEntityOlderHa(page, loc, entityId, read, deadline) {
+  const typedValue = () => page.evaluate(() => {
+    let a = document.activeElement;
+    while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
+    return a && 'value' in a ? a.value : null;
+  });
+  await page.keyboard.type(entityId, { delay: 25 });
+  if ((await typedValue()) !== entityId) {
+    await page.keyboard.press('Control+A');
+    await page.keyboard.type(entityId, { delay: 40 });
+    const t2 = await typedValue();
+    if (t2 !== entityId) throw new Error(`entity picker (HA before 2026.11): search field holds "${t2}" after typing "${entityId}"`);
+  }
+  const friendly = await page.evaluate((id) => document.querySelector('home-assistant').hass.states[id]?.attributes?.friendly_name || id, entityId);
+  let target = null;
+  while (Date.now() < deadline && !target) {
+    // 2025.9: the overlay row whose item is this entity
+    target = await page.evaluate((id) => {
+      const walk = (r, o = []) => { for (const e of r.querySelectorAll('*')) { o.push(e); if (e.shadowRoot) walk(e.shadowRoot, o); } return o; };
+      const row = walk(document).find((n) => n.tagName === 'VAADIN-COMBO-BOX-ITEM' && (n.item?.entity_id ?? n.item?.id) === id && n.getBoundingClientRect().height > 0);
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, entityId);
+    // 2026.2: the shortest visible row that starts with the friendly name (not "Add custom item")
+    target ??= await loc.evaluate((el, friendly) => {
+      const rows = []; const st = [el];
+      while (st.length) { const n = st.pop(); if (n.nodeType !== 1) continue; if (n.tagName === 'HA-COMBO-BOX-ITEM') rows.push(n); for (const k of [...(n.shadowRoot ? n.shadowRoot.children : []), ...n.children]) st.push(k); }
+      const norm = (s) => (s || '').trim().replace(/\s+/g, ' ');
+      const hits = rows.filter((n) => { const r = n.getBoundingClientRect(); const t = norm(n.textContent); return r.width > 0 && r.height > 0 && !/^Add custom/i.test(t) && (t === friendly || t.startsWith(friendly + ' ')); })
+        .sort((a, b) => norm(a.textContent).length - norm(b.textContent).length);
+      if (!hits.length) return null;
+      const r = hits[0].getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, friendly);
+    if (!target) await wait(200);
+  }
+  if (!target) throw new Error(`entity picker (HA before 2026.11): no row for "${entityId}" (${friendly})`);
+  await page.mouse.click(target.x, target.y);
+  for (let i = 0; i < 40; i++) {
+    if ((await read()) === entityId) return entityId;
+    await wait(100);
+  }
+  throw new Error(`entity picker (HA before 2026.11): value is "${await read()}" after choosing "${entityId}"`);
 }
 
 /** Click a switch / checkbox and verify it flipped (or reached `expected`). */

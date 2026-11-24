@@ -1,0 +1,77 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card Style Studio",
+        "description": "Přidá na tuto stránku nastavení Card Style Studio. Samotné Studio se instaluje jako zdroj ovládacího panelu (HACS, Marketplace nebo ručně); tato položka obsahuje jen jeho nastavení."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card Style Studio je již nastaveno."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Nastavení Card Style Studio",
+        "description": "Výchozí hodnoty pro všechny v tomto Home Assistant. Vlastní volba uživatele ve Studiu (⚙️ Nastavení, Moje paleta barev) má vždy přednost.",
+        "data": {
+          "language": "Jazyk",
+          "ask_language": "Zeptat se každého uživatele na jazyk",
+          "on_color": "Výchozí barva ZAPNUTO",
+          "off_color": "Výchozí barva VYPNUTO"
+        },
+        "data_description": {
+          "language": "Automatické rozpoznání sleduje jazyk, ve kterém se Home Assistant každému uživateli zobrazuje.",
+          "ask_language": "Když někdo poprvé otevře Studio, krátká otázka mu umožní vybrat jazyk. Vypnuto: všichni dostanou jazyk výše.",
+          "on_color": "Barva, se kterou začíná nová Barva ikony, Doplňková barva nebo prahové pravidlo, když je entita zapnutá. Výchozí Studia: barva Studia.",
+          "off_color": "Totéž, když je entita vypnutá."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Rozpoznat automaticky (doporučeno)",
+        "en": "English",
+        "de": "Deutsch",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "es": "Español",
+        "it": "Italiano",
+        "pl": "Polski",
+        "pt": "Português",
+        "pt-br": "Português (Brasil)",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "nb": "Norsk bokmål",
+        "cs": "Čeština",
+        "sk": "Slovenčina",
+        "hu": "Magyar",
+        "fi": "Suomi",
+        "ru": "Русский",
+        "uk": "Українська",
+        "zh-hans": "简体中文",
+        "zh-hant": "繁體中文",
+        "ja": "日本語",
+        "ko": "한국어"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Výchozí Studia",
+        "red": "Červená",
+        "pink": "Růžová",
+        "purple": "Fialová",
+        "blue": "Modrá",
+        "cyan": "Modrozelená",
+        "teal": "Tyrkysová",
+        "green": "Zelená",
+        "yellow": "Žlutá",
+        "orange": "Oranžová",
+        "grey": "Šedá"
+      }
+    }
+  }
+}

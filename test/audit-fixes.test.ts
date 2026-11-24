@@ -110,7 +110,7 @@ describe('W1 — off-side custom-entity conditionals stay unclaimed (were invert
   });
 
   it('animation on the OFF side of another entity → Advanced CSS (entity was dropped before)', () => {
-    const css = "ha-card {\n  animation: {{ 'none' if is_state('switch.other', 'on') else 'cms-pulse 2s ease-in-out infinite' }};\n}";
+    const css = "ha-card {\n  animation: {{ 'none' if is_state('switch.other', 'on') else 'cstudio-pulse 2s ease-in-out infinite' }};\n}";
     const { state } = roundTrip(css);
     expect(state.animation.enabled).toBe(false);
     expect(state.advanced.rawCss).toContain('switch.other');
@@ -163,7 +163,7 @@ describe('W3 — gradient marker claimed on every threshold property block', () 
     const css = generateCss(state, 'glance');
     const parsed = parseCardModConfig({ type: 'glance', card_mod: { style: css } } as CardModCardConfig);
     const reState = mapToStudioState(parsed, 'glance');
-    expect(reState.advanced.rawCss).not.toContain('--cms-gradient-stops');
+    expect(reState.advanced.rawCss).not.toContain('--cstudio-gradient-stops');
     expect(generateCss(reState, 'glance')).toBe(css);
   });
 });
@@ -250,7 +250,7 @@ describe('W8 — incomplete conditions degrade to the UNCONDITIONAL form', () =>
       makeState({ animation: { ...DEFAULT_ANIMATION, enabled: true, preset: 'pulse', speedS: 2, trigger: 'custom' } }),
       'tile',
     );
-    expect(css).toContain('animation: cms-pulse 2s ease-in-out infinite;');
-    expect(css).toContain('@keyframes cms-pulse');
+    expect(css).toContain('animation: cstudio-pulse 2s ease-in-out infinite;');
+    expect(css).toContain('@keyframes cstudio-pulse');
   });
 });

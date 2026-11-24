@@ -1,0 +1,77 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card Style Studio",
+        "description": "Voegt de instellingen van Card Style Studio aan deze pagina toe. De Studio zelf wordt als dashboardbron geïnstalleerd (HACS, de Marketplace of met de hand); dit item bevat alleen de instellingen."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Card Style Studio is al ingesteld."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Instellingen van Card Style Studio",
+        "description": "Standaarden voor iedereen in deze Home Assistant. De eigen keuze van een gebruiker in de Studio (⚙️ Instellingen, Mijn kleurenpalet) wint altijd.",
+        "data": {
+          "language": "Taal",
+          "ask_language": "Elke gebruiker vragen welke taal hij wil",
+          "on_color": "Standaard AAN-kleur",
+          "off_color": "Standaard UIT-kleur"
+        },
+        "data_description": {
+          "language": "Automatisch volgt de taal waarin Home Assistant voor elke gebruiker wordt getoond.",
+          "ask_language": "De eerste keer dat iemand de Studio opent, kan hij met een korte vraag een taal kiezen. Uit: iedereen krijgt de taal hierboven.",
+          "on_color": "De kleur waarmee een nieuwe Icoonkleur, Accentkleur of drempelregel begint als de entiteit aan is. Studio-standaard: die van de Studio.",
+          "off_color": "Hetzelfde als de entiteit uit is."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Automatisch herkennen (aanbevolen)",
+        "en": "English",
+        "de": "Deutsch",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "es": "Español",
+        "it": "Italiano",
+        "pl": "Polski",
+        "pt": "Português",
+        "pt-br": "Português (Brasil)",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "nb": "Norsk bokmål",
+        "cs": "Čeština",
+        "sk": "Slovenčina",
+        "hu": "Magyar",
+        "fi": "Suomi",
+        "ru": "Русский",
+        "uk": "Українська",
+        "zh-hans": "简体中文",
+        "zh-hant": "繁體中文",
+        "ja": "日本語",
+        "ko": "한국어"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Studio-standaard",
+        "red": "Rood",
+        "pink": "Roze",
+        "purple": "Paars",
+        "blue": "Blauw",
+        "cyan": "Cyaan",
+        "teal": "Groenblauw",
+        "green": "Groen",
+        "yellow": "Geel",
+        "orange": "Oranje",
+        "grey": "Grijs"
+      }
+    }
+  }
+}

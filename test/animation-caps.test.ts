@@ -8,11 +8,10 @@ const OPERABLE = [
   'statistic', 'statistics-graph', 'todo-list', 'weather-forecast',
   'thermostat', 'humidifier', 'light', 'map', 'iframe', 'picture', 'picture-entity',
   'picture-glance', 'picture-elements',
+  'heading', // v1.0: without Glow, Spin and Gradient Shift (no painted box)
 ];
-// Kept hidden: Spin breaks the dial / map drag, Gradient Shift is dead where
-// Background is hidden, heading has no box, the rest was never measured.
+// Kept hidden: never measured.
 const HIDDEN = [
-  'heading',
   'energy-distribution', 'energy-usage-graph', 'activity', 'webpage', 'shopping-list',
 ];
 
@@ -33,6 +32,12 @@ describe('Animation presets left out per card', () => {
       expect(capsFor(t).noAnimationPresets, t).toContain('gradient-shift');
     }
     for (const t of ['thermostat', 'gauge', 'tile', 'light']) expect(capsFor(t).noAnimationPresets, t).not.toContain('gradient-shift');
+  });
+  it('heading leaves out Glow, Spin and Gradient Shift (no painted box), keeps the rest', () => {
+    const out = capsFor('heading').noAnimationPresets;
+    for (const p of ['glow', 'spin', 'gradient-shift']) expect(out, p).toContain(p);
+    for (const p of ['pulse', 'breathe', 'blink', 'bounce', 'shake', 'heartbeat']) expect(out, p).not.toContain(p);
+    expect(capsFor('tile').noAnimationPresets).not.toContain('glow');
   });
   it('a custom card keeps every preset', () => {
     expect(capsFor('custom:whatever-card').noAnimationPresets).toEqual([]);

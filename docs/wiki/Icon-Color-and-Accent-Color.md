@@ -11,7 +11,10 @@ Colors the card's main icon (`ha-state-icon`). Modes:
   switched-on module starts in on those cards.
 - **One fixed color** — always the same color.
 - **Different for ON / OFF** — one color while the controlling entity is on,
-  another while off (a Jinja2 condition is generated).
+  another while off (a Jinja2 condition is generated). For a colour per
+  number or per text state (`heating` orange, `cooling` blue), use
+  [Threshold Colors](Threshold-Colors): the module's hint points there.
+  Threshold writes exactly that, so the Studio doesn't offer a second way.
 - **Match the light's color** *(light cards only)* — while on, the icon
   follows the light's real `rgb_color` attribute; you pick the off color. An
   empty off colour stays empty, and a hand-written template whose fallback
@@ -23,8 +26,9 @@ On **tile, entity, sensor, statistic and picture-glance** cards — and on
 [Mushroom](Mushroom-Cards) and [Bubble Card](Bubble-Card) cards (new in 0.11,
 beta) — the module also offers an **Icon size** slider (theme default up to
 a card-specific maximum, see below). It can be
-static, or react to a condition — entity ON/OFF, another entity ON, or a
-numeric value comparison — with a **"Size otherwise"** fallback (24px, the
+static, or apply only when a condition holds ("Apply when") — entity ON/OFF,
+another entity ON, or a value comparison (a number or, since 1.0, a text) —
+with a **"Size otherwise"** fallback (24px, the
 HA default, unless changed). Example: the alarm card's icon grows while
 armed.
 
@@ -35,7 +39,9 @@ tile overflows its row), **picture-glance 40px**, **Mushroom 56px**,
 large) and 64px elsewhere. A larger size already stored on a card stays
 visible so you can reset it. On a tile, a size above 24px also enlarges the
 circle: a tile styled with a bigger size before v0.11.0-beta.3 looks bigger
-after the next save.
+after the next save. (On Home Assistant 2025.9 the circle keeps its size —
+the variable for it came later; measured present on 2026.2 — so a larger
+icon fills the circle there.)
 
 It's only offered where live probing shows the size variables reach
 exactly the main state icon. Deliberately absent: button (use the card's

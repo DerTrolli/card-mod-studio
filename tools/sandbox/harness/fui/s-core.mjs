@@ -4,7 +4,7 @@
 import {
   sleep, openEditor, clickEditOn, openStudio, styleBtn, panelVisible, mod, enable, expand, setSlider, choose,
   pickSwatch, expectCfg, expectPage, getCfg, styleStr, waitCfg, rowOf, dialogButton, readDashboardCards,
-  resolveRgb, sameRgb, waitHass, saveDashboard, viewDashboard, pollPage, waitDialogClosed, expectDashboardCard,
+  resolveRgb, sameRgb, waitHass, gotoPage, saveDashboard, viewDashboard, pollPage, waitDialogClosed, expectDashboardCard,
 } from './lib.mjs';
 import { P_CARD, P_HIT, P_PANEL } from './probes.mjs';
 
@@ -114,8 +114,11 @@ async function styleButtonSection(T) {
   // switch would otherwise look like it did nothing); the edit made so far stays.
   await T.page.waitForFunction(() => !window.__fui.panel(), null, { timeout: 5000 }).catch(() => {});
   T.check('switching to HA\'s code editor closes the Studio and un-presses Style', !(await panelVisible(T)) && (await b.getAttribute('aria-pressed')) === 'false');
-  const yamlShown = await T.page.evaluate(() => { const Q = window.__fui; return Q.q(Q.dialog(), 'ha-code-editor').some((e) => Q.vis(e)); });
-  T.check('HA\'s own YAML editor is what the user now sees', yamlShown);
+  // HA loads its code editor on demand: give it up to 5 s, and record how long
+  // it took (a miss here is the editor never appearing, not a slow first load).
+  const t0 = Date.now();
+  const yamlShown = await T.page.waitForFunction(() => { const Q = window.__fui; return Q.q(Q.dialog(), 'ha-code-editor').some((e) => Q.vis(e)); }, null, { timeout: 5000 }).then(() => true, () => false);
+  T.check('HA\'s own YAML editor is what the user now sees', yamlShown, `${Date.now() - t0} ms`);
   T.check('the Studio edit is still in the config after the switch', S(T, await getCfg(T)).includes('font-size: 20px;'));
   await b.click();
   await openStudio(T);
@@ -213,7 +216,7 @@ async function saveCancelSection(T) {
     return { bg: cs.backgroundColor, bw: cs.borderTopWidth };
   };
   // Direct reload (informational): card-mod as a dashboard resource misses cards built during first load.
-  await T.page.goto(`${T.HA}/fui-save/0`, { waitUntil: 'domcontentloaded' });
+  await gotoPage(T.page, `${T.HA}/fui-save/0`);
   await waitHass(T.page);
   const direct = await pollPage(T, dashProbe, null, (v) => sameRgb(v?.bg, red), 8000);
   T.note(`saved card on a DIRECT page load of the dashboard: ${direct.ok ? 'styled' : 'NOT styled'} (${JSON.stringify(direct.v)}) — engine ${JSON.stringify(T.engines)}`);
@@ -221,7 +224,7 @@ async function saveCancelSection(T) {
   await expectDashboardCard(T, 'dashboard (navigated to, not edit mode): saved card renders red with a 2px border', 'fui-save', dashProbe, (v) => sameRgb(v?.bg, red) && v.bw === '2px');
 
   // Cancel discards a later edit
-  await T.page.goto(`${T.HA}/fui-save/0?edit=1`, { waitUntil: 'domcontentloaded' });
+  await gotoPage(T.page, `${T.HA}/fui-save/0?edit=1`);
   await waitHass(T.page);
   await T.page.waitForFunction(() => window.__fui.q(document.body, 'hui-card-options').length > 0, null, { timeout: 30000 });
   await clickEditOn(T, 0);
@@ -230,7 +233,7 @@ async function saveCancelSection(T) {
   T.check('reopened saved card: Background module adopted (enabled)', await bg2.locator('.module-header ha-switch').evaluate((e) => e.checked));
   await expectPage(T, 'reopened saved card: preview renders the saved red', P_CARD, 0, (v) => sameRgb(v?.bg, red));
   const pv = await T.page.evaluate(P_PANEL);
-  T.check('round-trip: no "weren\'t recognised" banner (all CSS adopted by modules)', !(pv.info || []).some((t) => t.includes("weren't recognised")), JSON.stringify(pv.info));
+  T.check('round-trip: no "aren\'t controlled by a module" banner (all CSS adopted by modules)', !(pv.info || []).some((t) => t.includes("aren't controlled by a module")), JSON.stringify(pv.info));
   await expand(bg2);
   await pickSwatch(rowOf(T, bg2, 'Color').locator('cms-color-picker'), 'Green');
   await expectCfg(T, 'edit to green emitted (pending, unsaved)', has(T, 'background: var(--green-color);'));

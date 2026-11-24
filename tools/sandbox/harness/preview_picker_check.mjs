@@ -132,7 +132,7 @@ const run = async () => {
     { cfg: { type: 'gauge', entity: 'sensor.outside_temperature', name: 'Outside' }, find: 'tag:p.title', want: 'Font' },
     { cfg: { type: 'entity', entity: 'sensor.outside_temperature', name: 'Outside' }, find: 'tag:div.header', want: 'Font' },
     { cfg: { type: 'sensor', entity: 'sensor.outside_temperature', graph: 'line' }, find: 'tag:hui-graph-base', want: 'Graph / Accent Color' },
-    { cfg: { type: 'tile', entity: 'light.ceiling_lights', features: [{ type: 'light-brightness' }] }, find: 'tag:hui-card-features', want: 'Features / Accent Color' },
+    { cfg: { type: 'tile', entity: 'light.ceiling_lights', features: [{ type: 'light-brightness' }] }, find: 'tag:hui-card-features', want: 'Features' },
     { cfg: { type: 'thermostat', entity: 'climate.heatpump' }, find: 'ring:ha-control-circular-slider', want: 'Accent Color' },
     { cfg: { type: 'markdown', content: '## Hello\n\nBody text.' }, find: 'tag:ha-markdown-element', want: 'Font' },
     { cfg: { type: 'glance', entities: ['light.ceiling_lights'] }, find: 'tag:div.entity', want: 'Font' },

@@ -54,10 +54,12 @@ const allByTagSrc = `
 
 /** Dashboard cards the shots are taken from. */
 const CARDS = [
-  { // overview tile, pre-styled so the preview shows something
+  { // overview tile, pre-styled so the preview shows something and the closed
+    // modules show their summaries (written by the Studio's own generator:
+    // Font 16px bold, Accent, Glow while > 25, Border 16px / 2px)
     type: 'tile',
     entity: 'sensor.outside_temperature',
-    card_mod: { style: 'ha-card {\n  --accent-color: #03a9f4;\n  --tile-color: #03a9f4 !important;\n  border: 2px solid #03a9f4;\n}' },
+    card_mod: { style: "@keyframes cstudio-glow {\n  0%, 100% { box-shadow: 0 0 2px 0 currentColor; }\n  50% { box-shadow: 0 0 12px 2px currentColor; }\n}\n\nha-card {\n  --accent-color: #03a9f4;\n  --tile-color: #03a9f4 !important;\n  --state-icon-color: #03a9f4;\n  border-radius: 16px;\n  border: 2px solid #03a9f4;\n  animation: {{ 'cstudio-glow 3s ease-in-out infinite' if states('sensor.outside_temperature') | float(0) > 25 else 'none' }};\n}\n\nha-card {\n  font-size: 16px;\n  font-weight: bold;\n  --ha-tile-info-primary-font-size: 16px;\n  --ha-tile-info-secondary-font-size: 16px;\n  --ha-tile-info-primary-font-weight: bold;\n  --ha-tile-info-secondary-font-weight: bold;\n}" },
   },
   // Accent Color is hidden on light cards (no visible effect there), so the
   // Icon + Accent shot uses a tile of the same light.
@@ -283,6 +285,14 @@ async function annotate(page, anns) {
       } else if (side === 'top') {
         tx = r.left - dRect.left + Math.min(r.width / 2, 160); ty = r.top - dRect.top - 4;
         lx = tx - lw / 2 + (a.shiftX ?? 0); ly = ty - GAP - lh;
+      } else if (side === 'rightOfText') {
+        // Arrow from the label to the end of the element's text (for rows
+        // whose element is full width but whose text is short).
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const t = range.getBoundingClientRect();
+        tx = t.right - dRect.left + 6; ty = t.top - dRect.top + t.height / 2;
+        lx = tx + GAP; ly = ty - lh / 2;
       } else if (side === 'insideRight') {
         // Label sits at the right end INSIDE the row (for full-width rows
         // whose visible content ends mid-row); arrow points left at it.
@@ -298,7 +308,7 @@ async function annotate(page, anns) {
       label.style.top = `${ly}px`;
 
       // Arrow from the label edge nearest the target to the target point
-      const ax = side === 'left' || side === 'insideRight' ? lx + lw + 3 : side === 'right' ? lx - 3 : Math.max(lx + 10, Math.min(tx, lx + lw - 10));
+      const ax = side === 'left' || side === 'insideRight' ? lx + lw + 3 : side === 'right' || side === 'rightOfText' ? lx - 3 : Math.max(lx + 10, Math.min(tx, lx + lw - 10));
       const ay = side === 'top' ? ly + lh + 3 : side === 'bottom' ? ly - 3 : ly + lh / 2;
       const fixAx = side === 'insideRight' ? lx - 3 : ax;
       const line = document.createElementNS(svgNS, 'line');
@@ -350,11 +360,15 @@ const shot = async (page, rect, file) => {
   // behind the modal into the crop — slide the window right instead.
   const d = await dialogRect(page);
   if (rect.x < d.x) rect = { ...rect, x: d.x };
+  // no hover highlight on whatever row the last click left the pointer over
+  await page.mouse.move(1, 1);
+  await page.waitForTimeout(300);
+  const vp = page.viewportSize();
   const clip = {
     x: Math.max(0, rect.x),
     y: Math.max(0, rect.y),
-    width: Math.min(rect.width, 1920),
-    height: Math.min(rect.height, 1400),
+    width: Math.min(rect.width, vp.width),
+    height: Math.min(rect.height, vp.height),
   };
   await page.screenshot({ path: resolve(OUT, file), clip });
   console.log('📸', file);
@@ -375,6 +389,8 @@ const run = async () => {
   await page.addInitScript(([t, demoPalette]) => {
     localStorage.setItem('hassTokens', JSON.stringify(t));
     localStorage.setItem('cms-palette', JSON.stringify(demoPalette));
+    // The one-time language question is answered (Auto-detect): not in the shots.
+    localStorage.setItem('cms-settings', JSON.stringify({ language: 'auto', languageChosen: true, updatedAt: 0 }));
   }, [tokens, DEMO_PALETTE]);
 
   await page.goto(`${HA}/lovelace/0`, { waitUntil: 'domcontentloaded' });
@@ -422,7 +438,7 @@ const run = async () => {
   await openEditDialog(page, 'hui-tile-card', 'sensor.outside_temperature');
   {
     const ann = await annotate(page, [
-      { find: { global: 'cms-tab-button' }, label: 'Opens the Card-Mod Studio panel', side: 'top', shiftX: 280 },
+      { find: { global: 'cms-tab-button' }, label: 'Opens the Card Style Studio panel', side: 'top', shiftX: 280 },
     ]);
     const d = await dialogRect(page);
     // Crop to the lower part of the dialog — the button is the story here.
@@ -438,12 +454,15 @@ const run = async () => {
   {
     const ann = await annotate(page, [
       { find: { panel: '.preview-card-wrapper hui-card' }, label: 'Live preview — updates as you edit', side: 'bottom' },
+      { find: { module: 'cms-font-module', sel: '.module-summary' }, label: 'Each closed module says what it does', side: 'rightOfText' },
     ]);
     await shot(page, union(await dialogRect(page), ann ? pad(ann, 10) : null), '02 Card-Mod Studio.png');
     await clearAnnotations(page);
   }
 
   // --- 03: Icon + Accent Color, conditional mode with "Controlled by" ---
+  // (both modules open are taller than the dialog's scroll area at 1400px)
+  await page.setViewportSize({ width: 1920, height: 1600 });
   await openEditDialog(page, 'hui-tile-card', 'light.ceiling_lights');
   await clickStyleTab(page);
   await page.evaluate(async ({ allByTagSrc }) => {
@@ -469,6 +488,7 @@ const run = async () => {
     ]);
     await shot(page, union(content, ann ? pad(ann, 12) : null), '03 Accent and Icon Color.png');
     await clearAnnotations(page);
+    await page.setViewportSize({ width: 1920, height: 1400 });
   }
 
   // --- 04: Background gradient + Apply when ---
@@ -574,18 +594,34 @@ const run = async () => {
     await panel.updateComplete;
     const t = panel.shadowRoot.querySelector('cms-threshold-module');
     t._open = false; await t.updateComplete;
-    const pm = panel.shadowRoot.querySelector('cms-palette-manager');
-    pm._open = true; await pm.updateComplete;
     const fm = panel.shadowRoot.querySelector('cms-font-module');
     fm._open = true; await fm.updateComplete;
     await new Promise((r) => setTimeout(r, 300));
   }, { allByTagSrc });
   {
-    const content = await panelElementRect(page, 'cms-palette-manager', 'cms-font-module');
+    const content = await panelElementRect(page, 'cms-font-module');
+    const ann = await annotate(page, [
+      { find: { module: 'cms-font-module', sel: '.control-row', text: 'Text color' }, label: 'Your palette colors — in every color picker', side: 'insideRight', shiftX: -35 },
+    ]);
+    await shot(page, union(content, ann ? pad(ann, 12) : null), '09 Font and Palette.png');
+    await clearAnnotations(page);
+  }
+
+  // --- 13: the Palette tab (v1.0: Presets, Palette and Settings have tabs) ---
+  {
+    const tab = await page.evaluate(({ allByTagSrc }) => {
+      const all = new Function('root', 'tag', allByTagSrc);
+      const panel = all(document.body, 'cms-panel').filter((x) => x.isConnected && x.getBoundingClientRect().width > 0).pop();
+      const r = panel.shadowRoot.querySelector('[role="tab"][data-tab="palette"]').getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, { allByTagSrc });
+    await page.mouse.click(tab.x, tab.y);
+    await page.waitForTimeout(600);
+    const content = await panelElementRect(page, 'cms-palette-manager');
     const ann = await annotate(page, [
       { find: { module: 'cms-palette-manager', sel: '.color-row' }, label: 'Your named colors — in every color picker', side: 'insideRight', shiftX: -35 },
     ]);
-    await shot(page, union(content, ann ? pad(ann, 12) : null), '09 Font and Palette.png');
+    await shot(page, union(content, ann ? pad(ann, 12) : null), '13 Palette.png');
     await clearAnnotations(page);
   }
 
@@ -657,7 +693,7 @@ const run = async () => {
   }, { allByTagSrc });
   {
     const ann = await annotate(page, [
-      { find: { panel: 'cms-child-card-section' }, label: 'One styling section per card in the stack', side: 'insideRight' },
+      { find: { panel: 'cms-child-card-section' }, label: 'One styling section per card in the stack', side: 'insideRight', shiftX: -56 },
     ]);
     await shot(page, union(await dialogRect(page), ann ? pad(ann, 10) : null), '08 Stack Children.png');
     await clearAnnotations(page);

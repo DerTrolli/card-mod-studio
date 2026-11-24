@@ -14,7 +14,7 @@
     as its minimum Home Assistant version.
 - On HA 2026.11 and newer, the **Marketplace** (HACS is folded into core
   there); on older HA, HACS
-- **card-mod** or **UIX** installed and working — Card-Mod Studio *generates*
+- **card-mod** or **UIX** installed and working — Card Style Studio *generates*
   the YAML; one of those two engines *applies* it. Without an engine, styles
   are saved but nothing renders (the panel shows a warning banner in that case).
   Which one to pick? See [card-mod vs UIX](card-mod-vs-UIX) — UIX is the
@@ -27,7 +27,7 @@ separate HACS install is no longer possible on 2026.11; existing HACS
 installs migrate automatically (custom repositories and update entities
 carry over).
 
-1. Open the Marketplace → search for **Card-Mod Studio**
+1. Open the Marketplace → search for **Card Style Studio** (or *UIX* / *card-mod*; it can still be listed as *Card-Mod Studio* for a while after the rename)
 2. Click it → install
 3. The Marketplace installs the plugin into `www/community/card-mod-studio/`
    and adds it as a dashboard resource
@@ -38,9 +38,9 @@ If your dashboard resources are in **YAML mode**, add the resource manually
 
 ## Via HACS (HA before 2026.11)
 
-Card-Mod Studio is in the **HACS default store**:
+Card Style Studio is in the **HACS default store**:
 
-1. Open HACS → search for **Card-Mod Studio**
+1. Open HACS → search for **Card Style Studio** (it can still be listed as *Card-Mod Studio* for a while after the rename)
 2. Click it → **Download**
 3. HACS registers the dashboard resource automatically on modern versions
 4. Hard-refresh the browser (Ctrl+Shift+R)
@@ -50,10 +50,18 @@ Card-Mod Studio is in the **HACS default store**:
 
 ### Beta versions
 
-Pre-releases are published as GitHub *pre-releases*. In HACS (HA before
-2026.11), open the
-Card-Mod Studio entry → ⋮ → **Redownload** → enable *"Show beta versions"*
-to opt in. Betas are testing builds — the changelog marks them clearly.
+Pre-releases are published as GitHub *pre-releases*. To opt in:
+
+- **Marketplace (HA 2026.11 and newer):** open the Marketplace → **Card Style
+  Studio** → ⋮ (top right) → **Include pre-releases** (the entry then reads
+  *Exclude pre-releases*, and the page lists *Pre-releases included*). The
+  same menu has **Install another version** for a specific version, an older
+  one or a beta.
+- **HACS (HA before 2026.11):** open the Card Style Studio entry → ⋮ →
+  **Redownload** → enable *"Show beta versions"*.
+
+A beta is only offered while it is newer than the latest regular release.
+Betas are testing builds — the changelog marks them clearly.
 
 ## Manual install
 
@@ -61,12 +69,20 @@ to opt in. Betas are testing builds — the changelog marks them clearly.
    [latest release](https://github.com/DerTrolli/card-mod-studio/releases/latest)
 2. Copy it to `config/www/card-mod-studio.js`
 3. **Settings → Dashboards → ⋮ → Resources → + Add Resource**
-   - URL: `/local/card-mod-studio.js?v=0.11.0`
+   - URL: `/local/card-mod-studio.js?v=1.0.0`
    - Type: *JavaScript Module*
 4. Hard-refresh the browser (Ctrl+Shift+R)
 
 When updating manually, bump the `?v=` query string so browsers don't serve
 the cached old bundle.
+
+## Optional: the Settings integration *(new in 1.0)*
+
+An optional integration adds a **Card Style Studio** entry under **Settings →
+Devices & services**, where an administrator sets the language, whether
+users are asked for one, and the default ON/OFF colours for everyone. It's
+installed by hand from the release's `card_mod_studio.zip` — see
+[Integration](Integration).
 
 ## Loading card-mod reliably (recommended)
 
@@ -76,7 +92,7 @@ plain dashboard resource, card-mod can finish loading after the first cards of
 a dashboard have already been drawn; those cards then stay unstyled until you
 navigate away and back or reload again. Loading it as an extra module avoids
 that on almost every page load. This applies to card-mod itself, whether or
-not Card-Mod Studio is installed, and UIX can show the same behaviour.
+not Card Style Studio is installed, and UIX can show the same behaviour.
 
 Add this to `configuration.yaml` and restart Home Assistant:
 
@@ -93,7 +109,7 @@ frontend:
   isn't loaded twice.
 - A `?v=` query string doesn't help here, and Home Assistant doesn't update
   the URL for you: when card-mod updates, check that the path still exists.
-- Card-Mod Studio itself stays a dashboard resource.
+- Card Style Studio itself stays a dashboard resource.
 
 ## Verifying it works
 

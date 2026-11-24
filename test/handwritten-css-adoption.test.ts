@@ -195,10 +195,11 @@ describe('"! important" and "!IMPORTANT" are the flag', () => {
   });
 });
 
-describe('Border leaves a zero to the user', () => {
-  it('border-radius: 0px (square corners) is kept', () => {
+describe('Border and zero values', () => {
+  it('border-radius: 0px is read as Square corners (v1.0) and saved back unchanged', () => {
     const css = 'ha-card {\n  border-radius: 0px;\n}';
-    expect(modulesOn(css, 'tile')).toEqual([]);
+    expect(modulesOn(css, 'tile')).toEqual(['border']);
+    expect(load(css, 'tile').border).toMatchObject({ enabled: true, squareCorners: true, radiusPx: 0 });
     expect(resave(css, 'tile')).toBe(css);
   });
   it('border: 0px solid … (no outline) is kept', () => {
@@ -206,10 +207,10 @@ describe('Border leaves a zero to the user', () => {
     expect(modulesOn(css, 'tile')).toEqual([]);
     expect(resave(css, 'tile')).toBe(css);
   });
-  it('a real border next to a zero radius: the border is read, the radius kept, no default radius added', () => {
+  it('a real border next to a zero radius: both are read, no default radius added', () => {
     const css = 'ha-card {\n  border-radius: 0px;\n  border: 2px solid red;\n}';
     const s = load(css, 'tile');
-    expect(s.border).toMatchObject({ enabled: true, borderWidth: 2, radiusPx: 0 });
+    expect(s.border).toMatchObject({ enabled: true, borderWidth: 2, radiusPx: 0, squareCorners: true });
     const out = resave(css, 'tile');
     expect(out).toContain('border: 2px solid red;');
     expect(out).toContain('border-radius: 0px;');

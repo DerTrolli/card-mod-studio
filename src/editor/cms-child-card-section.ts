@@ -1,6 +1,7 @@
 /**
  * cms-child-card-section — one collapsible styling section for a child card
- * inside a container (vertical-stack / horizontal-stack / grid).
+ * inside a container (vertical-stack / horizontal-stack / grid: `cards[i]`;
+ * conditional / entity-filter: `card` — see child-slots.ts).
  *
  * A container's config carries every child's FULL card config in `cards: []`
  * — the same shape an entities card's `entities: []` rows have — so child
@@ -15,11 +16,14 @@
  * top-level panel uses — a gauge child gets the gauge treatment, a tile
  * child the tile treatment, etc.
  *
- * Not handled here (v1 scope, noted inline in the UI):
- * - container children (a stack inside a stack) — no recursion yet;
- * - an entities-card child's per-ROW styling (the card-level modules work);
- * - mixed-form child styles (string + dict together) are preserved
- *   untouched, same as everywhere (pure dict-form IS editable — v0.10).
+ * A child that is itself a container (a stack inside a stack, a
+ * conditional inside a grid, …) gets its own child sections, recursively
+ * (v1.0): a nested section's change is caught here, folded into this
+ * child's config and re-emitted for THIS slot — so the panel only ever
+ * receives changes for its own direct children, whatever the depth.
+ * An entities-card child gets per-row styling like a top-level one.
+ * Mixed-form child styles (string + dict together) are preserved untouched,
+ * same as everywhere (pure dict-form IS editable — v0.10).
  */
 import { hasTopLevelJinjaStatement, templateStatementNote, anyModuleOn } from '../utils/css-lint.js';
 import { userEntries, numberSizeKind } from '../utils/owned-entries.js';
@@ -39,6 +43,7 @@ import type {
   AdvancedModuleState,
   HeadingStyleModuleState,
   FontModuleState,
+  FeaturesModuleState,
   EntitiesCardRow,
   EntitiesRowStyles,
 } from '../types/index.js';
@@ -55,12 +60,13 @@ import {
   capsFor,
   panelStateAware,
 } from '../utils/card-caps.js';
-import { childKindLabel, profileKeyOf, isUnprofiledCustomCard, UNPROFILED_CARD_NOTICE } from '../utils/custom-card-profiles.js';
-import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
-import { findAdvancedCssConflicts } from '../utils/style-conflicts.js';
+import { childKindLabel, profileKeyOf, isUnprofiledCustomCard, unprofiledCardNotice } from '../utils/custom-card-profiles.js';
+import { moduleStyles, onHeaderKeydown, renderChevron, renderIcon } from '../modules/module-base.js';
+import { canTakeOver, findAdvancedCssConflicts, removeAdvancedCssConflicts, type ConflictableModule } from '../utils/style-conflicts.js';
 import { cardThresholdOwned, settleEntityless } from '../generator/css-generator.js';
 import { hasDictFormStyle, hasUnsupportedDictRoot } from '../utils/style-compat.js';
 import { ConfigEchoGuard } from '../utils/config-echo.js';
+import { childSlots, withChild, type ChildSlot } from '../utils/child-slots.js';
 
 import '../modules/module-filter.js';
 import '../modules/module-icon-color.js';
@@ -72,12 +78,29 @@ import '../modules/module-threshold.js';
 import '../modules/module-advanced.js';
 import '../modules/module-heading-style.js';
 import '../modules/module-font.js';
+import '../modules/module-features.js';
+import { DEFAULT_FEATURES } from '../parser/state-mapper.js';
 import '../modules/module-entities-rows.js';
+import { LangController, t, tParts } from '../i18n/index.js';
 
 export class CmsChildCardSection extends LitElement {
+  protected readonly i18n = new LangController(this);
   @property({ attribute: false }) childConfig?: CardModCardConfig;
   @property({ attribute: false }) hass?: HomeAssistant;
-  @property({ type: Number }) index = 0;
+  /** Where this child sits in its container: `cards[slot]` or `card`. */
+  @property({ attribute: false }) childSlot: ChildSlot = 0;
+  /** entity-filter without a `card:` (HA's default entities card). */
+  @property({ type: Boolean }) implicit = false;
+  /** How deep in nested containers (indents the section). */
+  @property({ type: Number }) depth = 0;
+
+  /** Older name of `slot` for a `cards[]` child. */
+  set index(i: number) {
+    this.childSlot = i;
+  }
+  get index(): number {
+    return typeof this.childSlot === 'number' ? this.childSlot : 0;
+  }
 
   @state() private _studioState: StudioState | null = null;
   @state() private _entityRowStyles: EntitiesRowStyles = {};
@@ -101,7 +124,7 @@ export class CmsChildCardSection extends LitElement {
       }
       .child-section {
         border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
-        border-radius: 8px;
+        border-radius: var(--ha-card-border-radius, 12px);
         margin-bottom: 8px;
         overflow: hidden;
       }
@@ -111,14 +134,13 @@ export class CmsChildCardSection extends LitElement {
         gap: 8px;
         min-height: 44px;
         box-sizing: border-box;
-        padding: 6px 12px;
-        background: var(--cms-fill);
+        padding: 6px 8px 6px 12px;
         cursor: pointer;
         user-select: none;
         transition: background 0.15s ease;
       }
       .child-header:hover {
-        background: var(--cms-fill-hover);
+        background: var(--cms-fill);
       }
       .child-header:focus-visible {
         outline: 2px solid var(--primary-color, #03a9f4);
@@ -126,7 +148,7 @@ export class CmsChildCardSection extends LitElement {
       }
       .child-title {
         font-weight: 500;
-        font-size: 13px;
+        font-size: 14px;
         flex-shrink: 0;
       }
       .child-sub {
@@ -154,6 +176,11 @@ export class CmsChildCardSection extends LitElement {
         padding: 10px 6px 0;
         border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       }
+      /* A container inside a container: its children, indented. */
+      .child-body.nested {
+        padding: 8px 4px 2px 10px;
+        border-left: 3px solid var(--cms-line-primary);
+      }
       .child-hint {
         font-size: 12px;
         line-height: 1.5;
@@ -176,11 +203,22 @@ export class CmsChildCardSection extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
     window.addEventListener(PALETTE_CHANGED_EVENT, this._onPaletteChanged);
+    this.addEventListener('take-over', this._onTakeOver as EventListener);
   }
+
+  /** "Let this module take over" from one of this card's modules (cms-take-over). */
+  private _onTakeOver = (e: CustomEvent<{ module: ConflictableModule }>) => {
+    e.stopPropagation(); // this card's, not the panel's (or an outer section's)
+    const s = this._studioState;
+    if (!s || !this.childConfig) return;
+    const r = removeAdvancedCssConflicts(s.advanced.rawCss, s, e.detail.module, profileKeyOf(this.childConfig));
+    if (r) this._emitChanged({ advanced: { ...s.advanced, rawCss: r.css } });
+  };
 
   override disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener(PALETTE_CHANGED_EVENT, this._onPaletteChanged);
+    this.removeEventListener('take-over', this._onTakeOver as EventListener);
   }
 
   /** See CmsPanel._onPaletteChanged. */
@@ -227,16 +265,28 @@ export class CmsChildCardSection extends LitElement {
     if (capsFor(profileKeyOf(this.childConfig)).isEntities) {
       newChild = applyEntityRowStyles(newChild, this._entityRowStyles, this.hass);
     }
+    this._send(newChild);
+  }
+
+  private _send(newChild: CardModCardConfig) {
     this._written = newChild;
-    this._studioState = refreshCarrier(this._studioState, newChild, this.hass);
+    if (this._studioState) this._studioState = refreshCarrier(this._studioState, newChild, this.hass);
     this._echoGuard.noteEmitted(JSON.stringify(newChild));
     this.dispatchEvent(
-      new CustomEvent<{ index: number; config: CardModCardConfig }>('child-config-changed', {
-        detail: { index: this.index, config: newChild },
+      new CustomEvent<{ slot: ChildSlot; index: number; config: CardModCardConfig }>('child-config-changed', {
+        detail: { slot: this.childSlot, index: this.index, config: newChild },
         bubbles: true,
         composed: true,
       }),
     );
+  }
+
+  /** A grandchild changed: fold it into this (container) child and pass it up for this slot. */
+  private _onNestedChange(e: CustomEvent<{ slot: ChildSlot; config: CardModCardConfig }>) {
+    e.stopPropagation();
+    const base = this._written ?? this.childConfig;
+    if (!base || !childSlots(base)?.some((c) => c.slot === e.detail.slot)) return;
+    this._send(withChild(base, e.detail.slot, e.detail.config));
   }
 
   private get _isStyled(): boolean {
@@ -246,7 +296,12 @@ export class CmsChildCardSection extends LitElement {
   override render() {
     const c = this.childConfig;
     if (!c) return nothing;
-    const label = `${this.index + 1}. ${childKindLabel(c)}`;
+    const kind = childKindLabel(c);
+    const label = typeof this.childSlot === 'number'
+      ? `${this.childSlot + 1}. ${kind}`
+      : this.implicit
+        ? t('child.implicitCard', { type: kind })
+        : t('child.innerCard', { type: kind });
     const sub = (c.entity as string | undefined) ?? (c.title as string | undefined) ?? (c.name as string | undefined) ?? '';
 
     return html`
@@ -259,10 +314,10 @@ export class CmsChildCardSection extends LitElement {
           @click=${() => (this._open = !this._open)}
           @keydown=${onHeaderKeydown}
         >
-          <span class="module-chevron" aria-hidden="true">${this._open ? '▼' : '▶'}</span>
           <span class="child-title">${label}</span>
           <span class="child-sub">${sub}</span>
-          ${this._isStyled ? html`<span class="styled-dot" title="This card has styling"></span>` : nothing}
+          ${this._isStyled ? html`<span class="styled-dot" title=${t('child.hasStyle')}></span>` : nothing}
+          ${renderChevron(this._open)}
         </div>
         ${this._open ? this._renderBody() : nothing}
       </div>
@@ -278,10 +333,24 @@ export class CmsChildCardSection extends LitElement {
 
     const caps = capsFor(profileKeyOf(c), c as unknown as Record<string, unknown>);
     if (caps.isContainer) {
-      return html`<div class="child-note">
-        This child is itself a "${c.type}" container — open it as its own card
-        (or edit its YAML) to style the cards inside it. Nested container
-        styling isn't supported yet.
+      const inner = this._written ?? c;
+      const kids = childSlots(inner);
+      if (!kids) {
+        return html`<div class="child-note">${t('child.nestedContainer', { type: String(c.type) })}</div>`;
+      }
+      return html`<div class="child-body nested">
+        <div class="child-hint">${renderIcon('mdi:view-dashboard-outline')}${t('child.nestedChildren', { type: String(c.type) })}</div>
+        ${kids.map(
+          (k) => html`<cms-child-card-section
+            .childConfig=${k.config}
+            .childSlot=${k.slot}
+            .implicit=${!!k.implicit}
+            .depth=${this.depth + 1}
+            .hass=${this.hass}
+            @child-config-changed=${this._onNestedChange}
+          ></cms-child-card-section>`,
+        )}
+        ${kids.length ? nothing : html`<div class="child-note">${t('child.noChildren')}</div>`}
       </div>`;
     }
 
@@ -296,13 +365,8 @@ export class CmsChildCardSection extends LitElement {
       // mixed-form gate (audit v0.10 #17).
       return html`<div class="child-note">
         ${hasUnsupportedDictRoot(c.card_mod?.style) || hasUnsupportedDictRoot(c.uix?.style)
-          ? html`🔒 This child's dictionary-form ($ shadow-piercing) style has a
-              <code>.</code> entry that isn't plain CSS, so the Studio can't
-              rebuild it — it is preserved exactly as written.`
-          : html`🔒 Mixed-form styling — this child has a dictionary-form
-              ($ shadow-piercing) style and a different style on the other
-              engine key. The Studio can't edit that combination, so it is
-              preserved exactly as written.`}
+          ? html`${renderIcon('mdi:lock-outline')}${tParts('child.dictLocked', { dot: html`<code>.</code>` })}`
+          : html`${renderIcon('mdi:lock-outline')}${t('child.mixedLocked')}`}
       </div>${caps.isEntities
         ? html`<div class="child-body"><cms-entities-rows-module
             .hass=${this.hass}
@@ -321,21 +385,23 @@ export class CmsChildCardSection extends LitElement {
     const isEntities = caps.isEntities;
     const hasUnrecognisedCss = this._loadedRawCss && !!s.advanced.rawCss.trim();
     const conflicts = findAdvancedCssConflicts(s.advanced.rawCss, s, cardType);
+    const takeOver = canTakeOver(s.advanced.rawCss);
     const thresholdOwned = cardThresholdOwned(s.threshold, caps);
 
     return html`
       <div class="child-body">
         ${hasUnrecognisedCss && this._loadedWholeStyleKept
-          ? html`<div class="child-hint">ℹ️ ${templateStatementNote(anyModuleOn(s))}</div>`
+          ? html`<div class="child-hint">${renderIcon('mdi:information-outline')}${templateStatementNote(anyModuleOn(s))}</div>`
           : nothing}
         ${isUnprofiledCustomCard(c)
-          ? html`<div class="child-hint">ℹ️ ${UNPROFILED_CARD_NOTICE}</div>`
+          ? html`<div class="child-hint">${renderIcon('mdi:information-outline')}${unprofiledCardNotice()}</div>`
           : nothing}
 
         ${showHeading
           ? html`<cms-heading-style-module
               .headingStyle=${(c as unknown as Record<string, unknown>).heading_style as string | undefined}
               .overridden=${!!conflicts.headingStyle}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.headingStyle ?? []).join(", ")}
               .state=${s.headingStyle}
               @state-changed=${(e: CustomEvent<HeadingStyleModuleState>) =>
@@ -351,6 +417,7 @@ export class CmsChildCardSection extends LitElement {
               .numberSize=${numberSizeKind(cardType)}
               .cardType=${cardType}
               .overridden=${!!conflicts.font}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.font ?? []).join(", ")}
               .state=${s.font}
               @state-changed=${(e: CustomEvent<FontModuleState>) => this._emitChanged({ font: e.detail })}
@@ -361,6 +428,7 @@ export class CmsChildCardSection extends LitElement {
           ? html`<cms-filter-module
               .cardEntity=${entity}
               .overridden=${!!conflicts.filter}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.filter ?? []).join(", ")}
               .state=${s.filter}
               .stateAware=${stateAware}
@@ -372,6 +440,7 @@ export class CmsChildCardSection extends LitElement {
         ${mods.accentColor
           ? html`<cms-accent-color-module
               .overridden=${!!conflicts.accentColor}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.accentColor ?? []).join(", ")}
               .thresholdOwned=${thresholdOwned.has('accent-color')}
               .state=${s.accentColor}
@@ -388,6 +457,7 @@ export class CmsChildCardSection extends LitElement {
         ${mods.iconColor
           ? html`<cms-icon-color-module
               .overridden=${!!conflicts.iconColor}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.iconColor ?? []).join(", ")}
               .thresholdOwned=${thresholdOwned.has('icon-color')}
               .state=${s.iconColor}
@@ -406,6 +476,7 @@ export class CmsChildCardSection extends LitElement {
         ${mods.threshold
           ? html`<cms-threshold-module
               .overridden=${!!conflicts.threshold}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.threshold ?? []).join(", ")}
               .state=${s.threshold}
               .cardEntity=${entity}
@@ -422,6 +493,7 @@ export class CmsChildCardSection extends LitElement {
           ? html`<cms-background-module
               .cardEntity=${entity}
               .overridden=${!!conflicts.background}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.background ?? []).join(", ")}
               .thresholdOwned=${thresholdOwned.has('background')}
               .state=${s.background}
@@ -436,6 +508,7 @@ export class CmsChildCardSection extends LitElement {
           ? html`<cms-animation-module
               .cardEntity=${entity}
               .overridden=${!!conflicts.animation}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.animation ?? []).join(", ")}
               .state=${s.animation}
               .hiddenPresets=${caps.noAnimationPresets}
@@ -450,6 +523,7 @@ export class CmsChildCardSection extends LitElement {
           ? html`<cms-border-module
               .cardEntity=${entity}
               .overridden=${!!conflicts.border}
+              .takeOver=${takeOver}
               .overriddenDetail=${(conflicts.border ?? []).join(", ")}
               .thresholdOwned=${thresholdOwned.has('border-color')}
               .state=${s.border}
@@ -457,6 +531,17 @@ export class CmsChildCardSection extends LitElement {
               .hass=${this.hass}
               @state-changed=${(e: CustomEvent<BorderModuleState>) => this._emitChanged({ border: e.detail })}
             ></cms-border-module>`
+          : nothing}
+
+        ${caps.features
+          ? html`<cms-features-module
+              .state=${s.features ?? DEFAULT_FEATURES}
+              .noFeatures=${!Array.isArray((c as unknown as { features?: unknown[] }).features) || !(c as unknown as { features: unknown[] }).features.length}
+              .overridden=${!!conflicts.features}
+              .takeOver=${takeOver}
+              .overriddenDetail=${(conflicts.features ?? []).join(", ")}
+              @state-changed=${(e: CustomEvent<FeaturesModuleState>) => this._emitChanged({ features: e.detail })}
+            ></cms-features-module>`
           : nothing}
 
         <cms-advanced-module

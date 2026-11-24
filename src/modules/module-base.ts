@@ -5,10 +5,17 @@
 import { css, html, nothing } from 'lit';
 import type { TemplateResult } from 'lit';
 import type { HomeAssistant, StyleCondition } from '../types/index.js';
+import { isTextRule } from '../types/index.js';
+import { commitTextRuleValue, normalizeRule, rawRuleValue, revertTextRuleValue } from '../utils/threshold-rules.js';
 import '../components/cms-entity-picker.js';
+import '../components/cms-take-over.js';
 import { TOGGLE_DOMAINS } from '../components/cms-entity-picker.js';
 import type { OwnStateKind } from '../utils/card-caps.js';
 import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
+import { t, type MessageKey } from '../i18n/index.js';
+
+/** A noun used inside the shared condition hints ("Applies the {noun} …"). */
+export type NounKey = Extract<MessageKey, `noun.${string}`>;
 
 /**
  * Theme-aware design tokens shared by every module (and re-declared on
@@ -51,11 +58,14 @@ export const moduleStyles = [
     display: block;
   }
 
+  /* v1.0: Home Assistant's own outlined expansion panel (its card editors,
+     Bubble Card's): card background, rounded outline, no filled header. */
   .module {
     border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
-    border-radius: 8px;
+    border-radius: var(--ha-card-border-radius, 12px);
+    background: var(--card-background-color, var(--ha-card-background, #fff));
     overflow: hidden;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
 
   .module-header {
@@ -63,22 +73,41 @@ export const moduleStyles = [
     align-items: center;
     justify-content: space-between;
     gap: 6px;
-    min-height: 44px;
+    min-height: 48px;
     box-sizing: border-box;
-    padding: 6px 14px;
-    background: var(--cms-fill);
+    padding: 6px 12px;
     cursor: pointer;
     user-select: none;
     transition: background 0.15s ease;
   }
 
   .module-header:hover {
-    background: var(--cms-fill-hover);
+    background: var(--cms-fill);
   }
 
   .module-header:focus-visible {
     outline: 2px solid var(--primary-color, #03a9f4);
     outline-offset: -2px;
+  }
+
+  /* A section that is always open (Presets / Palette / Settings tabs): a
+     heading, not a button. */
+  .module-header.static {
+    cursor: default;
+    justify-content: flex-start;
+    gap: 12px;
+  }
+  .module-header.static:hover {
+    background: none;
+  }
+
+  /* An icon in a line of text (banners, buttons): Home Assistant's own icons. */
+  .inline-icon {
+    --mdc-icon-size: 18px;
+    display: inline-flex;
+    vertical-align: -4px;
+    margin-inline-end: 4px;
+    flex-shrink: 0;
   }
 
   /* Text kept for assistive technology only (names the control it sits in). */
@@ -121,21 +150,65 @@ export const moduleStyles = [
   /* Header whose button and switch are siblings (renderModuleHeader): the
      button takes over the bar's padding so the whole bar still toggles. */
   .module-header.has-toggle {
-    padding: 0 14px 0 0;
-    gap: 0;
+    padding: 0 8px 0 0;
+    gap: 4px;
     cursor: default;
   }
   .module-toggle {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 12px;
     flex: 1;
     min-width: 0;
     align-self: stretch;
     box-sizing: border-box;
-    min-height: 44px;
-    padding: 6px 6px 6px 14px;
+    min-height: 48px;
+    padding: 6px 6px 6px 12px;
     cursor: pointer;
+  }
+  .module-icon {
+    --mdc-icon-size: 20px;
+    color: var(--secondary-text-color, #727272);
+    flex-shrink: 0;
+    display: inline-flex;
+  }
+  /* Title, and under it what the module does on this card (closed only). */
+  .module-heading {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+  /* Wraps onto a second line rather than cutting each part ("Sh… · 2."
+     on a phone); a long condition breaks inside an entity id if it must. */
+  .module-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--secondary-text-color, #727272);
+  }
+  .module-summary .sum-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .sum-swatch {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid var(--cms-outline);
+  }
+  .sum-fade {
+    width: 32px;
+    border-radius: 5px;
+  }
+  .sum-code {
+    font-family: var(--code-font-family, monospace);
+    font-size: 11px;
   }
   .module-toggle:focus-visible {
     outline: 2px solid var(--primary-color, #03a9f4);
@@ -143,25 +216,30 @@ export const moduleStyles = [
   }
 
   .module-chevron {
-    font-size: 10px;
-    color: var(--secondary-text-color, #727272);
-    width: 14px;
+    --mdc-icon-size: 24px;
+    color: var(--primary-text-color, #212121);
     flex-shrink: 0;
+    display: inline-flex;
+    padding: 4px;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .module-chevron.open {
+    transform: rotate(180deg);
   }
 
   .module-title {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
-    flex: 1;
+    color: var(--primary-text-color, #212121);
     min-width: 0;
   }
 
   .module-body {
-    padding: 12px 14px;
-    border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+    padding: 4px 14px 14px;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -186,6 +264,17 @@ export const moduleStyles = [
     color: var(--secondary-text-color, #727272);
     flex: 0 0 var(--cms-label-width, 108px);
     min-width: 0;
+    /* a word longer than the column (some languages): hyphenate, else break */
+    hyphens: auto;
+    overflow-wrap: anywhere;
+  }
+
+  /* A label beside a short value (Settings → written key) takes the room
+     it needs instead of breaking its words in the narrow label column. */
+  .control-row.wide-label .control-label {
+    flex: 1 1 auto;
+    hyphens: manual;
+    overflow-wrap: normal;
   }
 
   .control-right {
@@ -269,6 +358,15 @@ export const moduleStyles = [
     width: 84px;
     min-width: 0;
   }
+  /* A condition's text (v1.0.0): wider than a number, never wider than the row. */
+  input.text-value {
+    width: 160px;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .now-value {
+    overflow-wrap: anywhere;
+  }
   /* Invalid number: dashed border as well as colour, plus aria-invalid. */
   input[aria-invalid='true'] {
     border: 1px dashed var(--cms-line-error);
@@ -333,8 +431,9 @@ export const moduleStyles = [
 
   /* "Custom CSS is overriding this control" — see style-conflicts.ts. */
   .override-badge {
-    font-size: 13px;
-    margin-right: 6px;
+    --mdc-icon-size: 16px;
+    display: inline-flex;
+    color: var(--warning-color, #ffa600);
     flex-shrink: 0;
     cursor: help;
   }
@@ -385,9 +484,14 @@ export const moduleStyles = [
   /* The unset label ("Default (14px)") and the set one (value + reset
      button) take the same width, so the slider doesn't jump when a drag
      flips between them: 80 = 48 + 8 gap + 24 button. */
-  .value-label.unset,
   .value-label:has(+ .reset-btn) {
     white-space: nowrap;
+  }
+  /* The unset label may wrap when the row is squeezed (phone width, long
+     words such as Ukrainian "За замовчуванням (14px)"); where there is room
+     it stays on one line. */
+  .value-label.unset {
+    overflow-wrap: anywhere;
   }
   /* Italic alone marks "not set": dimming the 11px label as well dropped it
      below 4.5:1 against the panel in both themes. */
@@ -435,7 +539,7 @@ export const moduleStyles = [
  */
 export function renderResetButton(
   onClick: () => void,
-  label = 'Reset to default',
+  label = t('base.resetToDefault'),
 ): TemplateResult {
   return html`<button
     type="button"
@@ -452,7 +556,20 @@ export function renderResetButton(
  * value, e.g. `renderDefaultOption(!weight, 'medium')` → "Default (medium)".
  */
 export function renderDefaultOption(selected: boolean, native = ''): TemplateResult {
-  return html`<option value="" ?selected=${selected}>${native ? `Default (${native})` : 'Default'}</option>`;
+  return html`<option value="" ?selected=${selected}>${native ? t('base.defaultWith', { value: native }) : t('base.default')}</option>`;
+}
+
+/**
+ * A module's next state after a user's change. Changing a setting of a
+ * module that is off switches it on (v1.0): before, the change was kept but
+ * nothing showed until the switch was flipped as well, and people (and the
+ * test agents) took the setting for broken. The switch itself, and a change
+ * that says `enabled` (or switches a part off), keep their own meaning.
+ */
+export function editState<T extends { enabled: boolean }>(state: T, changes: Partial<T>, mayEnable = true): T {
+  const next = { ...state, ...changes };
+  if (mayEnable && !state.enabled && !('enabled' in changes)) next.enabled = true;
+  return next;
 }
 
 /** The pending observer per editor and the name it should apply. */
@@ -506,8 +623,12 @@ export function onHeaderKeydown(e: KeyboardEvent): void {
 }
 
 export interface ModuleHeaderOptions {
+  /** A Material Design icon (`mdi:format-text`), as Home Assistant's editors use. */
   icon: string;
   title: string;
+  /** What the module does on this card, shown under the title while closed
+   *  (see renderSummary). */
+  summary?: SummaryPart[];
   open: boolean;
   onToggle: () => void;
   /** Advanced CSS is overriding this module (warning badge). */
@@ -528,7 +649,10 @@ export const MODULE_BODY_ID = 'module-body';
  * from the same text.
  */
 export function renderModuleHeader(o: ModuleHeaderOptions): TemplateResult {
-  const name = `Enable ${o.title}`;
+  const name = t('base.enableModule', { module: o.title });
+  // The summary describes the button (aria-describedby) without becoming
+  // part of its name, which stays the module's title.
+  const summary = !o.open && o.summary?.length ? o.summary : undefined;
   return html`
     <div class="module-header has-toggle">
       <div
@@ -537,12 +661,15 @@ export function renderModuleHeader(o: ModuleHeaderOptions): TemplateResult {
         tabindex="0"
         aria-expanded=${o.open ? 'true' : 'false'}
         aria-controls=${o.open ? MODULE_BODY_ID : nothing}
+        aria-describedby=${summary ? SUMMARY_ID : nothing}
         @click=${() => o.onToggle()}
         @keydown=${onHeaderKeydown}
       >
-        <span class="module-chevron" aria-hidden="true">${o.open ? '▼' : '▶'}</span>
-        <span class="module-title"><span><span aria-hidden="true">${o.icon}</span> ${o.title}</span></span>
-        ${renderOverrideBadge(o.overridden ?? false)}
+        <ha-icon class="module-icon" icon=${o.icon} aria-hidden="true"></ha-icon>
+        <span class="module-heading">
+          <span class="module-title"><span>${o.title}</span>${renderOverrideBadge(o.overridden ?? false)}</span>
+          ${summary ? renderSummary(summary, SUMMARY_ID) : nothing}
+        </span>
       </div>
       ${o.enable
         ? html`<ha-switch
@@ -551,8 +678,48 @@ export function renderModuleHeader(o: ModuleHeaderOptions): TemplateResult {
             @change=${(e: Event) => o.enable!.onChange((e.target as HTMLInputElement).checked)}
           ></ha-switch>`
         : nothing}
+      ${renderChevron(o.open, () => o.onToggle())}
     </div>
   `;
+}
+
+/** The expand chevron at the right end of a section header (decorative for
+ *  assistive technology — the header's own button carries the state). */
+export function renderChevron(open: boolean, onToggle?: () => void): TemplateResult {
+  return html`<ha-icon
+    class="module-chevron ${open ? 'open' : ''}"
+    icon="mdi:chevron-down"
+    aria-hidden="true"
+    @click=${onToggle ? () => onToggle() : nothing}
+  ></ha-icon>`;
+}
+
+/** One piece of a module's summary: a text, a colour (a dot), a fade (a
+ *  bar) or a line of code. */
+export type SummaryPart = string | { color: string } | { gradient: string[] } | { code: string };
+
+/** The id of a module's summary line (one module per shadow root). */
+export const SUMMARY_ID = 'module-summary';
+
+/** The summary line: texts joined with " · ", colours as dots. Hidden from
+ *  the accessibility tree itself; a header points at it as its description. */
+export function renderSummary(parts: SummaryPart[], id?: string): TemplateResult {
+  const items: TemplateResult[] = [];
+  let lastWasText = false;
+  for (const p of parts) {
+    if (typeof p === 'string') {
+      if (!p) continue;
+      if (lastWasText) items.push(html`<span aria-hidden="true">·</span>`);
+      items.push(html`<span class="sum-text">${p}</span>`);
+      lastWasText = true;
+      continue;
+    }
+    lastWasText = false;
+    if ('color' in p) items.push(html`<span class="sum-swatch" style=${`background:${p.color}`} title=${p.color}></span>`);
+    else if ('gradient' in p) items.push(html`<span class="sum-swatch sum-fade" style=${`background:linear-gradient(90deg, ${p.gradient.join(', ')})`}></span>`);
+    else items.push(html`<code class="sum-text sum-code">${p.code}</code>`);
+  }
+  return html`<span class="module-summary" id=${id ?? nothing} aria-hidden="true">${items}</span>`;
 }
 
 /** The name each switch was last given (see nameSwitches). */
@@ -817,7 +984,7 @@ export interface WhenControlOptions {
    *  offered, ON is not. Ignored when stateAware. */
   offOnly?: boolean;
   /** Noun used in the hint, e.g. "background", "grayscale", "animation". */
-  noun: string;
+  noun: NounKey;
   /** Offer the "another entity" option. */
   allowCustom?: boolean;
   /** entity_id for the custom trigger. */
@@ -826,6 +993,15 @@ export interface WhenControlOptions {
   hass?: HomeAssistant;
   onChange: (v: WhenValue) => void;
   onCustomEntity?: (id: string) => void;
+  /** Offer "A value matches" (v1.0.0, #42): the condition lives in its own
+   *  field (Background's `condition`, grayscale's `grayscaleCondition`). */
+  allowValue?: boolean;
+  /** The stored value condition (when: 'value'), if any. */
+  condition?: StyleCondition;
+  /** The card's own entity: "A value matches" starts watching it. */
+  cardEntity?: string;
+  /** Sets / clears the value condition (undefined = back to `value`'s option). */
+  onCondition?: (c: StyleCondition | undefined) => void;
 }
 
 /** Which of the ON / OFF options a condition select offers. A stored on/off
@@ -845,14 +1021,178 @@ export function offeredOnOff(
 function whenHint(v: WhenValue, o: WhenControlOptions): string {
   switch (v) {
     case 'on':
-      return `Applies the ${o.noun} only while this card's entity is on (removed when off).`;
+      return t('when.hintOn', { noun: t(o.noun) });
     case 'off':
-      return `Applies the ${o.noun} only while this card's entity is off (removed when on).`;
+      return t('when.hintOff', { noun: t(o.noun) });
     case 'custom':
-      return `Applies the ${o.noun} only while ${o.customEntity || 'the chosen entity'} is on.`;
+      return o.customEntity
+        ? t('when.hintCustom', { noun: t(o.noun), entity: o.customEntity })
+        : t('when.hintCustomNone', { noun: t(o.noun) });
     default:
-      return `Always applies the ${o.noun}.`;
+      return t('when.hintAlways', { noun: t(o.noun) });
   }
+}
+
+/** The fields of a "value matches" condition (StyleCondition; the Animation
+ *  trigger keeps the same names flat on its state). */
+export type ValueFields = Pick<
+  StyleCondition,
+  'valueEntity' | 'valueAttribute' | 'valueOperator' | 'valueThreshold' | 'valueText' | 'valueTextOperator'
+>;
+
+const TEXT_OPERATORS = ['is', 'is-not'] as const;
+
+/** Text attributes too (v1.0.0): a text comparison reads them as text. */
+function valueAttributes(hass: HomeAssistant | undefined, entityId: string, current: string | undefined, text: boolean): string[] {
+  const names = numericAttributes(hass, entityId, current);
+  if (!text) return names;
+  const attrs = hass?.states?.[entityId]?.attributes ?? {};
+  for (const [k, v] of Object.entries(attrs)) {
+    if ((typeof v === 'string' || typeof v === 'boolean') && !names.includes(k)) names.push(k);
+  }
+  return names;
+}
+
+/**
+ * The "a value matches" fields — entity, read from, condition, value — shared
+ * by every condition control (Reacts to, Apply when, the Animation trigger).
+ * The condition offers the number comparisons and, since v1.0.0 (#42),
+ * `is` / `is not` a text: the value field then takes text, starts from the
+ * entity's current value, and a hint shows that value (compared exactly as
+ * Home Assistant stores it). A number typed as text becomes `==` / `!=`.
+ * `stateLabel` names the "read from: the state" option.
+ */
+export function renderValueFields(
+  c: ValueFields | undefined,
+  hass: HomeAssistant | undefined,
+  change: (patch: Partial<ValueFields>) => void,
+  stateLabel: string = t('cond.state'),
+): TemplateResult {
+  const text = c?.valueText !== undefined;
+  const op = text ? (c?.valueTextOperator ?? 'is') : (c?.valueOperator ?? '>');
+  const now = c?.valueEntity ? rawRuleValue(hass, c.valueEntity, c.valueAttribute || undefined) : null;
+  const attrNames = c?.valueEntity ? valueAttributes(hass, c.valueEntity, c.valueAttribute, text) : [];
+  const toText = (o: 'is' | 'is-not'): Partial<ValueFields> => {
+    if (text) return { valueTextOperator: o };
+    // Starts from the current value when that is text (a number stays a number rule).
+    const start = now !== null && isTextRule(normalizeRule({ id: '', operator: o, value: now, color: '' })) ? now : '';
+    return { valueTextOperator: o, valueText: start, valueOperator: undefined, valueThreshold: undefined };
+  };
+  const toNumber = (o: NonNullable<ValueFields['valueOperator']>): Partial<ValueFields> => {
+    if (!text) return { valueOperator: o };
+    const t2 = (c?.valueText ?? '').trim();
+    const n = Number(t2);
+    return { valueOperator: o, valueThreshold: t2 !== '' && Number.isFinite(n) ? n : 0, valueText: undefined, valueTextOperator: undefined };
+  };
+  const commitText = (e: Event) => {
+    const v = commitTextRuleValue(e);
+    if (v === undefined) return;
+    const r = normalizeRule({ id: '', operator: c?.valueTextOperator ?? 'is', value: v, color: '' });
+    change(isTextRule(r)
+      ? { valueText: v }
+      : { valueOperator: r.operator as ValueFields['valueOperator'], valueThreshold: Number(r.value), valueText: undefined, valueTextOperator: undefined });
+  };
+
+  return html`
+    <div class="control-row">
+      <span class="control-label">${t('base.entity')}</span>
+      <div class="control-right">
+        <cms-entity-picker
+          .hass=${hass}
+          .value=${c?.valueEntity ?? ''}
+          label=""
+          accessible-name=${t('cond.valueEntity')}
+          placeholder="sensor.temperature"
+          @value-changed=${(e: CustomEvent<{ value: string }>) =>
+            change({ valueEntity: e.detail.value.trim(), valueAttribute: '' })}
+        ></cms-entity-picker>
+      </div>
+    </div>
+    ${c?.valueEntity ? nothing : html`<div class="when-hint warn">${t('cond.pickEntity')}</div>`}
+    ${attrNames.length > 0 || c?.valueAttribute
+      ? html`
+          <div class="control-row">
+            <span class="control-label" id="cond-read-label">${t('cond.valueReadFrom')}</span>
+            <div class="control-right">
+              <select
+                aria-labelledby="cond-read-label"
+                .value=${c?.valueAttribute ?? ''}
+                @change=${(e: Event) => change({ valueAttribute: (e.target as HTMLSelectElement).value })}
+              >
+                <option value="" ?selected=${!c?.valueAttribute}>${stateLabel}</option>
+                ${attrNames.map(
+                  (name) =>
+                    html`<option value=${name} ?selected=${c?.valueAttribute === name}>
+                      ${t('cond.attribute', { name })}
+                    </option>`,
+                )}
+              </select>
+            </div>
+          </div>
+        `
+      : nothing}
+    <div class="control-row">
+      <span class="control-label" id="cond-op-label">${t('cond.condition')}</span>
+      <div class="control-right">
+        <select
+          aria-labelledby="cond-op-label"
+          .value=${op}
+          @change=${(e: Event) => {
+            const v = (e.target as HTMLSelectElement).value;
+            change(v === 'is' || v === 'is-not' ? toText(v) : toNumber(v as NonNullable<ValueFields['valueOperator']>));
+          }}
+        >
+          <optgroup label=${t('cond.groupNumber')}>
+            ${CONDITION_OPERATORS.map(
+              (o) => html`<option value=${o} ?selected=${op === o}>${t('cond.valueOp', { op: o })}</option>`,
+            )}
+          </optgroup>
+          <optgroup label=${t('cond.groupText')}>
+            ${TEXT_OPERATORS.map(
+              (o) => html`<option value=${o} ?selected=${op === o}>${t(o === 'is' ? 'cond.valueIs' : 'cond.valueIsNot')}</option>`,
+            )}
+          </optgroup>
+        </select>
+      </div>
+    </div>
+    <div class="control-row">
+      <span class="control-label">${t(text ? 'cond.text' : 'cond.threshold')}</span>
+      <div class="control-right">
+        ${text
+          ? html`<input
+              type="text"
+              class="text-value"
+              aria-label=${t('cond.textValue')}
+              aria-invalid="false"
+              spellcheck="false"
+              autocomplete="off"
+              placeholder=${now ?? ''}
+              .value=${c?.valueText ?? ''}
+              @change=${commitText}
+              @blur=${(e: Event) => revertTextRuleValue(e, c?.valueText ?? '')}
+            />`
+          : html`<input
+              type="text"
+              class="num"
+              aria-label=${t('cond.thresholdValue')}
+              aria-invalid="false"
+              spellcheck="false"
+              autocomplete="off"
+              .value=${String(c?.valueThreshold ?? 0)}
+              @input=${markNumberInput}
+              @change=${(e: Event) => {
+                // Empty / unparseable: keep the previous value (cue shows until blur).
+                const n = commitNumberInput(e);
+                if (n !== undefined) change({ valueThreshold: n });
+              }}
+              @blur=${(e: Event) => revertNumberInput(e, c?.valueThreshold ?? 0)}
+            />`}
+      </div>
+    </div>
+    ${text
+      ? html`<div class="when-hint now-value">${now === null ? t('cond.textHint') : t('cond.nowValue', { value: now })}</div>`
+      : nothing}
+  `;
 }
 
 /**
@@ -864,28 +1204,41 @@ function whenHint(v: WhenValue, o: WhenControlOptions): string {
 export function renderWhen(o: WhenControlOptions): TemplateResult {
   const { showOn, showOff } = offeredOnOff(o.stateAware, o.offOnly, o.value === 'on' || o.value === 'off');
   // If "Always" is the only meaningful choice, drop the single-option dropdown.
-  const showSelect = showOn || showOff || !!o.allowCustom;
+  const showSelect = showOn || showOff || !!o.allowCustom || !!o.allowValue;
+  // "A value matches" is its own field; the stored when-value stays as it is.
+  const isValue = !!o.allowValue && o.condition?.when === 'value';
+  const shown = isValue ? 'value' : o.value;
 
-  const opts: Array<{ v: WhenValue; label: string }> = [{ v: 'always', label: 'Always' }];
-  if (showOn) opts.push({ v: 'on', label: 'Only while entity is ON' });
-  if (showOff) opts.push({ v: 'off', label: 'Only while entity is OFF' });
-  if (o.allowCustom) opts.push({ v: 'custom', label: 'While another entity is ON…' });
+  const opts: Array<{ v: WhenValue | 'value'; label: string }> = [{ v: 'always', label: t('when.always') }];
+  if (showOn) opts.push({ v: 'on', label: t('when.onlyOn') });
+  if (showOff) opts.push({ v: 'off', label: t('when.onlyOff') });
+  if (o.allowCustom) opts.push({ v: 'custom', label: t('when.otherEntity') });
+  if (o.allowValue) opts.push({ v: 'value', label: t('cond.valueMatches') });
+  const pick = (v: string) => {
+    if (v === 'value') {
+      // Seeded like the other value conditions (a number comparison, `> 0`),
+      // watching the card's own entity until another is picked — only on this
+      // switch, never when a stored style or preset is read.
+      o.onCondition?.({ when: 'value', valueOperator: '>', valueThreshold: 0, ...seedEntity(o.cardEntity, o.condition) });
+      return;
+    }
+    o.onChange(v as WhenValue);
+  };
 
   return html`
     ${showSelect
       ? html`
           <div class="control-row">
-            <span class="control-label" id="when-label">Apply when</span>
+            <span class="control-label" id="when-label">${t('when.applyWhen')}</span>
             <div class="control-right">
               <select
                 aria-labelledby="when-label"
-                .value=${o.value}
-                @change=${(e: Event) =>
-                  o.onChange((e.target as HTMLSelectElement).value as WhenValue)}
+                .value=${shown}
+                @change=${(e: Event) => pick((e.target as HTMLSelectElement).value)}
               >
                 ${opts.map(
                   (opt) =>
-                    html`<option value=${opt.v} ?selected=${o.value === opt.v}>
+                    html`<option value=${opt.v} ?selected=${shown === opt.v}>
                       ${opt.label}
                     </option>`,
                 )}
@@ -894,17 +1247,20 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
           </div>
         `
       : nothing}
-    ${o.value === 'custom'
+    ${isValue
+      ? renderValueFields(o.condition, o.hass, (patch) => o.onCondition?.({ ...(o.condition as StyleCondition), ...patch }))
+      : nothing}
+    ${!isValue && o.value === 'custom'
       ? html`
           <div class="control-row">
-            <span class="control-label">Entity</span>
+            <span class="control-label">${t('base.entity')}</span>
             <div class="control-right">
               <cms-entity-picker
                 .hass=${o.hass}
                 .value=${o.customEntity ?? ''}
                 .includeDomains=${TOGGLE_DOMAINS}
                 label=""
-                accessible-name="Entity to watch"
+                accessible-name=${t('base.entityToWatch')}
                 placeholder="input_boolean.my_entity"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>
                   o.onCustomEntity?.(e.detail.value.trim())}
@@ -913,7 +1269,7 @@ export function renderWhen(o: WhenControlOptions): TemplateResult {
           </div>
         `
       : nothing}
-    <div class="when-hint">${whenHint(o.value, o)}</div>
+    <div class="when-hint">${isValue ? t('cond.hintValue', { noun: t(o.noun) }) : whenHint(o.value, o)}</div>
   `;
 }
 
@@ -931,16 +1287,16 @@ export function renderWatchHint(o: {
   const useless = kind !== 'on-off' && !entityId;
   const text = entityId
     ? cardEntity
-      ? `Uses ${entityId}'s on/off state, not this card's own entity.`
-      : `Uses ${entityId}'s on/off state.`
+      ? t('watch.usesOtherNotOwn', { entity: entityId })
+      : t('watch.usesOther', { entity: entityId })
     : !useless
-    ? "Leave empty to use this card's own entity."
+    ? t('watch.leaveEmpty')
     : !cardEntity
-    ? "This card has no entity of its own — pick the entity to watch, or choose One fixed color. Until then no color is written and this choice isn't kept."
+    ? t('watch.noOwnEntity')
     : kind === 'off-only'
     // Anything that isn't "on" takes the OFF branch, so the OFF colour shows in every mode.
-    ? `This card's entity (${cardEntity}) is never "on" — the ON colour never shows and the OFF colour shows in every state. Pick another entity, or use Threshold Colors for its modes.`
-    : `This card's entity (${cardEntity}) has no on/off state of its own — pick a toggleable entity above, or this mode won't do anything.`;
+    ? t('watch.neverOn', { entity: cardEntity })
+    : t('watch.noOnOff', { entity: cardEntity });
   return html`<div class="when-hint ${useless ? 'warn' : ''}">${text}</div>`;
 }
 
@@ -955,14 +1311,13 @@ export function renderWatchHint(o: {
  */
 export function renderThresholdOwnedHint(
   owned: boolean,
-  what: string,
-  option: string,
+  what: NounKey,
+  option: MessageKey,
 ): TemplateResult | typeof nothing {
   if (!owned) return nothing;
+  const params = { what: t(what), option: t(option) };
   return html`<div class="override-hint">
-    🎯 <strong>Threshold Colors is setting the ${what}</strong>, so the
-    ${what} chosen here isn't used. Untick “${option}” under Threshold Colors
-    → Apply to (or turn Threshold Colors off) to use this module again.
+    🎯 <strong>${t('base.thresholdOwnedTitle', params)}</strong>${t('base.thresholdOwnedBody', params)}
   </div>`;
 }
 
@@ -970,30 +1325,43 @@ export function renderThresholdOwnedHint(
 // Shared "Custom CSS is overriding this control" warning (v0.8.1)
 // ---------------------------------------------------------------------------
 
+/** A Home Assistant icon inside a line of text (decorative). */
+export function renderIcon(icon: string): TemplateResult {
+  return html`<ha-icon class="inline-icon" icon=${icon} aria-hidden="true"></ha-icon>`;
+}
+
+/** The always-open heading of a section (Presets / Palette / Settings tabs). */
+export function renderStaticHeader(icon: string, title: string, extra: TemplateResult | typeof nothing = nothing): TemplateResult {
+  return html`<div class="module-header static">
+    <ha-icon class="module-icon" icon=${icon} aria-hidden="true"></ha-icon>
+    <span class="module-heading"><span class="module-title"><span>${title}</span></span>${extra}</span>
+  </div>`;
+}
+
 /** Header badge for a module whose output is overridden by Advanced CSS. */
 export function renderOverrideBadge(overridden: boolean): TemplateResult | typeof nothing {
   if (!overridden) return nothing;
   return html`<span
     class="override-badge"
     role="img"
-    aria-label="Custom CSS in Advanced CSS is currently overriding this control"
-    title="Custom CSS in Advanced CSS is currently overriding this control"
-  >⚠️</span>`;
+    aria-label=${t('base.overrideBadge')}
+    title=${t('base.overrideBadge')}
+  ><ha-icon icon="mdi:alert-outline"></ha-icon></span>`;
 }
 
 /** Body hint explaining WHY changes in this module may not be visible. */
 export function renderOverrideHint(
   overridden: boolean,
   detail?: string,
+  /** v1.0: the module that may take over (offers the button); omitted = no button. */
+  takeOver?: string,
 ): TemplateResult | typeof nothing {
   if (!overridden) return nothing;
   return html`<div class="override-hint">
-    ⚠️ <strong>Custom CSS is currently overriding this control</strong>${detail
+    ${renderIcon('mdi:alert-outline')}<strong>${t('base.overrideTitle')}</strong>${detail
       ? html` — <code>${detail}</code>`
-      : nothing}.
-    Advanced CSS is applied after these settings (hand-written styles always
-    win), so changes here may not be visible on the card. Edit or remove
-    those lines in Advanced CSS to hand control back to this module.
+      : nothing}. ${t('base.overrideBody')}
+    ${takeOver && detail ? html`<cms-take-over .module=${takeOver} .detail=${detail}></cms-take-over>` : nothing}
   </div>`;
 }
 
@@ -1011,10 +1379,19 @@ export interface ConditionControlOptions {
   /** OFF-only entity (climate, water_heater): OFF offered, ON not. */
   offOnly?: boolean;
   /** Noun used in labels/hints, e.g. "border", "effects", "icon size". */
-  noun: string;
+  noun: NounKey;
   hass?: HomeAssistant;
   /** Emits the new condition — undefined when back to Always. */
   onChange: (c: StyleCondition | undefined) => void;
+  /** The card's own entity: "A value matches" starts watching it. */
+  cardEntity?: string;
+}
+
+/** On the switch to "A value matches": watch the card's own entity unless one
+ *  is already set (Threshold Colors starts the same way). Entity-less cards
+ *  get nothing here; the value fields then say an entity is needed. */
+export function seedEntity(cardEntity: string | undefined, c: { valueEntity?: string } | undefined): { valueEntity?: string } {
+  return cardEntity && !c?.valueEntity ? { valueEntity: cardEntity } : {};
 }
 
 /** Numeric attributes of an entity (the condition compares via float(), so
@@ -1039,15 +1416,17 @@ export function numericAttributes(
 function conditionHint(c: StyleCondition | undefined, o: ConditionControlOptions): string {
   switch (c?.when) {
     case 'on':
-      return `Applies the ${o.noun} only while this card's entity is on.`;
+      return t('cond.hintOn', { noun: t(o.noun) });
     case 'off':
-      return `Applies the ${o.noun} only while this card's entity is off.`;
+      return t('cond.hintOff', { noun: t(o.noun) });
     case 'custom':
-      return `Applies the ${o.noun} only while ${c.customEntity || 'the chosen entity'} is on.`;
+      return c.customEntity
+        ? t('when.hintCustom', { noun: t(o.noun), entity: c.customEntity })
+        : t('when.hintCustomNone', { noun: t(o.noun) });
     case 'value':
-      return `Applies the ${o.noun} only while the condition matches.`;
+      return t('cond.hintValue', { noun: t(o.noun) });
     default:
-      return `Always applies the ${o.noun}.`;
+      return t('when.hintAlways', { noun: t(o.noun) });
   }
 }
 
@@ -1064,12 +1443,12 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
   const { showOn, showOff } = offeredOnOff(o.stateAware, o.offOnly, when === 'on' || when === 'off');
 
   const opts: Array<{ v: StyleCondition['when']; label: string }> = [
-    { v: 'always', label: 'Always' },
+    { v: 'always', label: t('when.always') },
   ];
-  if (showOn) opts.push({ v: 'on', label: 'Only while entity is ON' });
-  if (showOff) opts.push({ v: 'off', label: 'Only while entity is OFF' });
-  opts.push({ v: 'custom', label: 'While another entity is ON…' });
-  opts.push({ v: 'value', label: 'While a value matches…' });
+  if (showOn) opts.push({ v: 'on', label: t('when.onlyOn') });
+  if (showOff) opts.push({ v: 'off', label: t('when.onlyOff') });
+  opts.push({ v: 'custom', label: t('when.otherEntity') });
+  opts.push({ v: 'value', label: t('cond.valueMatches') });
 
   const change = (patch: Partial<StyleCondition>) => {
     const next: StyleCondition = { when, ...c, ...patch };
@@ -1079,16 +1458,13 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
     if (v === 'always') return o.onChange(undefined);
     // Seed value-mode defaults so generation is valid the moment an entity
     // is picked (same seeding as the Animation module's value trigger).
-    if (v === 'value') return change({ when: v, valueOperator: c?.valueOperator ?? '>', valueThreshold: c?.valueThreshold ?? 0 });
+    if (v === 'value') return change({ when: v, valueOperator: c?.valueOperator ?? '>', valueThreshold: c?.valueThreshold ?? 0, ...seedEntity(o.cardEntity, c) });
     change({ when: v });
   };
 
-  const attrNames =
-    when === 'value' && c?.valueEntity ? numericAttributes(o.hass, c.valueEntity, c.valueAttribute) : [];
-
   return html`
     <div class="control-row">
-      <span class="control-label" id="cond-label">Reacts to</span>
+      <span class="control-label" id="cond-label">${t('when.applyWhen')}</span>
       <div class="control-right">
         <select
           aria-labelledby="cond-label"
@@ -1105,14 +1481,14 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
     ${when === 'custom'
       ? html`
           <div class="control-row">
-            <span class="control-label">Entity</span>
+            <span class="control-label">${t('base.entity')}</span>
             <div class="control-right">
               <cms-entity-picker
                 .hass=${o.hass}
                 .value=${c?.customEntity ?? ''}
                 .includeDomains=${TOGGLE_DOMAINS}
                 label=""
-                accessible-name="Entity to watch"
+                accessible-name=${t('base.entityToWatch')}
                 placeholder="input_boolean.my_entity"
                 @value-changed=${(e: CustomEvent<{ value: string }>) =>
                   change({ customEntity: e.detail.value.trim() })}
@@ -1121,89 +1497,7 @@ export function renderCondition(o: ConditionControlOptions): TemplateResult {
           </div>
         `
       : nothing}
-    ${when === 'value'
-      ? html`
-          <div class="control-row">
-            <span class="control-label">Entity</span>
-            <div class="control-right">
-              <cms-entity-picker
-                .hass=${o.hass}
-                .value=${c?.valueEntity ?? ''}
-                label=""
-                accessible-name="Entity to read the value from"
-                placeholder="sensor.temperature"
-                @value-changed=${(e: CustomEvent<{ value: string }>) =>
-                  change({ valueEntity: e.detail.value.trim(), valueAttribute: '' })}
-              ></cms-entity-picker>
-            </div>
-          </div>
-          ${attrNames.length > 0 || c?.valueAttribute
-            ? html`
-                <div class="control-row">
-                  <span class="control-label" id="cond-read-label">Value read from</span>
-                  <div class="control-right">
-                    <select
-                      aria-labelledby="cond-read-label"
-                      .value=${c?.valueAttribute ?? ''}
-                      @change=${(e: Event) =>
-                        change({ valueAttribute: (e.target as HTMLSelectElement).value })}
-                    >
-                      <option value="" ?selected=${!c?.valueAttribute}>State</option>
-                      ${attrNames.map(
-                        (name) =>
-                          html`<option value=${name} ?selected=${c?.valueAttribute === name}>
-                            Attribute: ${name}
-                          </option>`,
-                      )}
-                    </select>
-                  </div>
-                </div>
-              `
-            : nothing}
-          <div class="control-row">
-            <span class="control-label" id="cond-op-label">Condition</span>
-            <div class="control-right">
-              <select
-                aria-labelledby="cond-op-label"
-                .value=${c?.valueOperator ?? '>'}
-                @change=${(e: Event) =>
-                  change({
-                    valueOperator: (e.target as HTMLSelectElement)
-                      .value as StyleCondition['valueOperator'],
-                  })}
-              >
-                ${CONDITION_OPERATORS.map(
-                  (op) =>
-                    html`<option value=${op} ?selected=${(c?.valueOperator ?? '>') === op}>
-                      value ${op}
-                    </option>`,
-                )}
-              </select>
-            </div>
-          </div>
-          <div class="control-row">
-            <span class="control-label">Threshold</span>
-            <div class="control-right">
-              <input
-                type="text"
-                class="num"
-                aria-label="Threshold value"
-                aria-invalid="false"
-                spellcheck="false"
-                autocomplete="off"
-                .value=${String(c?.valueThreshold ?? 0)}
-                @input=${markNumberInput}
-                @change=${(e: Event) => {
-                  // Empty / unparseable: keep the previous value (cue shows until blur).
-                  const n = commitNumberInput(e);
-                  if (n !== undefined) change({ valueThreshold: n });
-                }}
-                @blur=${(e: Event) => revertNumberInput(e, c?.valueThreshold ?? 0)}
-              />
-            </div>
-          </div>
-        `
-      : nothing}
+    ${when === 'value' ? renderValueFields(c, o.hass, change) : nothing}
     <div class="when-hint">${conditionHint(c, o)}</div>
   `;
 }

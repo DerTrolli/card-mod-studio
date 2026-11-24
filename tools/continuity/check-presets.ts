@@ -7,7 +7,7 @@ const WORK = process.env.CONT_WORK || new URL('./.work', import.meta.url).pathna
 const groups = new Map<string, { n: number; ex: any; v: Set<string>; t: Set<string> }>();
 const bump = (k: string, v: string, t: string, ex: any) => { const g = groups.get(k) ?? groups.set(k, { n: 0, ex, v: new Set(), t: new Set() }).get(k)!; g.n++; g.v.add(v); g.t.add(t); };
 let n = 0, threw = 0, same = 0;
-for (const v of (process.env.VERS || 'v0.8.1,v0.9.1,v0.10.0,v0.10.1,v0.10.2,v0.11.0-beta.1,v0.11.0-beta.2,v0.11.0-beta.3').split(',')) {
+for (const v of (process.env.VERS || 'v0.8.1,v0.9.1,v0.10.0,v0.10.1,v0.10.2,v0.11.0-beta.1,v0.11.0-beta.2,v0.11.0-beta.3,v0.11.0,v1.0.0-beta.1').split(',')) {
   for (const c of JSON.parse(readFileSync(`${WORK}/${v}/presets.json`, 'utf8'))) {
     n++;
     try {

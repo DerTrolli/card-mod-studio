@@ -1,0 +1,14 @@
+{
+  "domain": "card_mod_studio",
+  "name": "Card Style Studio",
+  "codeowners": ["@DerTrolli"],
+  "config_flow": true,
+  "dependencies": ["websocket_api"],
+  "documentation": "https://github.com/DerTrolli/card-mod-studio/wiki/Integration",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/DerTrolli/card-mod-studio/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "1.0.0"
+}

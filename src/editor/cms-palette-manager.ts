@@ -20,8 +20,11 @@ import {
   type PaletteEdit,
 } from '../utils/palette-storage.js';
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
-import { moduleStyles, onHeaderKeydown } from '../modules/module-base.js';
+import { moduleStyles, renderStaticHeader } from '../modules/module-base.js';
 import { ArmGuard } from '../utils/arm-guard.js';
+import { LangController, t, type MessageKey } from '../i18n/index.js';
+import { getSiteDefaults } from '../utils/settings-storage.js';
+import { previewHexFor } from '../components/cms-color-picker.js';
 
 /** Rapid commits (e.g. several swatch changes in a row) become one storage write. */
 const COMMIT_DEBOUNCE_MS = 250;
@@ -36,9 +39,9 @@ export function normalizeHex(raw: string): string | undefined {
 }
 
 export class CmsPaletteManager extends LitElement {
+  protected readonly i18n = new LangController(this);
   @property({ attribute: false }) hass?: HomeAssistant;
 
-  @state() private _open = false;
   /** Uncommitted colour per row (native dialog drag / typed text): shown live,
    *  never written to storage until committed. */
   @state() private _live = new Map<string, { hex: string; src: 'pick' | 'type' }>();
@@ -246,7 +249,7 @@ export class CmsPaletteManager extends LitElement {
     const id = `color-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     this._saveNow({
       kind: 'add',
-      color: { id, name: `My color ${getCachedPalette().colors.length + 1}`, hex: '#03a9f4' },
+      color: { id, name: t('palette.newName', { n: getCachedPalette().colors.length + 1 }), hex: '#03a9f4' },
     });
     // Keyboard users land on the new entry's name, ready to rename it.
     void this.updateComplete.then(() => this._focus(`[data-row="${id}"] .name-input`));
@@ -331,25 +334,15 @@ export class CmsPaletteManager extends LitElement {
     const hasContent = palette.colors.length > 0 || !!palette.defaults.onColor || !!palette.defaults.offColor;
     return html`
       <div class="module">
-        <div
-          class="module-header"
-          role="button"
-          tabindex="0"
-          aria-expanded=${this._open ? 'true' : 'false'}
-          @click=${() => (this._open = !this._open)}
-          @keydown=${onHeaderKeydown}
-        >
-          <span class="module-chevron" aria-hidden="true">${this._open ? '▼' : '▶'}</span>
-          <span class="module-title"><span aria-hidden="true">🖌️</span> My Color Palette</span>
-          ${hasContent && !this._open
-            ? html`<span class="header-summary">
-                ${palette.colors.length ? `${palette.colors.length} color${palette.colors.length === 1 ? '' : 's'}` : 'defaults set'}
-              </span>`
-            : nothing}
-        </div>
-        ${this._open ? this._renderBody(palette) : nothing}
+        ${renderStaticHeader('mdi:palette-outline', t('palette.title'),
+          hasContent
+            ? html`<span class="module-summary">${palette.colors.length
+                ? t(palette.colors.length === 1 ? 'palette.oneColor' : 'palette.nColors', { n: palette.colors.length })
+                : t('palette.defaultsSet')}</span>`
+            : nothing)}
+        ${this._renderBody(palette)}
         ${this._unsaved
-          ? html`<div class="hint" role="status">Couldn't save this change — this browser's storage is full and Home Assistant wasn't reachable. It will be lost when the page reloads.</div>`
+          ? html`<div class="hint" role="status">${t('palette.unsaved')}</div>`
           : nothing}
       </div>
     `;
@@ -358,22 +351,15 @@ export class CmsPaletteManager extends LitElement {
   private _renderBody(palette: CustomPalette) {
     return html`
       <div class="module-body">
-        <span class="section-label">My colors — shown as extra swatches in every color picker:</span>
+        <span class="section-label">${t('palette.myColors')}</span>
         ${palette.colors.map((c, i) => this._renderColorRow(c, i))}
-        <button class="add-btn" @click=${this._addColor}>+ Add Color</button>
+        <button class="add-btn" @click=${this._addColor}>${t('palette.addColor')}</button>
 
-        <span class="section-label">
-          Default ON / OFF colors — what Icon Color and Accent Color start with when you enable them:
-        </span>
+        <span class="section-label">${t('palette.defaultsLabel')}</span>
         ${this._renderDefaultRow('ON', 'onColor', palette.defaults.onColor, DEFAULT_ICON_COLOR.colorOn)}
         ${this._renderDefaultRow('OFF', 'offColor', palette.defaults.offColor, DEFAULT_ICON_COLOR.colorOff)}
-        <div class="hint">
-          Changing these doesn't touch already-styled cards — only what a newly-enabled module starts from.
-        </div>
-        <div class="hint">
-          Saved straight to your Home Assistant profile. Cards keep the colour they were given — changing an entry
-          here doesn't restyle them.
-        </div>
+        <div class="hint">${t('palette.defaultsHint')}</div>
+        <div class="hint">${t('palette.savedHint')}</div>
       </div>
     `;
   }
@@ -386,7 +372,7 @@ export class CmsPaletteManager extends LitElement {
       <input
         type="color"
         class="swatch-input"
-        aria-label="Colour of ${subject}"
+        aria-label=${t('palette.colourOf', { subject })}
         .value=${live?.hex ?? stored}
         @input=${(e: Event) => this._onPick(rowKey, e)}
         @change=${(e: Event) => this._commitHex(rowKey, e, stored, save)}
@@ -394,7 +380,7 @@ export class CmsPaletteManager extends LitElement {
       <input
         type="text"
         class="hex-input"
-        aria-label="Hex value of ${subject}"
+        aria-label=${t('palette.hexOf', { subject })}
         aria-invalid=${invalid ? 'true' : 'false'}
         placeholder="#rrggbb"
         spellcheck="false"
@@ -409,9 +395,9 @@ export class CmsPaletteManager extends LitElement {
   }
 
   private _renderColorRow(c: CustomColor, index: number) {
-    const label = c.name || `colour ${index + 1}`;
+    const label = c.name || t('palette.colourN', { n: index + 1 });
     const armed = this._armed === c.id;
-    const removeLabel = armed ? `Remove '${label}'?` : `Remove '${label}'`;
+    const removeLabel = armed ? t('palette.removeArmed', { name: label }) : t('palette.remove', { name: label });
     return html`
       <div class="color-row" data-row=${c.id}>
         ${this._renderColorFields(`${c.id}:hex`, c.hex, `'${label}'`, (hex) => this._updateColor(c.id, 'hex', hex))}
@@ -419,8 +405,8 @@ export class CmsPaletteManager extends LitElement {
           type="text"
           class="name-input"
           .value=${c.name}
-          placeholder="Name"
-          aria-label="Name of colour ${index + 1}"
+          placeholder=${t('palette.name')}
+          aria-label=${t('palette.nameOf', { n: index + 1 })}
           @change=${(e: Event) => this._updateColor(c.id, 'name', (e.target as HTMLInputElement).value)}
         />
         <button
@@ -443,7 +429,7 @@ export class CmsPaletteManager extends LitElement {
               this._disarm();
             }
           }}
-        >${armed ? 'Remove?' : '×'}</button>
+        >${armed ? t('palette.removeQ') : '×'}</button>
       </div>
     `;
   }
@@ -454,13 +440,21 @@ export class CmsPaletteManager extends LitElement {
     value: string | undefined,
     builtin: string,
   ) {
-    const subject = `default ${which} colour`;
+    const subject = t(which === 'ON' ? 'palette.defaultOn' : 'palette.defaultOff');
+    // The integration's default for everyone stands in for the built-in.
+    const site = getSiteDefaults()?.[key];
+    const siteName = site ? t(`picker.color.${site.slice(6, -7)}` as MessageKey) : undefined;
+    const fallback = site ? previewHexFor(site) : builtin;
     return html`
       <div class="color-row" data-row=${key}>
-        ${this._renderColorFields(key, value ?? builtin, subject, (hex) => this._setDefault(key, hex))}
-        <span class="default-label">${which} default${value ? '' : html` <span class="default-builtin">(built-in ${builtin})</span>`}</span>
+        ${this._renderColorFields(key, value ?? fallback, subject, (hex) => this._setDefault(key, hex))}
+        <span class="default-label">${t(which === 'ON' ? 'palette.onDefault' : 'palette.offDefault')}${value
+          ? ''
+          : html` <span class="default-builtin">${siteName
+              ? t('palette.siteDefault', { color: siteName })
+              : t('palette.builtin', { color: builtin })}</span>`}</span>
         ${value
-          ? html`<button class="reset-btn" aria-label="Reset ${subject} to built-in" @click=${() => this._setDefault(key, undefined)}>Reset</button>`
+          ? html`<button class="reset-btn" aria-label=${t('palette.resetSubject', { subject })} @click=${() => this._setDefault(key, undefined)}>${t('palette.reset')}</button>`
           : nothing}
       </div>
     `;

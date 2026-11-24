@@ -28,11 +28,11 @@ export const CONTAINER_CARD_TYPES = new Set([
   'entity-filter',
 ]);
 
-/** Container types whose children live in a `cards: []` array the panel can
- *  offer per-child styling for (conditional uses a single `card:` instead —
- *  not yet supported; sections aren't edited through this dialog). */
+/** Container types the panel offers per-child styling sections for: a
+ *  `cards: []` list, or a single `card:` (conditional, entity-filter — v1.0;
+ *  see child-slots.ts). Sections aren't edited through this dialog. */
 export const STYLABLE_CHILDREN_CARD_TYPES = new Set([
-  'grid', 'vertical-stack', 'horizontal-stack',
+  'grid', 'vertical-stack', 'horizontal-stack', 'conditional', 'entity-filter',
 ]);
 
 /**
@@ -54,18 +54,24 @@ export const STYLABLE_CHILDREN_CARD_TYPES = new Set([
  *    picture, picture-entity, picture-glance, picture-elements, map …): it
  *    moves a `background-position` those cards cannot show.
  *
- * Still hidden altogether, with the measured reason:
- *  - heading: no painted box, the glow outlines bare text.
+ *  - Glow and Spin on heading (v1.0, measured HA 2026.11): the heading has no
+ *    painted box, so Glow outlines a full-width pill around bare text and
+ *    Spin swings the whole row across the view. Pulse, Breathe, Blink,
+ *    Bounce, Shake and Heartbeat move the text as on any card.
+ *
+ * Still hidden altogether:
  *  - never measured: energy cards, activity, webpage, shopping-list.
  */
 export const NO_ANIMATION_TYPES = new Set([
-  'heading',
   'energy-distribution', 'energy-usage-graph', 'activity', 'webpage', 'shopping-list',
 ]);
 
 /** Cards where Spin breaks the pointer: the dial handle (thermostat,
  *  humidifier, light) and the map's pan drift away from it. */
-export const NO_SPIN_TYPES = new Set(['thermostat', 'humidifier', 'light', 'map']);
+export const NO_SPIN_TYPES = new Set(['thermostat', 'humidifier', 'light', 'map', 'heading']);
+
+/** Cards with no painted box, where Glow outlines bare text (heading). */
+export const NO_GLOW_TYPES = new Set(['heading']);
 
 export const NO_BACKGROUND_TYPES = new Set([
   'picture', 'picture-entity', 'picture-glance', 'picture-elements',
@@ -175,10 +181,10 @@ export const NO_FONT_WEIGHT_TYPES = new Set([
  * graph labels are canvas-drawn, but the colour reaches the card title.)
  */
 export const NO_TEXT_COLOR_TYPES = new Set([
-  // alarm-panel: the title and Arm buttons DO follow a colour (measured 2026.11),
-  // but this set also gates Threshold's Text Color target, which was not
-  // verified there — left hidden until it is.
-  'alarm-panel', 'area', 'media-control', 'picture-elements', 'picture-entity',
+  // (v1.0, measured HA 2026.11: alarm-panel's title and picture-elements'
+  // state labels take the colour — Font's and Threshold's Text Color — so
+  // they are no longer listed.)
+  'area', 'media-control', 'picture-entity',
   'picture-glance',
   // HA 2026.11 date card (module-effect audit, UIX 9)
   'date',
@@ -271,6 +277,8 @@ export interface CardCaps {
   isContainer: boolean;
   /** Container with a `cards: []` list the panel offers child sections for. */
   stylableChildren: boolean;
+  /** Features module (tile feature rows, v1.0 — measured on tile only). */
+  features: boolean;
   /** Which panel modules show. */
   modules: Record<ProfileModule, boolean>;
   /** Animation presets left out of this card's list: Spin where it breaks a
@@ -334,12 +342,14 @@ function buildCaps(
     isLight: !custom && key === 'light',
     isContainer: !custom && CONTAINER_CARD_TYPES.has(key),
     stylableChildren: !custom && STYLABLE_CHILDREN_CARD_TYPES.has(key),
+    features: !custom && key === 'tile',
     modules: m,
     // Spin is gated on built-in dial cards only (nothing measured for custom
     // cards); Gradient Shift needs a Background to move, and on a custom card
     // also a profile that paints it where the animation runs (ha-card).
     noAnimationPresets: [
       ...(!custom && NO_SPIN_TYPES.has(key) ? ['spin'] : []),
+      ...(!custom && NO_GLOW_TYPES.has(key) ? ['glow'] : []),
       ...(!m.background || noGradientShift ? ['gradient-shift'] : []),
     ],
     ...flags,

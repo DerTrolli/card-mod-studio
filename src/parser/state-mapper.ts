@@ -22,6 +22,7 @@ import type {
   BackgroundModuleState,
   BorderModuleState,
   HeadingStyleModuleState,
+  FeaturesModuleState,
   FontModuleState,
   AnimationModuleState,
   ThresholdModuleState,
@@ -34,9 +35,11 @@ import type {
   StyleCondition,
   DictSource,
 } from '../types/index.js';
+import { isTextRule } from '../types/index.js';
+import { normalizeRule } from '../utils/threshold-rules.js';
 import { parseCss, parseCssDetailed, isBareDeclarations, keptCmsKeyframes } from './css-parser.js';
+import { ANY_PREFIX_SRC, GRADIENT_MARKER_PROPERTIES, animationName } from '../utils/studio-names.js';
 import {
-  GRADIENT_MARKER_PROPERTY,
   ANIMATION_TIMING,
   decodeGradientStops,
   headerFontSize,
@@ -133,6 +136,16 @@ export const DEFAULT_BORDER: BorderModuleState = {
  *  (Was #e1e1e1 — near-invisible light grey on light themes.) */
 export const THEME_TEXT_COLOR = 'var(--primary-text-color)';
 
+export const DEFAULT_FEATURES: FeaturesModuleState = {
+  enabled: false,
+  heightPx: 0,
+  radiusPx: -1,
+  color: '',
+};
+
+/** The selector Features writes to (tile cards). */
+export const FEATURES_SELECTOR = 'hui-card-features';
+
 export const DEFAULT_HEADING_STYLE: HeadingStyleModuleState = {
   enabled: false,
   fontFamily: '',
@@ -188,6 +201,31 @@ function coerceNumericValues<T extends { value: unknown }>(items: T[]): T[] {
   return out;
 }
 
+/** Longest text a text rule keeps (a state is at most 255 characters). */
+const TEXT_RULE_MAX = 255;
+const RULE_OPERATORS = new Set(['<', '<=', '>', '>=', '==', '!=', 'is', 'is-not']);
+
+/**
+ * Threshold rules from storage or a paste: a number rule gets a finite number
+ * (as coerceNumericValues); a text rule (`is` / `is-not`, v1.0.0-beta.2) keeps
+ * its text — one whose text is a number becomes the number rule `==` / `!=`
+ * (normalizeRule). An unknown operator, or a text rule without text, is
+ * dropped.
+ */
+function coerceRuleValues(items: ThresholdRule[]): ThresholdRule[] {
+  const out: ThresholdRule[] = [];
+  for (const item of items) {
+    if (!item || typeof item !== 'object' || !RULE_OPERATORS.has(item.operator as string)) continue;
+    if (isTextRule(item)) {
+      const v = typeof item.value === 'number' && Number.isFinite(item.value) ? String(item.value) : item.value;
+      if (typeof v === 'string' && v.length > 0 && v.length <= TEXT_RULE_MAX) out.push(normalizeRule(v === item.value ? item : { ...item, value: v }));
+      continue;
+    }
+    out.push(...coerceNumericValues([item]));
+  }
+  return out;
+}
+
 /**
  * Normalises a StudioState of ANY historical schema (e.g. a preset saved by
  * v0.6.x, before multi-property/gradient threshold and conditional accent
@@ -198,6 +236,69 @@ function coerceNumericValues<T extends { value: unknown }>(items: T[]): T[] {
  * fields are translated (v0.6.x `threshold.property` → `properties: [...]`).
  * Safe on current-schema input (idempotent).
  */
+/** A stored or pasted Features state, every field checked. */
+function migrateFeatures(raw: unknown): FeaturesModuleState {
+  const f = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const num = (v: unknown, min: number, max: number, dflt: number) =>
+    typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? Math.round(v) : dflt;
+  return {
+    enabled: f.enabled === true,
+    heightPx: num(f.heightPx, 0, 200, 0),
+    radiusPx: num(f.radiusPx, -1, 100, -1),
+    color: typeof f.color === 'string' && /^(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)$/.test(f.color.trim()) ? f.color.trim() : '',
+  };
+}
+
+/** Border from storage: `squareCorners` is kept only as a real `true`. */
+function migrateBorder(raw: unknown): BorderModuleState {
+  const b = { ...DEFAULT_BORDER, ...((raw && typeof raw === 'object' ? raw : {}) as Partial<BorderModuleState>) };
+  if (b.squareCorners === true) return { ...b, radiusPx: 0 };
+  delete b.squareCorners;
+  return b;
+}
+
+type ValueFields = Pick<StyleCondition, 'valueOperator' | 'valueThreshold' | 'valueText' | 'valueTextOperator'>;
+
+/**
+ * The text-comparison fields of a stored / pasted value condition (v1.0.0,
+ * #42), checked: the text must be a non-empty string of at most 255
+ * characters (else both text fields go), the operator `is` / `is-not`; a
+ * text that is a number becomes the number comparison `==` / `!=` (as a
+ * Threshold rule's, normalizeRule); while a text is set the number fields
+ * are unset. Returns a copy; untouched when there's no text field.
+ */
+function migrateValueFields<T extends ValueFields>(c: T): T {
+  if (!('valueText' in c) && !('valueTextOperator' in c)) return c;
+  const out = { ...c };
+  const text = out.valueText;
+  const op = out.valueTextOperator === 'is-not' ? 'is-not' : 'is';
+  delete out.valueText;
+  delete out.valueTextOperator;
+  if (typeof text !== 'string' || text.length === 0 || text.length > TEXT_RULE_MAX) return out;
+  const asRule = normalizeRule({ id: '', operator: op, value: text, color: '' });
+  if (!isTextRule(asRule)) {
+    out.valueOperator = asRule.operator as ValueFields['valueOperator'];
+    out.valueThreshold = Number(asRule.value);
+    return out;
+  }
+  delete out.valueOperator;
+  delete out.valueThreshold;
+  out.valueText = text;
+  out.valueTextOperator = op;
+  return out;
+}
+
+/** A stored StyleCondition: an object with a known `when`, its text fields
+ *  checked; anything else → undefined. `valueOnly`: only `when: 'value'`
+ *  (Background's and grayscale's "a value matches"). */
+function migrateCondition(raw: unknown, valueOnly = false): StyleCondition | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const c = raw as StyleCondition;
+  const whens = valueOnly ? ['value'] : ['always', 'on', 'off', 'custom', 'value'];
+  if (!whens.includes(c.when)) return undefined;
+  return migrateValueFields(c);
+}
+
 export function migrateStudioState(raw: unknown): StudioState {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, Record<string, unknown> | undefined>;
 
@@ -214,7 +315,7 @@ export function migrateStudioState(raw: unknown): StudioState {
   if (threshold.valueMode !== 'gradient') threshold.valueMode = 'switch';
   if (!Array.isArray(threshold.rules)) threshold.rules = [];
   // Very old presets stored a rule's / stop's value as text ("12.5").
-  threshold.rules = coerceNumericValues(threshold.rules);
+  threshold.rules = coerceRuleValues(threshold.rules);
   if (Array.isArray(threshold.colorStops)) threshold.colorStops = coerceNumericValues(threshold.colorStops);
   if (!Array.isArray(threshold.colorStops) || threshold.colorStops.length === 0) {
     threshold.colorStops = DEFAULT_THRESHOLD.colorStops.map((s) => ({ ...s }));
@@ -223,14 +324,31 @@ export function migrateStudioState(raw: unknown): StudioState {
   const accentColor = { ...DEFAULT_ACCENT_COLOR, ...(r.accentColor ?? {}) } as AccentColorModuleState;
   if (accentColor.mode !== 'conditional') accentColor.mode = 'plain';
 
+  // Conditions with a text comparison or a value condition (v1.0.0, #42).
+  const filter = { ...DEFAULT_FILTER, ...(r.filter ?? {}) } as FilterModuleState;
+  if (filter.effectsWhen !== undefined) filter.effectsWhen = migrateCondition(filter.effectsWhen);
+  if (filter.effectsWhen === undefined) delete filter.effectsWhen;
+  if (filter.grayscaleCondition !== undefined) filter.grayscaleCondition = migrateCondition(filter.grayscaleCondition, true);
+  if (filter.grayscaleCondition === undefined) delete filter.grayscaleCondition;
+  const iconColor = { ...DEFAULT_ICON_COLOR, ...(r.iconColor ?? {}) } as IconColorModuleState;
+  if (iconColor.sizeWhen !== undefined) iconColor.sizeWhen = migrateCondition(iconColor.sizeWhen);
+  if (iconColor.sizeWhen === undefined) delete iconColor.sizeWhen;
+  const background = { ...DEFAULT_BACKGROUND, ...(r.background ?? {}) } as BackgroundModuleState;
+  if (background.condition !== undefined) background.condition = migrateCondition(background.condition, true);
+  if (background.condition === undefined) delete background.condition;
+  const border = migrateBorder(r.border);
+  if (border.widthWhen !== undefined) border.widthWhen = migrateCondition(border.widthWhen);
+  if (border.widthWhen === undefined) delete border.widthWhen;
+
   return {
-    filter: { ...DEFAULT_FILTER, ...(r.filter ?? {}) } as FilterModuleState,
-    iconColor: { ...DEFAULT_ICON_COLOR, ...(r.iconColor ?? {}) } as IconColorModuleState,
+    filter,
+    iconColor,
     accentColor,
-    background: { ...DEFAULT_BACKGROUND, ...(r.background ?? {}) } as BackgroundModuleState,
-    animation: { ...DEFAULT_ANIMATION, ...(r.animation ?? {}) } as AnimationModuleState,
-    border: { ...DEFAULT_BORDER, ...(r.border ?? {}) } as BorderModuleState,
+    background,
+    animation: migrateValueFields({ ...DEFAULT_ANIMATION, ...(r.animation ?? {}) } as AnimationModuleState),
+    border,
     headingStyle: { ...DEFAULT_HEADING_STYLE, ...(r.headingStyle ?? {}) } as HeadingStyleModuleState,
+    features: migrateFeatures(r.features),
     font: { ...DEFAULT_FONT, ...(r.font ?? {}) } as FontModuleState,
     threshold,
     advanced: { rawCss: typeof r.advanced?.rawCss === 'string' ? (r.advanced.rawCss as string) : '' },
@@ -321,8 +439,11 @@ const VALUE_SOURCE_SRC = String.raw`(?:states\('(${JINJA_STR_BODY_1})'\)|state_a
 
 const COND_ON_OFF_PATTERN = /^is_state\(config\.entity,\s*'(on|off)'\)$/;
 const COND_CUSTOM_PATTERN = new RegExp(String.raw`^is_state\('(${JINJA_STR_BODY_1})',\s*'on'\)$`);
+// A number comparison, or since v1.0.0 (#42) a text one: `states('x') ==
+// 'heating'`, an attribute `state_attr('x', 'a') | string == '…'` (exactly
+// what valueComparison writes — `| string` only with an attribute).
 const COND_VALUE_PATTERN = new RegExp(
-  String.raw`^${VALUE_SOURCE_SRC}\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+)$`,
+  String.raw`^${VALUE_SOURCE_SRC}\s*(?:\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+)|(\|\s*string\s*)?(==|!=)\s*'(${JINJA_STR_BODY})')$`,
 );
 
 /**
@@ -338,11 +459,19 @@ function parseConditionExpr(cond: string): StyleCondition | null {
   if (custom) return { when: 'custom', customEntity: unescapeJinjaStr(custom[1]) };
   const value = trimmed.match(COND_VALUE_PATTERN);
   if (value) {
-    const [, stateEntity, attrEntity, attrName, operator, numStr] = value;
-    return {
-      when: 'value',
+    const [, stateEntity, attrEntity, attrName, operator, numStr, stringFilter, textOp, text] = value;
+    const source = {
+      when: 'value' as const,
       valueEntity: unescapeJinjaStr((stateEntity ?? attrEntity)!),
       ...(attrName ? { valueAttribute: unescapeJinjaStr(attrName) } : {}),
+    };
+    if (textOp !== undefined) {
+      // `| string` is written with an attribute and only then.
+      if ((attrName !== undefined) !== (stringFilter !== undefined)) return null;
+      return { ...source, valueText: unescapeJinjaStr(text), valueTextOperator: textOp === '==' ? 'is' : 'is-not' };
+    }
+    return {
+      ...source,
       valueOperator: operator as StyleCondition['valueOperator'],
       valueThreshold: parseFloat(numStr),
     };
@@ -366,9 +495,11 @@ function parseCondTernary(
 // Animation module
 // ---------------------------------------------------------------------------
 
-/** Pattern: cms-{preset} {speed}s {timing} infinite (see animationDecls). */
-const ANIM_PATTERN =
-  /^cms-(pulse|breathe|gradient-shift|blink|bounce|shake|spin|glow|heartbeat)\s+([\d.]+)s\s+(ease-in-out|linear)\s+infinite$/;
+/** Pattern: cstudio-{preset} {speed}s {timing} infinite (see animationDecls;
+ *  `cms-{preset}` before v1.0.0-beta.2 is read the same — studio-names.ts). */
+const ANIM_PATTERN = new RegExp(
+  String.raw`^${ANY_PREFIX_SRC}(pulse|breathe|gradient-shift|blink|bounce|shake|spin|glow|heartbeat)\s+([\d.]+)s\s+(ease-in-out|linear)\s+infinite$`,
+);
 
 /**
  * The value-conditional animation form (trigger === 'value'):
@@ -379,9 +510,7 @@ const ANIM_PATTERN =
  * Groups: [1]=animation value, [2]=states entity, [3]=attr entity,
  * [4]=attribute, [5]=operator, [6]=threshold number.
  */
-const ANIM_VALUE_TRIGGER_PATTERN = new RegExp(
-  String.raw`^\{\{\s*'([^']+)'\s+if\s+${VALUE_SOURCE_SRC}\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+)\s+else\s+'none'\s*\}\}$`,
-);
+const ANIM_VALUE_TRIGGER_PATTERN = /^\{\{\s*'([^']+)'\s+if\s+(.+?)\s+else\s+'none'\s*\}\}$/;
 
 /**
  * Parses "cms-{preset} {speed}s {timing} infinite" into preset + speed.
@@ -461,21 +590,16 @@ function mapAnimation(
   } else {
     // Jinja the on/off analyzer didn't recognise — try the value-conditional
     // form (trigger === 'value'). Anything else stays unclaimed.
+    // The condition is the shared value comparison (a number, or since
+    // v1.0.0 a text) — the same reader as the conditions.
     const match = animProp.value.trim().match(ANIM_VALUE_TRIGGER_PATTERN);
-    if (match && !hasForeignEscape(animProp.value)) {
-      const [, animValue, stateEntity, attrEntity, attrName, operator, numStr] = match;
-      const parsed = parseAnimValue(animValue);
+    const cond = match && !hasForeignEscape(animProp.value) ? parseConditionExpr(match[2]) : null;
+    if (match && cond?.when === 'value') {
+      const parsed = parseAnimValue(match[1]);
       if (parsed) {
         claimCompanions(parsed.preset);
-        return {
-          enabled: true,
-          ...parsed,
-          trigger: 'value',
-          valueEntity: unescapeJinjaStr((stateEntity ?? attrEntity)!),
-          ...(attrName ? { valueAttribute: unescapeJinjaStr(attrName) } : {}),
-          valueOperator: operator as AnimationModuleState['valueOperator'],
-          valueThreshold: parseFloat(numStr),
-        };
+        const { when: _when, ...value } = cond;
+        return { enabled: true, ...parsed, trigger: 'value', ...value };
       }
     }
   }
@@ -593,6 +717,7 @@ function mapView(fullParsed: CardModStyleState, parsed: CardModStyleState, cardT
     findTargetNormalized(parsed.targets, HEADING_ICON_SELECTOR) ?? findTarget(parsed.targets, '.title ha-icon');
   const headingFamily = findTargetNormalized(parsed.targets, HEADING_FAMILY_SELECTOR);
   const container = findTarget(parsed.targets, '.container');
+  const featuresTarget = findTarget(parsed.targets, FEATURES_SELECTOR);
 
   const claimed = new Set<string>();
   const numberSize = claimNumberSize(parsed.dictSource, cardType);
@@ -651,6 +776,8 @@ function mapView(fullParsed: CardModStyleState, parsed: CardModStyleState, cardT
       hidden('headingStyle') || (cardType !== undefined && cardType !== 'heading')
         ? { ...DEFAULT_HEADING_STYLE }
         : mapHeadingStyle(titleP, headingIcon, container, headingFamily, claimed),
+    // Features: tile cards only (`hui-card-features` elsewhere is the user's).
+    features: cardType === 'tile' ? mapFeatures(featuresTarget, claimed) : { ...DEFAULT_FEATURES },
     font: {
       ...(hidden('font')
         ? { ...DEFAULT_FONT }
@@ -684,7 +811,7 @@ function mapView(fullParsed: CardModStyleState, parsed: CardModStyleState, cardT
   return {
     ...state,
     // The generator writes the enabled preset's keyframes itself.
-    advanced: mapAdvanced(fullParsed, claimed, state.animation.enabled ? `cms-${state.animation.preset}` : undefined),
+    advanced: mapAdvanced(fullParsed, claimed, state.animation.enabled ? animationName(state.animation.preset) : undefined),
   };
 }
 
@@ -747,6 +874,7 @@ export function mergeStudioStates(primary: StudioState, secondary: StudioState):
     animation: primary.animation.enabled ? primary.animation : secondary.animation,
     border: primary.border.enabled ? primary.border : secondary.border,
     headingStyle: primary.headingStyle.enabled ? primary.headingStyle : secondary.headingStyle,
+    features: primary.features?.enabled ? primary.features : (secondary.features ?? primary.features),
     // Number size lives in the primary's dict (a string secondary can't
     // carry it), whichever side's base font wins.
     // A Font switched on only by that entry (nothing else set) is not a
@@ -937,7 +1065,9 @@ class ProfileClaims {
         // Plain, or riding on the module's own condition: the value on one
         // branch and nothing (the declaration dropped) on the other.
         const plain = !prop.hasCondition && prop.value.trim() === rule.equals;
-        const branches = prop.hasCondition ? [prop.onValue?.trim(), prop.offValue?.trim()] : [];
+        // on/off (read by the CSS parser) or, since v1.0.0, a value condition.
+        const tern = prop.hasCondition && prop.onValue === undefined ? parseCondTernary(prop.value) : null;
+        const branches = !prop.hasCondition ? [] : tern ? [tern.onValue.trim(), tern.offValue.trim()] : [prop.onValue?.trim(), prop.offValue?.trim()];
         const conditional = branches.length === 2 && branches.includes(rule.equals) && branches.includes('');
         if (plain || conditional) claimed.add(claimKey(target.selector, prop.property));
       }
@@ -1052,10 +1182,11 @@ function mapBorderProfile(pc: ProfileClaims, claimed: Set<string>): BorderModule
 
   const radius = plain('borderRadius');
   const radiusMatch = radius?.value.trim().match(/^(\d+(?:\.\d+)?)px$/);
-  const radiusAdopted = !!radius && !!radiusMatch && parseFloat(radiusMatch[1]) > 0;
-  if (radius && radiusAdopted) {
+  const radiusAdopted = !!radius && !!radiusMatch;
+  if (radius && radiusMatch) {
     state.enabled = true;
-    state.radiusPx = parseFloat(radiusMatch[1]);
+    if (parseFloat(radiusMatch[1]) > 0) state.radiusPx = parseFloat(radiusMatch[1]);
+    else { state.squareCorners = true; state.radiusPx = 0; }
     pc.claimEqual('borderRadius', radius.value, claimed);
   }
 
@@ -1244,10 +1375,24 @@ function mapFilter(haCard: CssTarget | null, claimed: Set<string>): FilterModule
         // brightness/blur out of the raw Jinja and silently flattened the
         // condition away on the next save.
         const ternary = parseCondTernary(filterProp.value);
-        const parts = ternary && ternary.offValue === 'none'
+        // Grayscale on "a value matches" (v1.0.0, #42): the same branches as
+        // the on/off forms, behind a value comparison.
+        const grayParts = ternary?.condition.when === 'value' && matchesOther(ternary.onValue, ternary.offValue)
+          ? parseEffectParts(grayRemainder(ternary.onValue), true)
+          : null;
+        const parts = !grayParts && ternary && ternary.offValue === 'none'
           ? parseEffectParts(ternary.onValue, false)
           : null;
-        if (ternary && parts) {
+        if (ternary && grayParts) {
+          state.enabled = true;
+          state.grayscale = true;
+          state.grayscaleWhen = 'always';
+          state.grayscaleCondition = ternary.condition;
+          if (grayParts.brightness !== undefined) state.brightness = grayParts.brightness;
+          if (grayParts.blur !== undefined) state.blur = grayParts.blur;
+          if (grayParts.opacity !== undefined) state.opacity = grayParts.opacity;
+          filterClaimed = true;
+        } else if (ternary && parts) {
           state.enabled = true;
           if (parts.brightness !== undefined) state.brightness = parts.brightness;
           if (parts.blur !== undefined) state.blur = parts.blur;
@@ -1747,7 +1892,23 @@ function mapBackground(
     return { ...DEFAULT_BACKGROUND };
   }
 
-  if (bgProp.hasCondition) return { ...DEFAULT_BACKGROUND };
+  // "A value matches" (v1.0.0, #42): `{{ 'red' if <value comparison> else
+  // '' }}` — the else branch is the card's own look. (With a colour there it
+  // is a one-rule Threshold, read by mapThreshold.)
+  if (bgProp.hasCondition) {
+    const tern = parseCondTernary(bgProp.value);
+    if (tern?.condition.when === 'value' && isOwnLookBranch(tern.offValue, bgProp.property)) {
+      const colorVal = tern.onValue.trim();
+      if (colorVal && !isOwnLookBranch(colorVal, bgProp.property) && !colorVal.includes('url(')) {
+        claimBg();
+        const gradient = parseLinearGradient(colorVal);
+        return gradient
+          ? { enabled: true, type: 'gradient', color1: gradient.color1, color2: gradient.color2, angle: gradient.angle, applyWhen: 'always', condition: tern.condition }
+          : { ...DEFAULT_BACKGROUND, enabled: true, type: 'solid', color1: colorVal, applyWhen: 'always', condition: tern.condition };
+      }
+    }
+    return { ...DEFAULT_BACKGROUND };
+  }
 
   const value = bgProp.value.trim();
 
@@ -1798,6 +1959,41 @@ function mapBackground(
 // Border module
 // ---------------------------------------------------------------------------
 
+/**
+ * Features (v1.0): `hui-card-features { --feature-height: Npx;
+ * --feature-border-radius: Npx; --feature-color: C !important }` — exactly
+ * what featuresBlock writes. A colour without `!important` does nothing on
+ * the card (the tile sets its own), so it isn't taken over: it stays the
+ * user's, in Advanced CSS, as written. Conditions (Jinja) aren't ours either.
+ */
+function mapFeatures(target: CssTarget | null, claimed: Set<string>): FeaturesModuleState {
+  const state: FeaturesModuleState = { ...DEFAULT_FEATURES };
+  if (!target) return state;
+  const px = (prop: string, min: number): number | null => {
+    const p = findProp(target, prop);
+    if (!p || p.hasCondition || p.important) return null;
+    const m = p.value.match(/^(\d+)px$/);
+    return m && parseInt(m[1], 10) >= min ? parseInt(m[1], 10) : null;
+  };
+  const height = px('--feature-height', 1);
+  if (height !== null) {
+    state.heightPx = height;
+    claimed.add(claimKey(target.selector, '--feature-height'));
+  }
+  const radius = px('--feature-border-radius', 0);
+  if (radius !== null) {
+    state.radiusPx = radius;
+    claimed.add(claimKey(target.selector, '--feature-border-radius'));
+  }
+  const color = findProp(target, '--feature-color');
+  if (color && color.important && !color.hasCondition && /^(#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)$/.test(color.value)) {
+    state.color = color.value;
+    claimed.add(claimKey(target.selector, '--feature-color'));
+  }
+  state.enabled = height !== null || radius !== null || !!state.color;
+  return state;
+}
+
 function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModuleState {
   if (!haCard) return { ...DEFAULT_BORDER };
 
@@ -1811,12 +2007,12 @@ function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModule
 
   if (radiusProp && !radiusProp.hasCondition) {
     const match = radiusProp.value.match(/^(\d+(?:\.\d+)?)px$/);
-    // The module writes a radius only above 0 (0 is its "not set"), so a
-    // hand-written `border-radius: 0px` (square corners) is not ours: claiming
-    // it dropped it on the next save and the theme's rounding came back.
-    if (match && parseFloat(match[1]) > 0) {
+    // `0px` is square corners (v1.0: the module's own setting; before, 0 was
+    // only "not set", so a hand-written 0px was left in Advanced CSS).
+    if (match) {
       state.enabled = true;
-      state.radiusPx = parseFloat(match[1]);
+      if (parseFloat(match[1]) > 0) state.radiusPx = parseFloat(match[1]);
+      else { state.squareCorners = true; state.radiusPx = 0; }
       radiusAdopted = true;
       claimed.add(claimKey(haCard.selector, 'border-radius'));
     }
@@ -2305,6 +2501,13 @@ function mapFont(
 // Threshold module
 // ---------------------------------------------------------------------------
 
+/** Cheap pre-check: a value that may be a threshold chain — a number rule
+ *  (`| float(0)`) or a text rule (`if states(…) == '…'`, v1.0.0-beta.2). */
+const TEXT_RULE_HINT = /\bif\s+(?:states|state_attr)\([^)]*\)\s*(?:\|\s*string\s*)?[=!]=\s*'/;
+export function looksLikeThresholdJinja(value: string): boolean {
+  return value.includes('float(0)') || TEXT_RULE_HINT.test(value);
+}
+
 export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet' = 'css'): {
   entityId: string;
   /** Set when the rules read state_attr(entity, attribute) instead of the state. */
@@ -2312,7 +2515,7 @@ export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet'
   rules: ThresholdRule[];
   defaultColor: string;
 } | null {
-  if (!value.includes('float(0)')) return null;
+  if (!looksLikeThresholdJinja(value)) return null;
 
   // Color token accepts hex, a bare CSS color name, var(--xxx-color) — the
   // var form is what the palette presets (see cms-color-picker.ts) write,
@@ -2331,8 +2534,11 @@ export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet'
     format === 'rgb-triplet'
       ? TRIPLET_TOKEN_SRC
       : String.raw`#[0-9a-fA-F]{3,8}|var\(--[\w-]+\)|rgba?\([\d\s.,%]+\)|[a-zA-Z]+`;
+  // A text rule (v1.0.0-beta.2): `states('x') == 'heating'`, or for an
+  // attribute `state_attr('x', 'a') | string == '…'` (what thresholdCondition
+  // writes; the round-trip check below rejects any other spelling).
   const RULE_RE = new RegExp(
-    String.raw`'(${COLOR_TOKEN})'\s+if\s+${VALUE_SOURCE_SRC}\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+(?:\.\d+)?)`,
+    String.raw`'(${COLOR_TOKEN})'\s+if\s+${VALUE_SOURCE_SRC}\s*(?:\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*(-?[\d.]+(?:\.\d+)?)|(?:\|\s*string\s*)?(==|!=)\s*'(${JINJA_STR_BODY})')`,
     'g',
   );
   // Trailing anchor is `)` or `}` ONLY — the final else is always followed
@@ -2354,7 +2560,7 @@ export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet'
   let match: RegExpExecArray | null;
 
   while ((match = RULE_RE.exec(trimmed)) !== null) {
-    const [, rawColor, stateEntity, attrEntity, attrName, operator, numStr] = match;
+    const [, rawColor, stateEntity, attrEntity, attrName, operator, numStr, textOp, textValue] = match;
     const color = format === 'rgb-triplet' ? fromRgbTriplet(rawColor) : rawColor;
     if (color === null) return null;
     const ruleEntity = unescapeJinjaStr((stateEntity ?? attrEntity)!);
@@ -2364,12 +2570,11 @@ export function parseThresholdJinja(value: string, format: 'css' | 'rgb-triplet'
     if (idx > 0 && (ruleEntity !== entityId || ruleAttr !== attribute)) return null;
     entityId = ruleEntity;
     attribute = ruleAttr;
-    rules.push({
-      id: String(idx++),
-      operator: operator as ThresholdRule['operator'],
-      value: parseFloat(numStr),
-      color,
-    });
+    rules.push(
+      textOp !== undefined
+        ? { id: String(idx++), operator: textOp === '==' ? 'is' : 'is-not', value: unescapeJinjaStr(textValue), color }
+        : { id: String(idx++), operator: operator as ThresholdRule['operator'], value: parseFloat(numStr), color },
+    );
   }
 
   if (rules.length === 0 || !entityId) return null;
@@ -2468,7 +2673,7 @@ export function parseEntityRowCss(css: string, rowEntity?: string): EntitiesRowS
   };
 
   const iconVal = valueOf('--state-icon-color', '--paper-item-icon-color');
-  if (iconVal.includes('float(0)')) {
+  if (looksLikeThresholdJinja(iconVal)) {
     const parsed = parseThresholdJinja(iconVal);
     // Rows have no attribute-threshold UI — an attribute-form expression
     // would silently lose its state_attr() source on regeneration, so it
@@ -2490,7 +2695,7 @@ export function parseEntityRowCss(css: string, rowEntity?: string): EntitiesRowS
   }
 
   const textVal = valueOf('color');
-  if (textVal.includes('float(0)')) {
+  if (looksLikeThresholdJinja(textVal)) {
     const parsed = parseThresholdJinja(textVal);
     if (parsed && !parsed.attribute && (!rowEntity || parsed.entityId === rowEntity)) {
       style.textMode = 'threshold';
@@ -2654,7 +2859,10 @@ function mapThreshold(
     // ends on a colour.
     const ownBorderColor = (v: string) =>
       role === 'borderColor' && parseCondTernary(v.trim())?.offValue.trim() === 'inherit';
-    const first = pc?.present(role).find(({ prop }) => prop.hasCondition && !prop.onValue && !ownBorderColor(prop.value));
+    // …and not a variable Background already read as "a value matches"
+    // (v1.0.0: its other branch is `inherit`, the card's own look).
+    const first = pc?.present(role).find(({ target, prop }) =>
+      prop.hasCondition && !prop.onValue && !ownBorderColor(prop.value) && !claimed.has(claimKey(target.selector, prop.property)));
     if (first) candidates.push({ target: first.target, cssProperty: first.prop.property, thresholdProperty, profileRole: role });
   };
   profileCandidate('background', 'background');
@@ -2664,7 +2872,8 @@ function mapThreshold(
 
   if (haCard) {
     const bgProp = findProp(haCard, 'background');
-    if (!profileOwns('background') && bgProp?.hasCondition && !bgProp.onValue)
+    // Not one Background already read as "a value matches" (v1.0.0).
+    if (!profileOwns('background') && bgProp?.hasCondition && !bgProp.onValue && !claimed.has(claimKey(haCard.selector, 'background')))
       candidates.push({ target: haCard, cssProperty: 'background', thresholdProperty: 'background' });
 
     const colorProp = findProp(haCard, 'color');
@@ -2794,13 +3003,16 @@ function mapThreshold(
     // thresholdPropertyBlock) — claim the marker on each claimed target,
     // not just the first: the unclaimed copies accreted as orphan blocks
     // in Advanced CSS on every save (audit W3).
-    const markerProp = findProp(target, GRADIENT_MARKER_PROPERTY);
-    if (markerProp) {
+    // The marker's old name (`--cms-gradient-stops`, before v1.0.0-beta.2)
+    // is read and claimed the same: the save writes the new one.
+    for (const markerName of GRADIENT_MARKER_PROPERTIES) {
+      const markerProp = findProp(target, markerName);
+      if (!markerProp) continue;
       const unquoted = markerProp.value.trim().replace(/^'|'$/g, '');
       const decoded = decodeGradientStops(unquoted);
       if (decoded) {
         gradientStops ??= decoded;
-        claimed.add(claimKey(target.selector, GRADIENT_MARKER_PROPERTY));
+        claimed.add(claimKey(target.selector, markerName));
       }
     }
   }

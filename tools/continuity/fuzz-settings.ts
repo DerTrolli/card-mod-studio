@@ -26,12 +26,21 @@ const maybe = (p: number) => rnd() < p;
 const clone = <T,>(o: T): T => JSON.parse(JSON.stringify(o));
 const COL = ['#ff0000', '#00aa00', 'var(--red-color)', 'rgba(255, 0, 0, 0.5)', '#123456', 'red'];
 const ENT = ['switch.decorative_lights', 'light.bed_light', 'sensor.outside_temperature'];
+const textCond = () => ({ when: 'value', valueEntity: pick(['climate.hall', 'vacuum.robo']), valueText: pick(TEXTS), valueTextOperator: pick(['is', 'is-not']), ...(maybe(0.3) ? { valueAttribute: 'hvac_action' } : {}) });
+const textConds = () => [textCond(), textCond()];
 const cond = () => pick<any>([
   undefined, { when: 'always' }, { when: 'on' }, { when: 'off' }, { when: 'custom', customEntity: pick(ENT) },
   { when: 'value', valueEntity: 'sensor.outside_temperature', valueOperator: pick(['<', '<=', '>', '>=', '==', '!=']), valueThreshold: pick([0, 20, -5.5, 100]) },
   { when: 'value', valueEntity: 'sensor.outside_temperature', valueAttribute: 'battery_level', valueOperator: '<=', valueThreshold: 15.5 },
+  // v1.0.0 (#42): text comparisons
+  ...textConds(),
 ]);
-const rules = () => Array.from({ length: 1 + Math.floor(rnd() * 3) }, (_, i) => ({ id: `r${i}`, operator: pick(['<', '<=', '>', '>=', '==', '!=']), value: pick([-10, 0, 10, 20.5, 50, 100]) + i, color: pick(COL) }));
+// v1.0.0-beta.2 (#41): text rules too — alone, mixed with number rules,
+// awkward characters included.
+const TEXTS = ['heating', 'idle', 'unavailable', 'on', "it's", 'a b', 'x\\y', 'Ünïcødé', '12', 'cleaning'];
+const rules = () => Array.from({ length: 1 + Math.floor(rnd() * 3) }, (_, i) => rnd() < 0.3
+  ? { id: `r${i}`, operator: pick(['is', 'is-not']), value: pick(TEXTS), color: pick(COL) }
+  : { id: `r${i}`, operator: pick(['<', '<=', '>', '>=', '==', '!=']), value: pick([-10, 0, 10, 20.5, 50, 100]) + i, color: pick(COL) });
 const stops = () => [{ id: 's1', value: 0, color: '#2196f3' }, ...(maybe(0.5) ? [{ id: 's2', value: 50, color: '#ffeb3b' }] : []), { id: 's3', value: 100, color: '#ff0000' }];
 
 function randomState(key: string, config: any): any {
@@ -41,6 +50,7 @@ function randomState(key: string, config: any): any {
   if (maybe(P)) {
     const f = s.filter; f.enabled = true;
     if (maybe(0.5)) { f.grayscale = true; f.grayscaleWhen = pick(['always', 'on', 'off', 'custom']); if (f.grayscaleWhen === 'custom') f.customEntity = pick(ENT); }
+    if (f.grayscale && maybe(0.25)) { f.grayscaleWhen = 'always'; f.grayscaleCondition = maybe(0.5) ? textCond() : { when: 'value', valueEntity: 'sensor.outside_temperature', valueOperator: '>', valueThreshold: 20 }; }
     if (maybe(0.5)) f.brightness = pick([0, 60, 120, 200]);
     if (maybe(0.4)) f.blur = pick([1, 3]);
     if (maybe(0.4)) f.opacity = pick([0, 50, 100]);
@@ -70,6 +80,7 @@ function randomState(key: string, config: any): any {
     if (maybe(0.8)) b.color2 = pick(COL);
     if (maybe(0.5)) b.angle = pick([0, 45, 90, 180, 360]);
     b.applyWhen = pick(['always', 'always', 'on', 'off', 'custom']); if (b.applyWhen === 'custom') b.customEntity = pick(ENT);
+    if (maybe(0.25)) { b.applyWhen = 'always'; b.condition = maybe(0.5) ? textCond() : { when: 'value', valueEntity: 'sensor.outside_temperature', valueOperator: '<', valueThreshold: 5 }; }
   }
   if (maybe(P)) {
     const a = s.animation; a.enabled = true;
@@ -77,7 +88,7 @@ function randomState(key: string, config: any): any {
     if (maybe(0.5)) a.speedS = pick([0.5, 1, 3, 10]);
     a.trigger = pick(['always', 'always', 'on', 'off', 'custom', 'value']);
     if (a.trigger === 'custom') a.customEntity = pick(ENT);
-    if (a.trigger === 'value') Object.assign(a, { valueEntity: 'sensor.outside_temperature', valueOperator: pick(['<', '>', '>=', '==']), valueThreshold: pick([0, 20, -3.5]) }, maybe(0.3) ? { valueAttribute: 'battery_level' } : {});
+    if (a.trigger === 'value') Object.assign(a, maybe(0.4) ? (({ when: _w, ...t }) => t)(textCond()) : { valueEntity: 'sensor.outside_temperature', valueOperator: pick(['<', '>', '>=', '==']), valueThreshold: pick([0, 20, -3.5]) }, maybe(0.3) ? { valueAttribute: 'battery_level' } : {});
     if (a.preset === 'gradient-shift' && maybe(0.7)) Object.assign(s.background, { enabled: true, type: 'gradient', color1: pick(COL), color2: pick(COL), applyWhen: 'always' });
   }
   if (maybe(P)) {

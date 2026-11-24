@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-shot setup + run for the Card-Mod Studio × UIX sandbox.
+# One-shot setup + run for the Card Style Studio × UIX sandbox.
 #
 # Mirrors run.sh but targets UIX (github.com/Lint-Free-Technology/uix)
 # instead of card-mod, as a SEPARATE HA instance/container/port. It can't

@@ -1,5 +1,5 @@
 /**
- * Shared TypeScript interfaces for Card-Mod Studio.
+ * Shared TypeScript interfaces for Card Style Studio.
  * All public-facing types live here so they can be imported by any module.
  */
 
@@ -37,7 +37,7 @@ export interface LovelaceCardConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Card-Mod Studio internal state types
+// Card Style Studio internal state types
 // ---------------------------------------------------------------------------
 
 /** The top-level config that card-mod reads from a card's YAML. Besides
@@ -185,6 +185,15 @@ export interface StyleCondition {
   valueAttribute?: string;
   valueOperator?: '<' | '<=' | '>' | '>=' | '==' | '!=';
   valueThreshold?: number;
+  /**
+   * A text comparison instead (v1.0.0, issue #42): `is` / `is-not` this text,
+   * exactly as Home Assistant stores the state. When set, valueOperator /
+   * valueThreshold are unset — versions before 1.0.0 then see an incomplete
+   * number comparison and write the unconditional form instead of an
+   * invalid template.
+   */
+  valueText?: string;
+  valueTextOperator?: 'is' | 'is-not';
 }
 
 export interface FilterModuleState {
@@ -193,6 +202,10 @@ export interface FilterModuleState {
   grayscaleWhen: 'always' | 'on' | 'off' | 'custom';
   /** entity_id when grayscaleWhen === 'custom' — a different entity than the card's own. */
   customEntity?: string;
+  /** "A value matches" for grayscale (v1.0.0, #42): a `when: 'value'`
+   *  condition; grayscaleWhen stays 'always' (versions before 1.0.0 ignore
+   *  this field and apply grayscale always). */
+  grayscaleCondition?: StyleCondition;
   brightness: number;       // 0–200, default 100
   blur: number;             // px, default 0
   /** 0–100; 100/undefined = no opacity() part emitted. */
@@ -246,6 +259,10 @@ export interface BackgroundModuleState {
   applyWhen: 'always' | 'on' | 'off' | 'custom';
   /** entity_id when applyWhen === 'custom' — a different entity than the card's own. */
   customEntity?: string;
+  /** "A value matches" (v1.0.0, #42): a `when: 'value'` condition;
+   *  applyWhen stays 'always' (versions before 1.0.0 ignore this field and
+   *  show the background always). */
+  condition?: StyleCondition;
 }
 
 export interface AnimationModuleState {
@@ -271,11 +288,17 @@ export interface AnimationModuleState {
   valueAttribute?: string;
   valueOperator?: '<' | '<=' | '>' | '>=' | '==' | '!=';
   valueThreshold?: number;
+  /** A text comparison instead (v1.0.0, #42); see StyleCondition.valueText. */
+  valueText?: string;
+  valueTextOperator?: 'is' | 'is-not';
 }
 
 export interface BorderModuleState {
   enabled: boolean;
-  radiusPx: number;         // 0–50
+  radiusPx: number;         // 0–50; 0 = not set (the card's own rounding)
+  /** v1.0: square corners — writes `border-radius: 0px` (radiusPx is then
+   *  ignored). Optional, so older presets and pasted text read unchanged. */
+  squareCorners?: boolean;
   borderWidth: number;      // 0 = no border
   borderColor: string;
   /** Condition the border reacts to; undefined / when:'always' = static. */
@@ -328,9 +351,17 @@ export interface FontModuleState {
 
 export interface ThresholdRule {
   id: string;
-  operator: '<' | '<=' | '>' | '>=' | '==' | '!=';
-  value: number;
+  /** `<` … `!=` compare the value as a number; `is` / `is-not` (v1.0.0-beta.2,
+   *  issue #41) compare it as text, exactly (`heating`, `docked`, …). */
+  operator: '<' | '<=' | '>' | '>=' | '==' | '!=' | 'is' | 'is-not';
+  /** A number for the number operators, the text for `is` / `is-not`. */
+  value: number | string;
   color: string;
+}
+
+/** True for the text operators (`is` / `is-not`). */
+export function isTextRule(rule: Pick<ThresholdRule, 'operator'>): boolean {
+  return rule.operator === 'is' || rule.operator === 'is-not';
 }
 
 export type ThresholdProperty =
@@ -426,6 +457,24 @@ export interface EntitiesCardRow {
   [key: string]: unknown;
 }
 
+/**
+ * Tile card features (v1.0): the feature rows under a tile (brightness
+ * slider, toggles, …), styled through the variables HA's `hui-card-features`
+ * reads. Measured on HA 2025.9–2026.11 with card-mod and UIX: height and
+ * corner radius take a plain declaration there, the colour only with
+ * `!important` (the tile sets it from the entity's state). 0 / -1 / '' =
+ * not set: a control the user didn't touch writes nothing.
+ */
+export interface FeaturesModuleState {
+  enabled: boolean;
+  /** --feature-height in px; 0 = not set. */
+  heightPx: number;
+  /** --feature-border-radius in px; -1 = not set (0 = square). */
+  radiusPx: number;
+  /** --feature-color; '' = not set (the entity's state colour). */
+  color: string;
+}
+
 /** Aggregate state of the entire Style panel. */
 export interface StudioState {
   filter: FilterModuleState;
@@ -435,6 +484,8 @@ export interface StudioState {
   animation: AnimationModuleState;
   border: BorderModuleState;
   headingStyle: HeadingStyleModuleState;
+  /** Tile feature rows (v1.0). Optional: states written before it have none. */
+  features?: FeaturesModuleState;
   font: FontModuleState;
   threshold: ThresholdModuleState;
   advanced: AdvancedModuleState;

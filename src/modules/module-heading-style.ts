@@ -5,16 +5,19 @@ import { DEFAULT_HEADING_STYLE } from '../parser/state-mapper.js';
 import {
   moduleStyles, renderOverrideHint, renderModuleHeader, renderResetButton, renderDefaultOption,
   guardSliderTouch, nameSwitches, prepareSliders,
+  editState,
 } from './module-base.js';
+import { headingSummary } from './module-summary.js';
 import { FONT_FAMILY_PRESETS } from './module-font.js';
 import '../components/cms-color-picker.js';
+import { LangController, t } from '../i18n/index.js';
 
 /** What Home Assistant's heading card shows when nothing is set (measured on
  *  HA 2026.11: title vs subtitle differ in size, weight and colour). Shown as
  *  display-only placeholders — never written into the style. */
 export const HEADING_NATIVE = {
-  title: { fontSize: 16, weight: 'normal', color: 'var(--primary-text-color)', colorLabel: 'primary text', iconSize: 18 },
-  subtitle: { fontSize: 14, weight: 'medium', color: 'var(--secondary-text-color)', colorLabel: 'secondary text', iconSize: 18 },
+  title: { fontSize: 16, weight: 'normal', color: 'var(--primary-text-color)', colorLabel: 'heading.primaryText', iconSize: 18 },
+  subtitle: { fontSize: 14, weight: 'medium', color: 'var(--secondary-text-color)', colorLabel: 'heading.secondaryText', iconSize: 18 },
 } as const;
 
 /** Native look for a card's `heading_style` (HA's default is `title`). */
@@ -23,6 +26,7 @@ export function headingNative(headingStyle?: string) {
 }
 
 export class HeadingStyleModule extends LitElement {
+  protected readonly i18n = new LangController(this);
   @property({ attribute: false }) state: HeadingStyleModuleState = {
     ...DEFAULT_HEADING_STYLE,
   };
@@ -31,6 +35,8 @@ export class HeadingStyleModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** v1.0: offer "Let this module take over" (plain Advanced CSS only). */
+  @property({ attribute: false }) takeOver = false;
 
   /** The heading card's `heading_style` (`title` | `subtitle`), so the
    *  "Default (…)" placeholders match what that variant really looks like. */
@@ -44,10 +50,6 @@ export class HeadingStyleModule extends LitElement {
   @state() private _iconSize?: number = undefined;
 
   static override styles = [moduleStyles];
-
-  override firstUpdated() {
-    this._open = this.state.enabled;
-  }
 
   override updated(changed: Map<PropertyKey, unknown>) {
     nameSwitches(this.renderRoot);
@@ -70,7 +72,7 @@ export class HeadingStyleModule extends LitElement {
   private _emit(changes: Partial<HeadingStyleModuleState>) {
     this.dispatchEvent(
       new CustomEvent<HeadingStyleModuleState>('state-changed', {
-        detail: { ...this.state, ...changes },
+        detail: editState(this.state, changes),
       }),
     );
   }
@@ -84,8 +86,9 @@ export class HeadingStyleModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '🔤',
-          title: 'Heading Style',
+          icon: 'mdi:format-header-pound',
+          summary: this.state.enabled ? headingSummary(this.state) : undefined,
+          title: t('heading.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),
           overridden: this.overridden,
@@ -110,13 +113,13 @@ export class HeadingStyleModule extends LitElement {
 
     return html`
       <div class="module-body" id="module-body">
-        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
+        ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'headingStyle' : undefined)}
         <div class="control-row">
-          <span class="control-label">Text size</span>
+          <span class="control-label">${t('font.textSize')}</span>
           <div class="control-right">
             <ha-slider
-              label="Text size"
-              aria-label="Text size"
+              label=${t('font.textSize')}
+              aria-label=${t('font.textSize')}
               min="12"
               max="48"
               step="1"
@@ -130,35 +133,35 @@ export class HeadingStyleModule extends LitElement {
                 })}
             ></ha-slider>
             ${this._fontSize === undefined
-              ? html`<span class="value-label unset">Default (${native.fontSize}px)</span>`
+              ? html`<span class="value-label unset">${t('base.defaultWith', { value: `${native.fontSize}px` })}</span>`
               : html`<span class="value-label">${this._fontSize}px</span>${renderResetButton(
                   () => this._emit({ fontSize: undefined }),
-                  'Reset text size to default',
+                  t('font.resetSize'),
                 )}`}
           </div>
         </div>
 
         <div class="control-row">
-          <span class="control-label">Weight</span>
+          <span class="control-label">${t('font.weight')}</span>
           <div class="control-right">
             <select
-              aria-label="Weight"
+              aria-label=${t('font.weight')}
               .value=${this.state.fontWeight ?? ''}
               @change=${(e: Event) =>
                 this._emit({
                   fontWeight: ((e.target as HTMLSelectElement).value || undefined) as HeadingStyleModuleState['fontWeight'],
                 })}
             >
-              ${renderDefaultOption(!this.state.fontWeight, native.weight)}
-              <option value="normal" ?selected=${this.state.fontWeight === 'normal'}>Normal</option>
-              <option value="medium" ?selected=${this.state.fontWeight === 'medium'}>Medium</option>
-              <option value="bold" ?selected=${this.state.fontWeight === 'bold'}>Bold</option>
+              ${renderDefaultOption(!this.state.fontWeight, t(native.weight === 'normal' ? 'heading.weightNormal' : 'heading.weightMedium'))}
+              <option value="normal" ?selected=${this.state.fontWeight === 'normal'}>${t('font.weight.normal')}</option>
+              <option value="medium" ?selected=${this.state.fontWeight === 'medium'}>${t('font.weight.medium')}</option>
+              <option value="bold" ?selected=${this.state.fontWeight === 'bold'}>${t('font.weight.bold')}</option>
             </select>
           </div>
         </div>
 
         <div class="control-row">
-          <span class="control-label" id="lbl-font-family">Font family</span>
+          <span class="control-label" id="lbl-font-family">${t('font.family')}</span>
           <div class="control-right">
             <select
               aria-labelledby="lbl-font-family"
@@ -171,17 +174,17 @@ export class HeadingStyleModule extends LitElement {
             >
               ${FONT_FAMILY_PRESETS.map(
                 (p) => html`<option value=${p.value} ?selected=${!isCustom && family === p.value}>
-                  ${p.label}
+                  ${t(p.label)}
                 </option>`,
               )}
-              <option value="custom" ?selected=${isCustom}>Custom…</option>
+              <option value="custom" ?selected=${isCustom}>${t('font.custom')}</option>
             </select>
           </div>
         </div>
         ${isCustom
           ? html`
               <div class="control-row">
-                <span class="control-label" id="lbl-custom-family">Custom family</span>
+                <span class="control-label" id="lbl-custom-family">${t('font.customFamily')}</span>
                 <div class="control-right">
                   <input
                     aria-labelledby="lbl-custom-family"
@@ -198,12 +201,12 @@ export class HeadingStyleModule extends LitElement {
           : nothing}
 
         <div class="control-row">
-          <span class="control-label">Text color</span>
+          <span class="control-label">${t('font.textColor')}</span>
           <div class="control-right">
             <cms-color-picker
-              label="Text color"
+              label=${t('font.textColor')}
               clearable
-              .placeholder=${`Default (${native.colorLabel})`}
+              .placeholder=${t('base.defaultWith', { value: t(native.colorLabel) })}
               .placeholderColor=${native.color}
               .value=${this.state.textColor ?? ''}
               @color-changed=${(e: CustomEvent) =>
@@ -213,11 +216,11 @@ export class HeadingStyleModule extends LitElement {
         </div>
 
         <div class="control-row">
-          <span class="control-label">Icon size</span>
+          <span class="control-label">${t('icon.size')}</span>
           <div class="control-right">
             <ha-slider
-              label="Icon size"
-              aria-label="Icon size"
+              label=${t('icon.size')}
+              aria-label=${t('icon.size')}
               min="12"
               max="48"
               step="1"
@@ -231,21 +234,21 @@ export class HeadingStyleModule extends LitElement {
                 })}
             ></ha-slider>
             ${this._iconSize === undefined
-              ? html`<span class="value-label unset">Default (${native.iconSize}px)</span>`
+              ? html`<span class="value-label unset">${t('base.defaultWith', { value: `${native.iconSize}px` })}</span>`
               : html`<span class="value-label">${this._iconSize}px</span>${renderResetButton(
                   () => this._emit({ iconSize: undefined }),
-                  'Reset icon size to default',
+                  t('heading.resetIconSize'),
                 )}`}
           </div>
         </div>
 
         <div class="control-row">
-          <span class="control-label">Icon color</span>
+          <span class="control-label">${t('icon.iconColor')}</span>
           <div class="control-right">
             <cms-color-picker
-              label="Icon color"
+              label=${t('icon.iconColor')}
               clearable
-              .placeholder=${`Default (${native.colorLabel})`}
+              .placeholder=${t('base.defaultWith', { value: t(native.colorLabel) })}
               .placeholderColor=${native.color}
               .value=${this.state.iconColor ?? ''}
               @color-changed=${(e: CustomEvent) =>
@@ -255,10 +258,10 @@ export class HeadingStyleModule extends LitElement {
         </div>
 
         <div class="control-row">
-          <span class="control-label">Alignment</span>
+          <span class="control-label">${t('heading.alignment')}</span>
           <div class="control-right">
             <select
-              aria-label="Alignment"
+              aria-label=${t('heading.alignment')}
               .value=${this.state.alignment ?? ''}
               @change=${(e: Event) =>
                 this._emit({
@@ -269,10 +272,10 @@ export class HeadingStyleModule extends LitElement {
                     | undefined,
                 })}
             >
-              ${renderDefaultOption(!this.state.alignment, 'spread')}
-              <option value="left" ?selected=${this.state.alignment === 'left'}>Left</option>
-              <option value="center" ?selected=${this.state.alignment === 'center'}>Center</option>
-              <option value="right" ?selected=${this.state.alignment === 'right'}>Right</option>
+              ${renderDefaultOption(!this.state.alignment, t('heading.spread'))}
+              <option value="left" ?selected=${this.state.alignment === 'left'}>${t('heading.left')}</option>
+              <option value="center" ?selected=${this.state.alignment === 'center'}>${t('heading.center')}</option>
+              <option value="right" ?selected=${this.state.alignment === 'right'}>${t('heading.right')}</option>
             </select>
           </div>
         </div>

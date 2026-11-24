@@ -1,0 +1,77 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Card Style Studio",
+        "description": "Hozzáadja a Card Style Studio beállításait ehhez az oldalhoz. Magát a Studiót irányítópult-erőforrásként kell telepíteni (HACS, Marketplace vagy kézzel); ez a bejegyzés csak a beállításait tárolja."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "A Card Style Studio már be van állítva."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "A Card Style Studio beállításai",
+        "description": "Alapértékek mindenkinek ebben a Home Assistantben. Egy felhasználó saját választása a Studióban (⚙️ Beállítások, Saját színpaletta) mindig elsőbbséget élvez.",
+        "data": {
+          "language": "Nyelv",
+          "ask_language": "Minden felhasználó kérdezése a nyelvről",
+          "on_color": "Alapértelmezett BE szín",
+          "off_color": "Alapértelmezett KI szín"
+        },
+        "data_description": {
+          "language": "Az automatikus felismerés azt a nyelvet követi, amelyen a Home Assistant az egyes felhasználóknak megjelenik.",
+          "ask_language": "Amikor valaki először nyitja meg a Studiót, egy rövid kérdéssel nyelvet választhat. Ki: mindenki a fenti nyelvet kapja.",
+          "on_color": "Az a szín, amellyel egy új Ikonszín, Kiemelő szín vagy küszöbszabály indul, amíg az entitás be van kapcsolva. Studio-alapérték: a Studio sajátja.",
+          "off_color": "Ugyanez, amíg az entitás ki van kapcsolva."
+        }
+      }
+    }
+  },
+  "selector": {
+    "language": {
+      "options": {
+        "auto": "Automatikus felismerés (ajánlott)",
+        "en": "English",
+        "de": "Deutsch",
+        "nl": "Nederlands",
+        "fr": "Français",
+        "es": "Español",
+        "it": "Italiano",
+        "pl": "Polski",
+        "pt": "Português",
+        "pt-br": "Português (Brasil)",
+        "sv": "Svenska",
+        "da": "Dansk",
+        "nb": "Norsk bokmål",
+        "cs": "Čeština",
+        "sk": "Slovenčina",
+        "hu": "Magyar",
+        "fi": "Suomi",
+        "ru": "Русский",
+        "uk": "Українська",
+        "zh-hans": "简体中文",
+        "zh-hant": "繁體中文",
+        "ja": "日本語",
+        "ko": "한국어"
+      }
+    },
+    "color": {
+      "options": {
+        "default": "Studio-alapérték",
+        "red": "Piros",
+        "pink": "Rózsaszín",
+        "purple": "Lila",
+        "blue": "Kék",
+        "cyan": "Ciánkék",
+        "teal": "Récezöld",
+        "green": "Zöld",
+        "yellow": "Sárga",
+        "orange": "Narancssárga",
+        "grey": "Szürke"
+      }
+    }
+  }
+}

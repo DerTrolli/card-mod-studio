@@ -2,10 +2,11 @@
  * card-mod-studio.ts — Plugin entry point.
  *
  * This file is the single module that Home Assistant loads as a Lovelace resource.
- * It does three things:
+ * It does four things:
  *   1. Guards against being loaded twice (e.g. with different ?v= cache-busters)
  *   2. Registers our Lit web components with the browser
  *   3. Starts the injection engine that patches the HA card editor
+ *   4. Starts the Bubble Card repair (utils/bubble-heal.ts)
  *
  * To load this plugin in Home Assistant go to:
  *   Settings → Dashboards → ⋮ → Resources → + Add Resource
@@ -17,7 +18,9 @@ import './editor/cms-panel.js';
 import './editor/cms-tab.js';
 import './components/cms-color-picker.js';
 import { startInjector } from './editor/cms-injector.js';
+import { startSectionInjector } from './editor/cms-section-injector.js';
 import { isCardModInstalled, isUixInstalled } from './utils/dom-helpers.js';
+import { startBubbleHeal } from './utils/bubble-heal.js';
 import type { CardModStudioMeta } from './types/index.js';
 
 declare const __APP_VERSION__: string;
@@ -29,7 +32,7 @@ const VERSION = __APP_VERSION__;
 
 if (window.cardModStudio) {
   console.warn(
-    `[Card-Mod Studio] Already loaded (v${window.cardModStudio.version}). ` +
+    `[Card Style Studio] Already loaded (v${window.cardModStudio.version}). ` +
       `Skipping load of v${VERSION}. ` +
       `If you see duplicate "Style" buttons, clear your browser cache.`,
   );
@@ -43,14 +46,14 @@ if (window.cardModStudio) {
   const uixPresent = isUixInstalled();
   if (!cardModPresent && !uixPresent) {
     console.warn(
-      '[Card-Mod Studio] Neither card-mod nor UIX is detected. ' +
+      '[Card Style Studio] Neither card-mod nor UIX is detected. ' +
         'Install one of them first (via the Marketplace on HA 2026.11+, or HACS on older versions). ' +
         'The style editor UI will still open, but generated YAML will not apply until one is present.',
     );
   } else if (uixPresent && !cardModPresent) {
-    console.info('[Card-Mod Studio] UIX detected ✓');
+    console.info('[Card Style Studio] UIX detected ✓');
   } else {
-    console.info('[Card-Mod Studio] card-mod detected ✓');
+    console.info('[Card Style Studio] card-mod detected ✓');
   }
 
   // Start the injection engine asynchronously.
@@ -59,12 +62,19 @@ if (window.cardModStudio) {
     .then(() => {
       meta.injected = true;
       console.info(
-        `%c CARD-MOD STUDIO %c v${VERSION} `,
+        `%c CARD STYLE STUDIO %c v${VERSION} `,
         'color: white; background: #03a9f4; font-weight: bold; padding: 2px 4px; border-radius: 3px 0 0 3px;',
         'color: #03a9f4; background: #fff; font-weight: bold; padding: 2px 4px; border-radius: 0 3px 3px 0; border: 1px solid #03a9f4;',
       );
     })
     .catch((err: unknown) => {
-      console.error('[Card-Mod Studio] Injection failed:', err);
+      console.error('[Card Style Studio] Injection failed:', err);
     });
+  // Sections views' "Section configuration" dialog (defined lazily by HA).
+  startSectionInjector().catch((err: unknown) => {
+    console.error('[Card Style Studio] Section-dialog injection failed:', err);
+  });
+  // Bubble cards whose style engine attached before the card was ready
+  // (a card-mod / UIX race with Bubble Card) get their style back.
+  startBubbleHeal();
 }

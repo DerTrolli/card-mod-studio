@@ -11,6 +11,7 @@ config/tts/
 config/deps/
 config/.HA_VERSION
 config/blueprints/
+config/custom_components/
 config/image/
 harness/node_modules/
 harness/package-lock.json

@@ -1,22 +1,34 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { EntitiesCardRow, EntitiesRowStyle, EntitiesRowStyles, HomeAssistant, ThresholdRule } from '../types/index.js';
+import { isTextRule } from '../types/index.js';
+import { commitTextRuleValue, normalizeRule, rawRuleValue, revertTextRuleValue, withOperator } from '../utils/threshold-rules.js';
 import {
-  moduleStyles, renderOverrideHint, onHeaderKeydown, renderResetButton, renderDefaultOption,
-  guardSliderTouch, nameSwitches, prepareSliders,
+  moduleStyles,
+  renderOverrideHint,
+  onHeaderKeydown,
+  renderResetButton,
+  renderDefaultOption,
+  guardSliderTouch,
+  nameSwitches,
+  prepareSliders,
+  renderChevron,
+  renderIcon,
+  renderStaticHeader,
 } from './module-base.js';
 import { commitNumberInput, markNumberInput, revertNumberInput } from '../utils/number-input.js';
-import { getCachedPalette } from '../utils/palette-storage.js';
+import { colorDefaults } from '../utils/palette-storage.js';
 import { findRowExtraCssConflicts } from '../utils/style-conflicts.js';
 import { THEME_TEXT_COLOR } from '../parser/state-mapper.js';
 import '../components/cms-color-picker.js';
+import { LangController, t, tParts } from '../i18n/index.js';
 
 /** The color a freshly-enabled row icon/color control starts from — the
  *  Palette Manager's ON-default override when set, else the same built-in
  *  the card-level Icon Color module uses. Keeps "what enabling something
  *  starts with" consistent between card level and row level. */
 function defaultOnColor(): string {
-  return getCachedPalette().defaults.onColor ?? '#2196F3';
+  return colorDefaults().onColor ?? '#2196F3';
 }
 
 /** `hass.formatEntityName` (HA 2026.11+): what HA's own entities-card row
@@ -88,6 +100,7 @@ const ROW_NATIVE_FONT_SIZE = 14;
 
 export class EntitiesRowsModule extends LitElement {
   /** May contain bare-string rows ('sensor.x') — the YAML shorthand form. */
+  protected readonly i18n = new LangController(this);
   @property({ attribute: false }) rows: Array<EntitiesCardRow | string> = [];
   /** Keyed POSITIONALLY by String(rowIndex) — see rowStyleKey in
    *  studio-state.ts. Two rows may share an entity_id (valid entities-card
@@ -130,18 +143,19 @@ export class EntitiesRowsModule extends LitElement {
         outline: 2px solid var(--primary-color, #03a9f4);
         outline-offset: -2px;
       }
-      .entity-chevron {
-        font-size: 10px;
-        color: var(--secondary-text-color, #727272);
-        width: 14px;
-        flex-shrink: 0;
-      }
       /* Name may shrink (ellipsis) so a long friendly name can't push the
          entity id and the styled-dot out of a phone-width header. */
+      /* The row's name, and its entity id on a line of its own under it
+         (side by side, a 360px phone cut the name to a few letters). */
+      .entity-heading {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-width: 0;
+      }
       .entity-name {
         font-size: 13px;
         font-weight: 500;
-        flex: 0 1 auto;
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -151,11 +165,10 @@ export class EntitiesRowsModule extends LitElement {
         font-size: 11px;
         color: var(--secondary-text-color, #727272);
         font-family: monospace;
+        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        flex: 1 1 0;
-        min-width: 40px;
       }
       .style-dot {
         width: 8px;
@@ -226,6 +239,21 @@ export class EntitiesRowsModule extends LitElement {
       .rule select {
         width: 64px;
         flex: 0 0 auto;
+      }
+      .rule select.text-op {
+        width: auto;
+        min-width: 64px;
+        max-width: 132px;
+      }
+      .rule input.text-value {
+        flex: 1 1 96px;
+        width: auto;
+        min-width: 72px;
+        max-width: 180px;
+      }
+      .now-value {
+        margin-top: 4px;
+        overflow-wrap: anywhere;
       }
       .rule input.num {
         flex: 1 1 64px;
@@ -361,15 +389,13 @@ export class EntitiesRowsModule extends LitElement {
 
     return html`
       <div class="module">
-        <div class="module-header" style="cursor:default; pointer-events:none">
-          <span class="module-title"><span><span aria-hidden="true">🏠</span> Entity Rows</span></span>
-        </div>
+        ${renderStaticHeader('mdi:format-list-bulleted', t('rows.title'))}
         <div class="module-body">
           ${entityRows.map(({ row, index }) => {
             return this._renderRow(row, index, labels.get(index) ?? row.entity);
           })}
           ${unstyleable
-            ? html`<p class="when-hint rows-note">Section, divider and link rows have no styling controls.</p>`
+            ? html`<p class="when-hint rows-note">${t('rows.noControls')}</p>`
             : nothing}
         </div>
       </div>
@@ -404,13 +430,15 @@ export class EntitiesRowsModule extends LitElement {
           @click=${() => this._toggleRow(rowKey)}
           @keydown=${onHeaderKeydown}
         >
-          <span class="entity-chevron" aria-hidden="true">${isOpen ? '▼' : '▶'}</span>
-          <span class="entity-name">${label}</span>
-          <span class="entity-id">${id}</span>
+          <span class="entity-heading">
+            <span class="entity-name">${label}</span>
+            <span class="entity-id">${id}</span>
+          </span>
           ${conflicts.length
-            ? html`<span class="override-badge" title="Hand-written CSS on this row is overriding these controls">⚠️</span>`
+            ? html`<span class="override-badge" title=${t('rows.overridden')}><ha-icon icon="mdi:alert-outline"></ha-icon></span>`
             : nothing}
-          ${hasStyle ? html`<span class="style-dot" title="This row has styling"></span>` : nothing}
+          ${hasStyle ? html`<span class="style-dot" title=${t('rows.hasStyle')}></span>` : nothing}
+          ${renderChevron(isOpen)}
         </div>
         ${isOpen ? (rowStyle.frozen ? this._renderFrozen(rowKey) : this._renderBody(rowKey, rowStyle, conflicts, row.state_color === false, label)) : nothing}
       </div>
@@ -422,16 +450,13 @@ export class EntitiesRowsModule extends LitElement {
    *  (audit v0.10 #9). */
   private _renderFrozen(rowKey: string) {
     return html`<div class="entity-body" id="row-body-${rowKey}">
-      <p class="when-hint frozen-note">
-        🔒 This row's styling mixes a plain style and a dictionary-form style (or its
-        <code>.</code> entry isn't plain CSS) — preserved as-is; edit it in YAML.
-      </p>
+      <p class="when-hint frozen-note">${renderIcon('mdi:lock-outline')}${tParts('rows.frozen', { dot: html`<code>.</code>` })}</p>
     </div>`;
   }
 
   private _renderBody(rowKey: string, rowStyle: EntitiesRowStyle, conflicts: string[] = [], stateColorOff = false, rowLabel = '') {
     // Every row repeats these controls: the row's name tells them apart.
-    const named = (what: string) => (rowLabel ? `${what} (${rowLabel})` : what);
+    const named = (what: string) => (rowLabel ? t('rows.named', { what, row: rowLabel }) : what);
     const hasFont = rowStyle.fontSizePx != null || !!rowStyle.fontWeight;
     // The switch only reveals the controls; nothing is written until one is set.
     const fontOn = hasFont || this._fontOpen.has(rowKey);
@@ -448,26 +473,26 @@ export class EntitiesRowsModule extends LitElement {
 
         <!-- Icon color -->
         <div class="control-row">
-          <span class="control-label">Icon color</span>
+          <span class="control-label">${t('icon.iconColor')}</span>
           <div class="control-right">
             ${iconEnabled
               ? html`<div class="mode-toggle">
                     <button
                       class="mode-btn ${!iconIsThreshold ? 'active' : ''}"
                       aria-pressed=${!iconIsThreshold ? 'true' : 'false'}
-                      aria-label=${named('Static icon color')}
+                      aria-label=${named(t('rows.staticIcon'))}
                       @click=${(e: Event) => { e.stopPropagation(); this._setMode(rowKey, 'icon', 'static'); }}
-                    >Static</button>
+                    >${t('rows.static')}</button>
                     <button
                       class="mode-btn ${iconIsThreshold ? 'active' : ''}"
                       aria-pressed=${iconIsThreshold ? 'true' : 'false'}
-                      aria-label=${named('Threshold icon color')}
+                      aria-label=${named(t('rows.thresholdIcon'))}
                       @click=${(e: Event) => { e.stopPropagation(); this._setMode(rowKey, 'icon', 'threshold'); }}
-                    >Threshold</button>
+                    >${t('rows.threshold')}</button>
                   </div>`
               : nothing}
             <ha-switch
-              aria-label=${named('Icon color')}
+              aria-label=${named(t('icon.iconColor'))}
               .checked=${iconEnabled}
               @change=${(e: Event) => {
                 const on = (e.target as HTMLInputElement).checked;
@@ -480,7 +505,7 @@ export class EntitiesRowsModule extends LitElement {
         </div>
         ${iconEnabled && !iconIsThreshold
           ? html`<cms-color-picker
-                label=${named('Icon color')}
+                label=${named(t('icon.iconColor'))}
                 .value=${rowStyle.iconColor}
                 @color-changed=${(e: CustomEvent) => this._updateRow(rowKey, { iconColor: e.detail.value })}
               ></cms-color-picker>`
@@ -490,12 +515,11 @@ export class EntitiesRowsModule extends LitElement {
           : nothing}
         ${iconEnabled && !stateColorOff && !rowStyle.iconWhileOn
           ? html`<div class="when-hint warn while-on">
-              While this entity is on, Home Assistant colors its icon itself
-              (lights always do), so this color only shows while it's off.
+              ${t('rows.whileOn')}
               <button
                 class="btn-add while-on-btn"
                 @click=${(e: Event) => { e.stopPropagation(); this._updateRow(rowKey, { iconWhileOn: true }); }}
-              >Always use this color</button>
+              >${t('rows.alwaysUse')}</button>
             </div>`
           : nothing}
 
@@ -503,26 +527,26 @@ export class EntitiesRowsModule extends LitElement {
 
         <!-- Text / state color -->
         <div class="control-row">
-          <span class="control-label">Text / state color</span>
+          <span class="control-label">${t('rows.textColor')}</span>
           <div class="control-right">
             ${textEnabled
               ? html`<div class="mode-toggle">
                     <button
                       class="mode-btn ${!textIsThreshold ? 'active' : ''}"
                       aria-pressed=${!textIsThreshold ? 'true' : 'false'}
-                      aria-label=${named('Static text color')}
+                      aria-label=${named(t('rows.staticText'))}
                       @click=${(e: Event) => { e.stopPropagation(); this._setMode(rowKey, 'text', 'static'); }}
-                    >Static</button>
+                    >${t('rows.static')}</button>
                     <button
                       class="mode-btn ${textIsThreshold ? 'active' : ''}"
                       aria-pressed=${textIsThreshold ? 'true' : 'false'}
-                      aria-label=${named('Threshold text color')}
+                      aria-label=${named(t('rows.thresholdText'))}
                       @click=${(e: Event) => { e.stopPropagation(); this._setMode(rowKey, 'text', 'threshold'); }}
-                    >Threshold</button>
+                    >${t('rows.threshold')}</button>
                   </div>`
               : nothing}
             <ha-switch
-              aria-label=${named('Text / state color')}
+              aria-label=${named(t('rows.textColor'))}
               .checked=${textEnabled}
               @change=${(e: Event) => {
                 const on = (e.target as HTMLInputElement).checked;
@@ -535,7 +559,7 @@ export class EntitiesRowsModule extends LitElement {
         </div>
         ${textEnabled && !textIsThreshold
           ? html`<cms-color-picker
-                label=${named('Text / state color')}
+                label=${named(t('rows.textColor'))}
                 .value=${rowStyle.textColor}
                 @color-changed=${(e: CustomEvent) => this._updateRow(rowKey, { textColor: e.detail.value })}
               ></cms-color-picker>`
@@ -548,10 +572,10 @@ export class EntitiesRowsModule extends LitElement {
 
         <!-- Per-row font (size + weight; inherits the card-level Font when off) -->
         <div class="control-row">
-          <span class="control-label">Font (this row)</span>
+          <span class="control-label">${t('rows.font')}</span>
           <div class="control-right">
             <ha-switch
-              aria-label=${named('Font (this row)')}
+              aria-label=${named(t('rows.font'))}
               .checked=${fontOn}
               @change=${(e: Event) => {
                 const on = (e.target as HTMLInputElement).checked;
@@ -573,11 +597,11 @@ export class EntitiesRowsModule extends LitElement {
         ${fontOn
           ? html`
               <div class="control-row">
-                <span class="control-label">Text size</span>
+                <span class="control-label">${t('font.textSize')}</span>
                 <div class="control-right">
                   <ha-slider
-                    label=${named('Text size (this row)')}
-                    aria-label=${named('Text size (this row)')}
+                    label=${named(t('rows.textSize'))}
+                    aria-label=${named(t('rows.textSize'))}
                     min="8"
                     max="48"
                     step="1"
@@ -595,18 +619,18 @@ export class EntitiesRowsModule extends LitElement {
                     }}
                   ></ha-slider>
                   ${shownSize === undefined
-                    ? html`<span class="value-label unset">Default (${ROW_NATIVE_FONT_SIZE}px)</span>`
+                    ? html`<span class="value-label unset">${t('base.defaultWith', { value: `${ROW_NATIVE_FONT_SIZE}px` })}</span>`
                     : html`<span class="value-label">${shownSize}px</span>${renderResetButton(() => {
                         this._keepFontOpen(rowKey);
                         this._updateRow(rowKey, { fontSizePx: undefined });
-                      }, 'Reset text size to default')}`}
+                      }, t('font.resetSize'))}`}
                 </div>
               </div>
               <div class="control-row">
-                <span class="control-label">Weight</span>
+                <span class="control-label">${t('font.weight')}</span>
                 <div class="control-right">
                   <select
-                    aria-label=${named('Weight (this row)')}
+                    aria-label=${named(t('rows.weight'))}
                     .value=${rowStyle.fontWeight ?? ''}
                     @change=${(e: Event) => {
                       this._keepFontOpen(rowKey);
@@ -616,9 +640,9 @@ export class EntitiesRowsModule extends LitElement {
                     }}
                   >
                     ${renderDefaultOption(!rowStyle.fontWeight)}
-                    <option value="normal" ?selected=${rowStyle.fontWeight === 'normal'}>Normal</option>
-                    <option value="medium" ?selected=${rowStyle.fontWeight === 'medium'}>Medium</option>
-                    <option value="bold" ?selected=${rowStyle.fontWeight === 'bold'}>Bold</option>
+                    <option value="normal" ?selected=${rowStyle.fontWeight === 'normal'}>${t('font.weight.normal')}</option>
+                    <option value="medium" ?selected=${rowStyle.fontWeight === 'medium'}>${t('font.weight.medium')}</option>
+                    <option value="bold" ?selected=${rowStyle.fontWeight === 'bold'}>${t('font.weight.bold')}</option>
                   </select>
                 </div>
               </div>
@@ -640,20 +664,25 @@ export class EntitiesRowsModule extends LitElement {
     defaultColor: string,
     rowLabel = '',
   ) {
-    const kind = prop === 'icon' ? 'Icon' : 'Text';
-    const named = (what: string) => (rowLabel ? `${what} (${rowLabel})` : what);
+    const icon = prop === 'icon';
+    const named = (what: string) => (rowLabel ? t('rows.named', { what, row: rowLabel }) : what);
+    // Text rules (v1.0.0-beta.2) compare the row entity's raw state.
+    const now = rawRuleValue(this.hass, this._rowEntity(rowKey));
     return html`
       <div class="rules-container">
-        <span class="rule-label">Rules — order doesn't matter, they're sorted automatically:</span>
+        <span class="rule-label">${t('threshold.rulesLabel')}</span>
         ${rules.map((rule, i) => html`
           <div class="rule">
-            <span class="rule-label">If value</span>
+            <span class="rule-label">${t('threshold.ifValue')}</span>
             <select
-              aria-label=${named(`${kind} rule ${i + 1} operator`)}
+              class=${isTextRule(rule) ? 'text-op' : ''}
+              aria-label=${named(t(icon ? 'rows.iconRuleOp' : 'rows.textRuleOp', { n: i + 1 }))}
               .value=${rule.operator}
-              @change=${(e: Event) => this._updateRule(rowKey, prop, i, {
-                operator: (e.target as HTMLSelectElement).value as ThresholdRule['operator'],
-              })}
+              @change=${(e: Event) => {
+                let next = withOperator(rule, (e.target as HTMLSelectElement).value as ThresholdRule['operator']);
+                if (isTextRule(next) && !isTextRule(rule) && now && isTextRule(normalizeRule({ ...next, value: now }))) next = { ...next, value: now };
+                this._updateRule(rowKey, prop, i, { operator: next.operator, value: next.value });
+              }}
             >
               <option value="<"  ?selected=${rule.operator === '<'}>&lt;</option>
               <option value="<=" ?selected=${rule.operator === '<='}>&lt;=</option>
@@ -661,39 +690,62 @@ export class EntitiesRowsModule extends LitElement {
               <option value=">=" ?selected=${rule.operator === '>='}>&gt;=</option>
               <option value="==" ?selected=${rule.operator === '=='}>==</option>
               <option value="!=" ?selected=${rule.operator === '!='}>!=</option>
+              <option value="is" ?selected=${rule.operator === 'is'}>${t('threshold.opIs')}</option>
+              <option value="is-not" ?selected=${rule.operator === 'is-not'}>${t('threshold.opIsNot')}</option>
             </select>
-            <input
-              type="text"
-              class="num"
-              aria-label="${kind} rule ${i + 1} value"
-              aria-invalid="false"
-              spellcheck="false"
-              autocomplete="off"
-              .value=${String(rule.value)}
-              @input=${markNumberInput}
-              @change=${(e: Event) => {
-                // Empty / unparseable: keep the previous value (cue shows until blur).
-                const n = commitNumberInput(e);
-                if (n !== undefined) this._updateRule(rowKey, prop, i, { value: n });
-              }}
-              @blur=${(e: Event) => revertNumberInput(e, rule.value)}
-            />
+            ${isTextRule(rule)
+              ? html`<input
+                  type="text"
+                  class="text-value"
+                  aria-label=${named(t('threshold.ruleText', { n: i + 1 }))}
+                  aria-invalid="false"
+                  spellcheck="false"
+                  autocomplete="off"
+                  placeholder=${now ?? ''}
+                  .value=${String(rule.value)}
+                  @change=${(e: Event) => {
+                    const v = commitTextRuleValue(e);
+                    if (v === undefined) return;
+                    const next = normalizeRule({ ...rule, value: v });
+                    this._updateRule(rowKey, prop, i, { operator: next.operator, value: next.value });
+                  }}
+                  @blur=${(e: Event) => revertTextRuleValue(e, String(rule.value))}
+                />`
+              : html`<input
+                  type="text"
+                  class="num"
+                  aria-label=${t(icon ? 'rows.iconRuleValue' : 'rows.textRuleValue', { n: i + 1 })}
+                  aria-invalid="false"
+                  spellcheck="false"
+                  autocomplete="off"
+                  .value=${String(rule.value)}
+                  @input=${markNumberInput}
+                  @change=${(e: Event) => {
+                    // Empty / unparseable: keep the previous value (cue shows until blur).
+                    const n = commitNumberInput(e);
+                    if (n !== undefined) this._updateRule(rowKey, prop, i, { value: n });
+                  }}
+                  @blur=${(e: Event) => revertNumberInput(e, Number(rule.value))}
+                />`}
             <span class="rule-label">→</span>
             <cms-color-picker
-              label=${named(`${kind} rule ${i + 1} color`)}
+              label=${named(t(icon ? 'rows.iconRuleColor' : 'rows.textRuleColor', { n: i + 1 }))}
               compact
               .value=${rule.color}
               @color-changed=${(e: CustomEvent) => this._updateRule(rowKey, prop, i, { color: e.detail.value })}
             ></cms-color-picker>
-            <button aria-label=${named(`Remove ${kind.toLowerCase()} rule ${i + 1}`)} @click=${() => this._removeRule(rowKey, prop, i)}>×</button>
+            <button aria-label=${named(t(icon ? 'rows.removeIconRule' : 'rows.removeTextRule', { n: i + 1 }))} @click=${() => this._removeRule(rowKey, prop, i)}>×</button>
           </div>
         `)}
-        <button class="add-rule-btn" aria-label=${named(`Add Rule: ${kind} color`)} @click=${() => this._addRule(rowKey, prop)}>+ Add Rule</button>
+        <button class="add-rule-btn" aria-label=${named(t(icon ? 'rows.addIconRule' : 'rows.addTextRule'))} @click=${() => this._addRule(rowKey, prop)}>${t('threshold.addRule')}</button>
+        ${rules.some(isTextRule)
+          ? html`<div class="hint now-value">${now === null ? t('threshold.textHint') : t('threshold.nowValue', { value: now })}</div>`
+          : nothing}
         <div class="control-row" style="margin-top:4px">
-          <span class="control-label">Default color</span>
+          <span class="control-label">${t('threshold.defaultColor')}</span>
           <div class="control-right">
             <cms-color-picker
-              label=${named(`${kind} default color`)}
+              label=${named(t(icon ? 'rows.iconDefault' : 'rows.textDefault'))}
               compact
               .value=${defaultColor}
               @color-changed=${(e: CustomEvent) => {
@@ -725,6 +777,12 @@ export class EntitiesRowsModule extends LitElement {
         textDefault: mode === 'threshold' ? (current.textDefault ?? '#888888') : undefined,
       });
     }
+  }
+
+  /** The entity of row `rowKey` (its index in `rows`). */
+  private _rowEntity(rowKey: string): string {
+    const r = this.rows[Number(rowKey)];
+    return typeof r === 'string' ? r : (r?.entity ?? '');
   }
 
   private _addRule(rowKey: string, prop: 'icon' | 'text') {

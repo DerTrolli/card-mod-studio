@@ -9,9 +9,12 @@ import {
   renderCondition,
   renderModuleHeader,
   guardSliderTouch, nameSwitches, prepareSliders,
+  editState,
 } from './module-base.js';
+import { borderSummary } from './module-summary.js';
 import '../components/cms-color-picker.js';
 import { stateKindFor } from '../utils/card-caps.js';
+import { LangController, t } from '../i18n/index.js';
 
 export class BorderModule extends LitElement {
   @property({ attribute: false }) state: BorderModuleState = { ...DEFAULT_BORDER };
@@ -24,18 +27,18 @@ export class BorderModule extends LitElement {
    *  warning badge/hint (computed by the panel via style-conflicts.ts). */
   @property({ attribute: false }) overridden = false;
   @property({ attribute: false }) overriddenDetail = '';
+  /** v1.0: offer "Let this module take over" (plain Advanced CSS only). */
+  @property({ attribute: false }) takeOver = false;
   /** Threshold Colors is currently writing this module's property. */
   @property({ attribute: false }) thresholdOwned = false;
+
+  protected readonly i18n = new LangController(this);
 
   @state() private _open = false;
   @state() private _radiusPx = DEFAULT_BORDER.radiusPx;
   @state() private _borderWidth = DEFAULT_BORDER.borderWidth;
 
   static override styles = [moduleStyles, css``];
-
-  override firstUpdated() {
-    this._open = this.state.enabled;
-  }
 
   override updated(changed: Map<PropertyKey, unknown>) {
     nameSwitches(this.renderRoot);
@@ -55,7 +58,7 @@ export class BorderModule extends LitElement {
   private _emit(changes: Partial<BorderModuleState>) {
     this.dispatchEvent(
       new CustomEvent<BorderModuleState>('state-changed', {
-        detail: { ...this.state, ...changes },
+        detail: editState(this.state, changes),
       }),
     );
   }
@@ -69,8 +72,9 @@ export class BorderModule extends LitElement {
     return html`
       <div class="module">
         ${renderModuleHeader({
-          icon: '📐',
-          title: 'Border & Radius',
+          icon: 'mdi:rounded-corner',
+          summary: this.state.enabled ? borderSummary(this.state) : undefined,
+          title: t('border.title'),
           open: this._open,
           onToggle: () => this._toggleOpen(),
           overridden: this.overridden,
@@ -87,18 +91,19 @@ export class BorderModule extends LitElement {
   private _renderBody() {
     return html`
       <div class="module-body" id="module-body">
-        ${renderOverrideHint(this.overridden, this.overriddenDetail)}
-        ${renderThresholdOwnedHint(this.thresholdOwned, 'border color', 'Border Color')}
+        ${renderOverrideHint(this.overridden, this.overriddenDetail, this.takeOver ? 'border' : undefined)}
+        ${renderThresholdOwnedHint(this.thresholdOwned, 'noun.borderColor', 'threshold.prop.borderColor')}
         <div class="control-row">
-          <span class="control-label">Border radius</span>
+          <span class="control-label">${t('border.radius')}</span>
           <div class="control-right">
             <ha-slider
-              label="Border radius"
-              aria-label="Border radius"
+              label=${t('border.radius')}
+              aria-label=${t('border.radius')}
               min="0"
               max="50"
               step="1"
-              .value=${String(this._radiusPx)}
+              ?disabled=${!!this.state.squareCorners}
+              .value=${String(this.state.squareCorners ? 0 : this._radiusPx)}
               @input=${(e: Event) => {
                 this._radiusPx = parseFloat((e.target as HTMLInputElement).value);
               }}
@@ -107,16 +112,32 @@ export class BorderModule extends LitElement {
                   radiusPx: parseFloat((e.target as HTMLInputElement).value),
                 })}
             ></ha-slider>
-            <span class="value-label">${this._radiusPx}px</span>
+            ${this.state.squareCorners || this._radiusPx > 0
+              ? html`<span class="value-label">${this.state.squareCorners ? 0 : this._radiusPx}px</span>`
+              : html`<span class="value-label unset">${t('border.cardDefaultLabel')}</span>`}
           </div>
         </div>
 
         <div class="control-row">
-          <span class="control-label">Border width</span>
+          <span class="control-label">${t('border.square')}</span>
+          <div class="control-right">
+            <ha-switch
+              aria-label=${t('border.square')}
+              .checked=${!!this.state.squareCorners}
+              @change=${(e: Event) => {
+                const on = (e.target as HTMLInputElement).checked;
+                this._emit(on ? { squareCorners: true, radiusPx: 0 } : { squareCorners: undefined });
+              }}
+            ></ha-switch>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <span class="control-label">${t('border.width')}</span>
           <div class="control-right">
             <ha-slider
-              label="Border width"
-              aria-label="Border width"
+              label=${t('border.width')}
+              aria-label=${t('border.width')}
               min="0"
               max="8"
               step="1"
@@ -136,10 +157,10 @@ export class BorderModule extends LitElement {
         ${this.state.borderWidth > 0 || this._borderWidth > 0
           ? html`
               <div class="control-row">
-                <span class="control-label">Border color</span>
+                <span class="control-label">${t('border.color')}</span>
                 <div class="control-right">
                   <cms-color-picker
-                    label="Border color"
+                    label=${t('border.color')}
                     .value=${this.state.borderColor}
                     @color-changed=${(e: CustomEvent) =>
                       this._emit({ borderColor: e.detail.value })}
@@ -149,19 +170,20 @@ export class BorderModule extends LitElement {
               ${renderCondition({
                 condition: this.state.widthWhen,
                 stateAware: this.stateAware,
+                cardEntity: this.cardEntity,
                 offOnly: stateKindFor(this.stateAware, this.cardEntity) === 'off-only',
-                noun: 'border',
+                noun: 'noun.border',
                 hass: this.hass,
                 onChange: (c) => this._emit({ widthWhen: c }),
               })}
               ${this.state.widthWhen && this.state.widthWhen.when !== 'always'
                 ? html`
                     <div class="control-row">
-                      <span class="control-label">Width otherwise</span>
+                      <span class="control-label">${t('border.widthOtherwise')}</span>
                       <div class="control-right">
                         <ha-slider
-                          label="Width otherwise"
-                          aria-label="Width otherwise"
+                          label=${t('border.widthOtherwise')}
+                          aria-label=${t('border.widthOtherwise')}
                           min="0"
                           max="8"
                           step="1"
@@ -174,7 +196,7 @@ export class BorderModule extends LitElement {
                         <span class="value-label">
                           ${(this.state.widthOffPx ?? 0) > 0
                             ? `${this.state.widthOffPx}px`
-                            : 'card default'}
+                            : t('border.cardDefault')}
                         </span>
                       </div>
                     </div>

@@ -88,9 +88,10 @@ describe('presets changed during an outage', () => {
     box.stored = [preset('same', 'elsewhere-newer'), preset('other')];
     box.failRead = false;
     const out = await loadPresets(hass);
-    expect(names(out)).toEqual(['other', 'same']);
+    // v1.0: an overwrite keeps the preset's place in the (user-ordered) list
+    expect(names(out)).toEqual(['same', 'other']);
     expect(out.find((p) => p.name === 'same')!.state.advanced.rawCss).toBe('here');
-    expect(names(box.stored)).toEqual(['other', 'same']);
+    expect(names(box.stored)).toEqual(['same', 'other']);
   });
 
   it('survives a page reload (the backlog is kept in localStorage)', async () => {

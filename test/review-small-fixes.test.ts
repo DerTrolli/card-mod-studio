@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import type { CSSResultGroup } from 'lit';
-import { FakeCustomElementRegistry, templateText } from './v010-audit-helpers.js';
+import { FakeCustomElementRegistry, renderedText } from './v010-audit-helpers.js';
 import { fakeInput, tplFind, tplNodes } from './ui-template.js';
 import type { CardModCardConfig } from '../src/types/index.js';
 
@@ -119,20 +119,20 @@ describe('preset bar', () => {
     const sel = nodes.find((n) => n.tag.startsWith('<select'))!;
     expect(sel.tag).toContain('aria-label=Load preset');
     const opt = nodes.find((n) => n.tag.startsWith('<option'))!;
-    expect(templateText(p._renderPresetBar())).toContain('>Load preset…</option>');
+    expect(renderedText(p._renderPresetBar())).toContain('>Load preset…</option>');
     expect(opt.tag).not.toMatch(/📋/u);
   });
 
-  it('the Save preset emoji is hidden from assistive technology', () => {
-    const text = templateText(open()._renderPresetBar());
-    expect(text).toContain('<span aria-hidden="true">💾</span> Save preset');
+  it('the Save preset icon is hidden from assistive technology', () => {
+    const text = renderedText(open()._renderPresetBar());
+    expect(text).toContain('<ha-icon class="inline-icon" icon="mdi:content-save-outline" aria-hidden="true"></ha-icon>Save preset');
   });
 
   it('says so when a preset could not even be saved on this device', () => {
     const p = open();
     p._presetsUnsaved = true;
     p._presetsLocalOnly = true;
-    const text = templateText(p._renderPresetBar());
+    const text = renderedText(p._renderPresetBar());
     expect(text).toContain("this browser's storage is full");
     expect(text).not.toContain('saved on this device only');
   });
@@ -160,11 +160,11 @@ describe('preset bar', () => {
 // ---- palette header ---------------------------------------------------------
 
 describe('palette manager header', () => {
-  it('the emoji is hidden from the accessible name', async () => {
+  it('the icon is hidden from assistive technology', async () => {
     await import('../src/editor/cms-palette-manager.js');
     type M = { render(): unknown };
     const m = new (registry.get('cms-palette-manager') as new () => M)();
-    expect(templateText(m.render())).toContain('<span aria-hidden="true">🖌️</span> My Color Palette');
+    expect(renderedText(m.render())).toMatch(/<ha-icon class="module-icon" icon="mdi:palette-outline" aria-hidden="true"><\/ha-icon>\s*<span class="module-heading"><span class="module-title"><span>My Color Palette<\/span>/);
   });
 });
 

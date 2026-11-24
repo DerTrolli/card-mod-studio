@@ -5,7 +5,7 @@
  * (pulled out of the template), not `_emit`.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { FakeCustomElementRegistry, templateText } from './v010-audit-helpers.js';
+import { FakeCustomElementRegistry, renderedText } from './v010-audit-helpers.js';
 import { DEFAULT_FONT, mapToStudioState } from '../src/parser/state-mapper.js';
 import { parseStyleValue } from '../src/parser/yaml-parser.js';
 import { generateCss } from '../src/generator/css-generator.js';
@@ -63,14 +63,14 @@ describe('native size placeholder', () => {
     expect(fontNativeSize('markdown')).toBe(14);
     expect(fontNativeSize('custom:mushroom-entity-card')).toBeUndefined();
     expect(fontNativeSize(undefined)).toBeUndefined();
-    expect(templateText(make({}, 'tile').el._renderBody())).toContain('Default (14px)');
-    expect(templateText(make({}, 'button').el._renderBody())).toContain('Default (16px)');
-    const neutral = templateText(make({}, 'custom:mushroom-entity-card').el._renderBody());
+    expect(renderedText(make({}, 'tile').el._renderBody())).toContain('Default (14px)');
+    expect(renderedText(make({}, 'button').el._renderBody())).toContain('Default (16px)');
+    const neutral = renderedText(make({}, 'custom:mushroom-entity-card').el._renderBody());
     expect(neutral).not.toMatch(/Default \(\d/);
     expect(neutral).toContain('>Default<');
   });
   it('an unset module has no reset button; clearable colour and Default weight', () => {
-    const t = templateText(make({}, 'tile').el._renderBody());
+    const t = renderedText(make({}, 'tile').el._renderBody());
     expect(t).not.toContain('reset-btn');
     expect(t).toContain('clearable');
     expect(t).toContain('value=""');
@@ -115,7 +115,7 @@ describe('rendered handlers emit only what the user sets', () => {
   it('a set size shows the value and a named reset; the reset click emits undefined', () => {
     const { el, hs, emitted } = make({ fontSize: 20, fontWeight: 'bold' }, 'tile');
     el._fontSize = 20;
-    const t = templateText(el._renderBody());
+    const t = renderedText(el._renderBody());
     expect(t).toContain('reset-btn');
     expect(t).toContain('Reset text size to default');
     expect(t).not.toMatch(/Default \(14/);
@@ -131,7 +131,10 @@ const fieldValues = (t: unknown): unknown[] => {
   const r = t as { strings?: readonly string[]; values?: unknown[] } | null;
   if (Array.isArray(t)) return t.flatMap(fieldValues);
   if (!r?.values) return [];
-  if (r.strings?.join('').includes('aria-label="Custom family"')) return r.values;
+  const shallow = (r.strings ?? [])
+    .map((str, i) => str + (typeof r.values![i] === 'string' && /[\w-]+=$/.test(str) ? `"${r.values![i]}"` : ''))
+    .join('');
+  if (shallow.includes('aria-label="Custom family"')) return r.values;
   return r.values.flatMap(fieldValues);
 };
 
@@ -143,7 +146,7 @@ describe('Custom font family', () => {
     hs()[4]({ target: { value: 'custom' } });
     expect(emitted).toHaveLength(0); // nothing typed yet: nothing changes
     expect(el._customPicked).toBe(true);
-    const t = templateText(el._renderBody());
+    const t = renderedText(el._renderBody());
     expect(t).toContain("placeholder=\"'My Font', sans-serif\"");
     // the custom field's bound value is the (empty) remembered text
     expect(fieldValues(el._renderBody())).toContain('');
