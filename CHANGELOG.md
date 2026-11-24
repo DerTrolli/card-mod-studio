@@ -86,7 +86,10 @@ From a final review in which a tester only looked at the screen and clicked:
   its style element to a Bubble card before the card was ready. The card
   then showed unstyled, and a style saved in the editor didn't appear until
   the page was reloaded. This comes from card-mod / UIX and Bubble Card
-  loading at the same time, with or without the Studio. The Studio now
+  loading at the same time and happens without the Studio too, but
+  loading the Studio made it more frequent: on UIX, about 1 page load in
+  13 with the Studio against 1 in 70 without it (and 1.0.0-beta.2 left
+  those cards unstyled). The Studio now
   moves the style element to where it belongs: a few seconds after a page
   loads, after navigating, and after the card editor closes. It touches only
   Bubble cards with a misplaced element, and does nothing when Bubble Card
@@ -134,9 +137,10 @@ From a final review in which a tester only looked at the screen and clicked:
   page (also not one you save in the editor) and after 30 seconds logs
   `themesReady: Timeout waiting for themes to become ready`. Reloading the
   page brings the styles back. It comes from the engine, not from the
-  Studio, which neither reads nor sets that setting: 1 of 20 long editing
-  sessions on Home Assistant 2026.11 with card-mod, never in 200 plain
-  page loads with or without the Studio (see the Troubleshooting FAQ).
+  Studio, which neither reads nor sets that setting, and it happens with
+  the Studio's file replaced by an empty one too. Measured on Home
+  Assistant 2026.11: about 1 page load in 100 (1 in 217 without the
+  Studio), 1 of 20 long editing sessions (see the Troubleshooting FAQ).
 - **Home Assistant 2025.9:** besides Font on a tile's text (as before), a
   larger tile icon (Icon Color → Icon size) fills the tile's icon circle
   instead of growing it — that Home Assistant version has no variable for

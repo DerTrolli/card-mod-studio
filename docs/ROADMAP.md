@@ -190,9 +190,12 @@ The first stable release; plan and test record in
   repair on all four rigs; 22 languages at 1440 / 390 / 360 px; light/dark
   at six sizes; nothing from the Studio in Home Assistant's logs. Found on
   the way, upstream: card-mod / UIX wait for `hass.themes.theme`, and on a
-  rare page load (about 1 in 20 long sessions) it never arrives, so that
-  page stays unstyled until a reload (Known limitations; the FAQ said
-  styles still apply, corrected). Harness-only changes after the freeze.
+  rare page load (about 1 in 100; also without the Studio) it never
+  arrives, so that page stays unstyled until a reload (Known limitations;
+  the FAQ said styles still apply, corrected). And loading the Studio makes
+  the card-mod / UIX race with Bubble Card more frequent (about 1 load in
+  13 against 1 in 70 on UIX), which 1.0.0's repair covers. Harness-only
+  changes after the freeze.
 
 ## Recently shipped (v1.0.0-beta.2) — 2026-11-19, pre-release
 
